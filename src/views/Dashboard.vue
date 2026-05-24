@@ -10,7 +10,7 @@ import { computeTimeBlocks } from '../utils/timeBlocks'
 const stats = ref({ active_minutes: 0, rest_minutes: 0 })
 const records = ref<Map<number, boolean>>(new Map())
 const config = ref({ window_minutes: 45, break_minutes: 5 })
-const timelineMode = ref<'grid' | 'segments'>('grid')
+const timelineMode = ref<'grid' | 'segments'>('segments')
 
 function startOfDayTs(): number {
   const d = new Date()
@@ -136,10 +136,10 @@ onMounted(async () => {
       <n-gi span="2">
         <n-card class="timeline-card" :bordered="false">
           <div class="timeline-header">
-            <span class="timeline-title">24 小时时间轴</span>
+            <span class="timeline-title">今日活动</span>
             <n-radio-group v-model:value="timelineMode" size="small">
-              <n-radio-button value="grid">网格</n-radio-button>
-              <n-radio-button value="segments">时段</n-radio-button>
+              <n-radio-button value="grid">详细</n-radio-button>
+              <n-radio-button value="segments">概览</n-radio-button>
             </n-radio-group>
           </div>
           <Timeline v-if="timelineMode === 'grid'" :minutes="allMinutes" />
