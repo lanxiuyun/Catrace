@@ -148,8 +148,8 @@ impl Db {
 
         let records: Vec<(i64, i32)> = rows.filter_map(|r| r.ok()).collect();
 
-        // 记录不够，不提醒
-        if records.len() < window_minutes as usize {
+        // 记录不够（需超过 window_minutes 分钟才提醒），不提醒
+        if records.len() < window_minutes as usize + 1 {
             return Ok(false);
         }
 
@@ -179,9 +179,10 @@ mod tests {
     #[test]
     fn test_check_should_notify_remind() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 600;
-        // 插入 10 分钟活跃，无连续休息
-        for i in 0..10 {
+        let now = chrono::Local::now().timestamp();
+        let base = now - 600;
+        // 插入 11 分钟活跃，无连续休息（超过 window=10 才提醒）
+        for i in 0..11 {
             db.insert_record(base + i * 60, true, "test.exe")
                 .unwrap();
         }
