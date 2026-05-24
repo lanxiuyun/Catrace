@@ -47,7 +47,7 @@ async function notify() {
 
 <template>
   <div class="settings">
-    <n-card title="设置" style="max-width: 480px">
+    <n-card title="设置" style="max-width: 480px; border-radius: 20px; background: #fff;" :bordered="false">
       <n-form label-placement="left" label-width="auto">
         <n-form-item label="工作窗口（分钟）">
           <n-slider v-model:value="config.window_minutes" :min="10" :max="120" :step="5" />
@@ -68,6 +68,8 @@ async function notify() {
 
 <style scoped>
 .settings {
-  padding: 24px;
+  padding: 32px;
+  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
+  min-height: 100vh;
 }
 </style>

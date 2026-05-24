@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const gridRef = ref<HTMLDivElement | null>(null)
 const hoveredIndex = ref<number | null>(null)
+const selectedIndex = ref<number | null>(null)
 
 const MINUTES_PER_DAY = 1440
 
@@ -30,15 +31,23 @@ function formatTime(ts: number): string {
 }
 
 function getColor(m: MinuteData): string {
-  if (m.active === null) return '#e5e7eb'
-  if (m.active) return '#10b981'
-  return '#3b82f6'
+  if (m.active === null) return '#EDE9FE'
+  if (m.active) return '#8B5CF6'
+  return '#10B981'
 }
 
 function getLabel(m: MinuteData): string {
   if (m.active === null) return '无记录'
   if (m.active) return '活跃'
   return '休息'
+}
+
+function isAdjacentSame(i: number): boolean {
+  if (i <= 0 || i >= props.minutes.length - 1) return false
+  const curr = props.minutes[i].active
+  const prev = props.minutes[i - 1].active
+  const next = props.minutes[i + 1].active
+  return curr === prev || curr === next
 }
 
 function onGridMouseMove(e: MouseEvent) {
@@ -53,6 +62,20 @@ function onGridMouseMove(e: MouseEvent) {
 
 function onGridMouseLeave() {
   hoveredIndex.value = null
+}
+
+function onCellClick(i: number) {
+  selectedIndex.value = selectedIndex.value === i ? null : i
+}
+
+function getCellStyle(m: MinuteData, i: number): Record<string, string> {
+  const style: Record<string, string> = {
+    backgroundColor: getColor(m),
+  }
+  if (m.active !== null && isAdjacentSame(i)) {
+    style.borderRadius = '1px'
+  }
+  return style
 }
 </script>
 
@@ -91,8 +114,13 @@ function onGridMouseLeave() {
             v-for="(m, i) in props.minutes"
             :key="i"
             class="cell"
-            :class="{ 'is-now': nowIndex === i }"
-            :style="{ backgroundColor: getColor(m) }"
+            :class="{
+              'is-now': nowIndex === i,
+              'is-hovered': hoveredIndex === i,
+              'is-selected': selectedIndex === i,
+            }"
+            :style="getCellStyle(m, i)"
+            @click="onCellClick(i)"
           />
         </div>
       </div>
@@ -110,22 +138,22 @@ function onGridMouseLeave() {
             {{ getLabel(props.minutes[hoveredIndex]) }}
           </span>
         </div>
-        <div v-else class="hover-placeholder">在色块上悬停查看详情</div>
+        <div v-else class="hover-placeholder">在色块上悬停查看详情 · 点击色块标记</div>
       </transition>
     </div>
 
     <!-- 图例 -->
     <div class="legend">
       <div class="legend-item">
-        <span class="dot" style="background:#10b981" />
+        <span class="dot" style="background:#8B5CF6" />
         <span>活跃</span>
       </div>
       <div class="legend-item">
-        <span class="dot" style="background:#3b82f6" />
+        <span class="dot" style="background:#10B981" />
         <span>休息</span>
       </div>
       <div class="legend-item">
-        <span class="dot" style="background:#e5e7eb" />
+        <span class="dot" style="background:#EDE9FE" />
         <span>无记录</span>
       </div>
       <div class="legend-item">
@@ -150,14 +178,14 @@ function onGridMouseLeave() {
 .minute-ticks {
   position: relative;
   height: 14px;
-  margin-left: 30px; /* 对齐小时标签右侧 */
+  margin-left: 34px;
 }
 
 .minute-tick {
   position: absolute;
   top: 0;
   font-size: 10px;
-  color: #9ca3af;
+  color: #A78BFA;
   transform: translateX(-50%);
   font-weight: 500;
 }
@@ -171,20 +199,21 @@ function onGridMouseLeave() {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 24px;
+  width: 28px;
   padding-top: 0;
   padding-bottom: 0;
 }
 
 .hour-label {
   font-size: 10px;
-  color: #9ca3af;
+  color: #A78BFA;
   text-align: right;
   line-height: 1;
   height: 14px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  font-weight: 500;
 }
 
 .grid {
@@ -198,17 +227,44 @@ function onGridMouseLeave() {
 
 .cell {
   aspect-ratio: 1;
-  border-radius: 2px;
+  border-radius: 3px;
   min-width: 4px;
   min-height: 4px;
-  transition: transform 0.1s;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-radius 0.1s;
+  position: relative;
+}
+
+.cell:hover,
+.cell.is-hovered {
+  transform: scale(1.5);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  z-index: 2;
+  border-radius: 4px;
+}
+
+.cell.is-selected {
+  box-shadow: 0 0 0 2px #F59E0B;
+  z-index: 3;
+  border-radius: 4px;
 }
 
 .cell.is-now {
-  box-shadow: 0 0 0 2px #ef4444;
-  border-radius: 3px;
+  box-shadow: 0 0 0 2px #EF4444;
+  border-radius: 4px;
   z-index: 1;
-  position: relative;
+  animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6);
+  }
 }
 
 .hover-row {
@@ -223,18 +279,18 @@ function onGridMouseLeave() {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #4b5563;
+  color: #6D28D9;
 }
 
 .hover-time {
   font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
   font-weight: 600;
-  color: #1f2937;
+  color: #4C1D95;
 }
 
 .hover-badge {
   padding: 2px 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 11px;
   color: white;
   font-weight: 600;
@@ -242,7 +298,7 @@ function onGridMouseLeave() {
 
 .hover-placeholder {
   font-size: 13px;
-  color: #9ca3af;
+  color: #C4B5FD;
 }
 
 .legend {
@@ -251,8 +307,9 @@ function onGridMouseLeave() {
   gap: 16px;
   align-items: center;
   font-size: 12px;
-  color: #6b7280;
+  color: #8B5CF6;
   flex-wrap: wrap;
+  font-weight: 500;
 }
 
 .legend-item {
@@ -264,12 +321,13 @@ function onGridMouseLeave() {
 .dot {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .dot.is-now-demo {
-  box-shadow: 0 0 0 2px #ef4444;
+  box-shadow: 0 0 0 2px #EF4444;
   background: transparent;
+  animation: pulse-ring 2s infinite;
 }
 
 .fade-enter-active,

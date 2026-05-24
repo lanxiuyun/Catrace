@@ -124,10 +124,17 @@ src/
 
 ### 时间轴实现说明
 
+**网格视图**（`Timeline.vue`）：
 - **技术**：CSS Grid（24 行 × 60 列），每个 `<div>` 色块代表 1 分钟，不是 SVG / Canvas / ECharts。
 - **布局**：行 = 小时（00-23），列 = 分钟（0-59）。
 - **交互**：鼠标在网格上移动，通过坐标计算对应分钟索引，显示时间与状态。
-- **当前时间**：对应色块加红色边框高亮。
+- **当前时间**：对应色块加红色脉冲动画高亮。
+
+**时段视图**（`TimelineWindows.vue`）：
+- 基于滑动窗口算法，将全天切分为**活跃 block** 和 **休息 block**。
+- 连续休息 block 自动合并，活跃 block 保持独立。
+- 点击 block 展开显示每 10 分钟的迷你色块 + 时间标签。
+- 当前时间所在 block 标记为「进行中」。
 
 ### 数据库（SQLite）
 
@@ -161,6 +168,8 @@ CREATE TABLE settings (
 | 6 | Dashboard：24h 时间轴 + 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | 应用分类名单（category 已存入 DB，前端 Settings 已支持编辑） | ✅（基础） |
+| 9 | Dashboard UI 重设计（lavender wellness 主题 + 统计卡片 + 环形图） | ✅ |
+| 10 | 时段视图：滑动窗口 block 列表（网格/时段双视图切换） | ✅ |
 
 ---
 
@@ -211,5 +220,6 @@ cd src-tauri && cargo test
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
 2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/` 和 `src/components/`。
 3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
-4. **Timeline 实现方式**：使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts。
+4. **Timeline 实现方式**：网格视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；时段视图使用 block 列表 + 迷你色块网格。
+6. **UI 主题**：Dashboard 使用 lavender + green wellness 配色（`#FAF5FF` 背景、`#8B5CF6` 活跃、`#10B981` 休息）。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
