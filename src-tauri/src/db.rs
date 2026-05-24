@@ -129,11 +129,8 @@ impl Db {
         rows.collect::<Result<Vec<_>>>()
     }
 
-    /// 检查当前连续 block 是否为活跃且达到 window_minutes 分钟
-    /// 返回 true = 应该提醒
-    pub fn check_should_notify(&self, window_minutes: i64, _break_minutes: i64) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let now = chrono::Local::now().timestamp();
+    /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
+    fn get_today_minutes(&self) -> Result<Vec<(i64, bool)>> {
         let start_of_day = chrono::Local::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
@@ -142,108 +139,342 @@ impl Db {
             .unwrap()
             .timestamp();
 
-        let mut stmt = conn.prepare(
-            "SELECT timestamp, is_active FROM records
-             WHERE timestamp >= ?1 AND timestamp <= ?2
-             ORDER BY timestamp DESC"
-        )?;
-
-        let rows = stmt.query_map([start_of_day, now], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?))
-        })?;
-
-        let records: Vec<(i64, i32)> = rows.filter_map(|r| r.ok()).collect();
-
+        let records = self.get_records_since(start_of_day)?;
         if records.is_empty() {
-            return Ok(false);
+            return Ok(Vec::new());
         }
 
-        // 从最新记录往前找当前连续 block（时间戳连续且状态相同）
-        let current_active = records[0].1 == 1;
-        let mut block_len = 1;
+        let first_ts = records[0].0;
+        let last_ts = records.last().unwrap().0;
 
-        for i in 1..records.len() {
-            let expected_ts = records[i - 1].0 - 60;
-            if records[i].0 == expected_ts && records[i].1 == records[0].1 {
-                block_len += 1;
-            } else {
-                break;
+        let mut map = std::collections::BTreeMap::new();
+        for (ts, active) in records {
+            map.insert(ts, active);
+        }
+
+        let mut result = Vec::new();
+        let mut t = first_ts;
+        while t <= last_ts {
+            let active = *map.get(&t).unwrap_or(&false);
+            result.push((t, active));
+            t += 60;
+        }
+
+        Ok(result)
+    }
+
+    /// 检查是否应该提醒
+    /// 返回 (should_notify, boundary_timestamp)
+    /// boundary_timestamp 用于去重：同一 boundary 只提醒一次
+    pub fn check_should_notify(&self, window_minutes: i64, break_minutes: i64) -> Result<(bool, Option<i64>)> {
+        let records = self.get_today_minutes()?;
+        if records.is_empty() {
+            return Ok((false, None));
+        }
+
+        let window = window_minutes as usize;
+        let break_m = break_minutes as usize;
+
+        let (completed, current_start) = compute_completed_blocks(&records, window, break_m);
+        let current_slice = &records[current_start..];
+
+        // 条件 A：当前进行中 block 内存在连续 break_m 休息 → 视为休息，不提醒
+        if has_consecutive_rest(current_slice, break_m) {
+            return Ok((false, None));
+        }
+
+        // 条件 B：当前进行中 block 长度 >= window → 休息后又工作满一波，提醒
+        if current_slice.len() >= window {
+            return Ok((true, Some(records[current_start].0)));
+        }
+
+        // 条件 C：看前一个已完成 block
+        if let Some(prev) = completed.last() {
+            if prev.kind == BlockKind::Active {
+                return Ok((true, Some(records[prev.end - 1].0)));
             }
         }
 
-        if current_active {
-            // 活跃 block 达到 window_minutes 就提醒
-            Ok(block_len >= window_minutes as usize)
-        } else {
-            // 休息 block 不提醒
-            Ok(false)
-        }
+        Ok((false, None))
     }
 }
+
+// ------------------------------------------------------------------
+// Block 切分核心逻辑（与前端 computeTimeBlocks 对齐）
+// ------------------------------------------------------------------
+
+#[derive(Debug, PartialEq)]
+enum BlockKind {
+    Active,
+    Rest,
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+struct Block {
+    kind: BlockKind,
+    start: usize,
+    end: usize,
+}
+
+/// 在 [start, start + max_scan) 范围内找连续 break_m 休息
+/// 找到后延伸至所有连续休息结束，返回结束索引（不包含）
+fn find_break_end(
+    records: &[(i64, bool)],
+    start: usize,
+    max_scan: usize,
+    break_m: usize,
+) -> Option<usize> {
+    let mut rest_streak = 0;
+    for i in start..std::cmp::min(start + max_scan, records.len()) {
+        if !records[i].1 {
+            rest_streak += 1;
+            if rest_streak >= break_m {
+                let mut end = i + 1;
+                while end < records.len() && !records[end].1 {
+                    end += 1;
+                }
+                return Some(end);
+            }
+        } else {
+            rest_streak = 0;
+        }
+    }
+    None
+}
+
+/// 检查切片中是否存在连续 break_m 分钟休息
+fn has_consecutive_rest(records: &[(i64, bool)], break_m: usize) -> bool {
+    let mut streak = 0;
+    for (_, active) in records {
+        if !active {
+            streak += 1;
+            if streak >= break_m {
+                return true;
+            }
+        } else {
+            streak = 0;
+        }
+    }
+    false
+}
+
+/// 从首个记录开始向后切分已完成 block
+/// 返回 (已完成 blocks, 当前进行中 block 起点索引)
+fn compute_completed_blocks(
+    records: &[(i64, bool)],
+    window: usize,
+    break_m: usize,
+) -> (Vec<Block>, usize) {
+    let mut blocks = Vec::new();
+    let mut s = 0;
+
+    while s < records.len() {
+        let remaining = records.len() - s;
+
+        // 在当前 window 范围内找连续 break
+        if let Some(end) = find_break_end(records, s, window, break_m) {
+            blocks.push(Block {
+                kind: BlockKind::Rest,
+                start: s,
+                end,
+            });
+            s = end;
+            continue;
+        }
+
+        // 没有连续休息，检查能否切活跃 block
+        if remaining >= window {
+            blocks.push(Block {
+                kind: BlockKind::Active,
+                start: s,
+                end: s + window,
+            });
+            s += window;
+        } else {
+            // 未完成
+            break;
+        }
+    }
+
+    (blocks, s)
+}
+
+// ------------------------------------------------------------------
+// 测试
+// ------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_check_should_notify_active_block_reaches_window() {
-        let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 600;
-        // 插入 10 分钟活跃，当前 block = 10 分钟
-        for i in 0..10 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
-        }
-        assert!(db.check_should_notify(10, 5).unwrap());
+    fn start_of_day_ts() -> i64 {
+        chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .timestamp()
     }
 
     #[test]
-    fn test_check_should_notify_active_block_not_enough() {
+    fn test_notify_after_active_block_completes() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 300;
-        // 只插入 5 条活跃，当前 block = 5 < 10
-        for i in 0..5 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
+        let base = start_of_day_ts();
+        // 活跃 45 分钟
+        for i in 0..45 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        assert!(!db.check_should_notify(10, 5).unwrap());
+        // 结算第 45 分钟（休息）
+        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
+        let (should, boundary) = db.check_should_notify(45, 5).unwrap();
+        assert!(should);
+        assert_eq!(boundary, Some(base + 44 * 60));
     }
 
     #[test]
-    fn test_check_should_notify_rest_block() {
+    fn test_notify_no_duplicate_boundary() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 600;
-        // 先活跃 5 分钟，再休息 5 分钟
-        for i in 0..5 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
+        let base = start_of_day_ts();
+        for i in 0..45 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        for i in 5..10 {
-            db.insert_record(base + i * 60, false, "test.exe")
-                .unwrap();
-        }
-        // 当前 block 是休息，不提醒
-        assert!(!db.check_should_notify(10, 5).unwrap());
+        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
+        db.insert_record(base + 46 * 60, false, "test.exe").unwrap();
+
+        let (should1, boundary1) = db.check_should_notify(45, 5).unwrap();
+        assert!(should1);
+        assert_eq!(boundary1, Some(base + 44 * 60));
+
+        let (should2, boundary2) = db.check_should_notify(45, 5).unwrap();
+        assert!(should2);
+        assert_eq!(boundary2, Some(base + 44 * 60));
+        // lib.rs 中通过比较 boundary 去重，两次 boundary 相同
     }
 
     #[test]
-    fn test_check_should_notify_active_after_rest() {
+    fn test_no_notify_after_rest_block() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 900;
-        // 先活跃 12 分钟，再休息 3 分钟，再活跃 2 分钟
-        for i in 0..12 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
+        let base = start_of_day_ts();
+        // 活跃 40，休息 5
+        for i in 0..40 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        for i in 12..15 {
-            db.insert_record(base + i * 60, false, "test.exe")
-                .unwrap();
+        for i in 40..45 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
         }
-        for i in 15..17 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
+        // 当前在第 45 分钟（休息后）
+        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
+        let (should, _) = db.check_should_notify(45, 5).unwrap();
+        assert!(!should);
+    }
+
+    #[test]
+    fn test_notify_after_rest_then_active() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+        for i in 0..40 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        // 当前活跃 block 只有 2 分钟 < 10，不提醒
-        assert!(!db.check_should_notify(10, 5).unwrap());
+        for i in 40..45 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        // 再活跃 45 分钟
+        for i in 45..90 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        let (should, boundary) = db.check_should_notify(45, 5).unwrap();
+        assert!(should);
+        assert_eq!(boundary, Some(base + 89 * 60));
+    }
+
+    #[test]
+    fn test_no_notify_during_ongoing() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+        for i in 0..40 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        // 当前只有 40 分钟，不够 45
+        let (should, _) = db.check_should_notify(45, 5).unwrap();
+        assert!(!should);
+    }
+
+    #[test]
+    fn test_no_notify_empty() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let (should, _) = db.check_should_notify(45, 5).unwrap();
+        assert!(!should);
+    }
+
+    #[test]
+    fn test_notify_short_rest_then_active() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+        // 活跃 45，休息 1，再活跃 45
+        for i in 0..45 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
+        for i in 46..91 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        let (should, boundary) = db.check_should_notify(45, 5).unwrap();
+        assert!(should);
+        // ActiveBlock(45, 90) 的最后一条记录索引为 89
+        assert_eq!(boundary, Some(base + 89 * 60));
+    }
+
+    #[test]
+    fn test_compute_blocks_basic() {
+        // 模拟 45 活跃 + 5 休息 + 45 活跃
+        let records: Vec<(i64, bool)> = (0..95)
+            .map(|i| {
+                let active = !(i >= 40 && i < 45);
+                (i as i64 * 60, active)
+            })
+            .collect();
+
+        let (blocks, current) = compute_completed_blocks(&records, 45, 5);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].kind, BlockKind::Rest);
+        assert_eq!(blocks[0].start, 0);
+        assert_eq!(blocks[0].end, 45);
+        assert_eq!(blocks[1].kind, BlockKind::Active);
+        assert_eq!(blocks[1].start, 45);
+        assert_eq!(blocks[1].end, 90);
+        assert_eq!(current, 90);
+    }
+
+    #[test]
+    fn test_compute_blocks_all_active() {
+        let records: Vec<(i64, bool)> = (0..100)
+            .map(|i| (i as i64 * 60, true))
+            .collect();
+
+        let (blocks, current) = compute_completed_blocks(&records, 45, 5);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].kind, BlockKind::Active);
+        assert_eq!(blocks[0].start, 0);
+        assert_eq!(blocks[0].end, 45);
+        assert_eq!(blocks[1].kind, BlockKind::Active);
+        assert_eq!(blocks[1].start, 45);
+        assert_eq!(blocks[1].end, 90);
+        assert_eq!(current, 90);
+    }
+
+    #[test]
+    fn test_compute_blocks_all_rest() {
+        let records: Vec<(i64, bool)> = (0..20)
+            .map(|i| (i as i64 * 60, false))
+            .collect();
+
+        let (blocks, current) = compute_completed_blocks(&records, 45, 5);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].kind, BlockKind::Rest);
+        assert_eq!(blocks[0].start, 0);
+        assert_eq!(blocks[0].end, 20);
+        assert_eq!(current, 20);
     }
 }
