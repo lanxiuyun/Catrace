@@ -73,7 +73,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 3. **滑动窗口提醒**（`db.rs` + `lib.rs`）
    - 检查前面 `window_minutes`（默认 45）分钟的记录。
    - 若存在连续 `break_minutes`（默认 5）分钟休息 → 不提醒。
-   - 否则弹出系统通知（需**超过** `window_minutes` 分钟才提醒）。
+   - 否则弹出系统通知（达到 `window_minutes` 分钟即提醒）。
 
 ---
 
