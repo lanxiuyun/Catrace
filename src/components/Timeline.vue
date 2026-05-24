@@ -32,8 +32,8 @@ function formatTime(ts: number): string {
 
 function getColor(m: MinuteData): string {
   if (m.active === null) return '#EDE9FE'
-  if (m.active) return '#8B5CF6'
-  return '#10B981'
+  if (m.active) return '#7C3AED'
+  return '#14B8A6'
 }
 
 function getLabel(m: MinuteData): string {
@@ -145,11 +145,11 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
     <!-- 图例 -->
     <div class="legend">
       <div class="legend-item">
-        <span class="dot" style="background:#8B5CF6" />
+        <span class="dot" style="background:#7C3AED" />
         <span>活跃</span>
       </div>
       <div class="legend-item">
-        <span class="dot" style="background:#10B981" />
+        <span class="dot" style="background:#14B8A6" />
         <span>休息</span>
       </div>
       <div class="legend-item">
@@ -285,7 +285,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 .hover-time {
   font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
   font-weight: 600;
-  color: #4C1D95;
+  color: #3730A3;
 }
 
 .hover-badge {
@@ -307,7 +307,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
   gap: 16px;
   align-items: center;
   font-size: 12px;
-  color: #8B5CF6;
+  color: #7C7CAA;
   flex-wrap: wrap;
   font-weight: 500;
 }

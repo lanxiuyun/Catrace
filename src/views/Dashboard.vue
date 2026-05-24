@@ -1,222 +1,198 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { NCard, NStatistic, NGrid, NGi, NTag, NProgress, NRadioGroup, NRadioButton } from 'naive-ui'
-import { getTodayStats, getTodayRecords, getConfig } from '../api/tauri'
-import Timeline from '../components/Timeline.vue'
-import TimelineWindows from '../components/TimelineWindows.vue'
-import type { MinuteData } from '../components/Timeline.vue'
-import { computeTimeBlocks } from '../utils/timeBlocks'
+import { ref, onMounted, computed } from "vue";
+import {
+  NCard,
+  NGrid,
+  NGi,
+  NProgress,
+  NRadioGroup,
+  NRadioButton,
+} from "naive-ui";
+import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
+import Timeline from "../components/Timeline.vue";
+import TimelineWindows from "../components/TimelineWindows.vue";
+import type { MinuteData } from "../components/Timeline.vue";
+import { computeTimeBlocks } from "../utils/timeBlocks";
 
-const stats = ref({ active_minutes: 0, rest_minutes: 0 })
-const records = ref<Map<number, boolean>>(new Map())
-const config = ref({ window_minutes: 45, break_minutes: 5 })
-const timelineMode = ref<'grid' | 'segments'>('segments')
+const stats = ref({ active_minutes: 0, rest_minutes: 0 });
+const records = ref<Map<number, boolean>>(new Map());
+const config = ref({ window_minutes: 45, break_minutes: 5 });
+const timelineMode = ref<"grid" | "segments">("segments");
 
 function startOfDayTs(): number {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return Math.floor(d.getTime() / 1000)
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
 }
 
 const allMinutes = computed<MinuteData[]>(() => {
-  const dayStart = startOfDayTs()
-  const result: MinuteData[] = []
+  const dayStart = startOfDayTs();
+  const result: MinuteData[] = [];
   for (let i = 0; i < 1440; i++) {
-    const ts = dayStart + i * 60
-    const active = records.value.has(ts) ? records.value.get(ts)! : null
-    result.push({ ts, active })
+    const ts = dayStart + i * 60;
+    const active = records.value.has(ts) ? records.value.get(ts)! : null;
+    result.push({ ts, active });
   }
-  return result
-})
+  return result;
+});
 
-const totalTracked = computed(() => stats.value.active_minutes + stats.value.rest_minutes)
+const totalTracked = computed(
+  () => stats.value.active_minutes + stats.value.rest_minutes,
+);
 const activityPercent = computed(() =>
-  totalTracked.value > 0 ? Math.round((stats.value.active_minutes / totalTracked.value) * 100) : 0
-)
-
-const currentStatus = computed(() => {
-  const now = Math.floor(Date.now() / 1000)
-  const dayStart = startOfDayTs()
-  const idx = Math.floor((now - dayStart) / 60)
-  const m = allMinutes.value[idx]
-  if (!m || m.active === null) return { label: '未记录', type: 'default' as const }
-  return m.active
-    ? { label: '活跃中', type: 'success' as const }
-    : { label: '休息中', type: 'info' as const }
-})
+  totalTracked.value > 0
+    ? Math.round((stats.value.active_minutes / totalTracked.value) * 100)
+    : 0,
+);
 
 const activeBlockCount = computed(() => {
-  const now = Math.floor(Date.now() / 1000)
-  const nowIdx = Math.max(0, Math.min(1439, Math.floor((now - startOfDayTs()) / 60)))
+  const now = Math.floor(Date.now() / 1000);
+  const nowIdx = Math.max(
+    0,
+    Math.min(1439, Math.floor((now - startOfDayTs()) / 60)),
+  );
   const blocks = computeTimeBlocks(
     allMinutes.value,
     config.value.window_minutes,
     config.value.break_minutes,
-    nowIdx
-  )
-  return blocks.filter(b => b.active === true).length
-})
-
+    nowIdx,
+  );
+  return blocks.filter((b) => b.active === true).length;
+});
 
 onMounted(async () => {
   try {
-    const c = await getConfig()
+    const c = await getConfig();
     config.value = {
       window_minutes: Number(c.window_minutes),
       break_minutes: Number(c.break_minutes),
-    }
-    stats.value = await getTodayStats()
-    const raw = await getTodayRecords()
-    const map = new Map<number, boolean>()
+    };
+    stats.value = await getTodayStats();
+    const raw = await getTodayRecords();
+    const map = new Map<number, boolean>();
     for (const [ts, active] of raw) {
-      map.set(ts, active)
+      map.set(ts, active);
     }
-    records.value = map
+    records.value = map;
   } catch (e) {
-    console.error('获取数据失败', e)
+    console.error("获取数据失败", e);
   }
-})
+});
 </script>
 
 <template>
   <div class="dashboard">
     <div class="header">
-      <div class="header-left">
-        <h1 class="title">今日概览</h1>
-        <span class="subtitle">{{ new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }) }}</span>
-      </div>
-      <n-tag :type="currentStatus.type" size="large" round class="status-tag">
-        {{ currentStatus.label }}
-      </n-tag>
+      <h1 class="title">今日概览</h1>
+      <span class="subtitle">{{
+        new Date().toLocaleDateString("zh-CN", {
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        })
+      }}</span>
     </div>
 
     <!-- 统计卡片 -->
-    <n-grid :cols="4" :x-gap="16" :y-gap="16" class="stats-grid" responsive="screen">
+    <n-grid
+      :cols="4"
+      :x-gap="16"
+      :y-gap="16"
+      class="stats-grid"
+      responsive="screen"
+    >
       <n-gi span="1">
-        <n-card class="stat-card stat-primary" :bordered="false">
-          <n-statistic label="活跃" :value="stats.active_minutes">
-            <template #suffix>分钟</template>
-          </n-statistic>
-        </n-card>
+        <div class="stat-card stat-active">
+          <span class="stat-label">活跃</span>
+          <div class="stat-value">
+            {{ stats.active_minutes }}<span class="stat-unit">分钟</span>
+          </div>
+        </div>
       </n-gi>
       <n-gi span="1">
-        <n-card class="stat-card stat-secondary" :bordered="false">
-          <n-statistic label="休息" :value="stats.rest_minutes">
-            <template #suffix>分钟</template>
-          </n-statistic>
-        </n-card>
+        <div class="stat-card stat-rest">
+          <span class="stat-label">休息</span>
+          <div class="stat-value">
+            {{ stats.rest_minutes }}<span class="stat-unit">分钟</span>
+          </div>
+        </div>
       </n-gi>
       <n-gi span="1">
-        <n-card class="stat-card stat-tertiary" :bordered="false">
-          <n-statistic label="活跃占比" :value="activityPercent">
-            <template #suffix>%</template>
-          </n-statistic>
+        <div class="stat-card stat-ratio">
+          <span class="stat-label">活跃占比</span>
+          <div class="stat-value">
+            {{ activityPercent }}<span class="stat-unit">%</span>
+          </div>
           <n-progress
             type="line"
             :percentage="activityPercent"
             :show-indicator="false"
             :height="4"
-            color="#8B5CF6"
-            rail-color="#E9D5FF"
+            color="#7C3AED"
+            rail-color="#EDE9FE"
             class="stat-progress"
           />
-        </n-card>
+        </div>
       </n-gi>
       <n-gi span="1">
-        <n-card class="stat-card stat-quaternary" :bordered="false">
-          <n-statistic label="活跃时段" :value="activeBlockCount">
-            <template #suffix>个</template>
-          </n-statistic>
-        </n-card>
+        <div class="stat-card stat-blocks">
+          <span class="stat-label">活跃时段</span>
+          <div class="stat-value">
+            {{ activeBlockCount }}<span class="stat-unit">个</span>
+          </div>
+        </div>
       </n-gi>
     </n-grid>
 
-    <!-- 环形图 + 时段分析 -->
-    <n-grid :cols="3" :x-gap="16" :y-gap="16" class="insight-grid" responsive="screen">
-      <n-gi span="2">
-        <n-card class="timeline-card" :bordered="false">
-          <div class="timeline-header">
-            <span class="timeline-title">今日活动</span>
-            <n-radio-group v-model:value="timelineMode" size="small">
-              <n-radio-button value="grid">详细</n-radio-button>
-              <n-radio-button value="segments">概览</n-radio-button>
-            </n-radio-group>
-          </div>
-          <Timeline v-if="timelineMode === 'grid'" :minutes="allMinutes" />
-          <TimelineWindows
-            v-else
-            :minutes="allMinutes"
-            :window-minutes="config.window_minutes"
-            :break-minutes="config.break_minutes"
-          />
-          <div v-if="records.size === 0" class="empty">
-            暂无数据，程序运行一段时间后会生成。
-          </div>
-        </n-card>
-      </n-gi>
-      <n-gi span="1">
-        <n-card class="ring-card" :bordered="false">
-          <div class="ring-header">活跃 vs 休息</div>
-          <div class="ring-chart">
-            <svg viewBox="0 0 120 120" class="ring-svg">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#E9D5FF" stroke-width="10" />
-              <circle
-                cx="60" cy="60" r="50"
-                fill="none"
-                stroke="#8B5CF6"
-                stroke-width="10"
-                stroke-linecap="round"
-                :stroke-dasharray="`${activityPercent * 3.14} ${314 - activityPercent * 3.14}`"
-                stroke-dashoffset="78.5"
-                transform="rotate(-90 60 60)"
-                class="ring-progress"
-              />
-              <text x="60" y="55" text-anchor="middle" class="ring-percent">{{ activityPercent }}%</text>
-              <text x="60" y="72" text-anchor="middle" class="ring-label">活跃</text>
-            </svg>
-          </div>
-        </n-card>
-      </n-gi>
-    </n-grid>
+    <!-- 今日活动 -->
+    <n-card class="timeline-card" :bordered="false">
+      <div class="timeline-header">
+        <span class="timeline-title">今日活动</span>
+        <n-radio-group v-model:value="timelineMode" size="small">
+          <n-radio-button value="segments">概览</n-radio-button>
+          <n-radio-button value="grid">详细</n-radio-button>
+        </n-radio-group>
+      </div>
+      <Timeline v-if="timelineMode === 'grid'" :minutes="allMinutes" />
+      <TimelineWindows
+        v-else
+        :minutes="allMinutes"
+        :window-minutes="config.window_minutes"
+        :break-minutes="config.break_minutes"
+      />
+      <div v-if="records.size === 0" class="empty">
+        暂无数据，程序运行一段时间后会生成。
+      </div>
+    </n-card>
   </div>
 </template>
 
 <style scoped>
 .dashboard {
   padding: 32px;
-  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
+  background: #faf5ff;
   min-height: 100vh;
 }
 
 .header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.header-left {
-  display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-bottom: 24px;
 }
 
 .title {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
-  color: #4C1D95;
+  color: #3730a3;
   letter-spacing: -0.5px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #8B5CF6;
+  color: #7c7caa;
   font-weight: 500;
-}
-
-.status-tag {
-  font-weight: 600;
 }
 
 .stats-grid {
@@ -224,68 +200,90 @@ onMounted(async () => {
 }
 
 .stat-card {
-  border-radius: 20px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 16px;
+  padding: 20px 22px;
+  background: #fff;
+  border: 1px solid #ede9fe;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
   cursor: default;
 }
 
 .stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(139, 92, 246, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(109, 40, 217, 0.08);
 }
 
-.stat-primary {
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-}
-.stat-primary :deep(.n-statistic__label),
-.stat-primary :deep(.n-statistic__value),
-.stat-primary :deep(.n-statistic__suffix) {
-  color: #fff;
-}
-
-.stat-secondary {
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-}
-.stat-secondary :deep(.n-statistic__label),
-.stat-secondary :deep(.n-statistic__value),
-.stat-secondary :deep(.n-statistic__suffix) {
-  color: #fff;
-}
-
-.stat-tertiary {
-  background: #fff;
-}
-.stat-tertiary :deep(.n-statistic__label) {
-  color: #7C3AED;
+.stat-label {
+  display: block;
+  font-size: 13px;
   font-weight: 600;
-}
-.stat-tertiary :deep(.n-statistic__value) {
-  color: #4C1D95;
-}
-.stat-tertiary :deep(.n-statistic__suffix) {
-  color: #8B5CF6;
+  margin-bottom: 8px;
 }
 
-.stat-quaternary {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
 }
-.stat-quaternary :deep(.n-statistic__label),
-.stat-quaternary :deep(.n-statistic__value),
-.stat-quaternary :deep(.n-statistic__suffix) {
-  color: #fff;
+
+.stat-unit {
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.stat-active {
+  border-top: 3px solid #7c3aed;
+}
+.stat-active .stat-label {
+  color: #a78bfa;
+}
+.stat-active .stat-value {
+  color: #6d28d9;
+}
+
+.stat-rest {
+  border-top: 3px solid #14b8a6;
+}
+.stat-rest .stat-label {
+  color: #5eead4;
+}
+.stat-rest .stat-value {
+  color: #0d9488;
+}
+
+.stat-ratio {
+  border-top: 3px solid #8b5cf6;
+}
+.stat-ratio .stat-label {
+  color: #a78bfa;
+}
+.stat-ratio .stat-value {
+  color: #6d28d9;
+}
+
+.stat-blocks {
+  border-top: 3px solid #c4b5fd;
+}
+.stat-blocks .stat-label {
+  color: #a78bfa;
+}
+.stat-blocks .stat-value {
+  color: #7c3aed;
 }
 
 .stat-progress {
-  margin-top: 8px;
-}
-
-.insight-grid {
-  margin-bottom: 24px;
+  margin-top: 12px;
 }
 
 .timeline-card {
   border-radius: 20px;
   background: #fff;
+  margin-bottom: 24px;
 }
 
 .timeline-header {
@@ -300,116 +298,13 @@ onMounted(async () => {
 .timeline-title {
   font-size: 16px;
   font-weight: 600;
-  color: #4C1D95;
-}
-
-.timeline-subtitle {
-  font-size: 12px;
-  color: #A78BFA;
-  font-weight: 500;
+  color: #3730a3;
 }
 
 .empty {
   text-align: center;
   padding: 40px;
-  color: #A78BFA;
+  color: #a78bfa;
   font-size: 14px;
-}
-
-.blocks-card {
-  border-radius: 20px;
-  background: #fff;
-}
-
-.blocks-empty {
-  text-align: center;
-  padding: 24px 0;
-  color: #C4B5FD;
-  font-size: 13px;
-}
-
-.blocks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.block-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #FAF5FF;
-  transition: background 0.15s ease;
-}
-
-.block-item:hover {
-  background: #F3E8FF;
-}
-
-.block-bar {
-  width: 4px;
-  height: 32px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #8B5CF6, #C4B5FD);
-  flex-shrink: 0;
-}
-
-.block-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.block-time {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4C1D95;
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
-}
-
-.block-duration {
-  font-size: 11px;
-  color: #8B5CF6;
-  margin-top: 2px;
-}
-
-.ring-card {
-  border-radius: 20px;
-  background: #fff;
-}
-
-.ring-header {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4C1D95;
-  margin-bottom: 12px;
-}
-
-.ring-chart {
-  display: flex;
-  justify-content: center;
-}
-
-.ring-svg {
-  width: 140px;
-  height: 140px;
-}
-
-.ring-progress {
-  transition: stroke-dasharray 0.6s ease;
-}
-
-.ring-percent {
-  font-size: 22px;
-  font-weight: 700;
-  fill: #4C1D95;
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
-}
-
-.ring-label {
-  font-size: 11px;
-  fill: #8B5CF6;
-  font-weight: 500;
 }
 </style>

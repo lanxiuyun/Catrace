@@ -10,7 +10,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 - **核心功能**：后台静默监听键鼠活动，判断用户是否处于连续工作状态；当连续活跃时间超过阈值时，通过系统通知提醒用户休息。
 - **隐私承诺**：不偷拍屏幕、不上传数据，所有信息保存在用户本地。
-- **当前状态**：**已实现核心功能**，前端 Dashboard 可查看 24h 时间轴与统计，Rust 后端已完成采样、判定、通知、数据库全流程。
+- **当前状态**：**已实现核心功能**，前端 Dashboard 可查看今日活动与统计，Rust 后端已完成采样、判定、通知、数据库全流程。
 
 ---
 
@@ -29,7 +29,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── api/tauri.ts
 │   ├── assets/
 │   ├── components/
-│   │   └── Timeline.vue  # 24h 分钟级色块热力图（CSS Grid）
+│   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
+│   │   └── TimelineWindows.vue # 概览视图：block 时段列表
 │   ├── router/index.ts
 │   ├── views/
 │   │   ├── Dashboard.vue
@@ -70,10 +71,16 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 全局监听键盘按下事件（`rdev`），2 秒内去重。
 2. **分钟判定**（`lib.rs`）
    - 60 秒内活动次数 ≥ 3 → 该分钟标记为**活跃**；否则标记为**休息**。
-3. **连续 block 提醒**（`db.rs` + `lib.rs`）
-   - 每分钟结算时，从当前时间往前找**当前连续 block**（时间戳连续且状态相同）。
-   - 若当前 block 为**活跃**且长度达到 `window_minutes` → 弹出提醒。
-   - 若当前 block 为**休息** → 不提醒。
+3. **Block 切分与提醒**（`db.rs` + `lib.rs`）
+   - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
+     - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
+     - 若窗口内无足够连续休息 → 切为**活跃 block**（固定 `window_minutes` 长度）。
+   - 当前时间所在为未完结的「进行中 block」。
+   - 提醒逻辑：
+     - 前一个已完成 block 为**活跃** → 弹出提醒（刚干完一波）。
+     - 前一个已完成 block 为**休息**，当前进行中 block 长度 ≥ `window_minutes` → 弹出提醒（休息后又工作满一波）。
+     - 其余情况不提醒。
+   - `lib.rs` 维护 `last_notify_boundary` 去重，同一 block 边界只提醒一次。
 
 ---
 
@@ -110,7 +117,7 @@ src-tauri/src/
 ```
 src/
 ├── views/
-│   ├── Dashboard.vue    -- 今日统计 + 24h 时间轴
+│   ├── Dashboard.vue    -- 今日统计 + 今日活动（详细/概览双视图）
 │   └── Settings.vue     -- window_minutes / break_minutes 滑块 + 应用分类编辑
 ├── components/
 │   └── Timeline.vue     -- 24h × 60min 色块热力图（CSS Grid，类 GitHub 贡献图）
@@ -124,14 +131,15 @@ src/
 
 ### 时间轴实现说明
 
-**网格视图**（`Timeline.vue`）：
+**详细视图**（`Timeline.vue`，默认不展示）：
 - **技术**：CSS Grid（24 行 × 60 列），每个 `<div>` 色块代表 1 分钟，不是 SVG / Canvas / ECharts。
 - **布局**：行 = 小时（00-23），列 = 分钟（0-59）。
 - **交互**：鼠标在网格上移动，通过坐标计算对应分钟索引，显示时间与状态。
 - **当前时间**：对应色块加红色脉冲动画高亮。
 
-**时段视图**（`TimelineWindows.vue`）：
-- 基于滑动窗口算法，将全天切分为**活跃 block** 和 **休息 block**。
+**概览视图**（`TimelineWindows.vue`，默认展示）：
+- 基于前瞻式 block 切分算法，将全天切分为**活跃 block** 和 **休息 block**。
+- 从首个记录开始向后扫描：窗口内遇连续 `break_minutes` 休息 → 休息 block；否则 → 活跃 block（固定 `window_minutes` 长度）。
 - 连续休息 block 自动合并，活跃 block 保持独立。
 - 点击 block 展开显示每 10 分钟的迷你色块 + 时间标签。
 - 当前时间所在 block 标记为「进行中」。
@@ -165,11 +173,11 @@ CREATE TABLE settings (
 | 3 | 滑动窗口算法 + 系统通知 | ✅ |
 | 4 | Tauri 套壳 + Vue 3 前端 | ✅ |
 | 5 | Settings 页：滑块改配置 | ✅ |
-| 6 | Dashboard：24h 时间轴 + 统计 | ✅ |
+| 6 | Dashboard：今日活动（详细/概览双视图）+ 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | 应用分类名单（category 已存入 DB，前端 Settings 已支持编辑） | ✅（基础） |
 | 9 | Dashboard UI 重设计（lavender wellness 主题 + 统计卡片 + 环形图） | ✅ |
-| 10 | 时段视图：滑动窗口 block 列表（网格/时段双视图切换） | ✅ |
+| 10 | 概览视图：前瞻式 block 切分列表（详细/概览双视图切换，默认概览） | ✅ |
 
 ---
 
@@ -202,7 +210,7 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：`db.rs` 包含单元测试（`check_should_notify` 三种场景）。建议补充滑动窗口算法、分钟判定逻辑的独立测试。
+- **Rust**：`db.rs` 包含单元测试（`check_should_notify` 覆盖活跃完成提醒、休息后不提醒、休息后再工作满提醒、短休息再工作满提醒、空数据、进行中不足等场景）。
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
 ---
@@ -220,6 +228,6 @@ cd src-tauri && cargo test
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
 2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/` 和 `src/components/`。
 3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
-4. **Timeline 实现方式**：网格视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；时段视图使用 block 列表 + 迷你色块网格。
+4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分列表 + 迷你色块网格。
 6. **UI 主题**：Dashboard 使用 lavender + green wellness 配色（`#FAF5FF` 背景、`#8B5CF6` 活跃、`#10B981` 休息）。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。

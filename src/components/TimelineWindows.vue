@@ -76,13 +76,13 @@ function getLabel(active: boolean | null): string {
 }
 
 function getColor(active: boolean | null): string {
-  if (active === null) return '#EDE9FE'
-  if (active) return '#8B5CF6'
-  return '#10B981'
+  if (active === null) return '#DDD6FE'
+  if (active) return '#7C3AED'
+  return '#14B8A6'
 }
 
 function getTextColor(active: boolean | null): string {
-  if (active === null) return '#8B5CF6'
+  if (active === null) return '#6D28D9'
   return '#fff'
 }
 
@@ -117,37 +117,32 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
           />
         </div>
 
-        <div class="card" @click="toggleBlock(i)">
+        <div
+          class="card"
+          :class="{
+            'card-active': block.active === true,
+            'card-rest': block.active === false,
+            'card-null': block.active === null,
+          }"
+          @click="toggleBlock(i)"
+        >
           <div class="card-main">
-            <div class="card-header">
-              <span class="time-range">
-                {{ formatTime(block.startTs) }}
-                <span class="time-sep">→</span>
-                {{ formatTime(block.endTs) }}
+            <span class="time-range">
+              {{ formatTime(block.startTs) }}
+              <span class="time-sep">→</span>
+              {{ formatTime(block.endTs) }}
+            </span>
+            <span class="duration">
+              {{ formatDuration(block.endIdx - block.startIdx) }}
+            </span>
+            <div class="badges">
+              <span
+                class="badge"
+                :style="{ backgroundColor: getColor(block.active), color: getTextColor(block.active) }"
+              >
+                {{ getLabel(block.active) }}
               </span>
-              <div class="badges">
-                <span
-                  class="badge"
-                  :style="{ backgroundColor: getColor(block.active), color: getTextColor(block.active) }"
-                >
-                  {{ getLabel(block.active) }}
-                </span>
-                <span v-if="block.isCurrent" class="current-badge">进行中</span>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="bar-track">
-                <div
-                  class="bar-fill"
-                  :style="{ width: '100%', backgroundColor: getColor(block.active) }"
-                />
-              </div>
-              <span class="duration">
-                {{ formatDuration(block.endIdx - block.startIdx) }}
-                <span v-if="block.windows.length > 1" class="window-count">
-                  · {{ block.windows.length }} 个窗口
-                </span>
-              </span>
+              <span v-if="block.isCurrent" class="current-badge">进行中</span>
             </div>
           </div>
 
@@ -201,7 +196,7 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: linear-gradient(180deg, #C4B5FD 0%, #8B5CF6 50%, #C4B5FD 100%);
+  background: linear-gradient(180deg, #DDD6FE 0%, #7C3AED 50%, #DDD6FE 100%);
   border-radius: 1px;
   opacity: 0.4;
 }
@@ -209,36 +204,35 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .block-row {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   position: relative;
 }
 
 .block-row.is-current .card {
   border-color: #F59E0B;
-  box-shadow: 0 0 0 1px #F59E0B, 0 4px 16px rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 0 1px #F59E0B, 0 2px 8px rgba(245, 158, 11, 0.08);
 }
 
 .dot-wrapper {
   width: 16px;
   display: flex;
   justify-content: center;
-  padding-top: 12px;
   flex-shrink: 0;
   z-index: 1;
 }
 
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 1px 3px rgba(139, 92, 246, 0.2);
 }
 
 .dot.pulse {
@@ -253,106 +247,94 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 
 .card {
   flex: 1;
-  background: #fff;
+  background: #FAFAFA;
   border: 1px solid #F3E8FF;
-  border-radius: 16px;
-  padding: 12px 16px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 10px;
+  padding: 8px 12px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
   min-width: 0;
   cursor: pointer;
+  border-left-width: 3px;
+}
+
+.card-active {
+  border-left-color: #7C3AED;
+  background: #F5F3FF;
+}
+
+.card-rest {
+  border-left-color: #14B8A6;
+  background: #F0FDFA;
+}
+
+.card-null {
+  border-left-color: #C4B5FD;
+  background: #FAFAFA;
 }
 
 .card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.08);
 }
 
 .card-main {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.card-header {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
 }
 
 .time-range {
   font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #4C1D95;
+  color: #3730A3;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .time-sep {
   color: #C4B5FD;
-  margin: 0 4px;
+  margin: 0 3px;
+}
+
+.duration {
+  font-size: 12px;
+  color: #7C7CAA;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .badges {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .badge {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
+  padding: 2px 8px;
+  border-radius: 10px;
   white-space: nowrap;
 }
 
 .current-badge {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
+  padding: 2px 7px;
+  border-radius: 10px;
   background: #FEF3C7;
   color: #D97706;
   white-space: nowrap;
 }
 
-.card-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.bar-track {
-  flex: 1;
-  height: 8px;
-  background: #F3E8FF;
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 40px;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  opacity: 0.85;
-}
-
-.duration {
-  font-size: 13px;
-  color: #8B5CF6;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.window-count {
-  color: #A78BFA;
-  font-size: 11px;
-}
-
 /* 展开详情 */
 .detail {
-  margin-top: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .detail-sep {
@@ -416,11 +398,11 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 }
 
 .m-active {
-  background: #8B5CF6;
+  background: #7C3AED;
 }
 
 .m-rest {
-  background: #10B981;
+  background: #14B8A6;
 }
 
 .m-null {

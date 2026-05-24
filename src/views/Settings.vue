@@ -69,7 +69,7 @@ async function notify() {
 <style scoped>
 .settings {
   padding: 32px;
-  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
+  background: #FAF5FF;
   min-height: 100vh;
 }
 </style>
