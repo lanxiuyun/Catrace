@@ -68,8 +68,6 @@ async function notify() {
 
 <style scoped>
 .settings {
-  padding: 32px;
-  background: #FAF5FF;
-  min-height: 100vh;
+  padding: 28px 32px;
 }
 </style>

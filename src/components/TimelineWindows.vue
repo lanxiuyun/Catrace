@@ -76,14 +76,15 @@ function getLabel(active: boolean | null): string {
 }
 
 function getColor(active: boolean | null): string {
-  if (active === null) return '#DDD6FE'
-  if (active) return '#7C3AED'
-  return '#14B8A6'
+  if (active === null) return '#d4d4d8'
+  if (active) return '#7c3aed'
+  return '#059669'
 }
 
-function getTextColor(active: boolean | null): string {
-  if (active === null) return '#6D28D9'
-  return '#fff'
+function getBadgeClass(active: boolean | null): string {
+  if (active === null) return 'badge-null'
+  if (active) return 'badge-active'
+  return 'badge-rest'
 }
 
 function toggleBlock(i: number) {
@@ -101,7 +102,6 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 
 <template>
   <div class="windows">
-    <div class="timeline-line" />
     <div class="list">
       <div
         v-for="(block, i) in blocks"
@@ -117,15 +117,7 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
           />
         </div>
 
-        <div
-          class="card"
-          :class="{
-            'card-active': block.active === true,
-            'card-rest': block.active === false,
-            'card-null': block.active === null,
-          }"
-          @click="toggleBlock(i)"
-        >
+        <div class="card" @click="toggleBlock(i)">
           <div class="card-main">
             <span class="time-range">
               {{ formatTime(block.startTs) }}
@@ -136,22 +128,15 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
               {{ formatDuration(block.endIdx - block.startIdx) }}
             </span>
             <div class="badges">
-              <span
-                class="badge"
-                :style="{ backgroundColor: getColor(block.active), color: getTextColor(block.active) }"
-              >
+              <span class="badge" :class="getBadgeClass(block.active)">
                 {{ getLabel(block.active) }}
               </span>
               <span v-if="block.isCurrent" class="current-badge">进行中</span>
             </div>
           </div>
 
-          <!-- 展开详情 -->
           <transition name="expand">
             <div v-if="expandedBlock === i" class="detail">
-              <div class="detail-sep" />
-
-              <!-- 每分钟色块 -->
               <div class="minute-rows">
                 <div
                   v-for="(row, ri) in chunkMinutes(block.windows.flatMap(w => w.minutes), 10)"
@@ -187,207 +172,146 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 <style scoped>
 .windows {
   position: relative;
-  padding-left: 8px;
-}
-
-.timeline-line {
-  position: absolute;
-  left: 15px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: linear-gradient(180deg, #DDD6FE 0%, #7C3AED 50%, #DDD6FE 100%);
-  border-radius: 1px;
-  opacity: 0.4;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 .block-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  position: relative;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f4f5;
 }
 
-.block-row.is-current .card {
-  border-color: #F59E0B;
-  box-shadow: 0 0 0 1px #F59E0B, 0 2px 8px rgba(245, 158, 11, 0.08);
+.block-row:last-child {
+  border-bottom: none;
+}
+
+.block-row.is-current {
+  background: #f5f3ff;
+  margin: 0 -16px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border-bottom: none;
 }
 
 .dot-wrapper {
-  width: 16px;
-  display: flex;
-  justify-content: center;
+  width: 8px;
   flex-shrink: 0;
-  z-index: 1;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(139, 92, 246, 0.2);
-}
-
-.dot.pulse {
-  animation: dot-pulse 2s infinite;
-}
-
-@keyframes dot-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
-  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-}
-
-.card {
-  flex: 1;
-  background: #FAFAFA;
-  border: 1px solid #F3E8FF;
-  border-radius: 10px;
-  padding: 8px 12px;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-  min-width: 0;
-  cursor: pointer;
-  border-left-width: 3px;
-}
-
-.card-active {
-  border-left-color: #7C3AED;
-  background: #F5F3FF;
-}
-
-.card-rest {
-  border-left-color: #14B8A6;
-  background: #F0FDFA;
-}
-
-.card-null {
-  border-left-color: #C4B5FD;
-  background: #FAFAFA;
-}
-
-.card:hover {
-  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.08);
-}
-
-.card-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.time-range {
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: #3730A3;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.time-sep {
-  color: #C4B5FD;
-  margin: 0 3px;
-}
-
-.duration {
-  font-size: 12px;
-  color: #7C7CAA;
-  font-weight: 500;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.badges {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
-.current-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: #FEF3C7;
-  color: #D97706;
-  white-space: nowrap;
-}
-
-/* 展开详情 */
-.detail {
-  margin-top: 8px;
-  padding-top: 8px;
-}
-
-.detail-sep {
-  height: 1px;
-  background: #F3E8FF;
-  margin-bottom: 10px;
-}
-
-.sub-windows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.sub-window {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #6D28D9;
-  background: #FAF5FF;
-  padding: 3px 8px;
-  border-radius: 8px;
-}
-
-.sub-time {
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
-}
-
-.sub-badge {
   width: 8px;
   height: 8px;
   border-radius: 50%;
 }
 
+.dot.pulse {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.card-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.time-range {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: #18181b;
+  white-space: nowrap;
+}
+
+.time-sep {
+  color: #d4d4d8;
+  margin: 0 4px;
+}
+
+.duration {
+  font-size: 13px;
+  color: #71717a;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.badge-active {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+.badge-rest {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.badge-null {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
+.current-badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ede9fe;
+  color: #6d28d9;
+  white-space: nowrap;
+}
+
+.detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f4f4f5;
+}
+
 .minute-rows {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .minute-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .minute-row-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
-  gap: 1px;
-  width: 70px;
+  gap: 2px;
+  width: 80px;
   flex-shrink: 0;
 }
 
@@ -398,25 +322,24 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
 }
 
 .m-active {
-  background: #7C3AED;
+  background: #7c3aed;
 }
 
 .m-rest {
-  background: #14B8A6;
+  background: #059669;
 }
 
 .m-null {
-  background: #EDE9FE;
+  background: #e4e4e7;
 }
 
 .minute-row-time {
-  font-size: 10px;
-  color: #A78BFA;
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-size: 11px;
+  color: #a1a1aa;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
   white-space: nowrap;
 }
 
-/* 过渡 */
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.2s ease;

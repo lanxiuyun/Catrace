@@ -34,6 +34,7 @@
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 后端(Rust) | rdev + device_query + rusqlite + tokio + active-win-pos-rs |
 | 时间轴 | **CSS Grid（24×60 色块），非 ECharts/SVG** |
+| 主题 | `src/theme.ts`（色板 + naive-ui themeOverrides） |
 
 ## 数据库设计
 
@@ -69,35 +70,64 @@ src-tauri/src/
 ```
 src/
 ├── views/
-│   ├── Dashboard.vue    -- 今日统计 + 24h 时间轴
-│   └── Settings.vue     -- 滑块 + 应用分类编辑
+│   ├── Dashboard.vue        -- 四统计卡片 + 今日活动（概览/详细切换）
+│   └── Settings.vue         -- 滑块改配置
 ├── components/
-│   └── Timeline.vue     -- 24h × 60min 色块热力图（CSS Grid）
+│   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
+│   └── TimelineWindows.vue  -- 概览 block 单行列表（可展开分钟色块）
+├── utils/
+│   └── timeBlocks.ts        -- block 切分算法（与 Dashboard 统计共用）
 ├── router/
-│   └── index.ts         -- hash 路由
+│   └── index.ts             -- hash 路由
 ├── api/
-│   └── tauri.ts         -- invoke 调用 Rust 命令的封装
-├── App.vue              -- naive-ui 布局 + 侧边栏
-└── main.ts              -- Vue 入口
+│   └── tauri.ts             -- invoke 调用 Rust 命令的封装
+├── theme.ts                 -- 统一色板 + naive-ui 主题覆盖
+├── App.vue                  -- 侧边栏布局 + 主题注入 + 滚动容器
+└── main.ts                  -- Vue 入口
 ```
+
+### Dashboard 页面结构
+
+1. **页头**：标题「今日概览」+ 日期（无实时状态标签）
+2. **统计区**（4 列 grid，等高白卡片）：
+   - 活跃分钟、休息分钟、活跃占比、活跃时段数
+   - 彩色圆点区分类型，数值按活跃/休息/默认着色
+3. **今日活动**（全宽白卡片）：
+   - 右上角「概览 / 详细」切换，**默认概览**
+   - 概览 → `TimelineWindows.vue`；详细 → `Timeline.vue`
+
+> **已移除的 UI 元素**（2025-05 UI 重构）：右侧「活跃 vs 休息」环形图、页头「活跃中/休息中」标签、概览条目内的全宽色条与多层卡片嵌套。
 
 ### 视图实现说明
 
-**详细视图**（`Timeline.vue`，默认不展示）：
+**详细视图**（`Timeline.vue`，切换后展示）：
 - **技术**：CSS Grid（24 行 × 60 列），每个 `<div>` 色块代表 1 分钟。
-- **布局**：行 = 小时（00-23），列 = 分钟（0-59）。左侧显示小时标签，顶部显示分钟刻度（0/15/30/45）。
+- **布局**：行 = 小时（00-23），列 = 分钟（0-59）。
 - **交互**：鼠标在网格上移动，通过坐标计算对应分钟索引，显示时间与状态。
-- **当前时间**：对应色块加红色边框高亮。
-- **图例**：活跃（绿）、休息（蓝）、无记录（灰）、当前时间（红框）。
+- **当前时间**：对应色块加红色边框/脉冲高亮。
+- **图例**：活跃（紫）、休息（绿）、无记录（灰）、当前时间（红框）。
 
 **概览视图**（`TimelineWindows.vue`，默认展示）：
-- 基于前瞻式 block 切分算法，将全天切分为活跃 block 和休息 block。
-- 从首个记录开始向后扫描：窗口内遇连续 `break_minutes` 休息 → 休息 block；否则 → 活跃 block（固定 `window_minutes` 长度）。
+- 基于 `utils/timeBlocks.ts` 前瞻式 block 切分，将全天切分为活跃 / 休息 block。
 - 连续休息 block 自动合并，活跃 block 保持独立。
-- 点击 block 展开显示每 10 分钟的迷你色块 + 时间标签。
-- 当前时间所在 block 标记为「进行中」。
+- **紧凑单行列表**：左侧色点 + 时间范围 + 时长 + 状态标签；分割线分隔各行。
+- 当前 block：淡紫背景 + 「进行中」标签。
+- 点击展开：每 10 分钟一行的迷你色块 + 时间标签。
 
-## 开发计划（8 步）
+### UI 主题与布局
+
+| 项目 | 说明 |
+|------|------|
+| 背景色 | `#F7F5FA`（淡紫灰） |
+| 卡片 | 白底、`#EBE6F2` 边框、轻阴影、`border-radius: 12px` |
+| 活跃色 | `#7C3AED` / `#6D28D9` |
+| 休息色 | `#059669` |
+| 主题注入 | `App.vue` → `NConfigProvider :theme-overrides="themeOverrides"` |
+| 滚动策略 | `html/body` 禁止滚动；`n-layout-content` 仅在内容溢出时滚动；页面不用 `min-height: 100vh` |
+
+设计原则：干净克制，颜色用于信息区分而非大面积装饰。
+
+## 开发计划
 
 | 步骤 | 内容 | 状态 |
 |------|------|------|
@@ -109,10 +139,14 @@ src/
 | 6 | 前端 Dashboard：今日活动（详细/概览双视图，默认概览）+ 今日统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
+| 9 | Dashboard UI 精简重构（主题统一、去冗余面板、紧凑列表、滚动修复） | ✅ |
 
 ## 构建命令
 
 ```bash
+# 前端开发（不启动 Tauri）
+pnpm dev
+
 # Tauri 开发模式
 pnpm tauri dev
 
@@ -129,3 +163,14 @@ cd src-tauri && cargo test
 - 监听线程崩溃应自动重启，前端显示状态
 - 通知基于 block 切分逻辑触发：活跃 block 完成后提醒一次，休息后又工作满一个窗口再提醒一次
 - `lib.rs` 维护 `last_notify_boundary` 去重，避免同一 block 边界连续每分钟轰炸
+
+## 近期 UI 变更摘要（2025-05）
+
+以下为 Dashboard 界面迭代最终态，供后续开发参考：
+
+1. **移除环形图面板**：「活跃 vs 休息」与顶部统计重复，今日活动改为全宽展示。
+2. **移除页头状态标签**：「活跃中 / 休息中 / 未记录」标签已去掉。
+3. **概览列表紧凑化**：由双行卡片（时间 + 全宽色条）改为单行列表（时间 · 时长 · 标签），可点击展开分钟色块。
+4. **新增 `src/theme.ts`**：集中管理色板与 naive-ui 组件主题，侧边栏菜单、Radio、Button 等统一紫色调。
+5. **统计卡片重写**：弃用 `NStatistic` + 渐变满色底，改为四张等高自定义白卡片。
+6. **修复多余滚动条**：去掉页面 `min-height: 100vh`，根节点 `overflow: hidden`，滚动仅发生在主内容区。

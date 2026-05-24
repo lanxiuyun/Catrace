@@ -32,10 +32,13 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
 │   │   └── TimelineWindows.vue # 概览视图：block 时段列表
 │   ├── router/index.ts
+│   ├── utils/
+│   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   └── Settings.vue
-│   ├── App.vue
+│   ├── App.vue                 # 布局 + naive-ui 主题注入
+│   ├── theme.ts                # 统一色板 + naive-ui themeOverrides
 │   ├── main.ts
 │   └── vite-env.d.ts
 ├── src-tauri/            # Tauri 2 + Rust
@@ -117,32 +120,70 @@ src-tauri/src/
 ```
 src/
 ├── views/
-│   ├── Dashboard.vue    -- 今日统计 + 今日活动（详细/概览双视图）
-│   └── Settings.vue     -- window_minutes / break_minutes 滑块 + 应用分类编辑
+│   ├── Dashboard.vue    -- 今日统计四卡片 + 今日活动（概览/详细切换）
+│   └── Settings.vue     -- window_minutes / break_minutes 滑块
 ├── components/
-│   └── Timeline.vue     -- 24h × 60min 色块热力图（CSS Grid，类 GitHub 贡献图）
+│   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
+│   └── TimelineWindows.vue  -- 概览 block 列表（紧凑单行 + 可展开详情）
+├── utils/
+│   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
 │   └── index.ts         -- hash 路由（/dashboard, /settings）
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
-├── App.vue              -- naive-ui 布局 + 侧边栏
+├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
+├── App.vue              -- 侧边栏布局 + NConfigProvider 主题注入
 └── main.ts              -- Vue 入口
 ```
 
+### Dashboard 布局（当前）
+
+```
+┌──────────┬─────────────────────────────────────┐
+│ Catrace  │  今日概览 / 日期                     │
+│ 概览     │  ┌────┐ ┌────┐ ┌────┐ ┌────┐       │
+│ 设置     │  │活跃│ │休息│ │占比│ │时段│       │
+│          │  └────┘ └────┘ └────┘ └────┘       │
+│          │  ┌─ 今日活动 ──── [概览|详细] ─┐   │
+│          │  │  block 列表 / 24h 热力图    │   │
+│          │  └─────────────────────────────┘   │
+└──────────┴─────────────────────────────────────┘
+```
+
+- **已移除**：右上角「活跃中/休息中」状态标签、右侧「活跃 vs 休息」环形图面板。
+- **统计区**：四张等高白卡片（自定义 markup，非 `NStatistic`），彩色圆点 + 按类型着色的数值。
+- **滚动**：根节点 `overflow: hidden`，仅 `n-layout-content` 区域在内容溢出时滚动；页面内不使用 `min-height: 100vh`。
+
 ### 时间轴实现说明
 
-**详细视图**（`Timeline.vue`，默认不展示）：
+**详细视图**（`Timeline.vue`，切换后展示）：
 - **技术**：CSS Grid（24 行 × 60 列），每个 `<div>` 色块代表 1 分钟，不是 SVG / Canvas / ECharts。
 - **布局**：行 = 小时（00-23），列 = 分钟（0-59）。
 - **交互**：鼠标在网格上移动，通过坐标计算对应分钟索引，显示时间与状态。
 - **当前时间**：对应色块加红色脉冲动画高亮。
+- **图例**：活跃（紫 `#7C3AED`）、休息（绿 `#059669`）、无记录（灰）、当前时间（红框）。
 
 **概览视图**（`TimelineWindows.vue`，默认展示）：
-- 基于前瞻式 block 切分算法，将全天切分为**活跃 block** 和 **休息 block**。
+- 基于前瞻式 block 切分算法（`utils/timeBlocks.ts`），将全天切分为**活跃 block** 和 **休息 block**。
 - 从首个记录开始向后扫描：窗口内遇连续 `break_minutes` 休息 → 休息 block；否则 → 活跃 block（固定 `window_minutes` 长度）。
 - 连续休息 block 自动合并，活跃 block 保持独立。
-- 点击 block 展开显示每 10 分钟的迷你色块 + 时间标签。
-- 当前时间所在 block 标记为「进行中」。
+- **单行列表**：时间范围 · 时长 · 状态标签；当前 block 淡紫底高亮 + 「进行中」标签。
+- 点击条目展开：每 10 分钟一行的迷你色块 + 时间标签。
+
+### UI 主题（`theme.ts`）
+
+| 用途 | 色值 |
+|------|------|
+| 页面背景 | `#F7F5FA` |
+| 卡片 / 侧边栏 | `#FFFFFF` |
+| 边框 | `#EBE6F2` |
+| 主色（活跃） | `#7C3AED` / `#6D28D9` |
+| 辅色（休息） | `#059669` |
+| 标题文字 | `#2E1065` |
+| 次要文字 | `#8B7AAB` |
+
+- `App.vue` 通过 `NConfigProvider :theme-overrides` 统一 naive-ui 组件（Menu、Radio、Button、Slider 等）配色。
+- 设计原则：**克制、干净**——白卡片 + 细边框 + 轻阴影；颜色主要用于圆点、数值和标签，避免大面积渐变或装饰光斑。
 
 ### 数据库（SQLite）
 
@@ -175,9 +216,10 @@ CREATE TABLE settings (
 | 5 | Settings 页：滑块改配置 | ✅ |
 | 6 | Dashboard：今日活动（详细/概览双视图）+ 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
-| 8 | 应用分类名单（category 已存入 DB，前端 Settings 已支持编辑） | ✅（基础） |
-| 9 | Dashboard UI 重设计（lavender wellness 主题 + 统计卡片 + 环形图） | ✅ |
-| 10 | 概览视图：前瞻式 block 切分列表（详细/概览双视图切换，默认概览） | ✅ |
+| 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
+| 9 | Dashboard UI 初版（统计卡片 + 环形图 + 双栏布局） | ✅（已被步骤 11 取代） |
+| 10 | 概览视图：前瞻式 block 切分列表（默认概览） | ✅ |
+| 11 | Dashboard UI 精简重构：去环形图/状态标签、紧凑列表、统一主题、修复滚动条 | ✅ |
 
 ---
 
@@ -205,6 +247,7 @@ cd src-tauri && cargo test
 - 项目文档与计划全部使用**中文**撰写，代码注释保持一致。
 - 前端使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
 - Rust 当前未按功能拆分子模块（全部在 `lib.rs`），后续扩展时建议拆分。
+- UI 配色统一维护在 `src/theme.ts`，改主题时优先改此文件。
 
 ---
 
@@ -226,8 +269,9 @@ cd src-tauri && cargo test
 ## 对 AI 助手的提示
 
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
-2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/` 和 `src/components/`。
+2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/`、`src/components/`、`src/theme.ts`。
 3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
-4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分列表 + 迷你色块网格。
-6. **UI 主题**：Dashboard 使用 lavender + green wellness 配色（`#FAF5FF` 背景、`#8B5CF6` 活跃、`#10B981` 休息）。
+4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**单行列表** + 可展开迷你色块。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
+6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
+7. **布局滚动**：不要在页面级容器使用 `min-height: 100vh`（会与 padding 叠加导致多余滚动条）；滚动交给 `App.vue` 的 `n-layout-content`。

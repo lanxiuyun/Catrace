@@ -38,7 +38,7 @@ const menuOptions = [
           <div class="logo">Catrace</div>
           <n-menu :value="route.path" :options="menuOptions" />
         </n-layout-sider>
-        <n-layout-content>
+        <n-layout-content class="app-content" :native-scrollbar="false">
           <RouterView />
         </n-layout-content>
       </n-layout>
@@ -49,17 +49,29 @@ const menuOptions = [
 <style>
 html, body, #app {
   margin: 0;
-  background: #FAF5FF;
+  height: 100%;
+  overflow: hidden;
+  background: #f7f5fa;
 }
 
 .app-layout {
   height: 100vh;
-  background: #FAF5FF;
+  overflow: hidden;
+  background: #f7f5fa;
+}
+
+.app-content {
+  height: 100vh;
+}
+
+.app-content :deep(.n-layout-scroll-container) {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app-sider {
-  background: #FFFFFF !important;
-  border-right-color: #EDE9FE !important;
+  background: #ffffff !important;
+  border-right-color: #ebe6f2 !important;
 }
 
 .app-sider :deep(.n-layout-sider-scroll-container) {
@@ -68,11 +80,11 @@ html, body, #app {
 
 .logo {
   padding: 24px 16px 20px;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
   text-align: center;
-  color: #6D28D9;
-  letter-spacing: -0.5px;
+  color: #6d28d9;
+  letter-spacing: -0.02em;
 }
 
 .app-sider :deep(.n-menu-item-content) {

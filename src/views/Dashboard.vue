@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import {
-  NCard,
-  NGrid,
-  NGi,
-  NProgress,
-  NRadioGroup,
-  NRadioButton,
-} from "naive-ui";
+import { NCard, NRadioGroup, NRadioButton } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
 import TimelineWindows from "../components/TimelineWindows.vue";
@@ -82,72 +75,61 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard">
-    <div class="header">
+    <header class="header">
       <h1 class="title">今日概览</h1>
-      <span class="subtitle">{{
-        new Date().toLocaleDateString("zh-CN", {
-          month: "long",
-          day: "numeric",
-          weekday: "long",
-        })
-      }}</span>
-    </div>
+      <p class="subtitle">
+        {{
+          new Date().toLocaleDateString("zh-CN", {
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          })
+        }}
+      </p>
+    </header>
 
-    <!-- 统计卡片 -->
-    <n-grid
-      :cols="4"
-      :x-gap="16"
-      :y-gap="16"
-      class="stats-grid"
-      responsive="screen"
-    >
-      <n-gi span="1">
-        <div class="stat-card stat-active">
+    <section class="stats">
+      <div class="stat stat-active">
+        <div class="stat-head">
+          <span class="dot dot-active" />
           <span class="stat-label">活跃</span>
-          <div class="stat-value">
-            {{ stats.active_minutes }}<span class="stat-unit">分钟</span>
-          </div>
         </div>
-      </n-gi>
-      <n-gi span="1">
-        <div class="stat-card stat-rest">
+        <p class="stat-value">
+          {{ stats.active_minutes }}<span class="stat-unit">分钟</span>
+        </p>
+      </div>
+      <div class="stat stat-rest">
+        <div class="stat-head">
+          <span class="dot dot-rest" />
           <span class="stat-label">休息</span>
-          <div class="stat-value">
-            {{ stats.rest_minutes }}<span class="stat-unit">分钟</span>
-          </div>
         </div>
-      </n-gi>
-      <n-gi span="1">
-        <div class="stat-card stat-ratio">
+        <p class="stat-value">
+          {{ stats.rest_minutes }}<span class="stat-unit">分钟</span>
+        </p>
+      </div>
+      <div class="stat stat-ratio">
+        <div class="stat-head">
+          <span class="dot dot-ratio" />
           <span class="stat-label">活跃占比</span>
-          <div class="stat-value">
-            {{ activityPercent }}<span class="stat-unit">%</span>
-          </div>
-          <n-progress
-            type="line"
-            :percentage="activityPercent"
-            :show-indicator="false"
-            :height="4"
-            color="#7C3AED"
-            rail-color="#EDE9FE"
-            class="stat-progress"
-          />
         </div>
-      </n-gi>
-      <n-gi span="1">
-        <div class="stat-card stat-blocks">
+        <p class="stat-value">
+          {{ activityPercent }}<span class="stat-unit">%</span>
+        </p>
+      </div>
+      <div class="stat stat-blocks">
+        <div class="stat-head">
+          <span class="dot dot-muted" />
           <span class="stat-label">活跃时段</span>
-          <div class="stat-value">
-            {{ activeBlockCount }}<span class="stat-unit">个</span>
-          </div>
         </div>
-      </n-gi>
-    </n-grid>
+        <p class="stat-value">
+          {{ activeBlockCount }}<span class="stat-unit">个</span>
+        </p>
+      </div>
+    </section>
 
-    <!-- 今日活动 -->
-    <n-card class="timeline-card" :bordered="false">
-      <div class="timeline-header">
-        <span class="timeline-title">今日活动</span>
+    <n-card class="panel" :bordered="false">
+      <div class="panel-header">
+        <h2 class="panel-title">今日活动</h2>
         <n-radio-group v-model:value="timelineMode" size="small">
           <n-radio-button value="segments">概览</n-radio-button>
           <n-radio-button value="grid">详细</n-radio-button>
@@ -160,151 +142,135 @@ onMounted(async () => {
         :window-minutes="config.window_minutes"
         :break-minutes="config.break_minutes"
       />
-      <div v-if="records.size === 0" class="empty">
+      <p v-if="records.size === 0" class="empty">
         暂无数据，程序运行一段时间后会生成。
-      </div>
+      </p>
     </n-card>
   </div>
 </template>
 
 <style scoped>
 .dashboard {
-  padding: 32px;
-  background: #faf5ff;
-  min-height: 100vh;
+  padding: 28px 32px;
 }
 
 .header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 .title {
   margin: 0;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
-  color: #3730a3;
-  letter-spacing: -0.5px;
+  color: #2e1065;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #7c7caa;
-  font-weight: 500;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #8b7aab;
 }
 
-.stats-grid {
-  margin-bottom: 24px;
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
-.stat-card {
-  border-radius: 16px;
-  padding: 20px 22px;
+.stat {
   background: #fff;
-  border: 1px solid #ede9fe;
-  transition:
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
-  cursor: default;
+  border: 1px solid #ebe6f2;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(46, 16, 101, 0.04);
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(109, 40, 217, 0.08);
+.stat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-active {
+  background: #7c3aed;
+}
+.dot-rest {
+  background: #059669;
+}
+.dot-ratio {
+  background: #a78bfa;
+}
+.dot-muted {
+  background: #c4b5fd;
 }
 
 .stat-label {
-  display: block;
   font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  color: #8b7aab;
+  font-weight: 500;
 }
 
 .stat-value {
-  font-size: 32px;
+  margin: 0;
+  font-size: 30px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
 }
 
 .stat-unit {
   font-size: 14px;
   font-weight: 500;
-  margin-left: 2px;
-  opacity: 0.7;
+  margin-left: 3px;
+  opacity: 0.55;
 }
 
-.stat-active {
-  border-top: 3px solid #7c3aed;
-}
-.stat-active .stat-label {
-  color: #a78bfa;
-}
 .stat-active .stat-value {
   color: #6d28d9;
 }
-
-.stat-rest {
-  border-top: 3px solid #14b8a6;
-}
-.stat-rest .stat-label {
-  color: #5eead4;
-}
 .stat-rest .stat-value {
-  color: #0d9488;
+  color: #047857;
 }
-
-.stat-ratio {
-  border-top: 3px solid #8b5cf6;
-}
-.stat-ratio .stat-label {
-  color: #a78bfa;
-}
-.stat-ratio .stat-value {
-  color: #6d28d9;
-}
-
-.stat-blocks {
-  border-top: 3px solid #c4b5fd;
-}
-.stat-blocks .stat-label {
-  color: #a78bfa;
-}
+.stat-ratio .stat-value,
 .stat-blocks .stat-value {
-  color: #7c3aed;
+  color: #4c1d95;
 }
 
-.stat-progress {
-  margin-top: 12px;
+.panel {
+  border-radius: 12px !important;
+  border: 1px solid #ebe6f2 !important;
+  box-shadow: 0 1px 3px rgba(46, 16, 101, 0.04) !important;
 }
 
-.timeline-card {
-  border-radius: 20px;
-  background: #fff;
-  margin-bottom: 24px;
-}
-
-.timeline-header {
+.panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 8px;
+  margin-bottom: 4px;
+  gap: 12px;
 }
 
-.timeline-title {
-  font-size: 16px;
+.panel-title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
-  color: #3730a3;
+  color: #2e1065;
 }
 
 .empty {
+  margin: 32px 0 0;
   text-align: center;
-  padding: 40px;
-  color: #a78bfa;
-  font-size: 14px;
+  font-size: 13px;
+  color: #a1a1aa;
 }
 </style>
