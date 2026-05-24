@@ -129,46 +129,55 @@ impl Db {
         rows.collect::<Result<Vec<_>>>()
     }
 
-    /// 检查最近 window_minutes 分钟内是否有连续 break_minutes 分钟休息
-    /// 返回 true = 应该提醒（没有足够休息）
-    pub fn check_should_notify(&self, window_minutes: i64, break_minutes: i64) -> Result<bool> {
+    /// 检查当前连续 block 是否为活跃且达到 window_minutes 分钟
+    /// 返回 true = 应该提醒
+    pub fn check_should_notify(&self, window_minutes: i64, _break_minutes: i64) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
         let now = chrono::Local::now().timestamp();
-        let start = now - window_minutes * 60;
+        let start_of_day = chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .timestamp();
 
         let mut stmt = conn.prepare(
             "SELECT timestamp, is_active FROM records
              WHERE timestamp >= ?1 AND timestamp <= ?2
-             ORDER BY timestamp"
+             ORDER BY timestamp DESC"
         )?;
 
-        let rows = stmt.query_map([start, now], |row| {
+        let rows = stmt.query_map([start_of_day, now], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?))
         })?;
 
         let records: Vec<(i64, i32)> = rows.filter_map(|r| r.ok()).collect();
 
-        // 记录不够，不提醒
-        if records.len() < window_minutes as usize {
+        if records.is_empty() {
             return Ok(false);
         }
 
-        // 找最长连续休息
-        let mut max_rest = 0_i64;
-        let mut current_rest = 0_i64;
-        for (_, is_active) in records {
-            if is_active == 0 {
-                current_rest += 1;
-                if current_rest > max_rest {
-                    max_rest = current_rest;
-                }
+        // 从最新记录往前找当前连续 block（时间戳连续且状态相同）
+        let current_active = records[0].1 == 1;
+        let mut block_len = 1;
+
+        for i in 1..records.len() {
+            let expected_ts = records[i - 1].0 - 60;
+            if records[i].0 == expected_ts && records[i].1 == records[0].1 {
+                block_len += 1;
             } else {
-                current_rest = 0;
+                break;
             }
         }
 
-        // 没有连续 break_minutes 分钟休息 → 提醒
-        Ok(max_rest < break_minutes)
+        if current_active {
+            // 活跃 block 达到 window_minutes 就提醒
+            Ok(block_len >= window_minutes as usize)
+        } else {
+            // 休息 block 不提醒
+            Ok(false)
+        }
     }
 }
 
@@ -177,10 +186,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_check_should_notify_remind() {
+    fn test_check_should_notify_active_block_reaches_window() {
         let db = Db::new(Path::new(":memory:")).unwrap();
         let base = chrono::Local::now().timestamp() - 600;
-        // 插入 10 分钟活跃，无连续休息
+        // 插入 10 分钟活跃，当前 block = 10 分钟
         for i in 0..10 {
             db.insert_record(base + i * 60, true, "test.exe")
                 .unwrap();
@@ -189,19 +198,11 @@ mod tests {
     }
 
     #[test]
-    fn test_check_should_notify_rest() {
+    fn test_check_should_notify_active_block_not_enough() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 600;
-        // 插入 10 分钟，中间有连续 5 分钟休息
-        for i in 0..3 {
-            db.insert_record(base + i * 60, true, "test.exe")
-                .unwrap();
-        }
-        for i in 3..8 {
-            db.insert_record(base + i * 60, false, "test.exe")
-                .unwrap();
-        }
-        for i in 8..10 {
+        let base = chrono::Local::now().timestamp() - 300;
+        // 只插入 5 条活跃，当前 block = 5 < 10
+        for i in 0..5 {
             db.insert_record(base + i * 60, true, "test.exe")
                 .unwrap();
         }
@@ -209,14 +210,40 @@ mod tests {
     }
 
     #[test]
-    fn test_check_should_notify_not_enough_records() {
+    fn test_check_should_notify_rest_block() {
         let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = chrono::Local::now().timestamp() - 300;
-        // 只插入 5 条，不够 window=10
+        let base = chrono::Local::now().timestamp() - 600;
+        // 先活跃 5 分钟，再休息 5 分钟
         for i in 0..5 {
             db.insert_record(base + i * 60, true, "test.exe")
                 .unwrap();
         }
+        for i in 5..10 {
+            db.insert_record(base + i * 60, false, "test.exe")
+                .unwrap();
+        }
+        // 当前 block 是休息，不提醒
+        assert!(!db.check_should_notify(10, 5).unwrap());
+    }
+
+    #[test]
+    fn test_check_should_notify_active_after_rest() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = chrono::Local::now().timestamp() - 900;
+        // 先活跃 12 分钟，再休息 3 分钟，再活跃 2 分钟
+        for i in 0..12 {
+            db.insert_record(base + i * 60, true, "test.exe")
+                .unwrap();
+        }
+        for i in 12..15 {
+            db.insert_record(base + i * 60, false, "test.exe")
+                .unwrap();
+        }
+        for i in 15..17 {
+            db.insert_record(base + i * 60, true, "test.exe")
+                .unwrap();
+        }
+        // 当前活跃 block 只有 2 分钟 < 10，不提醒
         assert!(!db.check_should_notify(10, 5).unwrap());
     }
 }
