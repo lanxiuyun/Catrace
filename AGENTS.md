@@ -1,102 +1,133 @@
 # Catrace — Agent Guide
 
-> 本文档面向 AI 编程助手。当前项目处于**规划阶段**，尚未开始编码。以下信息全部来源于仓库中已存在的 `README.md` 与 `PLAN.md`，不含推测或假设。
+> 本文档面向 AI 编程助手。
 
 ---
 
 ## 项目概述
 
-Catrace 是一款计划中的桌面端工具，用于帮助用户平衡工作与休息。
+Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 - **核心功能**：后台静默监听键鼠活动，判断用户是否处于连续工作状态；当连续活跃时间超过阈值时，通过系统通知提醒用户休息。
 - **隐私承诺**：不偷拍屏幕、不上传数据，所有信息保存在用户本地。
-- **当前状态**：仅有产品说明文档（`README.md`）和开发计划（`PLAN.md`），**尚未创建任何源码文件、构建配置或依赖目录**。
+- **当前状态**：**已实现核心功能**，前端 Dashboard 可查看 24h 时间轴与统计，Rust 后端已完成采样、判定、通知、数据库全流程。
 
 ---
 
 ## 仓库现状
 
-当前仓库根目录下只有以下文件：
-
 ```
 .
-├── README.md   # 产品说明（中文）
-└── PLAN.md     # 开发计划与技术架构（中文）
+├── README.md
+├── PLAN.md
+├── AGENTS.md
+├── package.json          # pnpm + Vite + Vue 3
+├── vite.config.ts
+├── tsconfig.json
+├── index.html
+├── src/                  # Vue 3 前端
+│   ├── api/tauri.ts
+│   ├── assets/
+│   ├── components/
+│   │   └── Timeline.vue  # 24h 分钟级色块热力图（CSS Grid）
+│   ├── router/index.ts
+│   ├── views/
+│   │   ├── Dashboard.vue
+│   │   └── Settings.vue
+│   ├── App.vue
+│   ├── main.ts
+│   └── vite-env.d.ts
+├── src-tauri/            # Tauri 2 + Rust
+│   ├── src/
+│   │   ├── main.rs       # 入口，调用 lib::run()
+│   │   ├── lib.rs        # 全部业务逻辑（采样、结算、通知、命令）
+│   │   └── db.rs         # rusqlite 封装
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   └── ...
+└── public/
 ```
 
-没有 `package.json`、`Cargo.toml`、`pyproject.toml`、`tsconfig.json`、`vite.config.ts`、`tauri.conf.json` 等任何构建或配置文件。
+> **注意**：Rust 侧未按 PLAN.md 的分层目录（`input/`、`engine/` 等）实现，而是将所有逻辑集中在 `lib.rs` 中，通过模块级函数组织。
 
 ---
 
-## 计划中的技术栈（来自 PLAN.md）
+## 已落地的技术栈
 
 | 层级 | 选型 |
 |------|------|
 | 桌面框架 | Tauri 2 |
-| 前端 | Vue 3 + TypeScript + Vite |
-| 图表库 | ECharts |
-| 后端（Rust）| rdev（全局键盘监听）、device_query（鼠标采样）、rusqlite（本地数据库）、tokio（异步运行时） |
+| 前端 | Vue 3 + TypeScript + Vite + naive-ui |
+| 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
+| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口） |
 
 ---
 
-## 计划中的核心逻辑
+## 核心逻辑（已实现）
 
-1. **采样**
-   - 每 2 秒检查一次鼠标光标位置。
-   - 全局监听键盘按下事件，2 秒内去重。
-2. **分钟判定**
+1. **采样**（`lib.rs`）
+   - 每 2 秒检查鼠标光标位置（`device_query`）。
+   - 全局监听键盘按下事件（`rdev`），2 秒内去重。
+2. **分钟判定**（`lib.rs`）
    - 60 秒内活动次数 ≥ 3 → 该分钟标记为**活跃**；否则标记为**休息**。
-3. **窗口检测**
-   - 每分钟获取当前焦点窗口的进程名，按用户配置分类为 work / entertainment / unknown。
-4. **滑动窗口提醒**
-   - 检查前面 `window_minutes`（默认 45）分钟的窗口。
-   - 若窗口内存在连续 `break_minutes`（默认 5）分钟休息，则认为用户在休息，不提醒。
-   - 否则视为连续活跃，弹出系统通知。
+3. **滑动窗口提醒**（`db.rs` + `lib.rs`）
+   - 检查前面 `window_minutes`（默认 45）分钟的记录。
+   - 若存在连续 `break_minutes`（默认 5）分钟休息 → 不提醒。
+   - 否则弹出系统通知。
 
 ---
 
-## 计划中的配置项
+## 配置项
 
 | 配置名 | 说明 | 默认值 |
 |--------|------|--------|
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
-| `app_categories` | 应用分类名单（JSON） | `{}` |
+
 
 ---
 
-## 计划中的目录结构
+## 实际目录结构
 
 ### Rust 后端（Tauri 侧）
 
 ```
-src/
-├── main.rs              -- Tauri 入口，setup
-├── input/
-│   ├── mod.rs           -- 启动/停止监听
-│   ├── keyboard.rs      -- rdev 全局键盘 hook（2s debounce）
-│   └── mouse.rs         -- tokio interval 2s 查光标位置
-├── engine/
-│   ├── mod.rs           -- 每分钟活跃判定 + 滑动窗口检测
-│   └── window.rs        -- 查焦点窗口进程名
-├── db.rs                -- rusqlite 读写封装
-├── notify.rs            -- tauri::notification 封装
-└── commands.rs          -- #[tauri::command] 暴露给前端
+src-tauri/src/
+├── main.rs    -- Tauri 入口，仅调用 lib::run()
+├── lib.rs     -- 全部业务逻辑：
+│                · 键盘/鼠标采样线程
+│                · 每分钟结算 + 写入 DB
+│                · 滑动窗口检测 + 通知
+│                · #[tauri::command] 暴露给前端
+│                · 系统托盘
+└── db.rs      -- rusqlite 读写封装 + 单元测试
 ```
+
+> 与 PLAN.md 的差异：原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
 
 ### 前端（Vue 3）
 
 ```
 src/
 ├── views/
-│   ├── Dashboard.vue    -- 今日时间轴 + 统计看板
-│   └── Settings.vue     -- 两个滑块 + 应用分类名单编辑
+│   ├── Dashboard.vue    -- 今日统计 + 24h 时间轴
+│   └── Settings.vue     -- window_minutes / break_minutes 滑块 + 应用分类编辑
 ├── components/
-│   └── Timeline.vue     -- 24h 色块时间轴
+│   └── Timeline.vue     -- 24h × 60min 色块热力图（CSS Grid，类 GitHub 贡献图）
+├── router/
+│   └── index.ts         -- hash 路由（/dashboard, /settings）
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
-└── App.vue              -- 路由/布局
+├── App.vue              -- naive-ui 布局 + 侧边栏
+└── main.ts              -- Vue 入口
 ```
+
+### 时间轴实现说明
+
+- **技术**：CSS Grid（24 行 × 60 列），每个 `<div>` 色块代表 1 分钟，不是 SVG / Canvas / ECharts。
+- **布局**：行 = 小时（00-23），列 = 分钟（0-59）。
+- **交互**：鼠标在网格上移动，通过坐标计算对应分钟索引，显示时间与状态。
+- **当前时间**：对应色块加红色边框高亮。
 
 ### 数据库（SQLite）
 
@@ -106,7 +137,7 @@ CREATE TABLE records (
     timestamp INTEGER PRIMARY KEY,  -- 整分钟时间戳
     is_active INTEGER,              -- 0 = 休息, 1 = 活跃
     process_name TEXT,              -- 当前焦点窗口进程名
-    category TEXT                   -- work / entertainment / unknown
+    category TEXT                   -- [已弃用] 原应用分类，现保留列以兼容旧数据
 );
 
 -- 配置键值对
@@ -118,59 +149,67 @@ CREATE TABLE settings (
 
 ---
 
-## 计划中的开发步骤
+## 开发进度
 
-| 步骤 | 内容 | 验证方式 |
-|------|------|----------|
-| 1 | Rust 裸跑：rdev 键盘监听 + 2s 光标采样，console 打印事件 | `cargo run` 看输出稳定 |
-| 2 | 加每分钟活跃判定，写入 SQLite | 查 DB 有每分钟记录 |
-| 3 | 滑动窗口算法：读 `window_minutes` 窗口，检测连续 `break_minutes` 休息，触发系统通知 | 手动构造时间数据测试通知弹出 |
-| 4 | Tauri 套壳，前端 Vue 3 + 路由搭建 | `pnpm tauri dev` 窗口正常 |
-| 5 | 前端 Settings 页：滑块改 `window_minutes` / `break_minutes`，invoke 传 Rust 生效 | 改配置后算法响应 |
-| 6 | 前端 Dashboard：读 DB 画 24h 时间轴 + 今日统计 | 看到彩色时间块 |
-| 7 | 系统托盘图标 + 开机自启 | 托盘右键菜单正常 |
-| 8 | 应用分类名单：进程名 → work/entertainment，影响分类统计 | 切窗口看 category 变 |
+| 步骤 | 内容 | 状态 |
+|------|------|------|
+| 1 | Rust 采样：rdev 键盘 + device_query 鼠标 | ✅ |
+| 2 | 每分钟活跃判定，写入 SQLite | ✅ |
+| 3 | 滑动窗口算法 + 系统通知 | ✅ |
+| 4 | Tauri 套壳 + Vue 3 前端 | ✅ |
+| 5 | Settings 页：滑块改配置 | ✅ |
+| 6 | Dashboard：24h 时间轴 + 统计 | ✅ |
+| 7 | 系统托盘图标 | ✅ |
+| 8 | 应用分类名单（category 已存入 DB，前端 Settings 已支持编辑） | ✅（基础） |
 
 ---
 
-## 构建与运行命令（规划中）
+## 构建与运行命令（已验证）
 
-> 以下命令尚未验证，因为项目尚未初始化。
+```bash
+# 前端开发（不启动 Tauri）
+pnpm dev
 
-- **Rust 侧独立运行**：`cargo run`
-- **Tauri 开发模式**：`pnpm tauri dev`（需先初始化 Tauri + 前端）
-- **构建发布版**：`pnpm tauri build`
+# Tauri 开发模式
+pnpm tauri dev
+
+# 构建发布版
+pnpm tauri build
+
+# Rust 侧类型检查 / 测试
+cd src-tauri && cargo check
+cd src-tauri && cargo test
+```
 
 ---
 
 ## 代码风格与约定
 
-- 项目文档与计划全部使用**中文**撰写，建议后续代码注释也保持一致。
-- 前端计划使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
-- Rust 模块按功能分层：`input`（采集）、`engine`（判定）、`db`（持久化）、`notify`（提醒）、`commands`（前后端通信）。
+- 项目文档与计划全部使用**中文**撰写，代码注释保持一致。
+- 前端使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
+- Rust 当前未按功能拆分子模块（全部在 `lib.rs`），后续扩展时建议拆分。
 
 ---
 
 ## 测试策略
 
-目前未定义自动化测试方案。PLAN.md 中提到的验证方式以**手动测试**为主（运行后观察 console/DB/通知/界面）。建议在后续实现时补充：
-
-- Rust 单元测试（滑动窗口算法、分钟判定逻辑）。
-- 前端组件测试（Vue Test Utils / Vitest）。
+- **Rust**：`db.rs` 包含单元测试（`check_should_notify` 三种场景）。建议补充滑动窗口算法、分钟判定逻辑的独立测试。
+- **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
 ---
 
 ## 安全与隐私
 
-- 全局键鼠监听涉及操作系统底层权限，后续实现需确保：
-  - 监听范围仅限于活动计数，不记录按键内容或鼠标轨迹坐标本身。
-  - 数据库文件保存在用户本地目录，不向任何网络端点发送数据。
-- Tauri 的 `rdev` 与 `active-win-pos-rs` 依赖需要合适的系统权限（macOS 需 Accessibility、Windows 需 UI Access 等）。
+- 全局键鼠监听仅计数，不记录按键内容或鼠标轨迹坐标。
+- 数据库文件保存在 `app_data_dir/catrace.db`，不上传。
+- `rdev` 与 `active-win-pos-rs` 需要系统权限（macOS Accessibility / Windows UI Access）。
 
 ---
 
 ## 对 AI 助手的提示
 
-1. **不要假设已有代码**：当前仓库没有任何源码，做任何修改前请先初始化对应框架（Tauri / Vue / Vite 等）。
-2. **优先参考 PLAN.md**：如果需要在“实现”与“计划”之间做选择，请以 `PLAN.md` 为准，但要在代码注释或文档中标注实际行为是否与计划一致。
-3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档建议继续使用中文。
+1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
+2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/` 和 `src/components/`。
+3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
+4. **Timeline 实现方式**：使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts。
+5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
