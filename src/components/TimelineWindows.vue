@@ -158,13 +158,39 @@ function segmentRow(row: MinuteData[]): Segment[] {
   return segs
 }
 
-function segTitle(row: MinuteData[], si: number): string {
+interface DisplayItem {
+  type: 'segment' | 'cells'
+  active: boolean | null
+  count: number
+  startTs: number
+  minutes: MinuteData[]
+}
+
+function buildDisplayItems(row: MinuteData[]): DisplayItem[] {
   const segs = segmentRow(row)
+  const items: DisplayItem[] = []
   let offset = 0
-  for (let i = 0; i < si; i++) offset += segs[i].count
-  const startTs = row[0].ts + offset * 60
-  const count = segs[si].count
-  return `${formatTime(startTs)}–${formatTime(startTs + count * 60)} · ${formatDuration(count)}`
+  for (const seg of segs) {
+    if (seg.count >= 5) {
+      items.push({
+        type: 'segment',
+        active: seg.active,
+        count: seg.count,
+        startTs: row[0].ts + offset * 60,
+        minutes: [],
+      })
+    } else {
+      items.push({
+        type: 'cells',
+        active: seg.active,
+        count: seg.count,
+        startTs: row[0].ts + offset * 60,
+        minutes: row.slice(offset, offset + seg.count),
+      })
+    }
+    offset += seg.count
+  }
+  return items
 }
 
 /** 合并连续同状态的 10 分钟行 */
@@ -235,21 +261,38 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
               class="minute-row"
             >
               <div class="minute-row-bar">
-                <div
-                  v-for="(seg, si) in segmentRow(row)"
-                  :key="si"
-                  class="m-seg"
-                  :class="{
-                    'm-seg-active': seg.active === true,
-                    'm-seg-rest': seg.active === false,
-                    'm-seg-null': seg.active === null,
-                    'm-seg-first': si === 0,
-                    'm-seg-last': si === segmentRow(row).length - 1,
-                  }"
-                  :style="{ flex: seg.count }"
-                >
-                  <span class="seg-tip">{{ segTitle(row, si) }}</span>
-                </div>
+                <template v-for="(item, ii) in buildDisplayItems(row)" :key="ii">
+                  <div
+                    v-if="item.type === 'segment'"
+                    class="m-seg"
+                    :class="{
+                      'm-seg-active': item.active === true,
+                      'm-seg-rest': item.active === false,
+                      'm-seg-null': item.active === null,
+                    }"
+                    :style="{ flex: item.count }"
+                  >
+                    <span class="seg-tip">{{ formatTime(item.startTs) }}–{{ formatTime(item.startTs + item.count * 60) }} · {{ formatDuration(item.count) }}</span>
+                  </div>
+                  <div
+                    v-else
+                    class="m-cells"
+                    :style="{ flex: item.count }"
+                  >
+                    <div
+                      v-for="(m, mi) in item.minutes"
+                      :key="mi"
+                      class="m-cell"
+                      :class="{
+                        'm-cell-active': m.active === true,
+                        'm-cell-rest': m.active === false,
+                        'm-cell-null': m.active === null,
+                      }"
+                    >
+                      <span class="seg-tip">{{ formatTime(m.ts) }} · {{ getLabel(m.active, false) }}</span>
+                    </div>
+                  </div>
+                </template>
               </div>
               <span class="minute-row-time">
                 {{ formatTime(row[0].ts) }}–{{ formatTime(row[row.length - 1].ts + 60) }}
@@ -420,12 +463,39 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
   z-index: 2;
 }
 
-.m-seg-first {
-  border-radius: 2px 0 0 2px;
+.m-cells {
+  display: flex;
+  gap: 1px;
+  height: 100%;
+  min-width: 0;
 }
 
-.m-seg-last {
-  border-radius: 0 2px 2px 0;
+.m-cell {
+  flex: 1;
+  min-width: 1px;
+  height: 100%;
+  border-radius: 1px;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.m-cell:hover {
+  filter: brightness(1.15);
+  transform: translateY(-2px);
+  z-index: 2;
+}
+
+.m-cell-active {
+  background: #7c3aed;
+}
+
+.m-cell-rest {
+  background: #059669;
+}
+
+.m-cell-null {
+  background: #e4e4e7;
 }
 
 .seg-tip {
@@ -448,7 +518,8 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.m-seg:hover .seg-tip {
+.m-seg:hover .seg-tip,
+.m-cell:hover .seg-tip {
   opacity: 1;
 }
 
