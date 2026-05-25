@@ -133,7 +133,7 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <header class="header">
-      <h1 class="title">今日概览</h1>
+      <h1 class="title">今日统计</h1>
       <p class="subtitle">
         {{
           new Date().toLocaleDateString("zh-CN", {
