@@ -97,12 +97,12 @@ function getColor(active: boolean | null): string {
   return '#059669'
 }
 
-// 根据当前窗口宽度返回 CSS Grid 的列数（与样式中的 media query 保持一致）
+// 读取 CSS Grid 实际列数（与 auto-fill 布局保持一致）
 function getCols(): number {
-  const w = window.innerWidth
-  if (w <= 560) return 1
-  if (w <= 900) return 2
-  return 3
+  const grid = document.querySelector('.grid') as HTMLElement | null
+  if (!grid) return 3
+  const style = window.getComputedStyle(grid)
+  return style.gridTemplateColumns.split(' ').length
 }
 
 // 计算索引 i 所在的 CSS Grid 行包含的所有 block 索引
@@ -210,20 +210,8 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
 <style scoped>
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .card {
@@ -244,8 +232,7 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
 }
 
 .card.is-current {
-  background: #f5f3ff;
-  border-color: #ddd6fe;
+  border-color: #a78bfa;
 }
 
 .card-top {
@@ -261,7 +248,33 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
 }
 
 .dot.pulse {
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  position: relative;
+  animation: dotBreathe 2s ease-in-out infinite;
+}
+
+.dot.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: dotRipple 2s ease-out infinite;
+}
+
+@keyframes dotBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+@keyframes dotRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
 }
 
 .badge {
@@ -313,7 +326,7 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
 .detail {
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid #ebe6f2;
 }
 
 .minute-rows {

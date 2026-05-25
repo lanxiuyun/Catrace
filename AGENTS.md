@@ -166,7 +166,7 @@ src/
 ```
 
 - **已移除**：右上角「活跃中/休息中」状态标签、右侧「活跃 vs 休息」环形图面板。
-- **统计区**：四张等高白卡片（自定义 markup，非 `NStatistic`），彩色圆点 + 按类型着色的数值。
+- **统计区**：四张白卡片（自定义 markup，非 `NStatistic`），彩色圆点 + 按类型着色的数值；响应式整数列（宽屏 4 列 / 中等 2 列 / 窄屏 1 列），padding 紧凑。
   - **活跃**：按 **block 语义** 计算——活跃 block 的全部时长（含里面的休息分钟）+ 休息 block 里实际活跃的分钟。
   - **休息**：休息 block 里实际休息的分钟。
   - **活跃占比**、**活跃时段**：基于上述 block 语义统计。
@@ -185,7 +185,7 @@ src/
 - 基于前瞻式 block 切分算法（`utils/timeBlocks.ts`），将全天切分为**活跃 block** 和 **休息 block**。
 - 从首个记录开始向后扫描：窗口内遇连续 `break_minutes` 休息 → 休息 block；否则 → 活跃 block（固定 `window_minutes` 长度）。
 - 连续休息 block 自动合并，活跃 block 保持独立。
-- **卡片网格**：CSS Grid `repeat(3, 1fr)`，一行最多 3 张卡片。每张卡片显示时间范围 · 时长 · 状态标签；当前 block 淡紫底高亮 + 「进行中」标签。
+- **卡片网格**：CSS Grid `repeat(auto-fill, minmax(200px, 1fr))`，列数随容器自适应。每张卡片显示时间范围 · 时长 · 状态标签；当前 block 紫边框高亮 + 「进行中」标签 + 涟漪圆点。
   - 时间范围：已完成 block 的结束时间显示为 **不包含边界**（`endTs + 60`），例如 `00:00 → 00:45` 对应 45 分钟，和时长对齐；进行中 block 结束时间取当前实时时间。
   - 时长：已完成 block = 记录条数（`endIdx - startIdx`）；进行中 block = 从 block 起始到现在（`nowIdx - startIdx`）。
   - 标签：已完成 block 显示「活跃」/「休息」；进行中 block 只显示「进行中」，不显示状态。
@@ -243,6 +243,7 @@ CREATE TABLE settings (
 | 11 | Dashboard UI 精简重构：去环形图/状态标签、紧凑列表、统一主题、修复滚动条 | ✅ |
 | 12 | 修复进行中 block 显示未来时间：computeTimeBlocks 截断到 nowIdx + 1，展开视图截断到当前分钟 | ✅ |
 | 13 | 概览视图整行展开：点击卡片同步展开/收起同行全部卡片 | ✅ |
+| 14 | UI 微调：卡片自适应列数、进行中涟漪圆点、去背景色、分割线加深、统计卡片响应式、窗口最小尺寸 800×600 | ✅ |
 
 ---
 
@@ -317,7 +318,7 @@ cd src-tauri && cargo test
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
 2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/`、`src/components/`、`src/theme.ts`。
 3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
-4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**卡片网格**（CSS Grid `repeat(3, 1fr)`），点击卡片展开整行迷你色块。
+4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**卡片网格**（CSS Grid `repeat(auto-fill, minmax(200px, 1fr))`），点击卡片展开整行迷你色块。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
 6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
 7. **布局滚动**：不要在页面级容器使用 `min-height: 100vh`（会与 padding 叠加导致多余滚动条）；滚动交给 `App.vue` 的 `n-layout-content`。

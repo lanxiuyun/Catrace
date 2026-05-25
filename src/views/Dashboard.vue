@@ -231,16 +231,28 @@ onUnmounted(() => {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-bottom: 18px;
+}
+
+@media (max-width: 960px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat {
   background: #fff;
   border: 1px solid #ebe6f2;
   border-radius: 12px;
-  padding: 18px 20px;
+  padding: 9px 10px;
   box-shadow: 0 1px 3px rgba(46, 16, 101, 0.04);
 }
 
