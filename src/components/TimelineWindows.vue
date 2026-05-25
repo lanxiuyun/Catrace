@@ -164,7 +164,28 @@ function segTitle(row: MinuteData[], si: number): string {
   for (let i = 0; i < si; i++) offset += segs[i].count
   const startTs = row[0].ts + offset * 60
   const count = segs[si].count
-  return `${formatTime(startTs)}–${formatTime(startTs + count * 60)} · ${count}min`
+  return `${formatTime(startTs)}–${formatTime(startTs + count * 60)} · ${formatDuration(count)}`
+}
+
+/** 合并连续同状态的 10 分钟行 */
+function mergeChunkRows(chunks: MinuteData[][]): MinuteData[][] {
+  if (chunks.length === 0) return []
+  const merged: MinuteData[][] = []
+  let cur = chunks[0]
+
+  for (let i = 1; i < chunks.length; i++) {
+    const next = chunks[i]
+    const curSegs = segmentRow(cur)
+    const nextSegs = segmentRow(next)
+    if (curSegs.length === 1 && nextSegs.length === 1 && curSegs[0].active === nextSegs[0].active) {
+      cur = cur.concat(next)
+    } else {
+      merged.push(cur)
+      cur = next
+    }
+  }
+  merged.push(cur)
+  return merged
 }
 
 function getVisibleMinutes(block: WindowBlock): MinuteData[] {
@@ -209,7 +230,7 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
         <div v-if="expandedSet.has(i)" class="detail" @click.stop>
           <div class="minute-rows">
             <div
-              v-for="(row, ri) in chunkMinutes(getVisibleMinutes(block), 10)"
+              v-for="(row, ri) in mergeChunkRows(chunkMinutes(getVisibleMinutes(block), 10))"
               :key="ri"
               class="minute-row"
             >
