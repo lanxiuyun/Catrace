@@ -137,6 +137,36 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
   return chunks
 }
 
+interface Segment {
+  active: boolean | null
+  count: number
+}
+
+function segmentRow(row: MinuteData[]): Segment[] {
+  if (row.length === 0) return []
+  const segs: Segment[] = []
+  let cur: Segment = { active: row[0].active, count: 1 }
+  for (let i = 1; i < row.length; i++) {
+    if (row[i].active === cur.active) {
+      cur.count++
+    } else {
+      segs.push(cur)
+      cur = { active: row[i].active, count: 1 }
+    }
+  }
+  segs.push(cur)
+  return segs
+}
+
+function segTitle(row: MinuteData[], si: number): string {
+  const segs = segmentRow(row)
+  let offset = 0
+  for (let i = 0; i < si; i++) offset += segs[i].count
+  const startTs = row[0].ts + offset * 60
+  const count = segs[si].count
+  return `${formatTime(startTs)}–${formatTime(startTs + count * 60)} · ${count}min`
+}
+
 function getVisibleMinutes(block: WindowBlock): MinuteData[] {
   const all = block.windows.flatMap(w => w.minutes)
   if (!block.isCurrent) return all
@@ -183,18 +213,22 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
               :key="ri"
               class="minute-row"
             >
-              <div class="minute-row-grid">
+              <div class="minute-row-bar">
                 <div
-                  v-for="(m, mi) in row"
-                  :key="mi"
-                  class="m-cell"
+                  v-for="(seg, si) in segmentRow(row)"
+                  :key="si"
+                  class="m-seg"
                   :class="{
-                    'm-active': m.active === true,
-                    'm-rest': m.active === false,
-                    'm-null': m.active === null,
+                    'm-seg-active': seg.active === true,
+                    'm-seg-rest': seg.active === false,
+                    'm-seg-null': seg.active === null,
+                    'm-seg-first': si === 0,
+                    'm-seg-last': si === segmentRow(row).length - 1,
                   }"
-                  :title="formatTime(m.ts)"
-                />
+                  :style="{ flex: seg.count }"
+                >
+                  <span class="seg-tip">{{ segTitle(row, si) }}</span>
+                </div>
               </div>
               <span class="minute-row-time">
                 {{ formatTime(row[0].ts) }}–{{ formatTime(row[row.length - 1].ts + 60) }}
@@ -341,29 +375,71 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
   gap: 10px;
 }
 
-.minute-row-grid {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 2px;
-  width: 80px;
-  flex-shrink: 0;
+.minute-row-bar {
+  display: flex;
+  height: 8px;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+  border-radius: 2px;
+  overflow: visible;
 }
 
-.m-cell {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
+.m-seg {
+  height: 100%;
+  min-width: 1px;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
 }
 
-.m-active {
+.m-seg:hover {
+  filter: brightness(1.15);
+  transform: translateY(-2px);
+  z-index: 2;
+}
+
+.m-seg-first {
+  border-radius: 2px 0 0 2px;
+}
+
+.m-seg-last {
+  border-radius: 0 2px 2px 0;
+}
+
+.seg-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  background: rgba(24, 24, 27, 0.95);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  line-height: 1.4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.m-seg:hover .seg-tip {
+  opacity: 1;
+}
+
+.m-seg-active {
   background: #7c3aed;
 }
 
-.m-rest {
+.m-seg-rest {
   background: #059669;
 }
 
-.m-null {
+.m-seg-null {
   background: #e4e4e7;
 }
 
