@@ -154,7 +154,8 @@ pub fn run() {
                         .parse()
                         .unwrap_or(5);
 
-                    // 滑动窗口检测
+                    // 滑动窗口检测：只要 should_notify=true 就直接弹通知，
+                    // 不做边界去重（用户要求条件满足时每分钟都催）。
                     match db_clone.check_should_notify(window, break_m) {
                         Ok((should_notify, _boundary)) => {
                             if should_notify {

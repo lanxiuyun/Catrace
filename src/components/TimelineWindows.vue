@@ -37,6 +37,7 @@ const nowIdx = computed(() => {
   return Math.max(0, Math.min(1439, Math.floor((now - props.minutes[0].ts) / 60)))
 })
 
+// 当前整分钟的时间戳，用于「进行中 block」显示实时结束时间
 const nowTs = computed(() => {
   if (props.minutes.length === 0) return Math.floor(Date.now() / 1000)
   return props.minutes[0].ts + nowIdx.value * 60
@@ -127,12 +128,22 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
             <span class="time-range">
               {{ formatTime(block.startTs) }}
               <span class="time-sep">→</span>
-              {{ formatTime(block.isCurrent ? nowTs : block.endTs) }}
+              <!--
+                +60 原因：block 在代码里是 [start, end) 左闭右开。
+                endTs 是最后一条记录的时间戳（如 00:44），
+                但时长 = endIdx - startIdx = 45 分钟。
+                直接显示 00:44 会和「45 分钟」对不上（人类觉得 00:00→00:44 是 44 分钟）。
+                所以 +60 显示不包含的结束边界（00:45），和时长一致。
+                进行中 block 直接取 nowTs，不需要 +60。
+              -->
+              {{ formatTime(block.isCurrent ? nowTs : block.endTs + 60) }}
             </span>
             <span class="duration">
+              <!-- 进行中 block：时长 = 从 block 起始到现在；已完成 block：时长 = 记录条数 -->
               {{ formatDuration(block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx) }}
             </span>
             <div class="badges">
+              <!-- 进行中 block 不需要「活跃/休息」状态标签，只显示「进行中」即可 -->
               <span v-if="!block.isCurrent" class="badge" :class="getBadgeClass(block.active)">
                 {{ getLabel(block.active) }}
               </span>
@@ -162,7 +173,11 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
                     />
                   </div>
                   <span class="minute-row-time">
-                    {{ formatTime(row[0].ts) }}–{{ formatTime(row[row.length - 1].ts) }}
+                    <!--
+                      同主卡片 +60 逻辑：row[last].ts 是最后一条记录的时间戳（包含），
+                      +60 后显示不包含的结束边界，和「10 分钟」的时长对齐。
+                    -->
+                    {{ formatTime(row[0].ts) }}–{{ formatTime(row[row.length - 1].ts + 60) }}
                   </span>
                 </div>
               </div>
