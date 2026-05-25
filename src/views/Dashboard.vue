@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { NCard, NRadioGroup, NRadioButton } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
@@ -96,7 +96,7 @@ function fmtDuration(minutes: number): string {
   return `${m}m`;
 }
 
-onMounted(async () => {
+async function loadData() {
   try {
     const c = await getConfig();
     config.value = {
@@ -112,6 +112,20 @@ onMounted(async () => {
     records.value = map;
   } catch (e) {
     console.error("获取数据失败", e);
+  }
+}
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  loadData();
+  pollTimer = setInterval(loadData, 10000);
+});
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 });
 </script>
