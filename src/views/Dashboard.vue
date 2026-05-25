@@ -53,6 +53,14 @@ const activeBlockCount = computed(() => {
   return blocks.filter((b) => b.active === true).length;
 });
 
+function fmtDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
 onMounted(async () => {
   try {
     const c = await getConfig();
@@ -95,7 +103,7 @@ onMounted(async () => {
           <span class="stat-label">活跃</span>
         </div>
         <p class="stat-value">
-          {{ stats.active_minutes }}<span class="stat-unit">分钟</span>
+          {{ fmtDuration(stats.active_minutes) }}
         </p>
       </div>
       <div class="stat stat-rest">
@@ -104,7 +112,7 @@ onMounted(async () => {
           <span class="stat-label">休息</span>
         </div>
         <p class="stat-value">
-          {{ stats.rest_minutes }}<span class="stat-unit">分钟</span>
+          {{ fmtDuration(stats.rest_minutes) }}
         </p>
       </div>
       <div class="stat stat-ratio">
@@ -174,7 +182,7 @@ onMounted(async () => {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -226,6 +234,7 @@ onMounted(async () => {
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .stat-unit {

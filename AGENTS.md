@@ -79,11 +79,25 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
      - 若窗口内无足够连续休息 → 切为**活跃 block**（固定 `window_minutes` 长度）。
    - 当前时间所在为未完结的「进行中 block」。
-   - 提醒逻辑：
+   - 提醒逻辑（`db.rs` 切分 block + `lib.rs` 触发通知）：
      - 前一个已完成 block 为**活跃** → 弹出提醒（刚干完一波）。
      - 前一个已完成 block 为**休息**，当前进行中 block 长度 ≥ `window_minutes` → 弹出提醒（休息后又工作满一波）。
      - 其余情况不提醒。
-   - `lib.rs` 维护 `last_notify_boundary` 去重，同一 block 边界只提醒一次。
+   - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
+
+**提醒场景示例（`window=45, break=5`）**
+
+| 场景 | 时间线 | 结果 |
+|---|---|---|
+| 活跃 45min → 第 45min 休息 | 0:00~0:45 活跃 → **0:45 完成弹一次** → 0:45~0:50 休息（0:45~0:49 催，0:50 停） | ✅ 提醒 |
+| 活跃 40min，进行中 | 0:00~0:40 活跃（未满窗口） | ❌ 不提醒 |
+| 活跃 45min → 继续活跃 10min | 0:00~0:45 活跃 → **0:45 完成弹一次** → 0:45~0:55 继续活跃（每分钟催） | ✅ 提醒 |
+| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:46 休息 → 0:46~0:56 活跃（每分钟催） | ✅ 提醒 |
+| 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:50 休息（催到 0:49，0:50 停） → 0:50~1:35 活跃 → **1:35 弹** → 1:35 后每分钟催 | ✅ 提醒 |
+| 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:40 活跃 → 0:40~0:45 休息 → 0:45~0:48 活跃（未满窗口） | ❌ 不提醒 |
+| 全天休息 | 一直在休息 | ❌ 不提醒 |
+
+> 规律：Active block 完成时弹一次；若用户没有休息够 `break_minutes`，之后每分钟持续催，直到连续休息达标后停止。
 
 ---
 
@@ -253,7 +267,30 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：`db.rs` 包含单元测试（`check_should_notify` 覆盖活跃完成提醒、休息后不提醒、休息后再工作满提醒、短休息再工作满提醒、空数据、进行中不足等场景）。
+- **Rust**：`db.rs` 包含 14 个单元测试，覆盖 block 切分和提醒逻辑：
+
+  **Block 切分（3 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_compute_blocks_basic` | 45 活跃 + 5 休息 + 45 活跃，验证切分结果 |
+  | `test_compute_blocks_all_active` | 全活跃记录切成多个 Active block |
+  | `test_compute_blocks_all_rest` | 全休息记录切成一个 Rest block |
+
+  **提醒逻辑（11 个）**
+  | 测试名 | 覆盖场景 | 说明 |
+  |---|---|---|
+  | `test_no_notify_empty` | 场景 7 | 全天无记录 → 不提醒 |
+  | `test_no_notify_during_ongoing` | 场景 2 | 活跃 40min（未满窗口）→ 不提醒 |
+  | `test_no_notify_after_rest_block` | — | 休息 block 完成后 → 不提醒 |
+  | `test_no_notify_rest_then_short_active` | 场景 6 | 活跃 40min → 休息 5min → 再活跃 3min → 不提醒 |
+  | `test_notify_after_active_block_completes` | 场景 1 | 活跃 45min → 第 45min 休息 → 弹一次 |
+  | `test_notify_active_then_rest_until_break` | 场景 1 完整 | 活跃 45min → 休息，催到第 49min 停 |
+  | `test_notify_active_then_keep_active` | 场景 3 | 活跃 45min → 继续活跃 → 每分钟催 |
+  | `test_notify_short_rest_then_active` | 场景 4 | 活跃 45min → 休息 1min → 再活跃 45min → 弹 |
+  | `test_notify_after_rest_then_active` | — | 活跃 40min → 休息 5min → 再活跃 45min → 弹 |
+  | `test_notify_full_cycle_active_rest_active` | 场景 5 完整 | 活跃 45min → 休息 5min → 再活跃 45min，验证完整周期 |
+  | `test_notify_no_duplicate_boundary` | — | 同一数据多次调用，boundary 稳定 |
+
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
 ---

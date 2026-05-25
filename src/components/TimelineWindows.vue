@@ -37,6 +37,11 @@ const nowIdx = computed(() => {
   return Math.max(0, Math.min(1439, Math.floor((now - props.minutes[0].ts) / 60)))
 })
 
+const nowTs = computed(() => {
+  if (props.minutes.length === 0) return Math.floor(Date.now() / 1000)
+  return props.minutes[0].ts + nowIdx.value * 60
+})
+
 const blocks = computed<WindowBlock[]>(() => {
   const raw = computeTimeBlocks(
     props.minutes,
@@ -122,13 +127,13 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
             <span class="time-range">
               {{ formatTime(block.startTs) }}
               <span class="time-sep">→</span>
-              {{ formatTime(block.endTs) }}
+              {{ formatTime(block.isCurrent ? nowTs : block.endTs) }}
             </span>
             <span class="duration">
-              {{ formatDuration(block.endIdx - block.startIdx) }}
+              {{ formatDuration(block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx) }}
             </span>
             <div class="badges">
-              <span class="badge" :class="getBadgeClass(block.active)">
+              <span v-if="!block.isCurrent" class="badge" :class="getBadgeClass(block.active)">
                 {{ getLabel(block.active) }}
               </span>
               <span v-if="block.isCurrent" class="current-badge">进行中</span>

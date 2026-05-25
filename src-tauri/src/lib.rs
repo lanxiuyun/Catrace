@@ -126,8 +126,6 @@ pub fn run() {
             let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
                 let mut minute = interval(Duration::from_secs(60));
-                let mut last_notify_boundary: Option<i64> = None;
-
                 loop {
                     minute.tick().await;
                     let mut s = settle_state.lock().unwrap();
@@ -156,15 +154,14 @@ pub fn run() {
                         .parse()
                         .unwrap_or(5);
 
-                    // 滑动窗口检测 + block 边界去重
+                    // 滑动窗口检测
                     match db_clone.check_should_notify(window, break_m) {
-                        Ok((should_notify, boundary)) => {
-                            if should_notify && last_notify_boundary != boundary {
+                        Ok((should_notify, _boundary)) => {
+                            if should_notify {
                                 let _ = app_handle.notification().builder()
                                     .title("休息提醒")
                                     .body("连续工作过久，该休息啦")
                                     .show();
-                                last_notify_boundary = boundary;
                             }
                         }
                         Err(e) => eprintln!("检测失败: {}", e),
