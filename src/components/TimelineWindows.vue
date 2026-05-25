@@ -38,8 +38,8 @@ interface WindowBlock {
   endTs: number
 }
 
-// 当前展开的是第几个 block（索引），null 表示全部收起
-const expandedBlock = ref<number | null>(null)
+// 当前展开的 block 索引集合（整行一起展开/收起）
+const expandedSet = ref(new Set<number>())
 
 const nowIdx = computed(() => {
   if (props.minutes.length === 0) return 0
@@ -97,8 +97,36 @@ function getColor(active: boolean | null): string {
   return '#059669'
 }
 
+// 根据当前窗口宽度返回 CSS Grid 的列数（与样式中的 media query 保持一致）
+function getCols(): number {
+  const w = window.innerWidth
+  if (w <= 560) return 1
+  if (w <= 900) return 2
+  return 3
+}
+
+// 计算索引 i 所在的 CSS Grid 行包含的所有 block 索引
+function getRowIndices(i: number): number[] {
+  const cols = getCols()
+  const row = Math.floor(i / cols)
+  const start = row * cols
+  const end = Math.min(start + cols, blocks.value.length)
+  return Array.from({ length: end - start }, (_, j) => start + j)
+}
+
+// 点击卡片时整行同步展开/收起：若该行已有展开卡片则全部收起，否则全部展开
 function toggleBlock(i: number) {
-  expandedBlock.value = expandedBlock.value === i ? null : i
+  const rowIndices = getRowIndices(i)
+  const isAnyExpanded = rowIndices.some(idx => expandedSet.value.has(idx))
+  const next = new Set(expandedSet.value)
+  rowIndices.forEach(idx => {
+    if (isAnyExpanded) {
+      next.delete(idx)
+    } else {
+      next.add(idx)
+    }
+  })
+  expandedSet.value = next
 }
 
 function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
@@ -148,7 +176,7 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
       </div>
 
       <transition name="expand">
-        <div v-if="expandedBlock === i" class="detail" @click.stop>
+        <div v-if="expandedSet.has(i)" class="detail" @click.stop>
           <div class="minute-rows">
             <div
               v-for="(row, ri) in chunkMinutes(getVisibleMinutes(block), 10)"

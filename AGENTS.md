@@ -30,7 +30,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── assets/
 │   ├── components/
 │   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
-│   │   └── TimelineWindows.vue # 概览视图：block 时段列表
+│   │   └── TimelineWindows.vue # 概览视图：block 卡片网格（可展开整行）
 │   ├── router/index.ts
 │   ├── utils/
 │   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
@@ -139,7 +139,7 @@ src/
 │   └── Settings.vue     -- window_minutes / break_minutes 滑块
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
-│   └── TimelineWindows.vue  -- 概览 block 列表（紧凑单行 + 可展开详情）
+│   └── TimelineWindows.vue  -- 概览 block 卡片网格（3 列，点击展开整行）
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
@@ -185,11 +185,11 @@ src/
 - 基于前瞻式 block 切分算法（`utils/timeBlocks.ts`），将全天切分为**活跃 block** 和 **休息 block**。
 - 从首个记录开始向后扫描：窗口内遇连续 `break_minutes` 休息 → 休息 block；否则 → 活跃 block（固定 `window_minutes` 长度）。
 - 连续休息 block 自动合并，活跃 block 保持独立。
-- **单行列表**：时间范围 · 时长 · 状态标签；当前 block 淡紫底高亮 + 「进行中」标签。
+- **卡片网格**：CSS Grid `repeat(3, 1fr)`，一行最多 3 张卡片。每张卡片显示时间范围 · 时长 · 状态标签；当前 block 淡紫底高亮 + 「进行中」标签。
   - 时间范围：已完成 block 的结束时间显示为 **不包含边界**（`endTs + 60`），例如 `00:00 → 00:45` 对应 45 分钟，和时长对齐；进行中 block 结束时间取当前实时时间。
   - 时长：已完成 block = 记录条数（`endIdx - startIdx`）；进行中 block = 从 block 起始到现在（`nowIdx - startIdx`）。
   - 标签：已完成 block 显示「活跃」/「休息」；进行中 block 只显示「进行中」，不显示状态。
-- 点击条目展开：每 10 分钟一行的迷你色块 + 时间标签；时间标签同样使用 `+60` 显示不包含边界（如 `00:00–00:10` 表示 10 分钟）。
+- **整行展开**：点击任意卡片，该卡片所在 CSS Grid 行内的所有卡片同步展开/收起。展开内容：每 10 分钟一行的迷你色块 + 时间标签；时间标签同样使用 `+60` 显示不包含边界（如 `00:00–00:10` 表示 10 分钟）。
 
 ### UI 主题（`theme.ts`）
 
@@ -242,6 +242,7 @@ CREATE TABLE settings (
 | 10 | 概览视图：前瞻式 block 切分列表（默认概览） | ✅ |
 | 11 | Dashboard UI 精简重构：去环形图/状态标签、紧凑列表、统一主题、修复滚动条 | ✅ |
 | 12 | 修复进行中 block 显示未来时间：computeTimeBlocks 截断到 nowIdx + 1，展开视图截断到当前分钟 | ✅ |
+| 13 | 概览视图整行展开：点击卡片同步展开/收起同行全部卡片 | ✅ |
 
 ---
 
@@ -316,7 +317,7 @@ cd src-tauri && cargo test
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
 2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/`、`src/components/`、`src/theme.ts`。
 3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
-4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**单行列表** + 可展开迷你色块。
+4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**卡片网格**（CSS Grid `repeat(3, 1fr)`），点击卡片展开整行迷你色块。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
 6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
 7. **布局滚动**：不要在页面级容器使用 `min-height: 100vh`（会与 padding 叠加导致多余滚动条）；滚动交给 `App.vue` 的 `n-layout-content`。

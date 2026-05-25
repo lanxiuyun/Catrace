@@ -74,7 +74,7 @@ src/
 │   └── Settings.vue         -- 滑块改配置
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
-│   └── TimelineWindows.vue  -- 概览 block 单行列表（可展开分钟色块）
+│   └── TimelineWindows.vue  -- 概览 block 卡片网格（可展开整行分钟色块）
 ├── utils/
 │   └── timeBlocks.ts        -- block 切分算法（与 Dashboard 统计共用）
 ├── router/
@@ -110,9 +110,9 @@ src/
 **概览视图**（`TimelineWindows.vue`，默认展示）：
 - 基于 `utils/timeBlocks.ts` 前瞻式 block 切分，将全天切分为活跃 / 休息 block。
 - 连续休息 block 自动合并，活跃 block 保持独立。
-- **紧凑单行列表**：左侧色点 + 时间范围 + 时长 + 状态标签；分割线分隔各行。
+- **卡片网格**：CSS Grid `repeat(3, 1fr)`，每张卡片显示色点 + 时间范围 + 时长 + 状态标签。
 - 当前 block：淡紫背景 + 「进行中」标签。
-- 点击展开：每 10 分钟一行的迷你色块 + 时间标签。
+- **整行展开**：点击任意卡片，同行全部卡片同步展开/收起。展开内容：每 10 分钟一行的迷你色块 + 时间标签。
 
 ### UI 主题与布局
 
@@ -140,6 +140,7 @@ src/
 | 7 | 系统托盘图标 | ✅ |
 | 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
 | 9 | Dashboard UI 精简重构（主题统一、去冗余面板、紧凑列表、滚动修复） | ✅ |
+| 10 | 概览视图整行展开：点击卡片同步展开/收起同行全部卡片 | ✅ |
 
 ## 构建命令
 
@@ -175,3 +176,4 @@ cd src-tauri && cargo test
 4. **新增 `src/theme.ts`**：集中管理色板与 naive-ui 组件主题，侧边栏菜单、Radio、Button 等统一紫色调。
 5. **统计卡片重写**：弃用 `NStatistic` + 渐变满色底，改为四张等高自定义白卡片。
 6. **修复多余滚动条**：去掉页面 `min-height: 100vh`，根节点 `overflow: hidden`，滚动仅发生在主内容区。
+7. **概览视图整行展开**：由单卡片展开改为点击卡片同步展开/收起 CSS Grid 同行全部卡片，保持行高一致。
