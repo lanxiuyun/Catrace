@@ -163,6 +163,7 @@ cd src-tauri && cargo test
 - 监听线程崩溃应自动重启，前端显示状态
 - 通知基于 block 切分逻辑触发：活跃 block 完成后提醒一次，休息后又工作满一个窗口再提醒一次
 - `lib.rs` 维护 `last_notify_boundary` 去重，避免同一 block 边界连续每分钟轰炸
+- **未来 null 不参与切分**：`computeTimeBlocks` 将全天数据截断到 `nowIdx + 1` 后再切分。若不排除未来 null，`findBreakEnd` 会把尚未发生的无记录分钟当作「连续休息」，切出一个从当前时间直通午夜的超大休息 block，既污染统计数据，也让 UI 出现幽灵时段。
 
 ## 近期 UI 变更摘要（2025-05）
 

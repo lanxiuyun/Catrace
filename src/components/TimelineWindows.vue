@@ -1,12 +1,21 @@
+/**
+ * TimelineWindows.vue — 概览视图：block 时段单行列表 + 可展开分钟色块
+ *
+ * 核心职责：
+ * 1. 调用 computeTimeBlocks + mergeRestBlocks，把全天 1440 分钟切分为活跃/休息 block。
+ * 2. 以紧凑单行列表展示各 block 的时间范围、时长、状态。
+ * 3. 点击条目展开：每 10 分钟一行的迷你色块（紫色=活跃，绿色=休息，灰色=无记录）。
+ * 4. 进行中 block 特殊处理：淡紫底高亮，结束时间取实时 nowTs，展开时不显示未来分钟。
+ */
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { MinuteData } from './Timeline.vue'
 import { computeTimeBlocks, mergeRestBlocks } from '../utils/timeBlocks'
 
 const props = defineProps<{
-  minutes: MinuteData[]
-  windowMinutes?: number
-  breakMinutes?: number
+  minutes: MinuteData[]    // 全天 1440 分钟的 MinuteData
+  windowMinutes?: number   // 工作窗口长度（默认 45）
+  breakMinutes?: number    // 连续休息打断阈值（默认 5）
 }>()
 
 interface WorkWindow {
@@ -29,20 +38,39 @@ interface WindowBlock {
   endTs: number
 }
 
+// 当前展开的是第几个 block（索引），null 表示全部收起
 const expandedBlock = ref<number | null>(null)
 
+/**
+ * 当前分钟在全天中的索引（0~1439）。
+ * props.minutes[0].ts 是当天 00:00 的时间戳，
+ * (now - dayStart) / 60 即为当前分钟索引。
+ */
 const nowIdx = computed(() => {
   if (props.minutes.length === 0) return 0
   const now = Math.floor(Date.now() / 1000)
   return Math.max(0, Math.min(1439, Math.floor((now - props.minutes[0].ts) / 60)))
 })
 
-// 当前整分钟的时间戳，用于「进行中 block」显示实时结束时间
+/**
+ * 当前整分钟的时间戳（秒）。
+ * 用于「进行中 block」的结束时间显示，取整分钟边界而非实时秒数，
+ * 这样和时长计算（nowIdx - startIdx）保持一致。
+ */
 const nowTs = computed(() => {
   if (props.minutes.length === 0) return Math.floor(Date.now() / 1000)
   return props.minutes[0].ts + nowIdx.value * 60
 })
 
+/**
+ * 经切分、合并后的 block 列表。
+ *
+ * 流程：
+ * 1. computeTimeBlocks 按前瞻式窗口切分出活跃/休息 block（只到当前时间）。
+ * 2. mergeRestBlocks 把相邻的「已完成休息 block」合并，避免列表碎片化。
+ * 3. 转成 WindowBlock 结构供模板使用（windows 字段保留是为了兼容早期多窗口设计，
+ *    目前每个 block 只含一个 WorkWindow）。
+ */
 const blocks = computed<WindowBlock[]>(() => {
   const raw = computeTimeBlocks(
     props.minutes,
@@ -97,12 +125,34 @@ function toggleBlock(i: number) {
   expandedBlock.value = expandedBlock.value === i ? null : i
 }
 
+/**
+ * 将 MinuteData 数组按固定大小切分为二维数组。
+ * 用于展开视图：每 10 个分钟一行迷你色块。
+ */
 function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
   const chunks: MinuteData[][] = []
   for (let i = 0; i < minutes.length; i += size) {
     chunks.push(minutes.slice(i, i + size))
   }
   return chunks
+}
+
+/**
+ * 获取展开时应显示的分钟数据。
+ *
+ * 已完成 block：返回全部分钟。
+ * 进行中 block：截断到 nowIdx，不显示未来时间。
+ *
+ * 为什么需要截断：
+ * 即使 computeTimeBlocks 已排除未来数据，进行中 block 的理论长度仍可能达到
+ * windowMinutes（如当前只进行了 8 分钟，但 block 定义长度是 45 分钟）。
+ * 截断确保展开时只展示「已发生」的分钟，避免末尾出现一大片灰色未来格子。
+ */
+function getVisibleMinutes(block: WindowBlock): MinuteData[] {
+  const all = block.windows.flatMap(w => w.minutes)
+  if (!block.isCurrent) return all
+  const end = Math.min(all.length, nowIdx.value - block.startIdx + 1)
+  return all.slice(0, Math.max(0, end))
 }
 </script>
 
@@ -155,7 +205,7 @@ function chunkMinutes(minutes: MinuteData[], size: number): MinuteData[][] {
             <div v-if="expandedBlock === i" class="detail">
               <div class="minute-rows">
                 <div
-                  v-for="(row, ri) in chunkMinutes(block.windows.flatMap(w => w.minutes), 10)"
+                  v-for="(row, ri) in chunkMinutes(getVisibleMinutes(block), 10)"
                   :key="ri"
                   class="minute-row"
                 >
