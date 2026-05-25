@@ -29,14 +29,49 @@ const allMinutes = computed<MinuteData[]>(() => {
   return result;
 });
 
-const totalTracked = computed(
-  () => stats.value.active_minutes + stats.value.rest_minutes,
-);
-const activityPercent = computed(() =>
-  totalTracked.value > 0
-    ? Math.round((stats.value.active_minutes / totalTracked.value) * 100)
-    : 0,
-);
+// 按 block 语义重新计算活跃/休息时间：
+// 活跃 block 的全部时长算活跃；休息 block 里只有实际活跃的分钟算活跃，其余算休息
+const blockStats = computed(() => {
+  const dayStart = startOfDayTs();
+  const now = Math.floor(Date.now() / 1000);
+  const nowIdx = Math.max(
+    0,
+    Math.min(1439, Math.floor((now - dayStart) / 60)),
+  );
+  const blocks = computeTimeBlocks(
+    allMinutes.value,
+    config.value.window_minutes,
+    config.value.break_minutes,
+    nowIdx,
+  );
+
+  let activeMinutes = 0;
+  let restMinutes = 0;
+
+  for (const b of blocks) {
+    if (b.active === null) continue; // 无记录前缀，不计入
+    if (b.active === true) {
+      // 活跃 block：全部算活跃
+      activeMinutes += b.endIdx - b.startIdx;
+    } else {
+      // 休息 block：逐分钟判断
+      for (const m of b.minutes) {
+        if (m.active === true) {
+          activeMinutes += 1;
+        } else {
+          restMinutes += 1;
+        }
+      }
+    }
+  }
+
+  return { activeMinutes, restMinutes };
+});
+
+const activityPercent = computed(() => {
+  const total = blockStats.value.activeMinutes + blockStats.value.restMinutes;
+  return total > 0 ? Math.round((blockStats.value.activeMinutes / total) * 100) : 0;
+});
 
 const activeBlockCount = computed(() => {
   const now = Math.floor(Date.now() / 1000);
@@ -103,7 +138,7 @@ onMounted(async () => {
           <span class="stat-label">活跃</span>
         </div>
         <p class="stat-value">
-          {{ fmtDuration(stats.active_minutes) }}
+          {{ fmtDuration(blockStats.activeMinutes) }}
         </p>
       </div>
       <div class="stat stat-rest">
@@ -112,7 +147,7 @@ onMounted(async () => {
           <span class="stat-label">休息</span>
         </div>
         <p class="stat-value">
-          {{ fmtDuration(stats.rest_minutes) }}
+          {{ fmtDuration(blockStats.restMinutes) }}
         </p>
       </div>
       <div class="stat stat-ratio">
