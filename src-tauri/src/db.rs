@@ -73,7 +73,6 @@ impl Db {
     }
 
     pub fn get_today_stats(&self) -> Result<(i64, i64)> {
-        let conn = self.conn.lock().unwrap();
         let start_of_day = chrono::Local::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
@@ -81,16 +80,22 @@ impl Db {
             .and_local_timezone(chrono::Local)
             .unwrap()
             .timestamp();
+        self.get_day_stats(start_of_day)
+    }
+
+    pub fn get_day_stats(&self, start_of_day: i64) -> Result<(i64, i64)> {
+        let conn = self.conn.lock().unwrap();
+        let next_day = start_of_day + 86400;
 
         let active: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM records WHERE timestamp >= ?1 AND is_active = 1",
-            [start_of_day],
+            "SELECT COUNT(*) FROM records WHERE timestamp >= ?1 AND timestamp < ?2 AND is_active = 1",
+            [start_of_day, next_day],
             |row| row.get(0),
         )?;
 
         let rest: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM records WHERE timestamp >= ?1 AND is_active = 0",
-            [start_of_day],
+            "SELECT COUNT(*) FROM records WHERE timestamp >= ?1 AND timestamp < ?2 AND is_active = 0",
+            [start_of_day, next_day],
             |row| row.get(0),
         )?;
 
