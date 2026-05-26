@@ -378,7 +378,9 @@ pub fn run() {
             });
 
 
-            // 系统托盘
+            // 系统托盘：先移除可能已存在的旧图标，防止重复创建
+            let _ = app.remove_tray_by_id("main");
+
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
