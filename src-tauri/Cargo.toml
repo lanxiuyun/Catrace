@@ -31,4 +31,6 @@ chrono = "0.4"
 active-win-pos-rs = "0.10"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-autostart = "2"
+tauri-winrt-notification = "0.7"
+windows-registry = "0.5"
 

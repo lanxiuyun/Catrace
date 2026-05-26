@@ -63,7 +63,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener |
+| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-winrt-notification（Windows Toast）、windows-registry |
 
 ---
 
@@ -85,6 +85,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
      - 前一个已完成 block 为**休息**，当前进行中 block 长度 ≥ `window_minutes` → 弹出提醒（休息后又工作满一波）。
      - 其余情况不提醒。
    - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
+   - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复工作后重新判断。
+   - **Toast 按钮操作**（Windows）：通知带三个按钮——「开始休息」「3分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
 
 **提醒场景示例（`window=45, break=5`）**
 
@@ -97,8 +99,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:50 休息（催到 0:49，0:50 停） → 0:50~1:35 活跃 → **1:35 弹** → 1:35 后每分钟催 | ✅ 提醒 |
 | 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:40 活跃 → 0:40~0:45 休息 → 0:45~0:48 活跃（未满窗口） | ❌ 不提醒 |
 | 全天休息 | 一直在休息 | ❌ 不提醒 |
+| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:46 休息（不催） → 0:46~0:47 活跃（又弹） | ✅ 提醒（休息即停，复工又催） |
 
-> 规律：Active block 完成时弹一次；若用户没有休息够 `break_minutes`，之后每分钟持续催，直到连续休息达标后停止。
+> 规律：Active block 完成时弹一次；若用户没有休息够 `break_minutes`，之后每分钟持续催。但只要**当前分钟在休息**，立即停止提醒；恢复工作后重新判断。
 
 ---
 
@@ -109,6 +112,16 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
+
+**提醒操作（进程级状态，重启后重置）**
+
+| 操作 | 效果 |
+|------|------|
+| 跳过本次 | 当前 block 完成前不再提醒 |
+| 3分钟后提醒 | 推迟 3 分钟，期间不弹通知 |
+| 开始休息 | 标记已确认休息，当前 block 结束前不再提醒 |
+
+> 只要当前分钟在休息，系统**自动不提醒**，同时清除 snooze / break_acknowledged。恢复工作后重新判断。
 
 
 ---
@@ -246,6 +259,11 @@ CREATE TABLE settings (
 | 6 | Dashboard：今日活动（详细/概览双视图）+ 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
+| 22 | 提醒设置：skip / snooze / break 状态管理 | ✅ |
+| 23 | 休息即静音：当前分钟在休息则不提醒 | ✅ |
+| 24 | Windows Toast 通知带按钮（tauri-winrt-notification） | ✅ |
+| 25 | AUMID 注册：通知显示应用名称 | ✅ |
+| 26 | ~~弹窗提醒模式~~ | ❌ 已砍掉，只保留 Toast 通知 |
 | 9 | Dashboard UI 初版（统计卡片 + 环形图 + 双栏布局） | ✅（已被步骤 11 取代） |
 | 18 | 记住窗口位置和大小，下次启动恢复 | ✅ |
 | 10 | 概览视图：前瞻式 block 切分列表（默认概览） | ✅ |

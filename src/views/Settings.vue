@@ -9,7 +9,11 @@ import {
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { getConfig, setConfig, getSilentStart, setSilentStart, testNotification } from '../api/tauri'
+import {
+  getConfig, setConfig,
+  getSilentStart, setSilentStart,
+  testNotification,
+} from '../api/tauri'
 
 const config = ref({ window_minutes: 45, break_minutes: 5 })
 const autostart = ref(false)
@@ -316,7 +320,6 @@ async function notify() {
   margin: 0;
 }
 
-/* 预览 */
 /* 关于 */
 .about {
   text-align: center;
