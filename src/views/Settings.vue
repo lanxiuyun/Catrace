@@ -9,6 +9,9 @@ import {
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { getVersion } from '@tauri-apps/api/app'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 import {
   getConfig, setConfig,
   getSilentStart, setSilentStart,
@@ -21,12 +24,19 @@ const silentStart = ref(false)
 const loading = ref({ config: false, autostart: false, silent: false })
 const message = useMessage()
 
+// 更新状态
+const appVersion = ref('')
+const updateInfo = ref<{ available: boolean; version?: string; body?: string } | null>(null)
+const updateLoading = ref(false)
+const updateInstalling = ref(false)
+
 onMounted(async () => {
   try {
-    const [c, a, s] = await Promise.all([
+    const [c, a, s, v] = await Promise.all([
       getConfig(),
       isEnabled(),
       getSilentStart(),
+      getVersion(),
     ])
     config.value = {
       window_minutes: Number(c.window_minutes),
@@ -34,6 +44,7 @@ onMounted(async () => {
     }
     autostart.value = a
     silentStart.value = s
+    appVersion.value = v
   } catch (e) {
     console.error('获取配置失败', e)
   }
@@ -91,6 +102,50 @@ async function notify() {
     message.error('通知失败')
   }
 }
+
+async function handleCheckUpdate() {
+  updateLoading.value = true
+  try {
+    const update = await check({
+      headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
+    })
+    if (update) {
+      updateInfo.value = { available: true, version: update.version, body: update.body || '' }
+      message.info(`发现新版本：${update.version}`)
+    } else {
+      updateInfo.value = { available: false }
+      message.success('当前已是最新版本')
+    }
+  } catch (e) {
+    message.error('检查更新失败')
+    console.error(e)
+  } finally {
+    updateLoading.value = false
+  }
+}
+
+async function handleInstallUpdate() {
+  updateInstalling.value = true
+  try {
+    const update = await check({
+      headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
+    })
+    if (!update) {
+      message.warning('未找到可用更新')
+      return
+    }
+    await update.downloadAndInstall((event) => {
+      console.log(event)
+    })
+    message.success('更新已安装，即将重启')
+    await relaunch()
+  } catch (e) {
+    message.error('更新失败')
+    console.error(e)
+  } finally {
+    updateInstalling.value = false
+  }
+}
 </script>
 
 <template>
@@ -137,6 +192,41 @@ async function notify() {
               <n-button @click="notify">测试通知</n-button>
             </n-space>
           </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">软件更新</div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">当前版本</div>
+              <div class="setting-desc">{{ appVersion || '...' }}</div>
+            </div>
+            <div class="setting-control">
+              <n-button
+                :loading="updateLoading"
+                :disabled="updateInstalling"
+                @click="handleCheckUpdate"
+              >检查更新</n-button>
+            </div>
+          </div>
+
+          <template v-if="updateInfo?.available">
+            <div class="divider" />
+            <div class="update-banner">
+              <div class="update-banner-title">
+                发现新版本 {{ updateInfo.version }}
+              </div>
+              <div v-if="updateInfo.body" class="update-banner-body">
+                {{ updateInfo.body }}
+              </div>
+              <n-button
+                type="primary"
+                :loading="updateInstalling"
+                @click="handleInstallUpdate"
+              >立即更新</n-button>
+            </div>
+          </template>
         </div>
 
         <div class="group">
@@ -398,6 +488,24 @@ async function notify() {
 }
 .link-item:hover .link-arrow {
   color: #7C3AED;
+}
+
+/* 更新提示 */
+.update-banner {
+  padding: 14px 0 4px;
+}
+.update-banner-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2E1065;
+  margin-bottom: 6px;
+}
+.update-banner-body {
+  font-size: 12px;
+  color: #8B7AAB;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 /* 响应式 */
