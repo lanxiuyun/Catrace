@@ -40,28 +40,9 @@ fn set_config(config: serde_json::Value, db: tauri::State<db::Db>) -> Result<(),
     Ok(())
 }
 
-fn start_of_day_with_offset(offset_days: i64) -> i64 {
-    let now = chrono::Local::now();
-    let target = now + chrono::Duration::days(offset_days);
-    target
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(chrono::Local)
-        .unwrap()
-        .timestamp()
-}
-
 #[tauri::command]
 fn get_today_stats(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
     let (active, rest) = db.get_today_stats().map_err(|e| e.to_string())?;
-    Ok(serde_json::json!({ "active_minutes": active, "rest_minutes": rest }))
-}
-
-#[tauri::command]
-fn get_day_stats(offset_days: i64, db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
-    let start = start_of_day_with_offset(offset_days);
-    let (active, rest) = db.get_day_stats(start).map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "active_minutes": active, "rest_minutes": rest }))
 }
 
@@ -75,14 +56,6 @@ fn get_today_records(db: tauri::State<db::Db>) -> Result<Vec<(i64, bool)>, Strin
         .unwrap()
         .timestamp();
     db.get_records_since(start_of_day).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_day_records(offset_days: i64, db: tauri::State<db::Db>) -> Result<Vec<(i64, bool)>, String> {
-    let start = start_of_day_with_offset(offset_days);
-    let end = start + 86400;
-    let all = db.get_records_since(start).map_err(|e| e.to_string())?;
-    Ok(all.into_iter().filter(|(ts, _)| *ts < end).collect())
 }
 
 #[tauri::command]
@@ -214,7 +187,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_config, set_config, get_today_stats, get_day_stats, get_today_records, get_day_records, get_app_stats, test_notification])
+        .invoke_handler(tauri::generate_handler![get_config, set_config, get_today_stats, get_today_records, get_app_stats, test_notification])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

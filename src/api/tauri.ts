@@ -22,16 +22,8 @@ export async function getTodayStats(): Promise<DailyStats> {
   return invoke('get_today_stats')
 }
 
-export async function getDayStats(offsetDays: number): Promise<DailyStats> {
-  return invoke('get_day_stats', { offsetDays })
-}
-
 export async function getTodayRecords(): Promise<[number, boolean][]> {
   return invoke('get_today_records')
-}
-
-export async function getDayRecords(offsetDays: number): Promise<[number, boolean][]> {
-  return invoke('get_day_records', { offsetDays })
 }
 
 export async function getAppStats(): Promise<[string, number][]> {

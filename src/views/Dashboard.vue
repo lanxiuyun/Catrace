@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { NCard, NRadioGroup, NRadioButton } from "naive-ui";
-import { getTodayStats, getDayStats, getTodayRecords, getDayRecords, getConfig } from "../api/tauri";
+import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
 import TimelineWindows from "../components/TimelineWindows.vue";
 import type { MinuteData } from "../components/Timeline.vue";
@@ -11,11 +11,9 @@ const stats = ref({ active_minutes: 0, rest_minutes: 0 });
 const records = ref<Map<number, boolean>>(new Map());
 const config = ref({ window_minutes: 45, break_minutes: 5 });
 const timelineMode = ref<"grid" | "segments">("segments");
-const dateOffset = ref(0); // 0 = 今天, -1 = 昨天
 
 function startOfDayTs(): number {
   const d = new Date();
-  d.setDate(d.getDate() + dateOffset.value);
   d.setHours(0, 0, 0, 0);
   return Math.floor(d.getTime() / 1000);
 }
@@ -105,23 +103,13 @@ async function loadData() {
       window_minutes: Number(c.window_minutes),
       break_minutes: Number(c.break_minutes),
     };
-    if (dateOffset.value === 0) {
-      stats.value = await getTodayStats();
-      const raw = await getTodayRecords();
-      const map = new Map<number, boolean>();
-      for (const [ts, active] of raw) {
-        map.set(ts, active);
-      }
-      records.value = map;
-    } else {
-      stats.value = await getDayStats(dateOffset.value);
-      const raw = await getDayRecords(dateOffset.value);
-      const map = new Map<number, boolean>();
-      for (const [ts, active] of raw) {
-        map.set(ts, active);
-      }
-      records.value = map;
+    stats.value = await getTodayStats();
+    const raw = await getTodayRecords();
+    const map = new Map<number, boolean>();
+    for (const [ts, active] of raw) {
+      map.set(ts, active);
     }
+    records.value = map;
   } catch (e) {
     console.error("获取数据失败", e);
   }
@@ -145,24 +133,14 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <header class="header">
-      <div class="header-row">
-        <h1 class="title">{{ dateOffset === 0 ? '今日统计' : '昨日统计' }}</h1>
-        <n-radio-group v-model:value="dateOffset" size="small" @update:value="loadData">
-          <n-radio-button :value="0">今天</n-radio-button>
-          <n-radio-button :value="-1">昨天</n-radio-button>
-        </n-radio-group>
-      </div>
+      <h1 class="title">今日统计</h1>
       <p class="subtitle">
         {{
-          (() => {
-            const d = new Date();
-            d.setDate(d.getDate() + dateOffset);
-            return d.toLocaleDateString("zh-CN", {
-              month: "long",
-              day: "numeric",
-              weekday: "long",
-            });
-          })()
+          new Date().toLocaleDateString("zh-CN", {
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          })
         }}
       </p>
     </header>
@@ -208,7 +186,7 @@ onUnmounted(() => {
 
     <n-card class="panel" :bordered="false">
       <div class="panel-header">
-        <h2 class="panel-title">{{ dateOffset === 0 ? '今日活动' : '昨日活动' }}</h2>
+        <h2 class="panel-title">今日活动</h2>
         <n-radio-group v-model:value="timelineMode" size="small">
           <n-radio-button value="segments">概览</n-radio-button>
           <n-radio-button value="grid">详细</n-radio-button>
@@ -235,13 +213,6 @@ onUnmounted(() => {
 
 .header {
   margin-bottom: 22px;
-}
-
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .title {
