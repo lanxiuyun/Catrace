@@ -11,7 +11,7 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tokio::time::interval;
-use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+// 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
 #[cfg(windows)]
 use tauri_winrt_notification::Toast;
@@ -135,6 +135,8 @@ fn test_notification(
     show_notification(&app_handle, 0, "这是一条测试提醒", state.inner().clone());
 }
 
+
+
 // ------------------------------------------------------------------
 // 通知：Windows Toast（带按钮）
 // ------------------------------------------------------------------
@@ -246,6 +248,7 @@ pub fn run() {
             Some(vec!["--autostart"]),
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(move |app| {
             // 注册 AUMID，让 Windows Toast 通知显示为应用名称
             #[cfg(windows)]
@@ -367,24 +370,13 @@ pub fn run() {
             }
 
             let win_clone = window.clone();
-            let app_handle_for_save = app.app_handle().clone();
-            let (save_tx, save_rx) = std::sync::mpsc::channel::<()>();
-            std::thread::spawn(move || {
-                while let Ok(()) = save_rx.recv() {
-                    std::thread::sleep(Duration::from_millis(500));
-                    while save_rx.try_recv().is_ok() {}
-                    let _ = app_handle_for_save.save_window_state(StateFlags::all());
-                }
-            });
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = win_clone.hide();
                 }
-                if matches!(event, tauri::WindowEvent::Moved { .. } | tauri::WindowEvent::Resized { .. }) {
-                    let _ = save_tx.send(());
-                }
             });
+
 
             // 系统托盘
             let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
