@@ -220,6 +220,19 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
   const end = Math.min(all.length, nowIdx.value - block.startIdx + 1)
   return all.slice(0, Math.max(0, end))
 }
+
+interface ChunkRow {
+  minutes: MinuteData[]
+  isLast: boolean
+}
+
+function getChunkRows(block: WindowBlock): ChunkRow[] {
+  const rows = mergeChunkRows(chunkMinutes(getVisibleMinutes(block), 10))
+  return rows.map((minutes, i) => ({
+    minutes,
+    isLast: i === rows.length - 1,
+  }))
+}
 </script>
 
 <template>
@@ -256,12 +269,12 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
         <div v-if="expandedSet.has(i)" class="detail" @click.stop>
           <div class="minute-rows">
             <div
-              v-for="(row, ri) in mergeChunkRows(chunkMinutes(getVisibleMinutes(block), 10))"
+              v-for="(row, ri) in getChunkRows(block)"
               :key="ri"
               class="minute-row"
             >
               <div class="minute-row-bar">
-                <template v-for="(item, ii) in buildDisplayItems(row)" :key="ii">
+                <template v-for="(item, ii) in buildDisplayItems(row.minutes)" :key="ii">
                   <div
                     v-if="item.type === 'segment'"
                     class="m-seg"
@@ -293,9 +306,14 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
                     </div>
                   </div>
                 </template>
+                <div
+                  v-if="row.isLast && row.minutes.length < 10"
+                  class="m-placeholder"
+                  :style="{ flex: 10 - row.minutes.length }"
+                />
               </div>
               <span class="minute-row-time">
-                {{ formatTime(row[0].ts) }}–{{ formatTime(row[row.length - 1].ts + 60) }}
+                {{ formatTime(row.minutes[0].ts) }}–{{ formatTime(row.minutes[row.minutes.length - 1].ts + 60) }}
               </span>
             </div>
           </div>
@@ -533,6 +551,12 @@ function getVisibleMinutes(block: WindowBlock): MinuteData[] {
 
 .m-seg-null {
   background: #e4e4e7;
+}
+
+.m-placeholder {
+  height: 100%;
+  border-radius: 1px;
+  min-width: 1px;
 }
 
 .minute-row-time {
