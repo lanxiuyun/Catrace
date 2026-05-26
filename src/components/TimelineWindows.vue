@@ -233,6 +233,11 @@ function getChunkRows(block: WindowBlock): ChunkRow[] {
     isLast: i === rows.length - 1,
   }))
 }
+
+function countActiveInBlock(block: WindowBlock): number {
+  const mins = block.windows.flatMap(w => w.minutes)
+  return mins.filter(m => m.active === true).length
+}
 </script>
 
 <template>
@@ -261,8 +266,16 @@ function getChunkRows(block: WindowBlock): ChunkRow[] {
         {{ formatTime(block.isCurrent ? nowTs : block.endTs + 60) }}
       </div>
 
-      <div class="card-duration">
-        {{ formatDuration(block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx) }}
+      <div class="card-meta">
+        <span class="card-duration">
+          {{ formatDuration(block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx) }}
+        </span>
+        <span
+          v-if="block.active === false && countActiveInBlock(block) > 0"
+          class="card-nested-active"
+        >
+          活跃 {{ formatDuration(countActiveInBlock(block)) }}
+        </span>
       </div>
 
       <transition name="expand">
@@ -433,9 +446,20 @@ function getChunkRows(block: WindowBlock): ChunkRow[] {
   margin: 0 4px;
 }
 
+.card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .card-duration {
   font-size: 13px;
   color: #71717a;
+}
+
+.card-nested-active {
+  font-size: 11px;
+  color: #a1a1aa;
 }
 
 /* 展开详情 */
