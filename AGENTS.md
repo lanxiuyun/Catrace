@@ -63,7 +63,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口） |
+| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener |
 
 ---
 
@@ -108,6 +108,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 |--------|------|--------|
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
+| `silent_start` | 开机自启时不显示主窗口 | false |
 
 
 ---
@@ -256,6 +257,9 @@ CREATE TABLE settings (
 | 16 | 展开视图混合渲染：连续 ≥5 分钟用色条，<5 分钟用独立方块，tooltip 分别显示段/单分钟信息 | ✅ |
 | 17 | 展开视图末行宽度修正：不足 10 分钟时色条按实际占比显示，右侧留白 | ✅ |
 | 18 | 概览休息卡片显示穿插活跃时间：与时长同行右对齐，0 时隐藏 | ✅ |
+| 19 | 设置页文本优化 + 开机自启/静默启动开关 | ✅ |
+| 20 | 关闭不退出最小化到托盘，双击托盘显示主页面 | ✅ |
+| 21 | 设置页两栏布局 + 相关链接（GitHub/更新日志/问题反馈） | ✅ |
 
 ---
 

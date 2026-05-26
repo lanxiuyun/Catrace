@@ -13,6 +13,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 
+
 #[derive(Default)]
 struct ActivityState {
     count: u32,
@@ -64,6 +65,34 @@ fn get_app_stats(db: tauri::State<db::Db>) -> Result<Vec<(String, i64)>, String>
 }
 
 #[tauri::command]
+fn get_silent_start(db: tauri::State<db::Db>) -> bool {
+    db.get_setting("silent_start", "false") == "true"
+}
+
+#[tauri::command]
+fn set_silent_start(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("silent_start", &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn show_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn test_notification(app_handle: tauri::AppHandle) -> Result<(), String> {
     app_handle.notification().builder()
         .title("测试通知")
@@ -95,6 +124,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .setup(move |app| {
             let mouse_state = state.clone();
             let settle_state = state.clone();
@@ -173,22 +206,56 @@ pub fn run() {
                 }
             });
 
+            // 主窗口：静默启动时隐藏，拦截关闭事件改为最小化到托盘
+            let window = app.get_webview_window("main").unwrap();
+            let args: Vec<String> = std::env::args().collect();
+            let is_autostart = args.contains(&"--autostart".to_string());
+            let silent_start = db.get_setting("silent_start", "false") == "true";
+            if is_autostart && silent_start {
+                let _ = window.hide();
+            }
+
+            let win_clone = window.clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = win_clone.hide();
+                }
+            });
+
             // 系统托盘
+            let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&quit_i])?;
+            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| {
-                    if event.id.as_ref() == "quit" {
-                        app.exit(0);
+                    match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
                     }
                 })
                 .build(app)?;
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_config, set_config, get_today_stats, get_today_records, get_app_stats, test_notification])
+        .invoke_handler(tauri::generate_handler![get_config, set_config, get_silent_start, set_silent_start, show_main_window, hide_main_window, get_today_stats, get_today_records, get_app_stats, test_notification])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

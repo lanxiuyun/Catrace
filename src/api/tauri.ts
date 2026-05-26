@@ -18,6 +18,14 @@ export async function setConfig(config: AppConfig): Promise<void> {
   return invoke('set_config', { config })
 }
 
+export async function getSilentStart(): Promise<boolean> {
+  return invoke('get_silent_start')
+}
+
+export async function setSilentStart(enabled: boolean): Promise<void> {
+  return invoke('set_silent_start', { enabled })
+}
+
 export async function getTodayStats(): Promise<DailyStats> {
   return invoke('get_today_stats')
 }
