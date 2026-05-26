@@ -85,23 +85,25 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
      - 前一个已完成 block 为**休息**，当前进行中 block 长度 ≥ `window_minutes` → 弹出提醒（休息后又工作满一波）。
      - 其余情况不提醒。
    - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
-   - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复工作后重新判断。
-   - **Toast 按钮操作**（Windows）：通知带三个按钮——「开始休息」「3分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
+   - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复活跃后重新判断。
+   - **Toast 按钮操作**（Windows）：通知带三个按钮——「3分钟后提醒」「5分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
 
 **提醒场景示例（`window=45, break=5`）**
 
+> 关键前提：提醒只在**当前分钟活跃**时检查。休息分钟不检查，因此休息期间**绝不弹通知**。
+
 | 场景 | 时间线 | 结果 |
 |---|---|---|
-| 活跃 45min → 第 45min 休息 | 0:00~0:45 活跃 → **0:45 完成弹一次** → 0:45~0:50 休息（0:45~0:49 催，0:50 停） | ✅ 提醒 |
-| 活跃 40min，进行中 | 0:00~0:40 活跃（未满窗口） | ❌ 不提醒 |
-| 活跃 45min → 继续活跃 10min | 0:00~0:45 活跃 → **0:45 完成弹一次** → 0:45~0:55 继续活跃（每分钟催） | ✅ 提醒 |
-| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:46 休息 → 0:46~0:56 活跃（每分钟催） | ✅ 提醒 |
-| 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:50 休息（催到 0:49，0:50 停） → 0:50~1:35 活跃 → **1:35 弹** → 1:35 后每分钟催 | ✅ 提醒 |
-| 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:40 活跃 → 0:40~0:45 休息 → 0:45~0:48 活跃（未满窗口） | ❌ 不提醒 |
+| 活跃 45min → 继续活跃 | 0:00~0:44 活跃 → **0:45 弹** → 0:45~0:54 继续活跃（每分钟催） | ✅ 提醒 |
+| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:44 活跃 → 0:45 休息（不催）→ **0:46 弹** → 0:46~ 活跃（每分钟催） | ✅ 提醒（休息即停，复工又催） |
+| 活跃 45min → 休息 4min → 恢复活跃 | 0:00~0:44 活跃 → 0:45~0:48 休息（不催）→ **0:49 弹** → 0:49~ 活跃（每分钟催） | ✅ 提醒（休息不够，复工即催） |
+| 活跃 45min → 休息够 5min | 0:00~0:44 活跃 → 0:45~0:49 休息（不催）→ 0:50 休息够 5min | ❌ 不提醒。休息期间不检查；休息够后 should_notify=false，恢复活跃需再工作满窗口 |
+| 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:44 活跃 → 0:45~0:49 休息（不催）→ 0:50~1:34 活跃 → **1:35 弹** → 1:35 后每分钟催 | ✅ 提醒 |
+| 活跃 40min，进行中 | 0:00~0:39 活跃（未满窗口） | ❌ 不提醒 |
+| 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:39 活跃 → 0:40~0:44 休息 → 0:45~0:47 活跃（未满窗口） | ❌ 不提醒 |
 | 全天休息 | 一直在休息 | ❌ 不提醒 |
-| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:45 活跃 → **0:45 弹** → 0:45~0:46 休息（不催） → 0:46~0:47 活跃（又弹） | ✅ 提醒（休息即停，复工又催） |
 
-> 规律：Active block 完成时弹一次；若用户没有休息够 `break_minutes`，之后每分钟持续催。但只要**当前分钟在休息**，立即停止提醒；恢复工作后重新判断。
+> 规律：活跃 block 完成后，**下一个活跃分钟**会弹；若之后没有休息够 `break_minutes`，则继续每分钟催。但只要**当前分钟在休息**，立即停止提醒；恢复活跃后重新判断。
 
 ---
 
@@ -119,9 +121,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 |------|------|
 | 跳过本次 | 当前 block 完成前不再提醒 |
 | 3分钟后提醒 | 推迟 3 分钟，期间不弹通知 |
-| 开始休息 | 标记已确认休息，当前 block 结束前不再提醒 |
+| 5分钟后提醒 | 推迟 5 分钟，期间不弹通知 |
 
-> 只要当前分钟在休息，系统**自动不提醒**，同时清除 snooze / break_acknowledged。恢复工作后重新判断。
+> 只要当前分钟在休息，系统**自动不提醒**，同时清除 snooze。恢复活跃后重新判断。
 
 
 ---
@@ -259,7 +261,7 @@ CREATE TABLE settings (
 | 6 | Dashboard：今日活动（详细/概览双视图）+ 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
-| 22 | 提醒设置：skip / snooze / break 状态管理 | ✅ |
+| 22 | 提醒设置：skip / snooze（3/5分钟）状态管理 | ✅ |
 | 23 | 休息即静音：当前分钟在休息则不提醒 | ✅ |
 | 24 | Windows Toast 通知带按钮（tauri-winrt-notification） | ✅ |
 | 25 | AUMID 注册：通知显示应用名称 | ✅ |
@@ -323,17 +325,17 @@ cd src-tauri && cargo test
   **提醒逻辑（11 个）**
   | 测试名 | 覆盖场景 | 说明 |
   |---|---|---|
-  | `test_no_notify_empty` | 场景 7 | 全天无记录 → 不提醒 |
-  | `test_no_notify_during_ongoing` | 场景 2 | 活跃 40min（未满窗口）→ 不提醒 |
-  | `test_no_notify_after_rest_block` | — | 休息 block 完成后 → 不提醒 |
-  | `test_no_notify_rest_then_short_active` | 场景 6 | 活跃 40min → 休息 5min → 再活跃 3min → 不提醒 |
-  | `test_notify_after_active_block_completes` | 场景 1 | 活跃 45min → 第 45min 休息 → 弹一次 |
-  | `test_notify_active_then_rest_until_break` | 场景 1 完整 | 活跃 45min → 休息，催到第 49min 停 |
-  | `test_notify_active_then_keep_active` | 场景 3 | 活跃 45min → 继续活跃 → 每分钟催 |
-  | `test_notify_short_rest_then_active` | 场景 4 | 活跃 45min → 休息 1min → 再活跃 45min → 弹 |
-  | `test_notify_after_rest_then_active` | — | 活跃 40min → 休息 5min → 再活跃 45min → 弹 |
+  | `test_no_notify_empty` | 场景 8 | 全天无记录 → should_notify=false |
+  | `test_no_notify_during_ongoing` | 场景 6 | 活跃 40min（未满窗口）→ should_notify=false |
+  | `test_no_notify_after_rest_block` | — | 休息 block 完成后 → should_notify=false |
+  | `test_no_notify_rest_then_short_active` | 场景 7 | 活跃 40min → 休息 5min → 再活跃 3min → should_notify=false |
+  | `test_notify_after_active_block_completes` | 场景 1 | 活跃 45min → 继续活跃 → should_notify=true |
+  | `test_notify_active_then_rest_until_break` | 场景 4 | 活跃 45min → 休息，前 4min should_notify=true，第 5min false |
+  | `test_notify_active_then_keep_active` | 场景 1 延长 | 活跃 45min → 继续活跃 10min → should_notify 持续 true |
+  | `test_notify_short_rest_then_active` | 场景 2 | 活跃 45min → 休息 1min → 再活跃 45min → should_notify=true |
+  | `test_notify_after_rest_then_active` | 场景 5 | 活跃 40min → 休息 5min → 再活跃 45min → should_notify=true |
   | `test_notify_full_cycle_active_rest_active` | 场景 5 完整 | 活跃 45min → 休息 5min → 再活跃 45min，验证完整周期 |
-  | `test_notify_no_duplicate_boundary` | — | 同一数据多次调用，boundary 稳定 |
+  | `test_notify_no_duplicate_boundary` | 场景 1 | 同一数据多次调用，boundary 稳定 |
 
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 

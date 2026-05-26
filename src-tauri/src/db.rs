@@ -326,8 +326,8 @@ mod tests {
         for i in 0..45 {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        // 结算第 45 分钟（休息）
-        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
+        // 第 45 分钟继续活跃 → active block 完成后继续干活，should_notify=true
+        db.insert_record(base + 45 * 60, true, "test.exe").unwrap();
         let (should, boundary) = db.check_should_notify(45, 5).unwrap();
         assert!(should);
         assert_eq!(boundary, Some(base + 44 * 60));
@@ -340,20 +340,22 @@ mod tests {
         for i in 0..45 {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
-        db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
-        db.insert_record(base + 46 * 60, false, "test.exe").unwrap();
+        // 第 45、46 分钟继续活跃
+        db.insert_record(base + 45 * 60, true, "test.exe").unwrap();
+        db.insert_record(base + 46 * 60, true, "test.exe").unwrap();
 
         let (should1, boundary1) = db.check_should_notify(45, 5).unwrap();
         assert!(should1);
         assert_eq!(boundary1, Some(base + 44 * 60));
 
+        // 再插一条活跃，boundary 仍不变
+        db.insert_record(base + 47 * 60, true, "test.exe").unwrap();
         let (should2, boundary2) = db.check_should_notify(45, 5).unwrap();
         assert!(should2);
         assert_eq!(boundary2, Some(base + 44 * 60));
-        // 同一组数据 boundary 不变；lib.rs 已不做重，每次 should_notify=true 都会弹
     }
 
-    // 场景1完整版：活跃 45min → 休息，催到第 49min，第 50min 停
+    // 场景4完整版：活跃 45min → 休息，前 4min 休息时 should_notify 仍为 true，第 5min 停
     #[test]
     fn test_notify_active_then_rest_until_break() {
         let db = Db::new(Path::new(":memory:")).unwrap();
@@ -363,28 +365,28 @@ mod tests {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
 
-        // 第 45min 休息 → 催
+        // 第 45min 休息 → should_notify=true（prev=Active，current_slice 未达 5 连休）
         db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 46min 休息 → 催
+        // 第 46min 休息 → should_notify=true
         db.insert_record(base + 46 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 47min 休息 → 催
+        // 第 47min 休息 → should_notify=true
         db.insert_record(base + 47 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 48min 休息 → 催
+        // 第 48min 休息 → should_notify=true
         db.insert_record(base + 48 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 49min 休息 → 连续休息够 5，停
+        // 第 49min 休息 → 连续休息够 5，should_notify=false
         db.insert_record(base + 49 * 60, false, "test.exe").unwrap();
         assert!(!db.check_should_notify(45, 5).unwrap().0);
     }
 
-    // 场景3：活跃 45min → 继续活跃 10min，每分钟催
+    // 场景1延长版：活跃 45min → 继续活跃 10min，should_notify 持续为 true
     #[test]
     fn test_notify_active_then_keep_active() {
         let db = Db::new(Path::new(":memory:")).unwrap();
@@ -394,9 +396,7 @@ mod tests {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
 
-        // 第 45min 结算 → 催
-        // 注意：insert_record 是逐条插入的，这里模拟已经插完 55 条后的状态
-        // 直接检查最终状态：prev=Active(0,45)，current_slice=活跃×10
+        // prev=Active(0,45)，current_slice=活跃×10，无连续休息 → should_notify=true
         let (should, _) = db.check_should_notify(45, 5).unwrap();
         assert!(should);
     }
@@ -412,11 +412,11 @@ mod tests {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
 
-        // 第 45min 休息 → 催
+        // 第 45min 休息 → should_notify=true（prev=Active，未达 5 连休）
         db.insert_record(base + 45 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 46-48min 休息 → 催
+        // 第 46-48min 休息 → should_notify=true
         db.insert_record(base + 46 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
         db.insert_record(base + 47 * 60, false, "test.exe").unwrap();
@@ -424,7 +424,7 @@ mod tests {
         db.insert_record(base + 48 * 60, false, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
 
-        // 第 49min 休息 → 连续够 5，停
+        // 第 49min 休息 → 连续够 5，should_notify=false
         db.insert_record(base + 49 * 60, false, "test.exe").unwrap();
         assert!(!db.check_should_notify(45, 5).unwrap().0);
 
@@ -433,12 +433,12 @@ mod tests {
             db.insert_record(base + i * 60, true, "test.exe").unwrap();
         }
 
-        // 第 94min（1:35）完成第二个 Active block → 催
+        // 第 94min（1:35）完成第二个 Active block → should_notify=true
         let (should, boundary) = db.check_should_notify(45, 5).unwrap();
         assert!(should);
         assert_eq!(boundary, Some(base + 94 * 60));
 
-        // 第 95min（1:36）继续活跃 → 继续催
+        // 第 95min（1:36）继续活跃 → should_notify=true
         db.insert_record(base + 95 * 60, true, "test.exe").unwrap();
         assert!(db.check_should_notify(45, 5).unwrap().0);
     }

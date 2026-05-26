@@ -30,11 +30,6 @@ export async function snoozeReminder(minutes: number): Promise<void> {
   return invoke('snooze_reminder', { minutes })
 }
 
-/** 标记开始休息，当前 block 结束前不再提醒 */
-export async function startBreak(): Promise<void> {
-  return invoke('start_break')
-}
-
 /** 获取静默启动开关 */
 export async function getSilentStart(): Promise<boolean> {
   return invoke('get_silent_start')

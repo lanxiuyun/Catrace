@@ -28,10 +28,8 @@ struct ActivityState {
 struct ReminderState {
     /// 推迟提醒直到该时刻
     snooze_until: Option<Instant>,
-    /// 跳过提醒直到该 block boundary（时间戳）
+    /// 跳过本次提醒直到该 block boundary（时间戳）
     skip_until_boundary: Option<i64>,
-    /// 用户主动点击「开始休息」后的冷却（避免立即再弹）
-    break_acknowledged: bool,
 }
 
 impl ReminderState {
@@ -75,13 +73,6 @@ fn skip_reminder(boundary: i64, state: tauri::State<Arc<Mutex<ReminderState>>>) 
 fn snooze_reminder(minutes: u64, state: tauri::State<Arc<Mutex<ReminderState>>>) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
-}
-
-#[tauri::command]
-fn start_break(state: tauri::State<Arc<Mutex<ReminderState>>>) {
-    let mut s = state.lock().unwrap();
-    s.break_acknowledged = true;
-    s.snooze_until = None;
 }
 
 #[tauri::command]
@@ -165,19 +156,18 @@ fn show_notification(
         let toast = Toast::new(&aumid)
             .title("休息提醒")
             .text1(&msg)
-            .add_button("开始休息", "break")
-            .add_button("3分钟后提醒", "snooze")
+            .add_button("3分钟后提醒", "snooze_3")
+            .add_button("5分钟后提醒", "snooze_5")
             .add_button("跳过本次", "skip")
             .on_activated(move |action| {
                 eprintln!("[Toast] 按钮点击: {:?}", action);
                 let mut s = state.lock().unwrap();
                 match action.as_deref() {
-                    Some("break") => {
-                        s.break_acknowledged = true;
-                        s.snooze_until = None;
-                    }
-                    Some("snooze") => {
+                    Some("snooze_3") => {
                         s.snooze_until = Some(Instant::now() + Duration::from_secs(3 * 60));
+                    }
+                    Some("snooze_5") => {
+                        s.snooze_until = Some(Instant::now() + Duration::from_secs(5 * 60));
                     }
                     Some("skip") => {
                         s.skip_until_boundary = Some(b);
@@ -327,22 +317,19 @@ pub fn run() {
                         .unwrap_or(5);
 
                     // 提醒逻辑：
-                    // 1. 当前分钟在休息 → 不提醒，同时清除 snooze/break_acknowledged
+                    // 1. 当前分钟在休息 → 不提醒，同时清除 snooze
                     //    （用户已经开始自然休息，不需要再催）
                     // 2. 当前分钟在活跃 → 检查 should_notify，再经过 ReminderState 过滤：
                     //    · skip_until_boundary：用户点了「跳过本次」
-                    //    · snooze_until：用户点了「3分钟后提醒」
-                    //    · break_acknowledged：用户点了「开始休息」
+                    //    · snooze_until：用户点了「3/5分钟后提醒」
                     if active {
                         match db_clone.check_should_notify(window, break_m) {
                             Ok((should_notify, boundary)) => {
-                                let mut r = reminder_state_for_settle.lock().unwrap();
-                                // 用户又开始干活了，清除 break_acknowledged
-                                r.break_acknowledged = false;
+                                let r = reminder_state_for_settle.lock().unwrap();
 
                                 if should_notify {
                                     if let Some(b) = boundary {
-                                        if r.is_skipped(b) || r.is_snoozed() || r.break_acknowledged {
+                                        if r.is_skipped(b) || r.is_snoozed() {
                                             // 被用户操作过滤，不提醒
                                         } else {
                                             drop(r);
@@ -359,10 +346,9 @@ pub fn run() {
                             Err(e) => eprintln!("检测失败: {}", e),
                         }
                     } else {
-                        // 当前分钟在休息 → 清除所有临时状态，不提醒
+                        // 当前分钟在休息 → 清除 snooze，不提醒
                         let mut r = reminder_state_for_settle.lock().unwrap();
                         r.snooze_until = None;
-                        r.break_acknowledged = false;
                     }
 
                     s.count = 0;
@@ -420,7 +406,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, set_config,
-            skip_reminder, snooze_reminder, start_break,
+            skip_reminder, snooze_reminder,
             get_silent_start, set_silent_start,
             show_main_window, hide_main_window,
             get_today_stats, get_today_records, get_app_stats,
