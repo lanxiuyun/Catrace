@@ -11,6 +11,7 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tokio::time::interval;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 #[cfg(windows)]
 use tauri_winrt_notification::Toast;
@@ -244,6 +245,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             // 注册 AUMID，让 Windows Toast 通知显示为应用名称
             #[cfg(windows)]
@@ -365,10 +367,22 @@ pub fn run() {
             }
 
             let win_clone = window.clone();
+            let app_handle_for_save = app.app_handle().clone();
+            let (save_tx, save_rx) = std::sync::mpsc::channel::<()>();
+            std::thread::spawn(move || {
+                while let Ok(()) = save_rx.recv() {
+                    std::thread::sleep(Duration::from_millis(500));
+                    while save_rx.try_recv().is_ok() {}
+                    let _ = app_handle_for_save.save_window_state(StateFlags::all());
+                }
+            });
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = win_clone.hide();
+                }
+                if matches!(event, tauri::WindowEvent::Moved { .. } | tauri::WindowEvent::Resized { .. }) {
+                    let _ = save_tx.send(());
                 }
             });
 
