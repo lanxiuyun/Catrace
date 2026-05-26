@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      appVersion: ${{ steps.version.outputs.appVersion }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "appVersion=$VERSION" >> $GITHUB_OUTPUT
+
+  publish-tauri:
+    needs: get-version
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: true
+          prerelease: false
+          args: '--target x86_64-pc-windows-msvc'
+
+  upgradeLink-upload:
+    needs:
+      - get-version
+      - publish-tauri
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    environment: tauri
+
+    steps:
+      - name: Send a request to UpgradeLink
+        uses: toolsetlink/upgradelink-action@3.0.2
+        with:
+          access_key: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          access_secret: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          config: |
+            {
+              "app_type": "tauri",
+              "request": {
+                "app_key": "${{ secrets.UPGRADE_LINK_APP_KEY }}",
+                "latest_json_url": "https://github.com/lanxiuyun/catrace/releases/download/v${{ needs.get-version.outputs.appVersion }}/latest.json"
+              }
+            }
