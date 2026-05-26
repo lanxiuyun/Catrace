@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "catrace",
+        "title": "Catrace",
         "width": 800,
         "height": 600,
         "minWidth": 800,
