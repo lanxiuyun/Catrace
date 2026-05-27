@@ -75,7 +75,12 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: |
+            **Windows** — 下载 `catrace_*_x64_en-US.msi`
+            **macOS (Apple Silicon M1/M2/M3)** — 下载 `catrace_*_aarch64.dmg`
+            **macOS (Intel)** — 下载 `catrace_*_x64.dmg`
+            **Linux (通用)** — 下载 `catrace_*_amd64.AppImage`
+            **Linux (Debian/Ubuntu)** — 下载 `catrace_*_amd64.deb`
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
