@@ -10,6 +10,7 @@ use active_win_pos_rs::get_active_window;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
+use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
@@ -271,12 +272,11 @@ pub fn run() {
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
 
-            // 每 2 秒采样鼠标位置
-            tauri::async_runtime::spawn(async move {
+            // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
+            thread::spawn(move || {
                 let device_state = DeviceState::new();
-                let mut ticker = interval(Duration::from_secs(2));
                 loop {
-                    ticker.tick().await;
+                    thread::sleep(Duration::from_secs(2));
                     let mouse = device_state.get_mouse();
                     let (x, y) = mouse.coords;
                     let mut s = mouse_state.lock().unwrap();
