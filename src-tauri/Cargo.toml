@@ -1,6 +1,6 @@
 [package]
 name = "catrace"
-version = "26.5.30"
+version = "26.5.31"
 description = "工作与休息平衡提醒工具"
 authors = ["lanxiuyun"]
 edition = "2021"
