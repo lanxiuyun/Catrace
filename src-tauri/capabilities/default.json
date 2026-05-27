@@ -9,6 +9,7 @@
     "window-state:default",
     "autostart:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    "notification:default"
   ]
 }

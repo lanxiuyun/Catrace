@@ -199,10 +199,13 @@ fn show_notification(
     message: &str,
     _reminder_state: Arc<Mutex<ReminderState>>,
 ) {
-    let _ = app_handle.notification().builder()
+    if let Err(e) = app_handle.notification().builder()
         .title("休息提醒")
         .body(message)
-        .show();
+        .show()
+    {
+        eprintln!("通知发送失败: {}", e);
+    }
 }
 
 #[cfg(windows)]
