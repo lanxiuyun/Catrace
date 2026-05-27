@@ -306,13 +306,13 @@ fn get_video_debug_info(
     }
 }
 
-/** 获取「看视频时计入活跃」开关状态（默认 true）。 */
+/** 获取「视频计入活跃」开关状态（默认 true）。 */
 #[tauri::command]
 fn get_video_active_enabled(db: tauri::State<db::Db>) -> bool {
     db.get_setting("video_active_enabled", "true") == "true"
 }
 
-/** 设置「看视频时计入活跃」开关状态。 */
+/** 设置「视频计入活跃」开关状态。 */
 #[tauri::command]
 fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
     db.set_setting("video_active_enabled", &enabled.to_string())

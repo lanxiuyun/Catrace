@@ -90,12 +90,12 @@ export async function getVideoDebugInfo(): Promise<VideoDebugInfo> {
   return invoke('get_video_debug_info')
 }
 
-/** 获取「看视频时计入活跃」开关 */
+/** 获取「视频计入活跃」开关 */
 export async function getVideoActiveEnabled(): Promise<boolean> {
   return invoke('get_video_active_enabled')
 }
 
-/** 设置「看视频时计入活跃」开关 */
+/** 设置「视频计入活跃」开关 */
 export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
   return invoke('set_video_active_enabled', { enabled })
 }
