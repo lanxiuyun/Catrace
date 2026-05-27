@@ -76,7 +76,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'
           releaseBody: |
-            **Windows** — 下载 `catrace_*_x64_en-US.msi`
+            **Windows** — 下载 `catrace_*_x64-setup.exe`
             **macOS (Apple Silicon M1/M2/M3)** — 下载 `catrace_*_aarch64.dmg`
             **macOS (Intel)** — 下载 `catrace_*_x64.dmg`
             **Linux (通用)** — 下载 `catrace_*_amd64.AppImage`
