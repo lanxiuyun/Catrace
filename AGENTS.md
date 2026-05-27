@@ -74,6 +74,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 全局监听键盘按下事件（`rdev`），2 秒内去重。
 2. **分钟判定**（`lib.rs`）
    - 60 秒内活动次数 ≥ 3 → 该分钟标记为**活跃**；否则标记为**休息**。
+   - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
+     - **Windows**：通过 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，读取 `PlaybackType` 与 `PlaybackStatus`，精确判断是否有视频处于 **Playing** 状态（支持浏览器、UWP 播放器、Spotify 等所有注册系统媒体会话的应用）。
+     - **macOS / Linux**：回退到窗口标题 + 进程名关键词匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`，零新增依赖。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。

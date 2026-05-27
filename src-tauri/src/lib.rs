@@ -14,6 +14,87 @@ use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
+// ------------------------------------------------------------------
+// 视频/流媒体检测
+// ------------------------------------------------------------------
+
+/// Windows：通过 GlobalSystemMediaTransportControlsSessionManager 枚举系统媒体会话，
+/// 精确判断是否有视频正在播放（PlaybackType::Video + Playing 状态）。
+/// 支持浏览器、UWP 播放器、Spotify 等所有向系统注册媒体会话的应用。
+#[cfg(windows)]
+fn is_media_active() -> bool {
+    use windows::Media::Control::{
+        GlobalSystemMediaTransportControlsSessionManager,
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus,
+    };
+    use windows::Media::MediaPlaybackType;
+
+    let Ok(async_op) = GlobalSystemMediaTransportControlsSessionManager::RequestAsync() else {
+        return false;
+    };
+    let Ok(manager) = async_op.get() else {
+        return false;
+    };
+    let Ok(sessions) = manager.GetSessions() else {
+        return false;
+    };
+    let Ok(count) = sessions.Size() else {
+        return false;
+    };
+
+    for i in 0..count {
+        let Ok(session) = sessions.GetAt(i) else { continue };
+        let Ok(playback_info) = session.GetPlaybackInfo() else { continue };
+        let Ok(status) = playback_info.PlaybackStatus() else { continue };
+
+        if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+            let Ok(props_async) = session.TryGetMediaPropertiesAsync() else { continue };
+            let Ok(props) = props_async.get() else { continue };
+            if let Ok(type_ref) = props.PlaybackType() {
+                if let Ok(playback_type) = type_ref.Value() {
+                    if playback_type == MediaPlaybackType::Video {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
+/// 非 Windows 平台：回退到窗口标题 + 进程名关键词匹配
+#[cfg(not(windows))]
+fn is_media_active() -> bool {
+    match get_active_window() {
+        Ok(win) => {
+            let title_lower = win.title.to_lowercase();
+            let app_name_lower = win.app_name.to_lowercase();
+            let path_lower = win.process_path.to_lowercase();
+
+            let video_site_keywords = [
+                "youtube", "bilibili", "netflix", "twitch",
+                "爱奇艺", "腾讯视频", "优酷", "芒果tv",
+                "disney+", "hbo max", "prime video", "hulu",
+                "crunchyroll", "niconico", "dailymotion", "vimeo",
+                "live", "直播",
+            ];
+            let video_player_keywords = [
+                "vlc", "mpv", "potplayer", "mpc-hc", "mpc-be",
+                "kmplayer", "gom", "mx player", "infuse",
+                "iina", "quicktime", "movies & tv", "电影和电视",
+                "windows media player", "媒体播放器",
+            ];
+
+            video_site_keywords.iter().any(|&k| title_lower.contains(k))
+                || video_player_keywords.iter().any(|&k| {
+                    app_name_lower.contains(k) || path_lower.contains(k)
+                })
+        }
+        Err(_) => false,
+    }
+}
+
 #[cfg(windows)]
 use tauri_winrt_notification::Toast;
 
@@ -299,7 +380,8 @@ pub fn run() {
                 loop {
                     minute.tick().await;
                     let mut s = settle_state.lock().unwrap();
-                    let active = s.count >= 3;
+                    let media_active = is_media_active();
+                    let active = s.count >= 3 || media_active;
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     let process_name = match get_active_window() {
