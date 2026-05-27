@@ -346,12 +346,6 @@ async function handleInstallUpdate() {
       </div>
     </div>
 
-    <!-- 底部：关于 -->
-    <div class="group about">
-      <div class="about-name">Catrace</div>
-      <div class="about-version">v0.1.0</div>
-      <div class="about-desc">后台静默运行的桌面工具，帮助你平衡工作与休息</div>
-    </div>
   </div>
 </template>
 
@@ -451,28 +445,6 @@ async function handleInstallUpdate() {
   height: 1px;
   background: #F5F3FF;
   margin: 0;
-}
-
-/* 关于 */
-.about {
-  text-align: center;
-  padding: 24px;
-  margin-bottom: 0;
-}
-.about-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #2E1065;
-}
-.about-version {
-  font-size: 11px;
-  color: #A78BFA;
-  margin: 2px 0 8px;
-  font-variant-numeric: tabular-nums;
-}
-.about-desc {
-  font-size: 12px;
-  color: #8B7AAB;
 }
 
 /* 相关链接 */
