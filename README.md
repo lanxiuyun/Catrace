@@ -4,11 +4,11 @@
 
 一个帮你平衡工作与休息的小工具。
 
-[→ 下载最新版本](https://github.com/lanxiuyun/catrace/releases)
-
 ![Catrace Dashboard](.readme/dashboard.png)
 
 ![Catrace 通知](.readme/notification.png)
+
+## [下载最新版本](https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow)
 
 ## 它是干嘛的
 

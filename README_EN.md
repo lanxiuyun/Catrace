@@ -2,11 +2,13 @@
 
 A small tool that helps you balance work and rest.
 
-[→ Download latest release](https://github.com/lanxiuyun/catrace/releases)
-
 ![Catrace Dashboard](.readme/dashboard.png)
 
 ![Catrace Notification](.readme/notification.png)
+
+## Download
+
+[→ Download latest release](https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow)
 
 ## What it does
 
