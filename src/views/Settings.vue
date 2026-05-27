@@ -103,7 +103,7 @@ async function toggleVideoActive(val: boolean) {
   try {
     await setVideoActiveEnabled(val)
     videoActiveEnabled.value = val
-    message.success(val ? '已开启看视频计入活跃' : '已关闭看视频计入活跃')
+    message.success(val ? '已开启视频计入活跃' : '已关闭视频计入活跃')
   } catch (e) {
     message.error('设置失败')
     videoActiveEnabled.value = !val
