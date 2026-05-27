@@ -207,8 +207,8 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">看视频时计入活跃</div>
-              <div class="setting-desc">启用后，看视频时不弹休息提醒</div>
+              <div class="setting-title">视频计入活跃</div>
+              <div class="setting-desc">开启后，看视频时会提醒</div>
             </div>
             <n-switch
               :value="videoActiveEnabled"
