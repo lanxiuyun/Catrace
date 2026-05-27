@@ -24,7 +24,20 @@ jobs:
     needs: get-version
     permissions:
       contents: write
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +54,14 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libx11-dev libxcb1-dev libxcb-randr0-dev
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -55,14 +76,14 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'
           releaseBody: |
-            **Windows** — 下载 `catrace_*_x64_en-US.msi`
+            **Windows** — 下载 `catrace_*_x64-setup.exe`
             **macOS (Apple Silicon M1/M2/M3)** — 下载 `catrace_*_aarch64.dmg`
             **macOS (Intel)** — 下载 `catrace_*_x64.dmg`
             **Linux (通用)** — 下载 `catrace_*_amd64.AppImage`
             **Linux (Debian/Ubuntu)** — 下载 `catrace_*_amd64.deb`
           releaseDraft: false
           prerelease: false
-          args: '--target x86_64-pc-windows-msvc'
+          args: ${{ matrix.args }}
 
   upgradeLink-upload:
     needs:

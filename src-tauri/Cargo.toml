@@ -1,6 +1,6 @@
 [package]
 name = "catrace"
-version = "26.5.28"
+version = "26.5.30"
 description = "工作与休息平衡提醒工具"
 authors = ["lanxiuyun"]
 edition = "2021"
@@ -31,8 +31,10 @@ chrono = "0.4"
 active-win-pos-rs = "0.10"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-autostart = "2"
-tauri-winrt-notification = "0.7"
-windows-registry = "0.5"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2"
+
+[target.'cfg(windows)'.dependencies]
+tauri-winrt-notification = "0.7"
+windows-registry = "0.5"
 
