@@ -105,34 +105,39 @@ struct VideoDebugInfo {
 
 // ---------- Windows 视频检测 ----------
 
-/// Windows：先尝试系统媒体会话（GSMTCSM），只要有会话处于 Playing 状态即算活跃；
-/// 若获取失败或无会话，回退到关键词匹配。
+/// Windows：优先使用系统媒体会话（GSMTCSM）判定。
+/// - GSMTCSM API 可用时，完全信任其结果（有 Playing 即活跃，无则不活跃），不再回退关键词匹配。
+/// - GSMTCSM 调用失败时才回退到窗口标题+进程名关键词匹配。
 #[cfg(windows)]
 fn is_media_active() -> bool {
-    if is_media_session_playing() {
-        return true;
+    match try_media_session_active() {
+        Some(active) => active,
+        None => is_media_active_by_keywords(),
     }
-    is_media_active_by_keywords()
 }
 
+/// 尝试通过 GSMTCSM 获取媒体播放状态。
+/// 返回 `Some(true)` 表示有会话在 Playing；
+/// 返回 `Some(false)` 表示 API 可用但无 Playing 会话；
+/// 返回 `None` 表示 API 调用失败（此时应回退关键词匹配）。
 #[cfg(windows)]
-fn is_media_session_playing() -> bool {
+fn try_media_session_active() -> Option<bool> {
     use windows::Media::Control::{
         GlobalSystemMediaTransportControlsSessionManager,
         GlobalSystemMediaTransportControlsSessionPlaybackStatus,
     };
 
     let Ok(async_op) = GlobalSystemMediaTransportControlsSessionManager::RequestAsync() else {
-        return false;
+        return None;
     };
     let Ok(manager) = async_op.get() else {
-        return false;
+        return None;
     };
     let Ok(sessions) = manager.GetSessions() else {
-        return false;
+        return None;
     };
     let Ok(count) = sessions.Size() else {
-        return false;
+        return None;
     };
 
     for i in 0..count {
@@ -141,11 +146,11 @@ fn is_media_session_playing() -> bool {
         let Ok(status) = playback_info.PlaybackStatus() else { continue };
 
         if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
-            return true;
+            return Some(true);
         }
     }
 
-    false
+    Some(false)
 }
 
 /** Windows：获取系统媒体会话的详细调试信息。
@@ -284,8 +289,8 @@ fn get_video_debug_info(
     let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
         check_media_active_by_keywords();
 
-    let media_active = if cfg!(windows) {
-        gsmtcsm_has_playing || keyword_matched
+    let media_active = if cfg!(windows) && gsmtcsm_available {
+        gsmtcsm_has_playing
     } else {
         keyword_matched
     };

@@ -76,7 +76,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 2. **分钟判定**（`lib.rs`）
    - 60 秒内活动次数 ≥ 3 → 该分钟标记为**活跃**；否则标记为**休息**。
    - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
-     - **Windows**：先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）；若获取失败或无会话，回退到窗口标题 + 进程名关键词匹配。
+     - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 调用成功时完全信任其结果（无 Playing 会话也视为不活跃），仅在 API 调用失败时才回退到窗口标题 + 进程名关键词匹配。
      - **macOS / Linux**：直接走窗口标题 + 进程名关键词匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
@@ -285,7 +285,7 @@ CREATE TABLE settings (
 | 19 | 设置页文本优化 + 开机自启/静默启动开关 | ✅ |
 | 20 | 关闭不退出最小化到托盘，双击托盘显示主页面 | ✅ |
 | 21 | 设置页两栏布局 + 相关链接（GitHub/更新日志/问题反馈） | ✅ |
-| 27 | 视频检测：GSMTCSM + 关键词兜底，去掉 Video 类型限制 | ✅ |
+| 27 | 视频检测：GSMTCSM 优先，API 失败时关键词兜底，去掉 Video 类型限制 | ✅ |
 | 28 | 视频检测调试页面（实时显示 GSMTCSM 会话、焦点窗口、键鼠计数） | ✅ |
 | 29 | 「视频计入活跃」开关设置 | ✅ |
 | 30 | 文案中性化：「工作」→「活跃」 | ✅ |
