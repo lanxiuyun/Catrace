@@ -308,6 +308,7 @@ cd src-tauri && cargo test
 - 前端使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
 - Rust 当前未按功能拆分子模块（全部在 `lib.rs`），后续扩展时建议拆分。
 - UI 配色统一维护在 `src/theme.ts`，改主题时优先改此文件。
+- **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows-registry`、`tauri-winrt-notification`）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
 
 ---
 
@@ -358,3 +359,4 @@ cd src-tauri && cargo test
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
 6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
 7. **布局滚动**：不要在页面级容器使用 `min-height: 100vh`（会与 padding 叠加导致多余滚动条）；滚动交给 `App.vue` 的 `n-layout-content`。
+8. **🔴 跨平台强约束**：修改 Rust 后端时，**任何平台相关代码必须通过条件编译隔离**，并为不支持的平台留降级路径。禁止在公共逻辑中硬编码 Windows 专属 API 调用。优先选用跨平台 crate；若必须使用平台专属 crate，需在 `Cargo.toml` 中按 `target.'cfg(...)'.dependencies` 声明，并在代码中用 `#[cfg(...)]` 包裹。
