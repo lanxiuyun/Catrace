@@ -22,6 +22,10 @@ const menuOptions = [
     label: () => h(RouterLink, { to: '/settings' }, { default: () => '设置' }),
     key: '/settings',
   },
+  {
+    label: () => h(RouterLink, { to: '/debug' }, { default: () => '调试' }),
+    key: '/debug',
+  },
 ]
 </script>
 

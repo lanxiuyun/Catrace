@@ -18,16 +18,109 @@ use tokio::time::interval;
 // 视频/流媒体检测
 // ------------------------------------------------------------------
 
-/// Windows：通过 GlobalSystemMediaTransportControlsSessionManager 枚举系统媒体会话，
-/// 精确判断是否有视频正在播放（PlaybackType::Video + Playing 状态）。
-/// 支持浏览器、UWP 播放器、Spotify 等所有向系统注册媒体会话的应用。
+/// 回退方案：通过窗口标题 + 进程名关键词匹配判断是否正在播放视频。
+/// 返回 (是否匹配, 匹配到的关键词, 窗口标题, 应用名, 进程路径)
+fn check_media_active_by_keywords() -> (bool, Option<String>, String, String, String) {
+    match get_active_window() {
+        Ok(win) => {
+            let title_lower = win.title.to_lowercase();
+            let app_name_lower = win.app_name.to_lowercase();
+            let path_lower = win.process_path.to_string_lossy().to_lowercase();
+
+            let video_site_keywords = [
+                "youtube", "bilibili", "netflix", "twitch",
+                "爱奇艺", "腾讯视频", "优酷", "芒果tv",
+                "disney+", "hbo max", "prime video", "hulu",
+                "crunchyroll", "niconico", "dailymotion", "vimeo",
+                "live", "直播",
+            ];
+            let video_player_keywords = [
+                "vlc", "mpv", "potplayer", "mpc-hc", "mpc-be",
+                "kmplayer", "gom", "mx player", "infuse",
+                "iina", "quicktime", "movies & tv", "电影和电视",
+                "windows media player", "媒体播放器",
+            ];
+
+            let matched_site = video_site_keywords
+                .iter()
+                .find(|&&k| title_lower.contains(k))
+                .copied();
+            let matched_player = video_player_keywords
+                .iter()
+                .find(|&&k| app_name_lower.contains(k) || path_lower.contains(k))
+                .copied();
+
+            let matched = matched_site.or(matched_player).map(|s| s.to_string());
+            let is_match = matched.is_some();
+            (
+                is_match,
+                matched,
+                win.title,
+                win.app_name,
+                win.process_path.to_string_lossy().to_string(),
+            )
+        }
+        Err(_) => (
+            false,
+            None,
+            "Unknown".to_string(),
+            "Unknown".to_string(),
+            "Unknown".to_string(),
+        ),
+    }
+}
+
+fn is_media_active_by_keywords() -> bool {
+    check_media_active_by_keywords().0
+}
+
+// ---------- 调试结构体 ----------
+
+#[derive(serde::Serialize)]
+struct MediaSessionInfo {
+    title: String,
+    artist: String,
+    status: String,
+    playback_type: String,
+}
+
+#[derive(serde::Serialize)]
+struct VideoDebugInfo {
+    gsmtcsm_available: bool,
+    gsmtcsm_session_count: u32,
+    gsmtcsm_sessions: Vec<MediaSessionInfo>,
+    gsmtcsm_has_playing: bool,
+    gsmtcsm_error: Option<String>,
+
+    focus_window_title: String,
+    focus_app_name: String,
+    focus_process_path: String,
+
+    keyword_matched: bool,
+    matched_keyword: Option<String>,
+
+    media_active: bool,
+    mouse_keyboard_count: u32,
+}
+
+// ---------- Windows 视频检测 ----------
+
+/// Windows：先尝试系统媒体会话（GSMTCSM），只要有会话处于 Playing 状态即算活跃；
+/// 若获取失败或无会话，回退到关键词匹配。
 #[cfg(windows)]
 fn is_media_active() -> bool {
+    if is_media_session_playing() {
+        return true;
+    }
+    is_media_active_by_keywords()
+}
+
+#[cfg(windows)]
+fn is_media_session_playing() -> bool {
     use windows::Media::Control::{
         GlobalSystemMediaTransportControlsSessionManager,
         GlobalSystemMediaTransportControlsSessionPlaybackStatus,
     };
-    use windows::Media::MediaPlaybackType;
 
     let Ok(async_op) = GlobalSystemMediaTransportControlsSessionManager::RequestAsync() else {
         return false;
@@ -48,51 +141,85 @@ fn is_media_active() -> bool {
         let Ok(status) = playback_info.PlaybackStatus() else { continue };
 
         if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
-            let Ok(props_async) = session.TryGetMediaPropertiesAsync() else { continue };
-            let Ok(props) = props_async.get() else { continue };
-            if let Ok(type_ref) = props.PlaybackType() {
-                if let Ok(playback_type) = type_ref.Value() {
-                    if playback_type == MediaPlaybackType::Video {
-                        return true;
-                    }
-                }
-            }
+            return true;
         }
     }
 
     false
 }
 
-/// 非 Windows 平台：回退到窗口标题 + 进程名关键词匹配
+/** Windows：获取系统媒体会话的详细调试信息。
+ * 返回 (是否有 Playing 会话, 会话详情列表)。
+ * 用于 Debug 页面展示，不用于正式活跃判定。 */
+#[cfg(windows)]
+fn get_media_sessions_debug() -> Result<(bool, Vec<MediaSessionInfo>), Box<dyn std::error::Error>> {
+    use windows::Media::Control::{
+        GlobalSystemMediaTransportControlsSessionManager,
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus,
+    };
+    use windows::Media::MediaPlaybackType;
+
+    let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?;
+    let manager = async_op.get()?;
+    let sessions = manager.GetSessions()?;
+    let count = sessions.Size()?;
+
+    let mut has_playing = false;
+    let mut infos = Vec::new();
+
+    for i in 0..count {
+        let session = sessions.GetAt(i)?;
+        let playback_info = session.GetPlaybackInfo()?;
+        let status = playback_info.PlaybackStatus()?;
+
+        let status_str = match status {
+            GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing => "Playing",
+            GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused => "Paused",
+            GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped => "Stopped",
+            _ => "Other",
+        }
+        .to_string();
+
+        if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+            has_playing = true;
+        }
+
+        let mut title = "Unknown".to_string();
+        let mut artist = "Unknown".to_string();
+        let mut playback_type = "Unknown".to_string();
+
+        if let Ok(props_async) = session.TryGetMediaPropertiesAsync() {
+            if let Ok(props) = props_async.get() {
+                title = props.Title().unwrap_or_default().to_string();
+                artist = props.Artist().unwrap_or_default().to_string();
+                if let Ok(type_ref) = props.PlaybackType() {
+                    if let Ok(pt) = type_ref.Value() {
+                        playback_type = match pt {
+                            MediaPlaybackType::Video => "Video",
+                            MediaPlaybackType::Music => "Music",
+                            _ => "Other",
+                        }
+                        .to_string();
+                    }
+                }
+            }
+        }
+
+        infos.push(MediaSessionInfo {
+            title,
+            artist,
+            status: status_str,
+            playback_type,
+        });
+    }
+
+    Ok((has_playing, infos))
+}
+
+/// 非 Windows：直接走关键词匹配
 #[cfg(not(windows))]
 fn is_media_active() -> bool {
-    match get_active_window() {
-        Ok(win) => {
-            let title_lower = win.title.to_lowercase();
-            let app_name_lower = win.app_name.to_lowercase();
-            let path_lower = win.process_path.to_lowercase();
-
-            let video_site_keywords = [
-                "youtube", "bilibili", "netflix", "twitch",
-                "爱奇艺", "腾讯视频", "优酷", "芒果tv",
-                "disney+", "hbo max", "prime video", "hulu",
-                "crunchyroll", "niconico", "dailymotion", "vimeo",
-                "live", "直播",
-            ];
-            let video_player_keywords = [
-                "vlc", "mpv", "potplayer", "mpc-hc", "mpc-be",
-                "kmplayer", "gom", "mx player", "infuse",
-                "iina", "quicktime", "movies & tv", "电影和电视",
-                "windows media player", "媒体播放器",
-            ];
-
-            video_site_keywords.iter().any(|&k| title_lower.contains(k))
-                || video_player_keywords.iter().any(|&k| {
-                    app_name_lower.contains(k) || path_lower.contains(k)
-                })
-        }
-        Err(_) => false,
-    }
+    is_media_active_by_keywords()
 }
 
 #[cfg(windows)]
@@ -123,6 +250,73 @@ impl ReminderState {
     fn is_skipped(&self, boundary: i64) -> bool {
         self.skip_until_boundary.map_or(false, |b| b >= boundary)
     }
+}
+
+/** 获取视频检测的实时调试信息，供 Debug 页面展示。 */
+#[tauri::command]
+fn get_video_debug_info(
+    activity: tauri::State<Arc<Mutex<ActivityState>>>,
+) -> VideoDebugInfo {
+    let mouse_keyboard_count = activity.lock().unwrap().count;
+
+    #[cfg(windows)]
+    let (gsmtcsm_available, gsmtcsm_session_count, gsmtcsm_sessions, gsmtcsm_has_playing, gsmtcsm_error) =
+        match get_media_sessions_debug() {
+            Ok((has_playing, sessions)) => (
+                true,
+                sessions.len() as u32,
+                sessions,
+                has_playing,
+                None,
+            ),
+            Err(e) => (false, 0, Vec::new(), false, Some(e.to_string())),
+        };
+
+    #[cfg(not(windows))]
+    let (gsmtcsm_available, gsmtcsm_session_count, gsmtcsm_sessions, gsmtcsm_has_playing, gsmtcsm_error) = (
+        false,
+        0,
+        Vec::new(),
+        false,
+        Some("GSMTCSM 仅在 Windows 可用".to_string()),
+    );
+
+    let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
+        check_media_active_by_keywords();
+
+    let media_active = if cfg!(windows) {
+        gsmtcsm_has_playing || keyword_matched
+    } else {
+        keyword_matched
+    };
+
+    VideoDebugInfo {
+        gsmtcsm_available,
+        gsmtcsm_session_count,
+        gsmtcsm_sessions,
+        gsmtcsm_has_playing,
+        gsmtcsm_error,
+        focus_window_title: focus_title,
+        focus_app_name: focus_app,
+        focus_process_path: focus_path,
+        keyword_matched,
+        matched_keyword,
+        media_active,
+        mouse_keyboard_count,
+    }
+}
+
+/** 获取「看视频时计入活跃」开关状态（默认 true）。 */
+#[tauri::command]
+fn get_video_active_enabled(db: tauri::State<db::Db>) -> bool {
+    db.get_setting("video_active_enabled", "true") == "true"
+}
+
+/** 设置「看视频时计入活跃」开关状态。 */
+#[tauri::command]
+fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("video_active_enabled", &enabled.to_string())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -355,6 +549,7 @@ pub fn run() {
             let db = db::Db::new(&db_path).expect("数据库初始化失败");
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
+            app.manage(state.clone());
 
             // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
             thread::spawn(move || {
@@ -380,7 +575,8 @@ pub fn run() {
                 loop {
                     minute.tick().await;
                     let mut s = settle_state.lock().unwrap();
-                    let media_active = is_media_active();
+                    let video_enabled = db_clone.get_setting("video_active_enabled", "true") == "true";
+                    let media_active = if video_enabled { is_media_active() } else { false };
                     let active = s.count >= 3 || media_active;
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
@@ -426,7 +622,7 @@ pub fn run() {
                                             show_notification(
                                                 &app_handle,
                                                 b,
-                                                "连续工作过久，该休息啦",
+                                                "连续活跃过久，该休息啦",
                                                 reminder_state_for_settle.clone(),
                                             );
                                         }
@@ -501,9 +697,11 @@ pub fn run() {
             get_config, set_config,
             skip_reminder, snooze_reminder,
             get_silent_start, set_silent_start,
+            get_video_active_enabled, set_video_active_enabled,
             show_main_window, hide_main_window,
             get_today_stats, get_today_records, get_app_stats,
-            test_notification
+            test_notification,
+            get_video_debug_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

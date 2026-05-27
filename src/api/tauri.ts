@@ -59,3 +59,43 @@ export async function getAppStats(): Promise<[string, number][]> {
 export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
+
+export interface MediaSessionInfo {
+  title: string
+  artist: string
+  status: string
+  playback_type: string
+}
+
+export interface VideoDebugInfo {
+  gsmtcsm_available: boolean
+  gsmtcsm_session_count: number
+  gsmtcsm_sessions: MediaSessionInfo[]
+  gsmtcsm_has_playing: boolean
+  gsmtcsm_error: string | null
+
+  focus_window_title: string
+  focus_app_name: string
+  focus_process_path: string
+
+  keyword_matched: boolean
+  matched_keyword: string | null
+
+  media_active: boolean
+  mouse_keyboard_count: number
+}
+
+/** 获取视频检测调试信息 */
+export async function getVideoDebugInfo(): Promise<VideoDebugInfo> {
+  return invoke('get_video_debug_info')
+}
+
+/** 获取「看视频时计入活跃」开关 */
+export async function getVideoActiveEnabled(): Promise<boolean> {
+  return invoke('get_video_active_enabled')
+}
+
+/** 设置「看视频时计入活跃」开关 */
+export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_video_active_enabled', { enabled })
+}

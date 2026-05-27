@@ -15,13 +15,15 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import {
   getConfig, setConfig,
   getSilentStart, setSilentStart,
+  getVideoActiveEnabled, setVideoActiveEnabled,
   testNotification,
 } from '../api/tauri'
 
 const config = ref({ window_minutes: 45, break_minutes: 5 })
 const autostart = ref(false)
 const silentStart = ref(false)
-const loading = ref({ config: false, autostart: false, silent: false })
+const videoActiveEnabled = ref(true)
+const loading = ref({ config: false, autostart: false, silent: false, videoActive: false })
 const message = useMessage()
 
 // 更新状态
@@ -32,11 +34,12 @@ const updateInstalling = ref(false)
 
 onMounted(async () => {
   try {
-    const [c, a, s, v] = await Promise.all([
+    const [c, a, s, v, va] = await Promise.all([
       getConfig(),
       isEnabled(),
       getSilentStart(),
       getVersion(),
+      getVideoActiveEnabled(),
     ])
     config.value = {
       window_minutes: Number(c.window_minutes),
@@ -44,6 +47,7 @@ onMounted(async () => {
     }
     autostart.value = a
     silentStart.value = s
+    videoActiveEnabled.value = va
     appVersion.value = v
   } catch (e) {
     console.error('获取配置失败', e)
@@ -91,6 +95,20 @@ async function toggleSilentStart(val: boolean) {
     silentStart.value = !val
   } finally {
     loading.value.silent = false
+  }
+}
+
+async function toggleVideoActive(val: boolean) {
+  loading.value.videoActive = true
+  try {
+    await setVideoActiveEnabled(val)
+    videoActiveEnabled.value = val
+    message.success(val ? '已开启看视频计入活跃' : '已关闭看视频计入活跃')
+  } catch (e) {
+    message.error('设置失败')
+    videoActiveEnabled.value = !val
+  } finally {
+    loading.value.videoActive = false
   }
 }
 
@@ -161,8 +179,8 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">连续工作提醒</div>
-              <div class="setting-desc">连续工作多久后提醒你休息</div>
+              <div class="setting-title">休息提醒间隔</div>
+              <div class="setting-desc">连续活跃多久后提醒你休息</div>
             </div>
             <div class="setting-control slider-control">
               <n-slider v-model:value="config.window_minutes" :min="10" :max="120" :step="5" />
@@ -184,6 +202,20 @@ async function handleInstallUpdate() {
           </div>
 
           <div class="divider" />
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">看视频时计入活跃</div>
+              <div class="setting-desc">启用后，看视频时不弹休息提醒</div>
+            </div>
+            <n-switch
+              :value="videoActiveEnabled"
+              :loading="loading.videoActive"
+              @update:value="toggleVideoActive"
+            />
+          </div>
 
           <div class="setting-row actions">
             <div />
