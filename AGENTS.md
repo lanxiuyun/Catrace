@@ -157,7 +157,7 @@ src-tauri/src/
 src/
 ├── views/
 │   ├── Dashboard.vue    -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   └── Settings.vue     -- window_minutes / break_minutes 滑块
+│   └── Settings.vue     -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 更新/链接
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   └── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
@@ -262,7 +262,7 @@ CREATE TABLE settings (
 | 2 | 每分钟活跃判定，写入 SQLite | ✅ |
 | 3 | 滑动窗口算法 + 系统通知 | ✅ |
 | 4 | Tauri 套壳 + Vue 3 前端 | ✅ |
-| 5 | Settings 页：滑块改配置 | ✅ |
+| 5 | Settings 页：滑块改配置（自动保存） | ✅ |
 | 6 | Dashboard：今日活动（详细/概览双视图）+ 统计 | ✅ |
 | 7 | 系统托盘图标 | ✅ |
 | 8 | ~~应用分类名单~~ | ❌ 已砍掉 |
@@ -289,6 +289,7 @@ CREATE TABLE settings (
 | 28 | 视频检测调试页面（实时显示 GSMTCSM 会话、焦点窗口、键鼠计数） | ✅ |
 | 29 | 「视频计入活跃」开关设置 | ✅ |
 | 30 | 文案中性化：「工作」→「活跃」 | ✅ |
+| 31 | 设置页去掉保存按钮，提醒偏好滑块自动保存 | ✅ |
 
 ---
 

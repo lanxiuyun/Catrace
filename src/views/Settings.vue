@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import {
   NSlider,
   NSwitch,
@@ -25,6 +25,8 @@ const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
 const loading = ref({ config: false, autostart: false, silent: false, videoActive: false })
 const message = useMessage()
+const isConfigReady = ref(false)
+let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 // 更新状态
 const appVersion = ref('')
@@ -49,22 +51,31 @@ onMounted(async () => {
     silentStart.value = s
     videoActiveEnabled.value = va
     appVersion.value = v
+    isConfigReady.value = true
   } catch (e) {
     console.error('获取配置失败', e)
   }
 })
 
-async function saveConfig() {
-  loading.value.config = true
-  try {
-    await setConfig(config.value)
-    message.success('已保存')
-  } catch (e) {
-    message.error('保存失败')
-  } finally {
-    loading.value.config = false
+watch(
+  () => ({ window_minutes: config.value.window_minutes, break_minutes: config.value.break_minutes }),
+  async (newVal, oldVal) => {
+    if (!isConfigReady.value) return
+    if (newVal.window_minutes === oldVal.window_minutes && newVal.break_minutes === oldVal.break_minutes) return
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(async () => {
+      loading.value.config = true
+      try {
+        await setConfig(config.value)
+        message.success('已保存')
+      } catch (e) {
+        message.error('保存失败')
+      } finally {
+        loading.value.config = false
+      }
+    }, 500)
   }
-}
+)
 
 async function toggleAutostart(val: boolean) {
   loading.value.autostart = true
@@ -217,12 +228,12 @@ async function handleInstallUpdate() {
             />
           </div>
 
-          <div class="setting-row actions">
-            <div />
-            <n-space>
-              <n-button type="primary" :loading="loading.config" @click="saveConfig">保存</n-button>
-              <n-button @click="notify">测试通知</n-button>
-            </n-space>
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">通知测试</div>
+              <div class="setting-desc">手动发送一条通知预览效果</div>
+            </div>
+            <n-button @click="notify">测试通知</n-button>
           </div>
         </div>
 
