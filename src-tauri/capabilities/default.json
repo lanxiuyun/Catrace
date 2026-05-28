@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": ["main", "reminder-popup", "reminder-fullscreen"],
   "permissions": [
     "core:default",
     "opener:default",
@@ -10,6 +10,7 @@
     "autostart:default",
     "updater:default",
     "process:default",
-    "notification:default"
+    "notification:default",
+    "core:window:allow-close"
   ]
 }

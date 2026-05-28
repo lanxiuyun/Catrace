@@ -37,6 +37,7 @@ tauri-plugin-process = "2"
 [target.'cfg(windows)'.dependencies]
 tauri-winrt-notification = "0.7"
 windows-registry = "0.5"
-windows = { version = "0.61", features = ["Media_Control", "Foundation", "Foundation_Collections"] }
+windows = { version = "0.61", features = ["Media_Control", "Foundation", "Foundation_Collections", "Win32_Graphics_Dwm"] }
+raw-window-handle = "0.6"
 
 

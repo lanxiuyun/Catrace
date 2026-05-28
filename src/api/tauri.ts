@@ -109,3 +109,46 @@ export async function getVideoActiveEnabled(): Promise<boolean> {
 export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
   return invoke('set_video_active_enabled', { enabled })
 }
+
+export async function getReminderMode(): Promise<string> {
+  return invoke('get_reminder_mode')
+}
+
+export async function setReminderMode(mode: string): Promise<void> {
+  return invoke('set_reminder_mode', { mode })
+}
+
+export async function getReminderText(): Promise<{ title: string; body: string }> {
+  return invoke('get_reminder_text')
+}
+
+export async function setReminderText(title: string, body: string): Promise<void> {
+  return invoke('set_reminder_text', { title, body })
+}
+
+export async function getFullscreenSettings(): Promise<{ bg_image: string; opacity: number }> {
+  return invoke('get_fullscreen_settings')
+}
+
+export async function setFullscreenSettings(bg_image: string, opacity: number): Promise<void> {
+  return invoke('set_fullscreen_settings', { bg_image, opacity })
+}
+
+export async function getMousePosition(): Promise<[number, number]> {
+  return invoke('get_mouse_position')
+}
+
+export async function getReminderData(label: string): Promise<{
+  boundary: number
+  title: string
+  body: string
+  break_minutes: number
+  fullscreen_bg?: string
+  fullscreen_opacity: number
+} | null> {
+  return invoke('get_reminder_data', { label })
+}
+
+export async function closeReminderWindow(label: string): Promise<void> {
+  return invoke('close_reminder_window', { label })
+}

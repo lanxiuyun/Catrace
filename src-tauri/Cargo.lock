@@ -503,6 +503,7 @@ dependencies = [
  "active-win-pos-rs",
  "chrono",
  "device_query",
+ "raw-window-handle",
  "rdev",
  "rusqlite",
  "serde",

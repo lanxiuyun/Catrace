@@ -7,6 +7,7 @@ import {
   NButton,
   NProgress,
   NSelect,
+  NInput,
   useMessage,
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
@@ -20,6 +21,9 @@ import {
   getVideoActiveEnabled, setVideoActiveEnabled,
   getLocale, setLocale,
   testNotification,
+  getReminderMode, setReminderMode,
+  getReminderText, setReminderText,
+  getFullscreenSettings, setFullscreenSettings,
 } from '../api/tauri'
 import i18n from '../i18n'
 
@@ -30,7 +34,12 @@ const autostart = ref(false)
 const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
 const localeVal = ref('zh-CN')
-const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, locale: false })
+const reminderMode = ref('toast')
+const customTitle = ref('')
+const customBody = ref('')
+const fullscreenBg = ref('')
+const fullscreenOpacity = ref(80)
+const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, locale: false, reminderMode: false, reminderText: false, fullscreen: false })
 const message = useMessage()
 const isConfigReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -49,6 +58,12 @@ const localeOptions = [
   { label: 'English', value: 'en-US' },
 ]
 
+const reminderModeOptions = [
+  { label: t('settings.reminder.modeToast'), value: 'toast' },
+  { label: t('settings.reminder.modePopup'), value: 'popup' },
+  { label: t('settings.reminder.modeFullscreen'), value: 'fullscreen' },
+]
+
 function detectDefaultLocale(): string {
   const lang = navigator.language || 'zh-CN'
   if (lang.startsWith('en')) return 'en-US'
@@ -57,13 +72,16 @@ function detectDefaultLocale(): string {
 
 onMounted(async () => {
   try {
-    const [c, a, s, v, va, loc] = await Promise.all([
+    const [c, a, s, v, va, loc, rm, rt, fs] = await Promise.all([
       getConfig(),
       isEnabled(),
       getSilentStart(),
       getVersion(),
       getVideoActiveEnabled(),
       getLocale(),
+      getReminderMode(),
+      getReminderText(),
+      getFullscreenSettings(),
     ])
     config.value = {
       window_minutes: Number(c.window_minutes),
@@ -73,6 +91,11 @@ onMounted(async () => {
     silentStart.value = s
     videoActiveEnabled.value = va
     appVersion.value = v
+    reminderMode.value = rm || 'toast'
+    customTitle.value = rt.title || ''
+    customBody.value = rt.body || ''
+    fullscreenBg.value = fs.bg_image || ''
+    fullscreenOpacity.value = Number(fs.opacity) || 80
 
     // 如果 DB 里没有 locale，自动检测并保存
     if (!loc) {
@@ -125,6 +148,77 @@ watch(localeVal, async (newVal, oldVal) => {
     loading.value.locale = false
   }
 })
+
+watch(reminderMode, async (newVal, oldVal) => {
+  if (!isConfigReady.value || newVal === oldVal) return
+  loading.value.reminderMode = true
+  try {
+    await setReminderMode(newVal)
+    message.success(t('settings.messages.saved'))
+  } catch (e) {
+    message.error(t('settings.messages.saveFailed'))
+    reminderMode.value = oldVal
+  } finally {
+    loading.value.reminderMode = false
+  }
+})
+
+let textSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => ({ title: customTitle.value, body: customBody.value }),
+  async (newVal, oldVal) => {
+    if (!isConfigReady.value) return
+    if (newVal.title === oldVal.title && newVal.body === oldVal.body) return
+    if (textSaveTimer) clearTimeout(textSaveTimer)
+    textSaveTimer = setTimeout(async () => {
+      loading.value.reminderText = true
+      try {
+        await setReminderText(customTitle.value, customBody.value)
+        message.success(t('settings.messages.saved'))
+      } catch (e) {
+        message.error(t('settings.messages.saveFailed'))
+      } finally {
+        loading.value.reminderText = false
+      }
+    }, 500)
+  }
+)
+
+let fullscreenSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value }),
+  async (newVal, oldVal) => {
+    if (!isConfigReady.value) return
+    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity) return
+    if (fullscreenSaveTimer) clearTimeout(fullscreenSaveTimer)
+    fullscreenSaveTimer = setTimeout(async () => {
+      loading.value.fullscreen = true
+      try {
+        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value)
+        message.success(t('settings.messages.saved'))
+      } catch (e) {
+        message.error(t('settings.messages.saveFailed'))
+      } finally {
+        loading.value.fullscreen = false
+      }
+    }, 500)
+  }
+)
+
+function handleBgFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    fullscreenBg.value = reader.result as string
+  }
+  reader.readAsDataURL(file)
+}
+
+function clearBg() {
+  fullscreenBg.value = ''
+}
 
 async function toggleAutostart(val: boolean) {
   loading.value.autostart = true
@@ -295,6 +389,88 @@ async function handleInstallUpdate() {
           </div>
 
           <div class="divider" />
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.modeTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.modeDesc') }}</div>
+            </div>
+            <n-select
+              v-model:value="reminderMode"
+              :options="reminderModeOptions"
+              :loading="loading.reminderMode"
+              size="small"
+              style="width: 160px;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.customTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.customTitleDesc') }}</div>
+            </div>
+            <n-input
+              v-model:value="customTitle"
+              :placeholder="t('settings.reminder.customTitle')"
+              size="small"
+              style="width: 220px;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row" style="align-items: flex-start;">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.customBody') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.customBodyDesc') }}</div>
+            </div>
+            <n-input
+              v-model:value="customBody"
+              :placeholder="t('settings.reminder.customBody')"
+              type="textarea"
+              :rows="2"
+              size="small"
+              style="width: 220px;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row" style="align-items: flex-start;">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.fullscreenBgTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.fullscreenBgDesc') }}</div>
+            </div>
+            <div class="setting-control" style="flex-direction: column; align-items: flex-end; gap: 8px;">
+              <div v-if="fullscreenBg" class="bg-preview">
+                <img :src="fullscreenBg" alt="bg" />
+                <button class="bg-clear" @click="clearBg">{{ t('settings.reminder.clearBg') }}</button>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleBgFileChange"
+                style="width: 220px; font-size: 12px;"
+              />
+            </div>
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
+            </div>
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
+              <span class="setting-value">{{ fullscreenOpacity }}%</span>
+            </div>
+          </div>
 
           <div class="divider" />
 
@@ -633,6 +809,36 @@ async function handleInstallUpdate() {
   margin-bottom: 12px;
   white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.bg-preview {
+  position: relative;
+  width: 220px;
+  height: 120px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #EBE6F2;
+}
+.bg-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bg-clear {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.bg-clear:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 /* 响应式 */
