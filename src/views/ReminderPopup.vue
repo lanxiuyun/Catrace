@@ -78,11 +78,6 @@ async function handleSkip() {
 .popup-root {
   width: 100vw;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  box-sizing: border-box;
   background: transparent;
   user-select: none;
   -webkit-app-region: no-drag;
@@ -90,10 +85,14 @@ async function handleSkip() {
 
 .popup-card {
   width: 100%;
-  height: auto;
+  height: 100%;
   background: #ffffff;
   border-radius: 14px;
   padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
 }
 
