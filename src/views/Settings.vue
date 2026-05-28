@@ -4,7 +4,6 @@ import {
   NSlider,
   NSwitch,
   NButton,
-  NSpace,
   useMessage,
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
