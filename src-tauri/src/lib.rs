@@ -731,8 +731,8 @@ fn create_popup_window(
         let _ = window.set_focus();
         if let Some(main) = app_handle.get_webview_window("main") {
             if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
-                let pw = 400.0;
-                let ph = 200.0;
+                let pw = 440.0;
+                let ph = 300.0;
                 let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                 let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
                 let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
@@ -745,48 +745,38 @@ fn create_popup_window(
         return;
     }
 
-    let main_window = app.get_webview_window("main");
-    let url = tauri::WebviewUrl::App("index.html".into());
+    let _url = tauri::WebviewUrl::App("index.html".into());
 
     tauri::async_runtime::spawn(async move {
-        let make_builder = || {
-            tauri::WebviewWindowBuilder::new(&app, label, url.clone())
-                .title("Catrace")
-                .inner_size(400.0, 200.0)
-                .decorations(false)
-                .always_on_top(true)
-                .skip_taskbar(true)
-                .resizable(false)
-        };
+        let builder = tauri::WebviewWindowBuilder::new(
+                &app,
+                label,
+                tauri::WebviewUrl::App("index.html?reminder=popup".into()),
+            )
+            .title("Catrace")
+            .inner_size(440.0, 300.0)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false);
 
-        let window = match main_window {
-            Some(ref main) => match make_builder().parent(main) {
-                Ok(b) => b.build(),
-                Err(e) => {
-                    eprintln!("[PopupWindow] parent failed: {}, fallback", e);
-                    make_builder().build()
-                }
-            },
-            None => make_builder().build(),
-        };
-
-        match window {
+        match builder.build() {
             Ok(window) => {
                 let _ = window.show();
 
                 // 手动在主窗口中央显示
                 if let Some(main) = app.get_webview_window("main") {
                     if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
-                        let pw = 400.0;
-                        let ph = 200.0;
+                        let pw = 440.0;
+                        let ph = 300.0;
                         let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                         let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
                         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
                     }
                 }
 
-                tokio::time::sleep(Duration::from_millis(300)).await;
-                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';") {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {
                     eprintln!("[PopupWindow] eval failed: {}", e);
                 }
             }
