@@ -4,6 +4,7 @@ import {
   NSlider,
   NSwitch,
   NButton,
+  NProgress,
   useMessage,
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
@@ -32,6 +33,9 @@ const appVersion = ref('')
 const updateInfo = ref<{ available: boolean; version?: string; body?: string } | null>(null)
 const updateLoading = ref(false)
 const updateInstalling = ref(false)
+const downloadProgress = ref(0)
+const downloadTotal = ref(0)
+const downloadReceived = ref(0)
 
 onMounted(async () => {
   try {
@@ -154,6 +158,9 @@ async function handleCheckUpdate() {
 
 async function handleInstallUpdate() {
   updateInstalling.value = true
+  downloadProgress.value = 0
+  downloadTotal.value = 0
+  downloadReceived.value = 0
   try {
     const update = await check({
       headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
@@ -163,7 +170,20 @@ async function handleInstallUpdate() {
       return
     }
     await update.downloadAndInstall((event) => {
-      console.log(event)
+      switch (event.event) {
+        case 'Started':
+          downloadTotal.value = event.data.contentLength || 0
+          break
+        case 'Progress':
+          downloadReceived.value += event.data.chunkLength
+          if (downloadTotal.value > 0) {
+            downloadProgress.value = Math.round((downloadReceived.value / downloadTotal.value) * 100)
+          }
+          break
+        case 'Finished':
+          downloadProgress.value = 100
+          break
+      }
     })
     message.success('更新已安装，即将重启')
     await relaunch()
@@ -264,9 +284,23 @@ async function handleInstallUpdate() {
               </div>
               <n-button
                 type="primary"
-                :loading="updateInstalling"
+                :loading="updateInstalling && downloadProgress === 0"
+                :disabled="updateInstalling"
                 @click="handleInstallUpdate"
-              >立即更新</n-button>
+              >{{ updateInstalling ? '下载中...' : '立即更新' }}</n-button>
+              <div v-if="updateInstalling" class="download-progress">
+                <n-progress
+                  type="line"
+                  :percentage="downloadProgress"
+                  :height="8"
+                  :show-indicator="false"
+                  color="#7C3AED"
+                  rail-color="#EBE6F2"
+                />
+                <div class="download-progress-text">
+                  {{ downloadProgress }}%
+                </div>
+              </div>
             </div>
           </template>
         </div>
@@ -502,6 +536,22 @@ async function handleInstallUpdate() {
 }
 .link-item:hover .link-arrow {
   color: #7C3AED;
+}
+.download-progress {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.download-progress :deep(.n-progress-graph-line) {
+  flex: 1;
+}
+.download-progress-text {
+  font-size: 12px;
+  color: #8B7AAB;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5em;
+  text-align: right;
 }
 
 /* 更新提示 */

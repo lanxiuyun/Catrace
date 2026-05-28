@@ -42,6 +42,7 @@
   "plugins": {
     "updater": {
       "dangerousInsecureTransportProtocol": true,
+      "dangerousAcceptInvalidCerts": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBMkEwMkI4MjRGQ0M0OEUKUldTT3hQd2t1QUlxcWs5aXpxQTFkYkxCU1BPM2wvUjdrYWxrYXU0MHJnektYMGJvOXpQWGFHeGkK",
       "endpoints": [
         "https://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=RBrITa0T5PKRzdYuwwxzow&versionName={{current_version}}&appointVersionName=&devModelKey=&devKey=&target={{target}}&arch={{arch}}"
