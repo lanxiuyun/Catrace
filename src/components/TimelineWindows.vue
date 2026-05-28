@@ -9,8 +9,11 @@
  */
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { MinuteData } from './Timeline.vue'
 import { computeTimeBlocks, mergeRestBlocks } from '../utils/timeBlocks'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   minutes: MinuteData[]    // 全天 1440 分钟的 MinuteData
@@ -85,10 +88,10 @@ function formatDuration(min: number): string {
 }
 
 function getLabel(active: boolean | null, isCurrent: boolean): string {
-  if (isCurrent) return '进行中'
-  if (active === null) return '无记录'
-  if (active) return '活跃'
-  return '休息'
+  if (isCurrent) return t('timelineWindows.inProgress')
+  if (active === null) return t('timeline.null')
+  if (active) return t('timeline.active')
+  return t('timeline.rest')
 }
 
 function getColor(active: boolean | null): string {
@@ -274,7 +277,7 @@ function countActiveInBlock(block: WindowBlock): number {
           v-if="block.active === false && countActiveInBlock(block) > 0"
           class="card-nested-active"
         >
-          活跃 {{ formatDuration(countActiveInBlock(block)) }}
+          {{ t('timelineWindows.activeShort') }} {{ formatDuration(countActiveInBlock(block)) }}
         </span>
       </div>
 

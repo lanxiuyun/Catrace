@@ -51,6 +51,6 @@ Catrace offers a clean Dashboard to help you review your work and rest rhythm fo
 - **Today's Stats**: total active time, total rest time, active ratio, and number of work blocks
 - **Today's Activity (Overview)**: Time-block cards based on your work rhythm, showing at a glance how work and rest alternated today; click a card to expand and see details in 10-minute slices
 - **Today's Activity (Detailed)**: A 24-hour minute-level heatmap, useful when you want to check a specific moment precisely
-- **Settings**: Adjust work window length, rest threshold, and optional auto-start on boot
+- **Settings**: Adjust work window length, rest threshold, auto-start on boot, and switch interface language (Simplified Chinese / English)
 
-The interface uses a soft purple wellness theme with a sidebar navigation and main content area — clean and refreshing.
+The interface uses a soft purple wellness theme with a sidebar navigation and main content area — clean and refreshing. Supports bilingual switching between Simplified Chinese and English, defaulting to your system language.

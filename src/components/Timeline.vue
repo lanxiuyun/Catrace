@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export interface MinuteData {
   ts: number
@@ -37,9 +40,9 @@ function getColor(m: MinuteData): string {
 }
 
 function getLabel(m: MinuteData): string {
-  if (m.active === null) return '无记录'
-  if (m.active) return '活跃'
-  return '休息'
+  if (m.active === null) return t('timeline.null')
+  if (m.active) return t('timeline.active')
+  return t('timeline.rest')
 }
 
 function isAdjacentSame(i: number): boolean {
@@ -138,7 +141,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
             {{ getLabel(props.minutes[hoveredIndex]) }}
           </span>
         </div>
-        <div v-else class="hover-placeholder">在色块上悬停查看详情 · 点击色块标记</div>
+        <div v-else class="hover-placeholder">{{ t('timeline.hoverHint') }}</div>
       </transition>
     </div>
 
@@ -146,19 +149,19 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
     <div class="legend">
       <div class="legend-item">
         <span class="dot" style="background:#7C3AED" />
-        <span>活跃</span>
+        <span>{{ t('timeline.active') }}</span>
       </div>
       <div class="legend-item">
         <span class="dot" style="background:#14B8A6" />
-        <span>休息</span>
+        <span>{{ t('timeline.rest') }}</span>
       </div>
       <div class="legend-item">
         <span class="dot" style="background:#EDE9FE" />
-        <span>无记录</span>
+        <span>{{ t('timeline.null') }}</span>
       </div>
       <div class="legend-item">
         <span class="dot is-now-demo" />
-        <span>当前时间</span>
+        <span>{{ t('timeline.current') }}</span>
       </div>
     </div>
   </div>

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useI18n } from 'vue-i18n'
 import { NCard, NRadioGroup, NRadioButton } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
 import TimelineWindows from "../components/TimelineWindows.vue";
 import type { MinuteData } from "../components/Timeline.vue";
 import { computeTimeBlocks } from "../utils/timeBlocks";
+
+const { t, locale } = useI18n()
 
 const stats = ref({ active_minutes: 0, rest_minutes: 0 });
 const records = ref<Map<number, boolean>>(new Map());
@@ -91,9 +94,9 @@ const activeBlockCount = computed(() => {
 function fmtDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h > 0 && m > 0) return `${h}h ${m}m`;
-  if (h > 0) return `${h}h`;
-  return `${m}m`;
+  if (h > 0 && m > 0) return `${h}${t('common.hours')} ${m}${t('common.minutes')}`;
+  if (h > 0) return `${h}${t('common.hours')}`;
+  return `${m}${t('common.minutes')}`;
 }
 
 async function loadData() {
@@ -111,7 +114,7 @@ async function loadData() {
     }
     records.value = map;
   } catch (e) {
-    console.error("获取数据失败", e);
+    console.error("Failed to load data", e);
   }
 }
 
@@ -133,10 +136,10 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <header class="header">
-      <h1 class="title">今日统计</h1>
+      <h1 class="title">{{ t('dashboard.title') }}</h1>
       <p class="subtitle">
         {{
-          new Date().toLocaleDateString("zh-CN", {
+          new Date().toLocaleDateString(locale, {
             month: "long",
             day: "numeric",
             weekday: "long",
@@ -149,7 +152,7 @@ onUnmounted(() => {
       <div class="stat stat-active">
         <div class="stat-head">
           <span class="dot dot-active" />
-          <span class="stat-label">活跃</span>
+          <span class="stat-label">{{ t('dashboard.stats.active') }}</span>
         </div>
         <p class="stat-value">
           {{ fmtDuration(blockStats.activeMinutes) }}
@@ -158,7 +161,7 @@ onUnmounted(() => {
       <div class="stat stat-rest">
         <div class="stat-head">
           <span class="dot dot-rest" />
-          <span class="stat-label">休息</span>
+          <span class="stat-label">{{ t('dashboard.stats.rest') }}</span>
         </div>
         <p class="stat-value">
           {{ fmtDuration(blockStats.restMinutes) }}
@@ -167,7 +170,7 @@ onUnmounted(() => {
       <div class="stat stat-ratio">
         <div class="stat-head">
           <span class="dot dot-ratio" />
-          <span class="stat-label">活跃占比</span>
+          <span class="stat-label">{{ t('dashboard.stats.ratio') }}</span>
         </div>
         <p class="stat-value">
           {{ activityPercent }}<span class="stat-unit">%</span>
@@ -176,20 +179,20 @@ onUnmounted(() => {
       <div class="stat stat-blocks">
         <div class="stat-head">
           <span class="dot dot-muted" />
-          <span class="stat-label">活跃时段</span>
+          <span class="stat-label">{{ t('dashboard.stats.blocks') }}</span>
         </div>
         <p class="stat-value">
-          {{ activeBlockCount }}<span class="stat-unit">个</span>
+          {{ activeBlockCount }}<span v-if="t('dashboard.stats.blocksUnit')" class="stat-unit">{{ t('dashboard.stats.blocksUnit') }}</span>
         </p>
       </div>
     </section>
 
     <n-card class="panel" :bordered="false">
       <div class="panel-header">
-        <h2 class="panel-title">今日活动</h2>
+        <h2 class="panel-title">{{ t('dashboard.activity.title') }}</h2>
         <n-radio-group v-model:value="timelineMode" size="small">
-          <n-radio-button value="segments">概览</n-radio-button>
-          <n-radio-button value="grid">详细</n-radio-button>
+          <n-radio-button value="segments">{{ t('dashboard.activity.overview') }}</n-radio-button>
+          <n-radio-button value="grid">{{ t('dashboard.activity.detailed') }}</n-radio-button>
         </n-radio-group>
       </div>
       <Timeline v-if="timelineMode === 'grid'" :minutes="allMinutes" />
@@ -200,7 +203,7 @@ onUnmounted(() => {
         :break-minutes="config.break_minutes"
       />
       <p v-if="records.size === 0" class="empty">
-        暂无数据，程序运行一段时间后会生成。
+        {{ t('dashboard.activity.empty') }}
       </p>
     </n-card>
   </div>

@@ -25,6 +25,7 @@
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
+| `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 
 
 ## 技术栈
@@ -70,9 +71,14 @@ src-tauri/src/
 
 ```
 src/
+├── i18n/
+│   ├── index.ts             -- vue-i18n 配置（zh-CN / en-US）
+│   └── locales/
+│       ├── zh-CN.ts         -- 中文翻译
+│       └── en-US.ts         -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue        -- 四统计卡片 + 今日活动（概览/详细切换）
-│   └── Settings.vue         -- 两栏布局：提醒偏好 + 启动行为 / 相关链接，底部关于
+│   └── Settings.vue         -- 两栏布局：提醒偏好 + 启动行为 + 语言切换 / 相关链接
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   └── TimelineWindows.vue  -- 概览 block 卡片网格（可展开整行分钟色块）
@@ -83,7 +89,7 @@ src/
 ├── api/
 │   └── tauri.ts             -- invoke 调用 Rust 命令的封装
 ├── theme.ts                 -- 统一色板 + naive-ui 主题覆盖
-├── App.vue                  -- 侧边栏布局 + 主题注入 + 滚动容器
+├── App.vue                  -- 侧边栏布局 + 主题注入 + naive-ui locale + 滚动容器
 └── main.ts                  -- Vue 入口
 ```
 
@@ -145,6 +151,8 @@ src/
 | 11 | 设置页文本优化 + 开机自启/静默启动开关 | ✅ |
 | 12 | 关闭不退出最小化到托盘，双击托盘显示主页面 | ✅ |
 | 13 | 设置页两栏布局 + 相关链接（GitHub/更新日志/问题反馈） | ✅ |
+| 14 | 国际化 i18n：vue-i18n 前端 + Rust 后端通知/托盘本地化，支持 zh-CN / en-US | ✅ |
+| 15 | 设置页语言切换器，默认自动检测系统语言 | ✅ |
 
 ## 构建命令
 

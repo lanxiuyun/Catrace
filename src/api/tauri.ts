@@ -40,6 +40,16 @@ export async function setSilentStart(enabled: boolean): Promise<void> {
   return invoke('set_silent_start', { enabled })
 }
 
+/** 获取界面语言，未设置时返回 null */
+export async function getLocale(): Promise<string | null> {
+  return invoke('get_locale')
+}
+
+/** 设置界面语言 */
+export async function setLocale(locale: string): Promise<void> {
+  return invoke('set_locale', { locale })
+}
+
 /** 获取今日活跃/休息分钟数 */
 export async function getTodayStats(): Promise<DailyStats> {
   return invoke('get_today_stats')

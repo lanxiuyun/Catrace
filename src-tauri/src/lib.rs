@@ -10,7 +10,6 @@ use active_win_pos_rs::get_active_window;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
@@ -257,12 +256,80 @@ impl ReminderState {
     }
 }
 
+// ---------- i18n helpers ----------
+
+fn notify_title(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "休息提醒",
+        _ => "Rest Reminder",
+    }
+}
+
+fn notify_body(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "连续活跃过久，该休息啦",
+        _ => "You've been active for a while. Time to take a break!",
+    }
+}
+
+fn toast_snooze_3(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "3分钟后提醒",
+        _ => "Remind in 3 min",
+    }
+}
+
+fn toast_snooze_5(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "5分钟后提醒",
+        _ => "Remind in 5 min",
+    }
+}
+
+fn toast_skip(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "跳过本次",
+        _ => "Skip this time",
+    }
+}
+
+fn test_notify_msg(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "这是一条测试提醒",
+        _ => "This is a test notification",
+    }
+}
+
+fn tray_show(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "显示主窗口",
+        _ => "Show Main Window",
+    }
+}
+
+fn tray_quit(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "退出",
+        _ => "Quit",
+    }
+}
+
+#[cfg(not(windows))]
+fn gsmtcsm_unavailable_msg(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "GSMTCSM 仅在 Windows 可用",
+        _ => "GSMTCSM is only available on Windows",
+    }
+}
+
 /** 获取视频检测的实时调试信息，供 Debug 页面展示。 */
 #[tauri::command]
 fn get_video_debug_info(
     activity: tauri::State<Arc<Mutex<ActivityState>>>,
+    db: tauri::State<db::Db>,
 ) -> VideoDebugInfo {
     let mouse_keyboard_count = activity.lock().unwrap().count;
+    let _locale = db.get_setting("locale", "zh-CN");
 
     #[cfg(windows)]
     let (gsmtcsm_available, gsmtcsm_session_count, gsmtcsm_sessions, gsmtcsm_has_playing, gsmtcsm_error) =
@@ -283,7 +350,7 @@ fn get_video_debug_info(
         0,
         Vec::new(),
         false,
-        Some("GSMTCSM 仅在 Windows 可用".to_string()),
+        Some(gsmtcsm_unavailable_msg(&_locale).to_string()),
     );
 
     let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
@@ -409,11 +476,25 @@ fn hide_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_locale(db: tauri::State<db::Db>) -> Option<String> {
+    let val = db.get_setting("locale", "");
+    if val.is_empty() { None } else { Some(val) }
+}
+
+#[tauri::command]
+fn set_locale(locale: String, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("locale", &locale)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn test_notification(
     app_handle: tauri::AppHandle,
     state: tauri::State<Arc<Mutex<ReminderState>>>,
+    db: tauri::State<db::Db>,
 ) {
-    show_notification(&app_handle, 0, "这是一条测试提醒", state.inner().clone());
+    let locale = db.get_setting("locale", "zh-CN");
+    show_notification(&app_handle, 0, test_notify_msg(&locale), state.inner().clone(), &locale);
 }
 
 
@@ -428,23 +509,28 @@ fn show_notification(
     boundary: i64,
     message: &str,
     reminder_state: Arc<Mutex<ReminderState>>,
+    locale: &str,
 ) {
     let app = app_handle.clone();
     let aumid = app_handle.config().identifier.clone();
     let state = reminder_state;
     let b = boundary;
     let msg = message.to_string();
+    let title = notify_title(locale).to_string();
+    let btn_3 = toast_snooze_3(locale).to_string();
+    let btn_5 = toast_snooze_5(locale).to_string();
+    let btn_skip = toast_skip(locale).to_string();
 
     // Toast 通知需要在主线程（STA）上创建，否则 on_activated 回调收不到事件
     if let Err(e) = app.run_on_main_thread(move || {
         let toast = Toast::new(&aumid)
-            .title("休息提醒")
+            .title(&title)
             .text1(&msg)
-            .add_button("3分钟后提醒", "snooze_3")
-            .add_button("5分钟后提醒", "snooze_5")
-            .add_button("跳过本次", "skip")
+            .add_button(&btn_3, "snooze_3")
+            .add_button(&btn_5, "snooze_5")
+            .add_button(&btn_skip, "skip")
             .on_activated(move |action| {
-                eprintln!("[Toast] 按钮点击: {:?}", action);
+                eprintln!("[Toast] button clicked: {:?}", action);
                 let mut s = state.lock().unwrap();
                 match action.as_deref() {
                     Some("snooze_3") => {
@@ -463,12 +549,12 @@ fn show_notification(
             });
 
         if let Err(e) = toast.show() {
-            eprintln!("Toast 通知发送失败 (AUMID={}): {}", aumid, e);
+            eprintln!("Toast notification failed (AUMID={}): {}", aumid, e);
         } else {
-            eprintln!("[Toast] 通知已发送: AUMID={}", aumid);
+            eprintln!("[Toast] notification sent: AUMID={}", aumid);
         }
     }) {
-        eprintln!("调度 Toast 到主线程失败: {}", e);
+        eprintln!("Failed to schedule Toast on main thread: {}", e);
     }
 }
 
@@ -478,13 +564,14 @@ fn show_notification(
     _boundary: i64,
     message: &str,
     _reminder_state: Arc<Mutex<ReminderState>>,
+    locale: &str,
 ) {
     if let Err(e) = app_handle.notification().builder()
-        .title("休息提醒")
+        .title(notify_title(locale))
         .body(message)
         .show()
     {
-        eprintln!("通知发送失败: {}", e);
+        eprintln!("Notification failed: {}", e);
     }
 }
 
@@ -518,7 +605,7 @@ pub fn run() {
                 }
             }
         })
-        .expect("键盘监听启动失败");
+        .expect("Failed to start keyboard listener");
     });
 
     let reminder_state_clone = reminder_state.clone();
@@ -540,7 +627,7 @@ pub fn run() {
                 let aumid = app.config().identifier.clone();
                 let app_name = app.config().product_name.clone().unwrap_or_else(|| "Catrace".to_string());
                 if let Err(e) = register_aumid(&aumid, &app_name) {
-                    eprintln!("AUMID 注册失败: {}", e);
+                    eprintln!("AUMID registration failed: {}", e);
                 }
             }
 
@@ -551,7 +638,7 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let db_path = app_data_dir.join("catrace.db");
-            let db = db::Db::new(&db_path).expect("数据库初始化失败");
+            let db = db::Db::new(&db_path).expect("Failed to initialize database");
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
             app.manage(state.clone());
@@ -594,7 +681,7 @@ pub fn run() {
                         Err(_) => "unknown".to_string(),
                     };
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
-                        eprintln!("写入数据库失败: {}", e);
+                        eprintln!("Failed to write to database: {}", e);
                     }
 
                     // 读取配置
@@ -606,6 +693,7 @@ pub fn run() {
                         .get_setting("break_minutes", "5")
                         .parse()
                         .unwrap_or(5);
+                    let locale = db_clone.get_setting("locale", "zh-CN");
 
                     // 提醒逻辑：
                     // 1. 当前分钟在休息 → 不提醒，同时清除 snooze
@@ -627,14 +715,15 @@ pub fn run() {
                                             show_notification(
                                                 &app_handle,
                                                 b,
-                                                "连续活跃过久，该休息啦",
+                                                notify_body(&locale),
                                                 reminder_state_for_settle.clone(),
+                                                &locale,
                                             );
                                         }
                                     }
                                 }
                             }
-                            Err(e) => eprintln!("检测失败: {}", e),
+                            Err(e) => eprintln!("Notification check failed: {}", e),
                         }
                     } else {
                         // 当前分钟在休息 → 清除 snooze，不提醒
@@ -667,8 +756,9 @@ pub fn run() {
             // 系统托盘：先移除可能已存在的旧图标，防止重复创建
             let _ = app.remove_tray_by_id("main");
 
-            let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
-            let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let locale = db.get_setting("locale", "zh-CN");
+            let show_i = MenuItem::with_id(app, "show", tray_show(&locale), true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", tray_quit(&locale), true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -702,6 +792,7 @@ pub fn run() {
             get_config, set_config,
             skip_reminder, snooze_reminder,
             get_silent_start, set_silent_start,
+            get_locale, set_locale,
             get_video_active_enabled, set_video_active_enabled,
             show_main_window, hide_main_window,
             get_today_stats, get_today_records, get_app_stats,

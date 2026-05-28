@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { h } from 'vue'
+import { h, computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   NConfigProvider,
   NLayout,
@@ -10,27 +11,33 @@ import {
   NMessageProvider,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
+import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
 
 const route = useRoute()
+const { t, locale } = useI18n()
 
-const menuOptions = [
+const naiveLocale = computed(() => {
+  return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS
+})
+
+const menuOptions = computed(() => [
   {
-    label: () => h(RouterLink, { to: '/dashboard' }, { default: () => '概览' }),
+    label: () => h(RouterLink, { to: '/dashboard' }, { default: () => t('nav.overview') }),
     key: '/dashboard',
   },
   {
-    label: () => h(RouterLink, { to: '/settings' }, { default: () => '设置' }),
+    label: () => h(RouterLink, { to: '/settings' }, { default: () => t('nav.settings') }),
     key: '/settings',
   },
   {
-    label: () => h(RouterLink, { to: '/debug' }, { default: () => '调试' }),
+    label: () => h(RouterLink, { to: '/debug' }, { default: () => t('nav.debug') }),
     key: '/debug',
   },
-]
+])
 </script>
 
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides" :locale="naiveLocale">
     <n-message-provider>
       <n-layout has-sider class="app-layout">
         <n-layout-sider
