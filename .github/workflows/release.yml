@@ -29,7 +29,9 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target universal-apple-darwin --bundles app,dmg'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
           - platform: 'ubuntu-22.04'
             args: ''
           - platform: 'windows-latest'
@@ -56,10 +58,10 @@ jobs:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: startsWith(matrix.platform, 'ubuntu-')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libx11-dev libxcb1-dev libxcb-randr0-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils libx11-dev libxcb1-dev libxcb-randr0-dev
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -75,7 +77,8 @@ jobs:
           releaseName: 'v__VERSION__'
           releaseBody: |
             **Windows** — 下载 `catrace_*_x64-setup.exe`
-            **macOS** — 下载 `catrace_*_universal.dmg`
+            **macOS (Apple Silicon)** — 下载 `catrace_*_aarch64.dmg`
+            **macOS (Intel)** — 下载 `catrace_*_x64.dmg`
             **Linux (通用)** — 下载 `catrace_*_amd64.AppImage`
             **Linux (Debian/Ubuntu)** — 下载 `catrace_*_amd64.deb`
           releaseDraft: false
