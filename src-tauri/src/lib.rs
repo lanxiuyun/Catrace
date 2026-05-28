@@ -727,8 +727,7 @@ fn create_popup_window(
 
     // 如果窗口已存在，复用它而不是关闭重建
     if let Some(window) = app_handle.get_webview_window(label) {
-        let _ = window.show();
-        let _ = window.set_focus();
+        let _ = window.hide();
         if let Some(main) = app_handle.get_webview_window("main") {
             if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
                 let pw = 440.0;
@@ -738,6 +737,8 @@ fn create_popup_window(
                 let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
         }
+        let _ = window.show();
+        let _ = window.set_focus();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(300)).await;
             let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';");
@@ -757,14 +758,12 @@ fn create_popup_window(
             .inner_size(440.0, 300.0)
             .decorations(false)
             .always_on_top(true)
+            .visible(false)
             .skip_taskbar(true)
             .resizable(false);
 
         match builder.build() {
             Ok(window) => {
-                let _ = window.show();
-
-                // 手动在主窗口中央显示
                 if let Some(main) = app.get_webview_window("main") {
                     if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
                         let pw = 440.0;
@@ -774,6 +773,7 @@ fn create_popup_window(
                         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
                     }
                 }
+                let _ = window.show();
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {

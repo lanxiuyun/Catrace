@@ -126,7 +126,7 @@ async function handleSkip() {
   height: 100%;
   background: #ffffff;
   border-radius: 16px;
-  padding: 22px 24px 18px;
+  padding: 16px 20px 14px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -142,7 +142,7 @@ async function handleSkip() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .header-left {
@@ -211,7 +211,7 @@ async function handleSkip() {
 }
 
 .pill {
-  height: 36px;
+  height: 32px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
@@ -272,7 +272,7 @@ async function handleSkip() {
 
 /* Buttons */
 .btn {
-  height: 40px;
+  height: 36px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
