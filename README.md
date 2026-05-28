@@ -6,8 +6,6 @@
 
 ![Catrace Dashboard](.readme/dashboard.png)
 
-![Catrace 通知](.readme/notification.png)
-
 ## [下载最新版本](https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow)
 
 ## 它是干嘛的
