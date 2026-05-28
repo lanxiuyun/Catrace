@@ -119,6 +119,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
+| `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 
 **提醒操作（进程级状态，重启后重置）**
 
@@ -155,9 +156,14 @@ src-tauri/src/
 
 ```
 src/
+├── i18n/
+│   ├── index.ts         -- vue-i18n 配置（zh-CN / en-US）
+│   └── locales/
+│       ├── zh-CN.ts     -- 中文翻译
+│       └── en-US.ts     -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue    -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   └── Settings.vue     -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 更新/链接
+│   └── Settings.vue     -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 语言切换 + 更新/链接
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   └── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
@@ -168,7 +174,7 @@ src/
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
 ├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
-├── App.vue              -- 侧边栏布局 + NConfigProvider 主题注入
+├── App.vue              -- 侧边栏布局 + NConfigProvider 主题注入（含 naive-ui  locale）
 └── main.ts              -- Vue 入口
 ```
 
@@ -290,6 +296,9 @@ CREATE TABLE settings (
 | 29 | 「视频计入活跃」开关设置 | ✅ |
 | 30 | 文案中性化：「工作」→「活跃」 | ✅ |
 | 31 | 设置页去掉保存按钮，提醒偏好滑块自动保存 | ✅ |
+| 32 | 国际化 i18n：vue-i18n 前端全量替换 + Rust 后端通知/托盘本地化 | ✅ |
+| 33 | 支持 zh-CN / en-US 双语，设置页语言切换器 | ✅ |
+| 34 | 默认自动检测系统语言（navigator.language），首次启动保存到 DB | ✅ |
 
 ---
 

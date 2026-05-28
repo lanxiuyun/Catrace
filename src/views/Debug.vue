@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NCard,
   NSpace,
@@ -12,6 +13,8 @@ import {
   NText,
 } from 'naive-ui'
 import { getVideoDebugInfo, type VideoDebugInfo } from '../api/tauri'
+
+const { t } = useI18n()
 
 const data = ref<VideoDebugInfo | null>(null)
 const loading = ref(false)
@@ -41,61 +44,61 @@ onUnmounted(() => {
 <template>
   <div class="debug-page">
     <div class="page-header">
-      <h2>视频检测调试</h2>
-      <n-button size="small" :loading="loading" @click="refresh">手动刷新</n-button>
+      <h2>{{ t('debug.title') }}</h2>
+      <n-button size="small" :loading="loading" @click="refresh">{{ t('debug.refresh') }}</n-button>
     </div>
 
     <n-space vertical :size="16" v-if="data">
       <!-- 最终判定 -->
-      <n-card title="最终判定" size="small">
+      <n-card :title="t('debug.finalResult')" size="small">
         <n-space align="center" :size="24">
           <div class="result-item">
-            <div class="result-label">media_active</div>
+            <div class="result-label">{{ t('debug.mediaActive') }}</div>
             <n-tag :type="data.media_active ? 'success' : 'default'" size="large">
-              {{ data.media_active ? 'true（视频活跃）' : 'false' }}
+              {{ data.media_active ? t('debug.videoActiveTrue') : 'false' }}
             </n-tag>
           </div>
           <div class="result-item">
-            <div class="result-label">键鼠计数（本分钟）</div>
+            <div class="result-label">{{ t('debug.mkCount') }}</div>
             <n-tag size="large">{{ data.mouse_keyboard_count }}</n-tag>
           </div>
           <div class="result-item">
-            <div class="result-label">预计活跃状态</div>
+            <div class="result-label">{{ t('debug.estimatedStatus') }}</div>
             <n-tag :type="data.mouse_keyboard_count >= 3 || data.media_active ? 'success' : 'default'" size="large">
-              {{ data.mouse_keyboard_count >= 3 || data.media_active ? '活跃' : '休息' }}
+              {{ data.mouse_keyboard_count >= 3 || data.media_active ? t('timeline.active') : t('timeline.rest') }}
             </n-tag>
           </div>
         </n-space>
       </n-card>
 
       <!-- GSMTCSM -->
-      <n-card title="系统媒体会话（GSMTCSM）" size="small">
+      <n-card :title="t('debug.gsmtcsm')" size="small">
         <n-space vertical :size="12">
           <n-descriptions :column="3" size="small" bordered>
-            <n-descriptions-item label="可用">
+            <n-descriptions-item :label="t('debug.available')">
               <n-tag :type="data.gsmtcsm_available ? 'success' : 'error'">
-                {{ data.gsmtcsm_available ? '是' : '否' }}
+                {{ data.gsmtcsm_available ? t('debug.yes') : t('debug.no') }}
               </n-tag>
             </n-descriptions-item>
-            <n-descriptions-item label="会话数">{{ data.gsmtcsm_session_count }}</n-descriptions-item>
-            <n-descriptions-item label="有 Playing">
+            <n-descriptions-item :label="t('debug.sessionCount')">{{ data.gsmtcsm_session_count }}</n-descriptions-item>
+            <n-descriptions-item :label="t('debug.hasPlaying')">
               <n-tag :type="data.gsmtcsm_has_playing ? 'success' : 'default'">
-                {{ data.gsmtcsm_has_playing ? '是' : '否' }}
+                {{ data.gsmtcsm_has_playing ? t('debug.yes') : t('debug.no') }}
               </n-tag>
             </n-descriptions-item>
           </n-descriptions>
 
           <n-text v-if="data.gsmtcsm_error" type="error">
-            错误：{{ data.gsmtcsm_error }}
+            {{ t('debug.errorPrefix') }}{{ data.gsmtcsm_error }}
           </n-text>
 
           <n-table v-if="data.gsmtcsm_sessions.length > 0" :single-line="false" size="small">
             <thead>
               <tr>
-                <th>标题</th>
-                <th>艺术家</th>
-                <th>状态</th>
-                <th>类型</th>
+                <th>{{ t('debug.table.title') }}</th>
+                <th>{{ t('debug.table.artist') }}</th>
+                <th>{{ t('debug.table.status') }}</th>
+                <th>{{ t('debug.table.type') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -112,23 +115,23 @@ onUnmounted(() => {
             </tbody>
           </n-table>
 
-          <n-empty v-else-if="!data.gsmtcsm_error" description="无媒体会话" size="small" />
+          <n-empty v-else-if="!data.gsmtcsm_error" :description="t('debug.noMediaSessions')" size="small" />
         </n-space>
       </n-card>
 
       <!-- 焦点窗口 -->
-      <n-card title="焦点窗口（关键词匹配）" size="small">
+      <n-card :title="t('debug.focusWindow')" size="small">
         <n-space vertical :size="12">
           <n-descriptions :column="1" size="small" bordered>
-            <n-descriptions-item label="窗口标题">{{ data.focus_window_title }}</n-descriptions-item>
-            <n-descriptions-item label="应用名">{{ data.focus_app_name }}</n-descriptions-item>
-            <n-descriptions-item label="进程路径">{{ data.focus_process_path }}</n-descriptions-item>
-            <n-descriptions-item label="关键词匹配">
+            <n-descriptions-item :label="t('debug.windowTitle')">{{ data.focus_window_title }}</n-descriptions-item>
+            <n-descriptions-item :label="t('debug.appName')">{{ data.focus_app_name }}</n-descriptions-item>
+            <n-descriptions-item :label="t('debug.processPath')">{{ data.focus_process_path }}</n-descriptions-item>
+            <n-descriptions-item :label="t('debug.keywordMatch')">
               <n-tag :type="data.keyword_matched ? 'success' : 'default'">
-                {{ data.keyword_matched ? '是' : '否' }}
+                {{ data.keyword_matched ? t('debug.yes') : t('debug.no') }}
               </n-tag>
               <n-text v-if="data.matched_keyword" depth="3" style="margin-left: 8px;">
-                （命中：{{ data.matched_keyword }}）
+                {{ t('debug.matchedPrefix') }}{{ data.matched_keyword }}
               </n-text>
             </n-descriptions-item>
           </n-descriptions>

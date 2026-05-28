@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NSlider,
   NSwitch,
   NButton,
   NProgress,
+  NSelect,
   useMessage,
 } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
@@ -16,14 +18,19 @@ import {
   getConfig, setConfig,
   getSilentStart, setSilentStart,
   getVideoActiveEnabled, setVideoActiveEnabled,
+  getLocale, setLocale,
   testNotification,
 } from '../api/tauri'
+import i18n from '../i18n'
+
+const { t } = useI18n()
 
 const config = ref({ window_minutes: 45, break_minutes: 5 })
 const autostart = ref(false)
 const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
-const loading = ref({ config: false, autostart: false, silent: false, videoActive: false })
+const localeVal = ref('zh-CN')
+const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, locale: false })
 const message = useMessage()
 const isConfigReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -37,14 +44,26 @@ const downloadProgress = ref(0)
 const downloadTotal = ref(0)
 const downloadReceived = ref(0)
 
+const localeOptions = [
+  { label: '简体中文', value: 'zh-CN' },
+  { label: 'English', value: 'en-US' },
+]
+
+function detectDefaultLocale(): string {
+  const lang = navigator.language || 'zh-CN'
+  if (lang.startsWith('en')) return 'en-US'
+  return 'zh-CN'
+}
+
 onMounted(async () => {
   try {
-    const [c, a, s, v, va] = await Promise.all([
+    const [c, a, s, v, va, loc] = await Promise.all([
       getConfig(),
       isEnabled(),
       getSilentStart(),
       getVersion(),
       getVideoActiveEnabled(),
+      getLocale(),
     ])
     config.value = {
       window_minutes: Number(c.window_minutes),
@@ -54,9 +73,21 @@ onMounted(async () => {
     silentStart.value = s
     videoActiveEnabled.value = va
     appVersion.value = v
+
+    // 如果 DB 里没有 locale，自动检测并保存
+    if (!loc) {
+      const detected = detectDefaultLocale()
+      localeVal.value = detected
+      await setLocale(detected)
+      i18n.global.locale.value = detected as 'zh-CN' | 'en-US'
+    } else {
+      localeVal.value = loc
+      i18n.global.locale.value = loc as 'zh-CN' | 'en-US'
+    }
+
     isConfigReady.value = true
   } catch (e) {
-    console.error('获取配置失败', e)
+    console.error('Failed to load settings', e)
   }
 })
 
@@ -70,15 +101,30 @@ watch(
       loading.value.config = true
       try {
         await setConfig(config.value)
-        message.success('已保存')
+        message.success(t('settings.messages.saved'))
       } catch (e) {
-        message.error('保存失败')
+        message.error(t('settings.messages.saveFailed'))
       } finally {
         loading.value.config = false
       }
     }, 500)
   }
 )
+
+watch(localeVal, async (newVal, oldVal) => {
+  if (!isConfigReady.value || newVal === oldVal) return
+  loading.value.locale = true
+  try {
+    await setLocale(newVal)
+    i18n.global.locale.value = newVal as 'zh-CN' | 'en-US'
+    message.success(t('settings.messages.saved'))
+  } catch (e) {
+    message.error(t('settings.messages.saveFailed'))
+    localeVal.value = oldVal
+  } finally {
+    loading.value.locale = false
+  }
+})
 
 async function toggleAutostart(val: boolean) {
   loading.value.autostart = true
@@ -89,9 +135,9 @@ async function toggleAutostart(val: boolean) {
       await disable()
     }
     autostart.value = val
-    message.success(val ? '已开启开机自启' : '已关闭开机自启')
+    message.success(val ? t('settings.messages.autostartOn') : t('settings.messages.autostartOff'))
   } catch (e) {
-    message.error('设置失败')
+    message.error(t('settings.messages.setFailed'))
     autostart.value = !val
   } finally {
     loading.value.autostart = false
@@ -103,9 +149,9 @@ async function toggleSilentStart(val: boolean) {
   try {
     await setSilentStart(val)
     silentStart.value = val
-    message.success(val ? '已开启静默启动' : '已关闭静默启动')
+    message.success(val ? t('settings.messages.silentOn') : t('settings.messages.silentOff'))
   } catch (e) {
-    message.error('设置失败')
+    message.error(t('settings.messages.setFailed'))
     silentStart.value = !val
   } finally {
     loading.value.silent = false
@@ -117,9 +163,9 @@ async function toggleVideoActive(val: boolean) {
   try {
     await setVideoActiveEnabled(val)
     videoActiveEnabled.value = val
-    message.success(val ? '已开启视频计入活跃' : '已关闭视频计入活跃')
+    message.success(val ? t('settings.messages.videoActiveOn') : t('settings.messages.videoActiveOff'))
   } catch (e) {
-    message.error('设置失败')
+    message.error(t('settings.messages.setFailed'))
     videoActiveEnabled.value = !val
   } finally {
     loading.value.videoActive = false
@@ -129,9 +175,9 @@ async function toggleVideoActive(val: boolean) {
 async function notify() {
   try {
     await testNotification()
-    message.success('通知已发送')
+    message.success(t('settings.messages.notifySent'))
   } catch (e) {
-    message.error('通知失败')
+    message.error(t('settings.messages.notifyFailed'))
   }
 }
 
@@ -143,13 +189,13 @@ async function handleCheckUpdate() {
     })
     if (update) {
       updateInfo.value = { available: true, version: update.version, body: update.body || '' }
-      message.info(`发现新版本：${update.version}`)
+      message.info(t('settings.update.newVersion', { version: update.version }))
     } else {
       updateInfo.value = { available: false }
-      message.success('当前已是最新版本')
+      message.success(t('settings.messages.noUpdate'))
     }
   } catch (e) {
-    message.error('检查更新失败')
+    message.error(t('settings.messages.checkFailed'))
     console.error(e)
   } finally {
     updateLoading.value = false
@@ -166,7 +212,7 @@ async function handleInstallUpdate() {
       headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
     })
     if (!update) {
-      message.warning('未找到可用更新')
+      message.warning(t('settings.messages.noUpdateFound'))
       return
     }
     await update.downloadAndInstall((event) => {
@@ -185,10 +231,10 @@ async function handleInstallUpdate() {
           break
       }
     })
-    message.success('更新已安装，即将重启')
+    message.success(t('settings.messages.installSuccess'))
     await relaunch()
   } catch (e) {
-    message.error('更新失败')
+    message.error(t('settings.messages.updateFailed'))
     console.error(e)
   } finally {
     updateInstalling.value = false
@@ -198,23 +244,40 @@ async function handleInstallUpdate() {
 
 <template>
   <div class="settings">
-    <h1 class="title">设置</h1>
-    <p class="subtitle">自定义 Catrace 的工作方式</p>
+    <h1 class="title">{{ t('settings.title') }}</h1>
+    <p class="subtitle">{{ t('settings.subtitle') }}</p>
 
     <div class="two-col">
       <!-- 左侧：设置项 -->
       <div class="col-left">
         <div class="group">
-          <div class="group-label">提醒偏好</div>
+          <div class="group-label">{{ t('settings.language.title') }}</div>
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.language.title') }}</div>
+              <div class="setting-desc">{{ t('settings.language.desc') }}</div>
+            </div>
+            <n-select
+              v-model:value="localeVal"
+              :options="localeOptions"
+              :loading="loading.locale"
+              size="small"
+              style="width: 140px;"
+            />
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">休息提醒间隔</div>
-              <div class="setting-desc">连续活跃多久后提醒你休息</div>
+              <div class="setting-title">{{ t('settings.reminder.windowTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.windowDesc') }}</div>
             </div>
             <div class="setting-control slider-control">
               <n-slider v-model:value="config.window_minutes" :min="10" :max="120" :step="5" />
-              <span class="setting-value">{{ config.window_minutes }} 分钟</span>
+              <span class="setting-value">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
             </div>
           </div>
 
@@ -222,12 +285,12 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">休息判定</div>
-              <div class="setting-desc">连续休息多少分钟算一次有效休息</div>
+              <div class="setting-title">{{ t('settings.reminder.breakTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.breakDesc') }}</div>
             </div>
             <div class="setting-control slider-control">
               <n-slider v-model:value="config.break_minutes" :min="1" :max="30" :step="1" />
-              <span class="setting-value">{{ config.break_minutes }} 分钟</span>
+              <span class="setting-value">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
             </div>
           </div>
 
@@ -237,8 +300,8 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">视频计入活跃</div>
-              <div class="setting-desc">开启后，看视频时会提醒</div>
+              <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.videoActiveDesc') }}</div>
             </div>
             <n-switch
               :value="videoActiveEnabled"
@@ -249,19 +312,19 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">通知测试</div>
-              <div class="setting-desc">手动发送一条通知预览效果</div>
+              <div class="setting-title">{{ t('settings.reminder.testNotifyTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.testNotifyDesc') }}</div>
             </div>
-            <n-button @click="notify">测试通知</n-button>
+            <n-button @click="notify">{{ t('settings.reminder.testNotifyBtn') }}</n-button>
           </div>
         </div>
 
         <div class="group">
-          <div class="group-label">软件更新</div>
+          <div class="group-label">{{ t('settings.groups.update') }}</div>
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">当前版本</div>
+              <div class="setting-title">{{ t('settings.update.currentVersion') }}</div>
               <div class="setting-desc">{{ appVersion || '...' }}</div>
             </div>
             <div class="setting-control">
@@ -269,7 +332,7 @@ async function handleInstallUpdate() {
                 :loading="updateLoading"
                 :disabled="updateInstalling"
                 @click="handleCheckUpdate"
-              >检查更新</n-button>
+              >{{ t('settings.update.checkUpdate') }}</n-button>
             </div>
           </div>
 
@@ -277,7 +340,7 @@ async function handleInstallUpdate() {
             <div class="divider" />
             <div class="update-banner">
               <div class="update-banner-title">
-                发现新版本 {{ updateInfo.version }}
+                {{ t('settings.update.newVersion', { version: updateInfo.version }) }}
               </div>
               <div v-if="updateInfo.body" class="update-banner-body">
                 {{ updateInfo.body }}
@@ -287,7 +350,7 @@ async function handleInstallUpdate() {
                 :loading="updateInstalling && downloadProgress === 0"
                 :disabled="updateInstalling"
                 @click="handleInstallUpdate"
-              >{{ updateInstalling ? '下载中...' : '立即更新' }}</n-button>
+              >{{ updateInstalling ? t('settings.update.downloading') : t('settings.update.updateNow') }}</n-button>
               <div v-if="updateInstalling" class="download-progress">
                 <n-progress
                   type="line"
@@ -306,12 +369,12 @@ async function handleInstallUpdate() {
         </div>
 
         <div class="group">
-          <div class="group-label">启动行为</div>
+          <div class="group-label">{{ t('settings.groups.startup') }}</div>
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">开机自启</div>
-              <div class="setting-desc">系统启动时自动运行 Catrace</div>
+              <div class="setting-title">{{ t('settings.startup.autostartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.autostartDesc') }}</div>
             </div>
             <n-switch
               :value="autostart"
@@ -324,8 +387,8 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">静默启动</div>
-              <div class="setting-desc">开机时不显示窗口，只在托盘运行</div>
+              <div class="setting-title">{{ t('settings.startup.silentStartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.silentStartDesc') }}</div>
             </div>
             <n-switch
               :value="silentStart"
@@ -340,15 +403,15 @@ async function handleInstallUpdate() {
       <!-- 右侧：相关链接 -->
       <div class="col-right">
         <div class="group links-group">
-      <div class="group-label">相关链接</div>
+      <div class="group-label">{{ t('settings.groups.links') }}</div>
       <div class="link-list">
         <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace')">
           <div class="link-icon" style="background:#F3F4F6;color:#24292F;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
           </div>
           <div class="link-body">
-            <div class="link-title">GitHub</div>
-            <div class="link-desc">查看源码和提交 Issue</div>
+            <div class="link-title">{{ t('settings.links.githubTitle') }}</div>
+            <div class="link-desc">{{ t('settings.links.githubDesc') }}</div>
           </div>
           <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
@@ -358,8 +421,8 @@ async function handleInstallUpdate() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
           <div class="link-body">
-            <div class="link-title">更新日志</div>
-            <div class="link-desc">查看版本更新记录</div>
+            <div class="link-title">{{ t('settings.links.changelogTitle') }}</div>
+            <div class="link-desc">{{ t('settings.links.changelogDesc') }}</div>
           </div>
           <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
@@ -369,8 +432,8 @@ async function handleInstallUpdate() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
           <div class="link-body">
-            <div class="link-title">问题反馈</div>
-            <div class="link-desc">报告 Bug 或建议新功能</div>
+            <div class="link-title">{{ t('settings.links.issuesTitle') }}</div>
+            <div class="link-desc">{{ t('settings.links.issuesDesc') }}</div>
           </div>
           <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
