@@ -745,22 +745,32 @@ fn create_popup_window(
         return;
     }
 
-    tauri::async_runtime::spawn(async move {
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            label,
-            tauri::WebviewUrl::App("index.html".into()),
-        )
-        .title("Catrace")
-        .inner_size(400.0, 200.0)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .shadow(false)
-        .skip_taskbar(true)
-        .resizable(false);
+    let main_window = app.get_webview_window("main");
+    let url = tauri::WebviewUrl::App("index.html".into());
 
-        match builder.build() {
+    tauri::async_runtime::spawn(async move {
+        let make_builder = || {
+            tauri::WebviewWindowBuilder::new(&app, label, url.clone())
+                .title("Catrace")
+                .inner_size(400.0, 200.0)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+        };
+
+        let window = match main_window {
+            Some(ref main) => match make_builder().parent(main) {
+                Ok(b) => b.build(),
+                Err(e) => {
+                    eprintln!("[PopupWindow] parent failed: {}, fallback", e);
+                    make_builder().build()
+                }
+            },
+            None => make_builder().build(),
+        };
+
+        match window {
             Ok(window) => {
                 let _ = window.show();
 
@@ -772,26 +782,6 @@ fn create_popup_window(
                         let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                         let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
                         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
-                    }
-                }
-
-                // Windows: 去掉透明窗口的 DWM 边框
-                #[cfg(target_os = "windows")]
-                {
-                    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-                    if let Ok(handle) = window.window_handle() {
-                        if let RawWindowHandle::Win32(h) = handle.as_raw() {
-                            let hwnd = windows::Win32::Foundation::HWND(h.hwnd.get() as _);
-                            unsafe {
-                                use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE};
-                                let _ = DwmSetWindowAttribute(
-                                    hwnd,
-                                    DWMWA_BORDER_COLOR,
-                                    &DWMWA_COLOR_NONE as *const _ as *const _,
-                                    std::mem::size_of::<u32>() as u32,
-                                );
-                            }
-                        }
                     }
                 }
 
