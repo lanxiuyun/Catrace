@@ -282,8 +282,8 @@ fn notify_title(locale: &str) -> &'static str {
 
 fn notify_body(locale: &str) -> &'static str {
     match locale {
-        "zh-CN" => "连续活跃过久，该休息啦",
-        _ => "You've been active for a while. Time to take a break!",
+        "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
+        _ => "Stand up, drink some water, stretch your neck and back.",
     }
 }
 
