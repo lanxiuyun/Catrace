@@ -100,11 +100,11 @@ async function handleSkip() {
       </div>
 
       <div class="actions">
-        <button class="btn btn-secondary" @click="handleSnooze(3)">
-          {{ t('reminder.snooze3') }}
-        </button>
         <button class="btn btn-secondary" @click="handleSnooze(5)">
           {{ t('reminder.snooze5') }}
+        </button>
+        <button class="btn btn-secondary" @click="handleSnooze(10)">
+          {{ t('reminder.snooze10') }}
         </button>
         <button class="btn btn-primary" @click="handleSkip">
           {{ t('reminder.skip') }}

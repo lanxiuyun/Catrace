@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 export interface AppConfig {
   window_minutes: number
   break_minutes: number
+  snooze_interval_minutes: number
 }
 
 export interface DailyStats {

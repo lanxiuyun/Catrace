@@ -35,6 +35,8 @@ export default {
       windowDesc: '连续活跃多久后提醒你休息',
       breakTitle: '有效休息时长',
       breakDesc: '连续休息多少分钟算一次有效休息',
+      snoozeIntervalTitle: '重复提醒间隔',
+      snoozeIntervalDesc: '活跃满后每隔多久提醒一次',
       videoActiveTitle: '视频计入活跃',
       videoActiveDesc: '开启后，看视频时会提醒',
       testNotifyTitle: '通知测试',
@@ -148,8 +150,8 @@ export default {
     hour: '小时',
   },
   reminder: {
-    snooze3: '3分钟后提醒',
     snooze5: '5分钟后提醒',
+    snooze10: '10分钟后提醒',
     skip: '跳过本次',
     countdown: '休息倒计时',
     countdownDone: '休息完成',

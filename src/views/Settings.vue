@@ -29,7 +29,7 @@ import i18n from '../i18n'
 
 const { t } = useI18n()
 
-const config = ref({ window_minutes: 45, break_minutes: 5 })
+const config = ref({ window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 })
 const autostart = ref(false)
 const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
@@ -85,6 +85,7 @@ onMounted(async () => {
     config.value = {
       window_minutes: Number(c.window_minutes),
       break_minutes: Number(c.break_minutes),
+      snooze_interval_minutes: Number(c.snooze_interval_minutes) || 3,
     }
     autostart.value = a
     silentStart.value = s
@@ -115,10 +116,10 @@ onMounted(async () => {
 })
 
 watch(
-  () => ({ window_minutes: config.value.window_minutes, break_minutes: config.value.break_minutes }),
+  () => ({ window_minutes: config.value.window_minutes, break_minutes: config.value.break_minutes, snooze_interval_minutes: config.value.snooze_interval_minutes }),
   async (newVal, oldVal) => {
     if (!isConfigReady.value) return
-    if (newVal.window_minutes === oldVal.window_minutes && newVal.break_minutes === oldVal.break_minutes) return
+    if (newVal.window_minutes === oldVal.window_minutes && newVal.break_minutes === oldVal.break_minutes && newVal.snooze_interval_minutes === oldVal.snooze_interval_minutes) return
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
       loading.value.config = true
@@ -368,6 +369,19 @@ async function handleInstallUpdate() {
             <div class="setting-control slider-control">
               <n-slider v-model:value="config.break_minutes" :min="1" :max="30" :step="1" />
               <span class="setting-value">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
+            </div>
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.snoozeIntervalTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.snoozeIntervalDesc') }}</div>
+            </div>
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="config.snooze_interval_minutes" :min="1" :max="10" :step="1" />
+              <span class="setting-value">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
             </div>
           </div>
 

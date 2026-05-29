@@ -35,6 +35,8 @@ export default {
       windowDesc: 'How long of continuous activity before reminding you to rest',
       breakTitle: 'Valid Rest Duration',
       breakDesc: 'How many consecutive rest minutes count as a valid break',
+      snoozeIntervalTitle: 'Repeat Reminder Interval',
+      snoozeIntervalDesc: 'How often to remind after the active window is reached',
       videoActiveTitle: 'Video Counts as Active',
       videoActiveDesc: 'When enabled, watching videos will also trigger reminders',
       testNotifyTitle: 'Test Notification',
@@ -148,8 +150,8 @@ export default {
     hour: 'hr',
   },
   reminder: {
-    snooze3: 'Remind in 3 min',
     snooze5: 'Remind in 5 min',
+    snooze10: 'Remind in 10 min',
     skip: 'Skip this time',
     countdown: 'Rest Countdown',
     countdownDone: 'Break complete',

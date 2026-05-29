@@ -78,7 +78,6 @@ async function handleSkip() {
 
       <!-- Snooze Options -->
       <div class="snooze-grid">
-        <button class="pill" @click="handleSnooze(3)">3 分钟</button>
         <button class="pill" @click="handleSnooze(5)">5 分钟</button>
         <button class="pill" @click="handleSnooze(10)">10 分钟</button>
         <button class="pill" @click="handleSnooze(15)">15 分钟</button>

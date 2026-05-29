@@ -287,17 +287,17 @@ fn notify_body(locale: &str) -> &'static str {
     }
 }
 
-fn toast_snooze_3(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "3分钟后提醒",
-        _ => "Remind in 3 min",
-    }
-}
-
 fn toast_snooze_5(locale: &str) -> &'static str {
     match locale {
         "zh-CN" => "5分钟后提醒",
         _ => "Remind in 5 min",
+    }
+}
+
+fn toast_snooze_10(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "10分钟后提醒",
+        _ => "Remind in 10 min",
     }
 }
 
@@ -410,7 +410,8 @@ fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(
 fn get_config(db: tauri::State<db::Db>) -> serde_json::Value {
     let window: i64 = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
     let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-    serde_json::json!({ "window_minutes": window, "break_minutes": break_m })
+    let snooze_interval: i64 = db.get_setting("snooze_interval_minutes", "3").parse().unwrap_or(3);
+    serde_json::json!({ "window_minutes": window, "break_minutes": break_m, "snooze_interval_minutes": snooze_interval })
 }
 
 #[tauri::command]
@@ -421,6 +422,10 @@ fn set_config(config: serde_json::Value, db: tauri::State<db::Db>) -> Result<(),
     }
     if let Some(v) = config.get("break_minutes").and_then(|v| v.as_i64()) {
         db.set_setting("break_minutes", &v.to_string())
+            .map_err(|e| e.to_string())?;
+    }
+    if let Some(v) = config.get("snooze_interval_minutes").and_then(|v| v.as_i64()) {
+        db.set_setting("snooze_interval_minutes", &v.to_string())
             .map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -646,25 +651,25 @@ fn show_toast_notification(
     let b = boundary;
     let msg = message.to_string();
     let title = notify_title(locale).to_string();
-    let btn_3 = toast_snooze_3(locale).to_string();
     let btn_5 = toast_snooze_5(locale).to_string();
+    let btn_10 = toast_snooze_10(locale).to_string();
     let btn_skip = toast_skip(locale).to_string();
 
     if let Err(e) = app.run_on_main_thread(move || {
         let toast = Toast::new(&aumid)
             .title(&title)
             .text1(&msg)
-            .add_button(&btn_3, "snooze_3")
             .add_button(&btn_5, "snooze_5")
+            .add_button(&btn_10, "snooze_10")
             .add_button(&btn_skip, "skip")
             .on_activated(move |action| {
                 let mut s = state.lock().unwrap();
                 match action.as_deref() {
-                    Some("snooze_3") => {
-                        s.snooze_until = Some(Instant::now() + Duration::from_secs(3 * 60));
-                    }
                     Some("snooze_5") => {
                         s.snooze_until = Some(Instant::now() + Duration::from_secs(5 * 60));
+                    }
+                    Some("snooze_10") => {
+                        s.snooze_until = Some(Instant::now() + Duration::from_secs(10 * 60));
                     }
                     Some("skip") => {
                         s.skip_until_boundary = Some(b);
@@ -976,7 +981,7 @@ pub fn run() {
                     //    （用户已经开始自然休息，不需要再催）
                     // 2. 当前分钟在活跃 → 检查 should_notify，再经过 ReminderState 过滤：
                     //    · skip_until_boundary：用户点了「跳过本次」
-                    //    · snooze_until：用户点了「3/5分钟后提醒」
+                    //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
                     if active {
                         match db_clone.check_should_notify(window, break_m) {
                             Ok((should_notify, boundary)) => {
@@ -997,6 +1002,13 @@ pub fn run() {
                                                 &db_clone,
                                                 &store_for_settle,
                                             );
+                                            // 自动设置下次提醒间隔（默认3分钟）
+                                            let interval_m: i64 = db_clone
+                                                .get_setting("snooze_interval_minutes", "3")
+                                                .parse()
+                                                .unwrap_or(3);
+                                            let mut rs = reminder_state_for_settle.lock().unwrap();
+                                            rs.snooze_until = Some(Instant::now() + Duration::from_secs((interval_m * 60) as u64));
                                         }
                                     }
                                 }
