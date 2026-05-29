@@ -26,7 +26,7 @@ export default {
     groups: {
       reminder: 'Reminder Preferences',
       update: 'Software Update',
-      startup: 'Startup Behavior',
+      system: 'System',
       links: 'Related Links',
     },
     reminder: {
@@ -55,7 +55,7 @@ export default {
       clearBg: 'Clear Background',
     },
     update: {
-      currentVersion: 'Current Version',
+      softwareVersion: 'Software Version',
       checkUpdate: 'Check for Updates',
       newVersion: 'New version {version} found',
       downloading: 'Downloading...',

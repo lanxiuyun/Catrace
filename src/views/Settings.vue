@@ -35,7 +35,6 @@ const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
 const localeVal = ref('zh-CN')
 const reminderMode = ref('toast')
-const customTitle = ref('')
 const customBody = ref('')
 const fullscreenBg = ref('')
 const fullscreenOpacity = ref(80)
@@ -92,7 +91,6 @@ onMounted(async () => {
     videoActiveEnabled.value = va
     appVersion.value = v
     reminderMode.value = rm || 'toast'
-    customTitle.value = rt.title || ''
     customBody.value = rt.body || ''
     fullscreenBg.value = fs.bg_image || ''
     fullscreenOpacity.value = Number(fs.opacity) || 80
@@ -165,15 +163,15 @@ watch(reminderMode, async (newVal, oldVal) => {
 
 let textSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  () => ({ title: customTitle.value, body: customBody.value }),
+  () => customBody.value,
   async (newVal, oldVal) => {
     if (!isConfigReady.value) return
-    if (newVal.title === oldVal.title && newVal.body === oldVal.body) return
+    if (newVal === oldVal) return
     if (textSaveTimer) clearTimeout(textSaveTimer)
     textSaveTimer = setTimeout(async () => {
       loading.value.reminderText = true
       try {
-        await setReminderText(customTitle.value, customBody.value)
+        await setReminderText('', customBody.value)
         message.success(t('settings.messages.saved'))
       } catch (e) {
         message.error(t('settings.messages.saveFailed'))
@@ -345,23 +343,6 @@ async function handleInstallUpdate() {
       <!-- 左侧：设置项 -->
       <div class="col-left">
         <div class="group">
-          <div class="group-label">{{ t('settings.language.title') }}</div>
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.language.title') }}</div>
-              <div class="setting-desc">{{ t('settings.language.desc') }}</div>
-            </div>
-            <n-select
-              v-model:value="localeVal"
-              :options="localeOptions"
-              :loading="loading.locale"
-              size="small"
-              style="width: 140px;"
-            />
-          </div>
-        </div>
-
-        <div class="group">
           <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
           <div class="setting-row">
@@ -390,8 +371,6 @@ async function handleInstallUpdate() {
 
           <div class="divider" />
 
-          <div class="divider" />
-
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-title">{{ t('settings.reminder.modeTitle') }}</div>
@@ -403,21 +382,6 @@ async function handleInstallUpdate() {
               :loading="loading.reminderMode"
               size="small"
               style="width: 160px;"
-            />
-          </div>
-
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.customTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.customTitleDesc') }}</div>
-            </div>
-            <n-input
-              v-model:value="customTitle"
-              :placeholder="t('settings.reminder.customTitle')"
-              size="small"
-              style="width: 220px;"
             />
           </div>
 
@@ -496,11 +460,56 @@ async function handleInstallUpdate() {
         </div>
 
         <div class="group">
-          <div class="group-label">{{ t('settings.groups.update') }}</div>
+          <div class="group-label">{{ t('settings.groups.system') }}</div>
 
           <div class="setting-row">
             <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.update.currentVersion') }}</div>
+              <div class="setting-title">{{ t('settings.language.title') }}</div>
+              <div class="setting-desc">{{ t('settings.language.desc') }}</div>
+            </div>
+            <n-select
+              v-model:value="localeVal"
+              :options="localeOptions"
+              :loading="loading.locale"
+              size="small"
+              style="width: 140px;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.startup.autostartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.autostartDesc') }}</div>
+            </div>
+            <n-switch
+              :value="autostart"
+              :loading="loading.autostart"
+              @update:value="toggleAutostart"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.startup.silentStartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.silentStartDesc') }}</div>
+            </div>
+            <n-switch
+              :value="silentStart"
+              :loading="loading.silent"
+              :disabled="!autostart"
+              @update:value="toggleSilentStart"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.update.softwareVersion') }}</div>
               <div class="setting-desc">{{ appVersion || '...' }}</div>
             </div>
             <div class="setting-control">
@@ -542,37 +551,6 @@ async function handleInstallUpdate() {
               </div>
             </div>
           </template>
-        </div>
-
-        <div class="group">
-          <div class="group-label">{{ t('settings.groups.startup') }}</div>
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.startup.autostartTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.startup.autostartDesc') }}</div>
-            </div>
-            <n-switch
-              :value="autostart"
-              :loading="loading.autostart"
-              @update:value="toggleAutostart"
-            />
-          </div>
-
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.startup.silentStartTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.startup.silentStartDesc') }}</div>
-            </div>
-            <n-switch
-              :value="silentStart"
-              :loading="loading.silent"
-              :disabled="!autostart"
-              @update:value="toggleSilentStart"
-            />
-          </div>
         </div>
       </div>
 

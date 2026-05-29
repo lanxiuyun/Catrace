@@ -94,9 +94,9 @@ const activeBlockCount = computed(() => {
 function fmtDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h > 0 && m > 0) return `${h}${t('common.hours')} ${m}${t('common.minutes')}`;
-  if (h > 0) return `${h}${t('common.hours')}`;
-  return `${m}${t('common.minutes')}`;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
 }
 
 async function loadData() {
