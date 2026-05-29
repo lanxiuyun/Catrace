@@ -658,7 +658,6 @@ fn show_toast_notification(
             .add_button(&btn_5, "snooze_5")
             .add_button(&btn_skip, "skip")
             .on_activated(move |action| {
-                eprintln!("[Toast] button clicked: {:?}", action);
                 let mut s = state.lock().unwrap();
                 match action.as_deref() {
                     Some("snooze_3") => {
@@ -678,8 +677,6 @@ fn show_toast_notification(
 
         if let Err(e) = toast.show() {
             eprintln!("Toast notification failed (AUMID={}): {}", aumid, e);
-        } else {
-            eprintln!("[Toast] notification sent: AUMID={}", aumid);
         }
     }) {
         eprintln!("Failed to schedule Toast on main thread: {}", e);

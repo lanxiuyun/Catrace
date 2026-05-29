@@ -27,10 +27,8 @@ function formatTime(totalSeconds: number): string {
 }
 
 onMounted(async () => {
-  console.log('[ReminderFullscreen] mounted, type=', (window as any).__CATRACE_REMINDER_TYPE__)
   try {
     const data = await getReminderData('reminder-fullscreen')
-    console.log('[ReminderFullscreen] data=', data)
     if (data) {
       title.value = data.title
       body.value = data.body

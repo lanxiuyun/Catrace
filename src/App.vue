@@ -39,24 +39,13 @@ const menuOptions = computed(() => [
 
 const isReminderRoute = computed(() => {
   const type = (window as any).__CATRACE_REMINDER_TYPE__
-  const result = type === 'popup' || type === 'fullscreen'
+  return type === 'popup' || type === 'fullscreen'
     || route.path === '/reminder-popup'
     || route.path === '/reminder-fullscreen'
-  console.log('[App] isReminderRoute computed, type=', type, 'route.path=', route.path, 'result=', result)
-  return result
 })
 
 const currentReminderType = computed(() => {
   return (window as any).__CATRACE_REMINDER_TYPE__ || ''
-})
-
-onMounted(() => {
-  console.log('[App] mounted, route=', route.path, 'type=', (window as any).__CATRACE_REMINDER_TYPE__)
-})
-
-// 监听 hash 变化，用于调试
-window.addEventListener('hashchange', () => {
-  console.log('[App] hashchange, new hash=', window.location.hash, 'route.path=', route.path)
 })
 </script>
 
