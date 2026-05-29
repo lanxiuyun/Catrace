@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use device_query::{DeviceQuery, DeviceState};
 use rdev::{listen, EventType};
 use active_win_pos_rs::get_active_window;
+use chrono::Timelike;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -922,12 +923,17 @@ pub fn run() {
                 }
             });
 
-            // 每分钟结算一次
+            // 每分钟结算一次（在每分钟的00秒触发）
             let db_clone = db.clone();
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
             let store_for_settle = store.clone();
             tauri::async_runtime::spawn(async move {
+                // 计算距离下一个整分钟还有多少秒
+                let now = chrono::Local::now();
+                let seconds_until_next_minute = 60 - now.second();
+                tokio::time::sleep(Duration::from_secs(seconds_until_next_minute as u64)).await;
+
                 let mut minute = interval(Duration::from_secs(60));
                 loop {
                     minute.tick().await;
