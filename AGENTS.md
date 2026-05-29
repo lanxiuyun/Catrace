@@ -48,6 +48,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── src/
 │   │   ├── main.rs       # 入口，调用 lib::run()
 │   │   ├── lib.rs        # 全部业务逻辑（采样、结算、通知、命令）
+│   │   ├── reminder.rs   # 提醒状态机 ReminderState + 单元测试
 │   │   └── db.rs         # rusqlite 封装
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
@@ -80,7 +81,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
      - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 调用成功时完全信任其结果（无 Playing 会话也视为不活跃），仅在 API 调用失败时才回退到窗口标题 + 进程名关键词匹配。
      - **macOS / Linux**：直接走窗口标题 + 进程名关键词匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
-3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `utils/timeBlocks.ts`）
+3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
      - 若窗口内无足够连续休息 → 切为**活跃 block**（固定 `window_minutes` 长度）。
@@ -92,24 +93,26 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
      - 其余情况不提醒。
    - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
    - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复活跃后重新判断。
-   - **Toast 按钮操作**（Windows）：通知带三个按钮——「3分钟后提醒」「5分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
+   - **自动间隔提醒**：通知触发后自动设置 `snooze_interval_minutes`（默认3分钟）的 snooze，到期后再次提醒。用户手动选择 5/10 分钟会覆盖自动间隔。
+   - **Toast 按钮操作**（Windows）：通知带三个按钮——「5分钟后提醒」「10分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
 
-**提醒场景示例（`window=45, break=5`）**
+**提醒场景示例（`window=45, break=5, snooze_interval=3`）**
 
 > 关键前提：提醒只在**当前分钟活跃**时检查。休息分钟不检查，因此休息期间**绝不弹通知**。
 
 | 场景 | 时间线 | 结果 |
 |---|---|---|
-| 活跃 45min → 继续活跃 | 0:00~0:44 活跃 → **0:45 弹** → 0:45~0:54 继续活跃（每分钟催） | ✅ 提醒 |
-| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:44 活跃 → 0:45 休息（不催）→ **0:46 弹** → 0:46~ 活跃（每分钟催） | ✅ 提醒（休息即停，复工又催） |
-| 活跃 45min → 休息 4min → 恢复活跃 | 0:00~0:44 活跃 → 0:45~0:48 休息（不催）→ **0:49 弹** → 0:49~ 活跃（每分钟催） | ✅ 提醒（休息不够，复工即催） |
+| 活跃 45min → 继续活跃 | 0:00~0:44 活跃 → **0:45 弹** → 自动 snooze 3min → **0:48 再弹** → 0:51 再弹... | ✅ 每 3 分钟提醒一次 |
+| 活跃 45min → 休息 1min → 继续活跃 | 0:00~0:44 活跃 → 0:45 休息（不催）→ **0:46 弹** → 自动 snooze 3min → 0:49 再弹... | ✅ 休息即停，复工后按间隔催 |
+| 活跃 45min → 休息 4min → 恢复活跃 | 0:00~0:44 活跃 → 0:45~0:48 休息（不催）→ **0:49 弹** → 自动 snooze 3min → 0:52 再弹... | ✅ 休息不够，复工即催 |
 | 活跃 45min → 休息够 5min | 0:00~0:44 活跃 → 0:45~0:49 休息（不催）→ 0:50 休息够 5min | ❌ 不提醒。休息期间不检查；休息够后 should_notify=false，恢复活跃需再工作满窗口 |
-| 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:44 活跃 → 0:45~0:49 休息（不催）→ 0:50~1:34 活跃 → **1:35 弹** → 1:35 后每分钟催 | ✅ 提醒 |
+| 活跃 45min → 休息 5min → 再活跃 45min | 0:00~0:44 活跃 → 0:45~0:49 休息（不催）→ 0:50~1:34 活跃 → **1:35 弹** → 自动 snooze 3min → 1:38 再弹... | ✅ 提醒 |
 | 活跃 40min，进行中 | 0:00~0:39 活跃（未满窗口） | ❌ 不提醒 |
 | 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:39 活跃 → 0:40~0:44 休息 → 0:45~0:47 活跃（未满窗口） | ❌ 不提醒 |
 | 全天休息 | 一直在休息 | ❌ 不提醒 |
+| 用户点击「5分钟后提醒」 | 0:45 弹 → 用户点击 5min → **0:50 弹**（覆盖自动 3min 间隔） | ✅ 用户选择优先 |
 
-> 规律：活跃 block 完成后，**下一个活跃分钟**会弹；若之后没有休息够 `break_minutes`，则继续每分钟催。但只要**当前分钟在休息**，立即停止提醒；恢复活跃后重新判断。
+> 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
 
 ---
 
@@ -119,6 +122,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 |--------|------|--------|
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
+| `snooze_interval_minutes` | 活跃满后重复提醒间隔（分钟） | 3 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
@@ -128,8 +132,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 操作 | 效果 |
 |------|------|
 | 跳过本次 | 当前 block 完成前不再提醒 |
-| 3分钟后提醒 | 推迟 3 分钟，期间不弹通知 |
 | 5分钟后提醒 | 推迟 5 分钟，期间不弹通知 |
+| 10分钟后提醒 | 推迟 10 分钟，期间不弹通知 |
+| 自动间隔提醒 | 通知触发后自动设置 `snooze_interval_minutes`（默认3分钟）间隔，到期后再次提醒 |
 
 > 只要当前分钟在休息，系统**自动不提醒**，同时清除 snooze。恢复活跃后重新判断。
 
@@ -142,14 +147,15 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 ```
 src-tauri/src/
-├── main.rs    -- Tauri 入口，仅调用 lib::run()
-├── lib.rs     -- 全部业务逻辑：
-│                · 键盘/鼠标采样线程
-│                · 每分钟结算 + 写入 DB
-│                · 滑动窗口检测 + 通知
-│                · #[tauri::command] 暴露给前端
-│                · 系统托盘
-└── db.rs      -- rusqlite 读写封装 + 单元测试
+├── main.rs     -- Tauri 入口，仅调用 lib::run()
+├── lib.rs      -- 全部业务逻辑：
+│                 · 键盘/鼠标采样线程
+│                 · 每分钟结算 + 写入 DB
+│                 · 滑动窗口检测 + 通知
+│                 · #[tauri::command] 暴露给前端
+│                 · 系统托盘
+├── reminder.rs -- 提醒状态机 ReminderState + 单元测试
+└── db.rs       -- rusqlite 读写封装 + 单元测试
 ```
 
 > 与 PLAN.md 的差异：原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
@@ -342,16 +348,16 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：`db.rs` 包含 14 个单元测试，覆盖 block 切分和提醒逻辑：
+- **Rust**：共 18 个单元测试，分布在 `db.rs`（14 个）和 `reminder.rs`（4 个）：
 
-  **Block 切分（3 个）**
+  **Block 切分（`db.rs`，3 个）**
   | 测试名 | 说明 |
   |---|---|
   | `test_compute_blocks_basic` | 45 活跃 + 5 休息 + 45 活跃，验证切分结果 |
   | `test_compute_blocks_all_active` | 全活跃记录切成多个 Active block |
   | `test_compute_blocks_all_rest` | 全休息记录切成一个 Rest block |
 
-  **提醒逻辑（11 个）**
+  **提醒逻辑（`db.rs`，11 个）**
   | 测试名 | 覆盖场景 | 说明 |
   |---|---|---|
   | `test_no_notify_empty` | 场景 8 | 全天无记录 → should_notify=false |
@@ -365,6 +371,14 @@ cd src-tauri && cargo test
   | `test_notify_after_rest_then_active` | 场景 5 | 活跃 40min → 休息 5min → 再活跃 45min → should_notify=true |
   | `test_notify_full_cycle_active_rest_active` | 场景 5 完整 | 活跃 45min → 休息 5min → 再活跃 45min，验证完整周期 |
   | `test_notify_no_duplicate_boundary` | 场景 1 | 同一数据多次调用，boundary 稳定 |
+
+  **提醒状态机（`reminder.rs`，4 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_reminder_state_snooze` | `is_snoozed()` 正确判断未来/过去时刻 |
+  | `test_reminder_state_skip` | `is_skipped()` 在不同 boundary 下的行为 |
+  | `test_snooze_interval_overridden_by_user_choice` | 用户点击「5分钟」会覆盖自动设置的 3 分钟 snooze |
+  | `test_snooze_auto_interval_expiry` | 自动 snooze 间隔到期后不再处于 snoozed 状态 |
 
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 

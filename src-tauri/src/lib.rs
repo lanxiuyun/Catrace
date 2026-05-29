@@ -1,4 +1,5 @@
 mod db;
+mod reminder;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -238,24 +239,7 @@ struct ActivityState {
     key_debounce: Option<Instant>,
 }
 
-/// 提醒状态机（进程级，重启后重置）
-#[derive(Default)]
-struct ReminderState {
-    /// 推迟提醒直到该时刻
-    snooze_until: Option<Instant>,
-    /// 跳过本次提醒直到该 block boundary（时间戳）
-    skip_until_boundary: Option<i64>,
-}
-
-impl ReminderState {
-    fn is_snoozed(&self) -> bool {
-        self.snooze_until.map_or(false, |t| t > Instant::now())
-    }
-
-    fn is_skipped(&self, boundary: i64) -> bool {
-        self.skip_until_boundary.map_or(false, |b| b >= boundary)
-    }
-}
+use reminder::ReminderState;
 
 // ---------- 提醒窗口数据 ----------
 

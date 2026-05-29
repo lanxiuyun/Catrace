@@ -30,7 +30,7 @@ Then it follows a simple set of rules:
 
 When it's time, Catrace reminds you to take a break using your chosen method. Three reminder modes are available:
 
-- **System Toast** — A system notification pops up with three buttons: "Remind in 3 min", "Remind in 5 min", and "Skip this time"
+- **System Toast** — A system notification pops up with three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time"
 - **Popup** — An in-app popup with a countdown timer that auto-closes when done
 - **Fullscreen** — A full-screen overlay that forces you to stop and rest, with customizable background image and overlay opacity
 
