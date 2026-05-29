@@ -37,7 +37,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   ├── Settings.vue
-│   │   └── Debug.vue
+│   │   ├── Debug.vue
+│   │   ├── ReminderPopup.vue     # 弹窗提醒窗口
+│   │   └── ReminderFullscreen.vue # 全屏提醒窗口
 │   ├── App.vue                 # 布局 + naive-ui 主题注入
 │   ├── theme.ts                # 统一色板 + naive-ui themeOverrides
 │   ├── main.ts
@@ -162,15 +164,18 @@ src/
 │       ├── zh-CN.ts     -- 中文翻译
 │       └── en-US.ts     -- 英文翻译
 ├── views/
-│   ├── Dashboard.vue    -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   └── Settings.vue     -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 语言切换 + 更新/链接
+│   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
+│   ├── Settings.vue         -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 语言切换 + 更新/链接
+│   ├── Debug.vue            -- 视频检测调试页面
+│   ├── ReminderPopup.vue    -- 弹窗提醒窗口
+│   └── ReminderFullscreen.vue -- 全屏提醒窗口
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   └── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
-│   └── index.ts         -- hash 路由（/dashboard, /settings）
+│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-popup, /reminder-fullscreen）
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
 ├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
