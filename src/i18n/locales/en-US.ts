@@ -25,6 +25,7 @@ export default {
     subtitle: 'Customize how Catrace works',
     groups: {
       reminder: 'Reminder Preferences',
+      notification: 'Reminder Settings',
       update: 'Software Update',
       system: 'System',
       links: 'Related Links',
@@ -53,6 +54,8 @@ export default {
       fullscreenOpacityTitle: 'Background Opacity',
       fullscreenOpacityDesc: 'Adjust the fullscreen overlay opacity',
       clearBg: 'Clear Background',
+      changeBg: 'Change',
+      fullscreenSection: 'Fullscreen Settings',
     },
     update: {
       softwareVersion: 'Software Version',

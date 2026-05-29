@@ -25,6 +25,7 @@ export default {
     subtitle: '自定义 Catrace 的工作方式',
     groups: {
       reminder: '提醒偏好',
+      notification: '提醒设置',
       update: '软件更新',
       system: '系统',
       links: '相关链接',
@@ -53,6 +54,8 @@ export default {
       fullscreenOpacityTitle: '背景透明度',
       fullscreenOpacityDesc: '调整全屏背景遮罩的透明度',
       clearBg: '清除背景图',
+      changeBg: '更换背景',
+      fullscreenSection: '全屏提醒设置',
     },
     update: {
       softwareVersion: '软件版本',

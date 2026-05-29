@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NSlider,
@@ -106,6 +106,8 @@ onMounted(async () => {
       i18n.global.locale.value = loc as 'zh-CN' | 'en-US'
     }
 
+    // 等待 Vue 处理完批量 watcher（此时 isConfigReady 仍为 false，watcher 会跳过）
+    await nextTick()
     isConfigReady.value = true
   } catch (e) {
     console.error('Failed to load settings', e)
@@ -373,6 +375,22 @@ async function handleInstallUpdate() {
 
           <div class="setting-row">
             <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.videoActiveDesc') }}</div>
+            </div>
+            <n-switch
+              :value="videoActiveEnabled"
+              :loading="loading.videoActive"
+              @update:value="toggleVideoActive"
+            />
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">{{ t('settings.groups.notification') }}</div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
               <div class="setting-title">{{ t('settings.reminder.modeTitle') }}</div>
               <div class="setting-desc">{{ t('settings.reminder.modeDesc') }}</div>
             </div>
@@ -384,6 +402,45 @@ async function handleInstallUpdate() {
               style="width: 160px;"
             />
           </div>
+
+          <transition name="fade-slide">
+            <div v-if="reminderMode === 'fullscreen'" class="fullscreen-section">
+
+              <div class="fs-bg-upload">
+                <div v-if="fullscreenBg" class="fs-bg-preview">
+                  <img :src="fullscreenBg" alt="bg" />
+                  <div class="fs-bg-actions">
+                    <label class="fs-btn fs-btn-secondary">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      {{ t('settings.reminder.changeBg') }}
+                      <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
+                    </label>
+                    <button class="fs-btn fs-btn-danger" @click="clearBg">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      {{ t('settings.reminder.clearBg') }}
+                    </button>
+                  </div>
+                </div>
+                <label v-else class="fs-bg-empty">
+                  <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C4B5FD" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                  <span class="fs-empty-text">{{ t('settings.reminder.fullscreenBgTitle') }}</span>
+                  <span class="fs-empty-hint">{{ t('settings.reminder.fullscreenBgDesc') }}</span>
+                </label>
+              </div>
+
+              <div class="setting-row" style="padding-top: 4px;">
+                <div class="setting-meta">
+                  <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
+                  <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
+                </div>
+                <div class="setting-control slider-control">
+                  <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
+                  <span class="setting-value">{{ fullscreenOpacity }}%</span>
+                </div>
+              </div>
+            </div>
+          </transition>
 
           <div class="divider" />
 
@@ -403,52 +460,6 @@ async function handleInstallUpdate() {
           </div>
 
           <div class="divider" />
-
-          <div class="setting-row" style="align-items: flex-start;">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.fullscreenBgTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.fullscreenBgDesc') }}</div>
-            </div>
-            <div class="setting-control" style="flex-direction: column; align-items: flex-end; gap: 8px;">
-              <div v-if="fullscreenBg" class="bg-preview">
-                <img :src="fullscreenBg" alt="bg" />
-                <button class="bg-clear" @click="clearBg">{{ t('settings.reminder.clearBg') }}</button>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                @change="handleBgFileChange"
-                style="width: 220px; font-size: 12px;"
-              />
-            </div>
-          </div>
-
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
-            </div>
-            <div class="setting-control slider-control">
-              <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
-              <span class="setting-value">{{ fullscreenOpacity }}%</span>
-            </div>
-          </div>
-
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.videoActiveDesc') }}</div>
-            </div>
-            <n-switch
-              :value="videoActiveEnabled"
-              :loading="loading.videoActive"
-              @update:value="toggleVideoActive"
-            />
-          </div>
 
           <div class="setting-row">
             <div class="setting-meta">
@@ -697,6 +708,46 @@ async function handleInstallUpdate() {
   margin: 0;
 }
 
+/* 全屏提醒子区域 */
+.fullscreen-section {
+  background: #FAFAFF;
+  border: 1px solid #F5F3FF;
+  border-radius: 10px;
+  margin: 2px 0 8px;
+  padding: 10px 14px;
+}
+.fullscreen-section .divider {
+  background: #F0EDFA;
+}
+.fullscreen-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7C3AED;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+/* 展开/收起过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.fade-slide-enter-to,
+.fade-slide-leave-from {
+  opacity: 1;
+  max-height: 400px;
+}
+
 /* 相关链接 */
 .links-group {
   padding: 20px 28px 12px;
@@ -817,6 +868,91 @@ async function handleInstallUpdate() {
 }
 .bg-clear:hover {
   background: rgba(0, 0, 0, 0.8);
+}
+
+/* 全屏背景上传 */
+.fs-bg-upload {
+  margin-bottom: 4px;
+}
+.fs-bg-preview {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #EBE6F2;
+}
+.fs-bg-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fs-bg-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+}
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.fs-btn-secondary {
+  background: rgba(255, 255, 255, 0.92);
+  color: #2E1065;
+  backdrop-filter: blur(8px);
+}
+.fs-btn-secondary:hover {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.fs-btn-danger {
+  background: rgba(255, 255, 255, 0.92);
+  color: #EF4444;
+  backdrop-filter: blur(8px);
+}
+.fs-btn-danger:hover {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+.fs-bg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  border: 2px dashed #E0D8F0;
+  background: #FAFAFF;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 6px;
+}
+.fs-bg-empty:hover {
+  border-color: #C4B5FD;
+  background: #F5F3FF;
+}
+.fs-bg-empty:hover svg {
+  stroke: #7C3AED;
+}
+.fs-empty-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2E1065;
+}
+.fs-empty-hint {
+  font-size: 12px;
+  color: #8B7AAB;
 }
 
 /* 响应式 */
