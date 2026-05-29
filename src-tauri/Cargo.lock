@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.6.1"
+version = "26.6.2"
 dependencies = [
  "active-win-pos-rs",
  "chrono",
