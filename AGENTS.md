@@ -36,10 +36,10 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
 │   ├── views/
 │   │   ├── Dashboard.vue
-│   │   ├── Settings.vue
+│   │   ├── Settings.vue              # 设置页：提醒偏好 + 提醒设置 + 系统 + 链接
 │   │   ├── Debug.vue
-│   │   ├── ReminderPopup.vue     # 弹窗提醒窗口
-│   │   └── ReminderFullscreen.vue # 全屏提醒窗口
+│   │   ├── ReminderPopup.vue         # 弹窗提醒窗口
+│   │   └── ReminderFullscreen.vue    # 全屏提醒窗口
 │   ├── App.vue                 # 布局 + naive-ui 主题注入
 │   ├── theme.ts                # 统一色板 + naive-ui themeOverrides
 │   ├── main.ts
@@ -165,7 +165,7 @@ src/
 │       └── en-US.ts     -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   ├── Settings.vue         -- 提醒偏好滑块（自动保存）+ 启动行为开关 + 语言切换 + 更新/链接
+│   ├── Settings.vue         -- 设置页：提醒偏好（窗口/休息/视频活跃）+ 提醒设置（模式/内容/全屏背景/测试）+ 系统 + 链接
 │   ├── Debug.vue            -- 视频检测调试页面
 │   ├── ReminderPopup.vue    -- 弹窗提醒窗口
 │   └── ReminderFullscreen.vue -- 全屏提醒窗口
@@ -304,6 +304,10 @@ CREATE TABLE settings (
 | 32 | 国际化 i18n：vue-i18n 前端全量替换 + Rust 后端通知/托盘本地化 | ✅ |
 | 33 | 支持 zh-CN / en-US 双语，设置页语言切换器 | ✅ |
 | 34 | 默认自动检测系统语言（navigator.language），首次启动保存到 DB | ✅ |
+| 35 | 设置页重构：拆分为「提醒偏好」与「提醒设置」两个独立卡片 | ✅ |
+| 36 | 提醒模式切换（系统通知 / 弹窗提醒 / 全屏提醒），全屏背景图与透明度设置仅全屏模式下显示 | ✅ |
+| 37 | 全屏背景图上传 UI 重设计：预览卡片 + 毛玻璃操作按钮 + 虚线拖拽区域 | ✅ |
+| 38 | 文案统一：「通知」→「提醒」 | ✅ |
 
 ---
 
