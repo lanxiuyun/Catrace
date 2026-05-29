@@ -31,9 +31,9 @@ export default {
       links: '相关链接',
     },
     reminder: {
-      windowTitle: '休息提醒间隔',
+      windowTitle: '连续活跃时长',
       windowDesc: '连续活跃多久后提醒你休息',
-      breakTitle: '休息判定',
+      breakTitle: '有效休息时长',
       breakDesc: '连续休息多少分钟算一次有效休息',
       videoActiveTitle: '视频计入活跃',
       videoActiveDesc: '开启后，看视频时会提醒',

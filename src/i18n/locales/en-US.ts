@@ -31,9 +31,9 @@ export default {
       links: 'Related Links',
     },
     reminder: {
-      windowTitle: 'Reminder Interval',
+      windowTitle: 'Active Duration',
       windowDesc: 'How long of continuous activity before reminding you to rest',
-      breakTitle: 'Rest Threshold',
+      breakTitle: 'Valid Rest Duration',
       breakDesc: 'How many consecutive rest minutes count as a valid break',
       videoActiveTitle: 'Video Counts as Active',
       videoActiveDesc: 'When enabled, watching videos will also trigger reminders',
