@@ -26,7 +26,7 @@ export default {
     groups: {
       reminder: '提醒偏好',
       update: '软件更新',
-      startup: '启动行为',
+      system: '系统',
       links: '相关链接',
     },
     reminder: {
@@ -55,7 +55,7 @@ export default {
       clearBg: '清除背景图',
     },
     update: {
-      currentVersion: '当前版本',
+      softwareVersion: '软件版本',
       checkUpdate: '检查更新',
       newVersion: '发现新版本 {version}',
       downloading: '下载中...',
