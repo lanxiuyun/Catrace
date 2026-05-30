@@ -26,7 +26,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-onMounted(async () => {
+async function loadData() {
   try {
     const data = await getReminderData('reminder-fullscreen')
     if (data) {
@@ -34,14 +34,21 @@ onMounted(async () => {
       body.value = data.body
       boundary.value = data.boundary
       breakMinutes.value = data.break_minutes || 5
-      if (data.fullscreen_bg) {
-        bgImage.value = data.fullscreen_bg
-      }
+      bgImage.value = data.fullscreen_bg ?? ''
       opacity.value = data.fullscreen_opacity ?? 80
+      remainingSeconds.value = breakMinutes.value * 60
     }
   } catch (e) {
-    console.error('Failed to get reminder data', e)
+    console.error('[FS] loadData error:', e)
   }
+}
+
+function onHashChange() {
+  loadData()
+}
+
+onMounted(async () => {
+  await loadData()
 
   remainingSeconds.value = breakMinutes.value * 60
   timerId = setInterval(() => {
@@ -49,10 +56,14 @@ onMounted(async () => {
       remainingSeconds.value -= 1
     }
   }, 1000)
+
+  // 窗口复用时，hash 变化会触发重新加载数据
+  window.addEventListener('hashchange', onHashChange)
 })
 
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
+  window.removeEventListener('hashchange', onHashChange)
 })
 
 async function handleSnooze(minutes: number) {
@@ -75,15 +86,18 @@ async function handleSkip() {
 </script>
 
 <template>
-  <div
-    class="fullscreen-root"
-    :style="{
-      backgroundImage: bgImage ? `url(${bgImage})` : 'none',
-    }"
-  >
+  <div class="fullscreen-root">
+    <!-- 底层：模糊放大铺满 -->
     <div
-      class="overlay"
-      :style="{ backgroundColor: `rgba(0, 0, 0, ${opacity / 100})` }"
+      v-if="bgImage"
+      class="fullscreen-bg"
+      :style="{ backgroundImage: `url(${bgImage})`, opacity: opacity / 100 }"
+    />
+    <!-- 上层：清晰原图居中 contain -->
+    <div
+      v-if="bgImage"
+      class="fullscreen-sharp"
+      :style="{ backgroundImage: `url(${bgImage})`, opacity: opacity / 100 }"
     />
     <div class="content">
       <div class="pulse-ring">
@@ -120,17 +134,27 @@ async function handleSkip() {
   inset: 0;
   width: 100vw;
   height: 100vh;
-  background-size: cover;
-  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 
-.overlay {
+.fullscreen-bg {
+  position: absolute;
+  inset: -40px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(40px) saturate(1.2);
+  transform: scale(1.05);
+}
+
+.fullscreen-sharp {
   position: absolute;
   inset: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .content {
