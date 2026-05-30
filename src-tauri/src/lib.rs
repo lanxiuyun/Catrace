@@ -2,6 +2,7 @@ mod db;
 mod reminder;
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -418,16 +419,20 @@ fn set_config(config: serde_json::Value, db: tauri::State<db::Db>) -> Result<(),
 }
 
 #[tauri::command]
-fn skip_reminder(boundary: i64, state: tauri::State<Arc<Mutex<ReminderState>>>) {
+fn skip_reminder(boundary: i64, state: tauri::State<Arc<Mutex<ReminderState>>>, fullscreen_active: tauri::State<Arc<AtomicBool>>) {
     let mut s = state.lock().unwrap();
     s.skip_until_boundary = Some(boundary);
     s.snooze_until = None;
+    // 用户操作后恢复正常活动追踪
+    fullscreen_active.store(false, Ordering::SeqCst);
 }
 
 #[tauri::command]
-fn snooze_reminder(minutes: u64, state: tauri::State<Arc<Mutex<ReminderState>>>) {
+fn snooze_reminder(minutes: u64, state: tauri::State<Arc<Mutex<ReminderState>>>, fullscreen_active: tauri::State<Arc<AtomicBool>>) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
+    // 用户操作后恢复正常活动追踪
+    fullscreen_active.store(false, Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -546,9 +551,12 @@ fn get_reminder_data(
 }
 
 #[tauri::command]
-fn close_reminder_window(label: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+fn close_reminder_window(label: String, app_handle: tauri::AppHandle, fullscreen_active: tauri::State<Arc<AtomicBool>>) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window(&label) {
         window.close().map_err(|e| e.to_string())?;
+    }
+    if label == "reminder-fullscreen" {
+        fullscreen_active.store(false, Ordering::SeqCst);
     }
     Ok(())
 }
@@ -559,9 +567,10 @@ fn test_notification(
     state: tauri::State<Arc<Mutex<ReminderState>>>,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
+    fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) {
     let locale = db.get_setting("locale", "zh-CN");
-    show_notification(&app_handle, 0, test_notify_msg(&locale), state.inner().clone(), &locale, &db, &store);
+    show_notification(&app_handle, 0, test_notify_msg(&locale), state.inner().clone(), &locale, &db, &store, fullscreen_active.inner().clone());
 }
 
 
@@ -578,6 +587,7 @@ fn show_notification(
     locale: &str,
     db: &db::Db,
     store: &ReminderWindowStore,
+    fullscreen_active: Arc<AtomicBool>,
 ) {
     let mode = db.get_setting("reminder_mode", "toast");
 
@@ -614,6 +624,7 @@ fn show_notification(
                 fullscreen_opacity,
                 reminder_state,
                 store,
+                fullscreen_active,
             );
         }
         _ => {
@@ -785,8 +796,12 @@ fn create_fullscreen_window(
     fullscreen_opacity: i64,
     _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
+    fullscreen_active: Arc<AtomicBool>,
 ) {
     let label = "reminder-fullscreen";
+
+    // 标记全屏窗口已打开，结算循环将停止计活跃
+    fullscreen_active.store(true, Ordering::SeqCst);
 
     let data = ReminderWindowData {
         boundary,
@@ -873,6 +888,7 @@ pub fn run() {
     });
 
     let reminder_state_clone = reminder_state.clone();
+    let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -908,6 +924,7 @@ pub fn run() {
             app.manage(reminder_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
+            app.manage(fullscreen_active.clone());
 
             // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
             thread::spawn(move || {
@@ -929,6 +946,7 @@ pub fn run() {
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
             let store_for_settle = store.clone();
+            let fullscreen_active_for_settle = fullscreen_active.clone();
             tauri::async_runtime::spawn(async move {
                 // 计算距离下一个整分钟还有多少秒
                 let now = chrono::Local::now();
@@ -941,7 +959,13 @@ pub fn run() {
                     let mut s = settle_state.lock().unwrap();
                     let video_enabled = db_clone.get_setting("video_active_enabled", "true") == "true";
                     let media_active = if video_enabled { is_media_active() } else { false };
-                    let active = s.count >= 3 || media_active;
+                    let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
+                    // 全屏提醒期间：鼠标键盘不计活跃，视为休息
+                    let active = if is_fullscreen {
+                        false
+                    } else {
+                        s.count >= 3 || media_active
+                    };
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     let process_name = match get_active_window() {
@@ -992,6 +1016,7 @@ pub fn run() {
                                                 &locale,
                                                 &db_clone,
                                                 &store_for_settle,
+                                                fullscreen_active_for_settle.clone(),
                                             );
                                             // 自动设置下次提醒间隔（默认3分钟）
                                             let interval_m: i64 = db_clone

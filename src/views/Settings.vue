@@ -417,8 +417,6 @@ async function handleInstallUpdate() {
             />
           </div>
 
-          <!-- 全屏提醒设置暂时隐藏 -->
-          <!--
           <transition name="fade-slide">
             <div v-if="reminderMode === 'fullscreen'" class="fullscreen-section">
 
@@ -457,7 +455,6 @@ async function handleInstallUpdate() {
               </div>
             </div>
           </transition>
-          -->
 
           <div class="divider" />
 
