@@ -28,6 +28,7 @@ device_query = "1.1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
 chrono = "0.4"
+base64 = "0.22"
 active-win-pos-rs = "0.10"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-autostart = "2"
