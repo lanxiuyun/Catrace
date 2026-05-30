@@ -93,6 +93,7 @@ onMounted(async () => {
     appVersion.value = v
     reminderMode.value = rm || 'toast'
     customBody.value = rt.body || ''
+    // 后端已将文件路径转为 data URL，直接使用
     fullscreenBg.value = fs.bg_image || ''
     fullscreenOpacity.value = Number(fs.opacity) || 80
 
@@ -198,6 +199,7 @@ watch(
         await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value)
         message.success(t('settings.messages.saved'))
       } catch (e) {
+        console.error('[Fullscreen] Save FAILED:', e)
         message.error(t('settings.messages.saveFailed'))
       } finally {
         loading.value.fullscreen = false
