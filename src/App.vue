@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, computed, onMounted } from 'vue'
+import { h, computed, onMounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -47,6 +47,11 @@ const isReminderRoute = computed(() => {
 const currentReminderType = computed(() => {
   return (window as any).__CATRACE_REMINDER_TYPE__ || ''
 })
+
+// 全屏提醒时让 html/body 背景透明
+watch(isReminderRoute, (val) => {
+  document.documentElement.classList.toggle('reminder-transparent', val)
+}, { immediate: true })
 </script>
 
 <template>
@@ -81,6 +86,12 @@ html, body, #app {
   height: 100%;
   overflow: hidden;
   background: #f7f5fa;
+}
+
+html.reminder-transparent,
+html.reminder-transparent body,
+html.reminder-transparent #app {
+  background: transparent !important;
 }
 
 .app-layout {
