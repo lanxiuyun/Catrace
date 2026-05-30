@@ -132,7 +132,7 @@ export async function getFullscreenSettings(): Promise<{ bg_image: string; opaci
 }
 
 export async function setFullscreenSettings(bg_image: string, opacity: number): Promise<void> {
-  return invoke('set_fullscreen_settings', { bg_image, opacity })
+  return invoke('set_fullscreen_settings', { bgImage: bg_image, opacity })
 }
 
 export async function getMousePosition(): Promise<[number, number]> {
