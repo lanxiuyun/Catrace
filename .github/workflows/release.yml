@@ -78,6 +78,7 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
+          generateReleaseNotes: true
           args: ${{ matrix.args }}
 
   upgradeLink-upload:
