@@ -115,6 +115,13 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 > 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
 
+4. **全屏背景图存储**（`lib.rs`）
+   - 前端上传的 data URL 经 base64 解码后保存为磁盘文件（`app_data_dir/bg/fullscreen_bg.{ext}`），DB 只存文件路径，避免 SQLite 存储大 blob。
+   - 读取时通过 `resolve_bg_for_frontend()` 统一将文件路径转回 data URL 返回前端。
+   - 默认背景图使用 bundled `public/catrace.png`，首次启动时复制到 `app_data_dir/bg/`。
+   - 全屏提醒窗口使用双层背景：底层模糊放大铺满（`filter: blur(40px)`），上层清晰原图居中 contain。
+   - 进入全屏提醒路由时，`App.vue` 通过 CSS class 切换 `html/body/#app` 背景为透明，让全屏背景图穿透显示。
+
 ---
 
 ## 配置项
@@ -127,6 +134,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
+| `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
+| `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
+| `fullscreen_opacity` | 全屏遮罩透明度（0-100） | 80 |
 
 **提醒操作（进程级状态，重启后重置）**
 
@@ -289,7 +299,7 @@ CREATE TABLE settings (
 | 24 | Windows Toast 通知带按钮（tauri-winrt-notification）                   | ✅ |
 | 25 | AUMID 注册：通知显示应用名称                                               | ✅ |
 | 26 | 弹窗提醒模式                                                          | ✅ |
-| 26 | 全屏提醒模式                                                          | ❌ |
+| 26 | 全屏提醒模式（双层背景 + 自定义背景图 + 透明度设置）                                  | ✅ |
 | 9 | Dashboard UI 初版（统计卡片 + 环形图 + 双栏布局）                              | ✅（已被步骤 11 取代） |
 | 18 | 记住窗口位置和大小，下次启动恢复                                                | ✅ |
 | 10 | 概览视图：前瞻式 block 切分列表（默认概览）                                       | ✅ |

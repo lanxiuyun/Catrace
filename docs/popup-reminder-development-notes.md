@@ -399,3 +399,36 @@ if (reminder === 'popup' || reminder === 'fullscreen') {
 - `src/views/ReminderPopup.vue` - 弹窗 UI
 - `src/views/ReminderFullscreen.vue` - 全屏 UI
 - `src/views/Settings.vue` - 提醒模式设置
+
+---
+
+## 8. 全屏背景图架构
+
+### 8.1 存储方案
+
+全屏背景图采用**文件存储 + DB 路径引用**的方式，避免 SQLite 存储大 blob：
+
+```
+前端上传 data URL → Rust 解码 base64 → 写入磁盘文件 → DB 存文件路径
+前端读取 ← Rust 读取文件 → 编码为 data URL ← DB 读文件路径
+```
+
+关键函数：
+- `parse_data_url()` — 解析 data URL，返回 (扩展名, 二进制数据)
+- `save_bg_image_to_disk()` — 保存到 `app_data_dir/bg/fullscreen_bg.{ext}`
+- `file_path_to_data_url()` — 读取磁盘文件，编码为 data URL
+- `resolve_bg_for_frontend()` — 统一入口，处理空值 / data URL / 文件路径三种情况
+
+### 8.2 默认背景图
+
+首次启动时，`ensure_default_bg()` 将 bundled `public/catrace.png` 复制到 `app_data_dir/bg/fullscreen_bg.png`。如果资源文件不存在，返回 `Err` 并清空 DB 设置，避免存储无效路径。
+
+### 8.3 全屏窗口渲染
+
+ReminderFullscreen.vue 使用双层背景：
+- **底层** `.fullscreen-bg`：`filter: blur(40px) saturate(1.2)` + `transform: scale(1.05)`，模糊放大铺满
+- **上层** `.fullscreen-sharp`：原始图片居中 contain，清晰显示
+
+### 8.4 CSS 透明穿透
+
+进入全屏提醒路由时，`App.vue` 通过 `watch(isReminderRoute)` 切换 `html` 元素的 `reminder-transparent` class，将 `html/body/#app` 背景设为 `transparent !important`，让全屏背景图穿透显示。
