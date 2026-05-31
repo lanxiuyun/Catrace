@@ -39,7 +39,6 @@ const customBody = ref('')
 const fullscreenBg = ref('')
 const fullscreenOpacity = ref(80)
 const fullscreenFitMode = ref('contain')
-const fullscreenContentPos = ref('50,50')
 const fullscreenFitOptions = [
   { label: () => t('settings.reminder.fitContain'), value: 'contain' },
   { label: () => t('settings.reminder.fitCover'), value: 'cover' },
@@ -104,7 +103,6 @@ onMounted(async () => {
     fullscreenBg.value = fs.bg_image || ''
     fullscreenOpacity.value = Number(fs.opacity) || 80
     fullscreenFitMode.value = fs.fit_mode || 'contain'
-    fullscreenContentPos.value = fs.content_pos || '50,50'
 
     // 如果 DB 里没有 locale，自动检测并保存
     if (!loc) {
@@ -197,15 +195,15 @@ watch(
 
 let fullscreenSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value, contentPos: fullscreenContentPos.value }),
+  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }),
   async (newVal, oldVal) => {
     if (!isConfigReady.value) return
-    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity && newVal.fitMode === oldVal.fitMode && newVal.contentPos === oldVal.contentPos) return
+    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity && newVal.fitMode === oldVal.fitMode) return
     if (fullscreenSaveTimer) clearTimeout(fullscreenSaveTimer)
     fullscreenSaveTimer = setTimeout(async () => {
       loading.value.fullscreen = true
       try {
-        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value, fullscreenFitMode.value, fullscreenContentPos.value)
+        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value, fullscreenFitMode.value, '')
         message.success(t('settings.messages.saved'))
       } catch (e) {
         console.error('[Fullscreen] Save FAILED:', e)
@@ -230,45 +228,6 @@ function handleBgFileChange(event: Event) {
 
 function clearBg() {
   fullscreenBg.value = ''
-}
-
-const posX = computed(() => {
-  const parts = fullscreenContentPos.value.split(',')
-  return Math.min(90, Math.max(10, parseInt(parts[0]) || 50))
-})
-const posY = computed(() => {
-  const parts = fullscreenContentPos.value.split(',')
-  return Math.min(90, Math.max(10, parseInt(parts[1]) || 50))
-})
-
-function setContentPosFromEvent(e: MouseEvent | TouchEvent, el: HTMLElement) {
-  const rect = el.getBoundingClientRect()
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  const x = Math.round(Math.min(90, Math.max(10, ((clientX - rect.left) / rect.width) * 100)))
-  const y = Math.round(Math.min(90, Math.max(10, ((clientY - rect.top) / rect.height) * 100)))
-  fullscreenContentPos.value = `${x},${y}`
-}
-
-function startDragPos(e: MouseEvent | TouchEvent) {
-  const el = e.currentTarget as HTMLElement
-  setContentPosFromEvent(e, el)
-
-  const onMove = (me: MouseEvent | TouchEvent) => setContentPosFromEvent(me, el)
-  const onUp = () => {
-    document.removeEventListener('mousemove', onMove as EventListener)
-    document.removeEventListener('mouseup', onUp)
-    document.removeEventListener('touchmove', onMove as EventListener)
-    document.removeEventListener('touchend', onUp)
-  }
-  document.addEventListener('mousemove', onMove as EventListener)
-  document.addEventListener('mouseup', onUp)
-  document.addEventListener('touchmove', onMove as EventListener)
-  document.addEventListener('touchend', onUp)
-}
-
-function resetContentPos() {
-  fullscreenContentPos.value = '50,50'
 }
 
 async function toggleAutostart(val: boolean) {
@@ -511,29 +470,6 @@ async function handleInstallUpdate() {
                 </div>
                 <div class="setting-control">
                   <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 140px;" />
-                </div>
-              </div>
-
-              <div class="setting-row" style="align-items: flex-start;">
-                <div class="setting-meta">
-                  <div class="setting-title">{{ t('settings.reminder.contentPosTitle') }}</div>
-                  <div class="setting-desc">{{ t('settings.reminder.contentPosDesc') }}</div>
-                </div>
-                <div class="content-pos-editor">
-                  <div
-                    class="pos-preview"
-                    :style="fullscreenBg ? { backgroundImage: `url(${fullscreenBg})` } : {}"
-                    @mousedown.prevent="startDragPos"
-                    @touchstart.prevent="startDragPos"
-                  >
-                    <div
-                      class="pos-dot"
-                      :style="{ left: posX + '%', top: posY + '%' }"
-                    />
-                  </div>
-                  <button class="fs-btn fs-btn-secondary pos-reset" @click="resetContentPos">
-                    {{ t('settings.reminder.contentPosReset') }}
-                  </button>
                 </div>
               </div>
             </div>

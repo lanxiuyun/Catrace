@@ -127,12 +127,35 @@ export async function setReminderText(title: string, body: string): Promise<void
   return invoke('set_reminder_text', { title, body })
 }
 
-export async function getFullscreenSettings(): Promise<{ bg_image: string; opacity: number; fit_mode: string; content_pos: string }> {
+// 元素变换类型
+export interface ElementTransform {
+  x: number  // 10-90 百分比
+  y: number  // 10-90 百分比
+  scale: number  // 0.3-3.0
+  rotate: number  // -180 到 180 度
+}
+
+export interface ElementTransforms {
+  title: ElementTransform
+  body: ElementTransform
+  countdown: ElementTransform
+  actions: ElementTransform
+}
+
+// 默认元素变换
+export const DEFAULT_ELEMENT_TRANSFORMS: ElementTransforms = {
+  title: { x: 50, y: 20, scale: 1.0, rotate: 0 },
+  body: { x: 50, y: 40, scale: 1.0, rotate: 0 },
+  countdown: { x: 50, y: 60, scale: 1.0, rotate: 0 },
+  actions: { x: 50, y: 80, scale: 1.0, rotate: 0 },
+}
+
+export async function getFullscreenSettings(): Promise<{ bg_image: string; opacity: number; fit_mode: string; element_transforms: string }> {
   return invoke('get_fullscreen_settings')
 }
 
-export async function setFullscreenSettings(bg_image: string, opacity: number, fit_mode: string, content_pos: string): Promise<void> {
-  return invoke('set_fullscreen_settings', { bgImage: bg_image, opacity, fitMode: fit_mode, contentPos: content_pos })
+export async function setFullscreenSettings(bg_image: string, opacity: number, fit_mode: string, element_transforms: string): Promise<void> {
+  return invoke('set_fullscreen_settings', { bgImage: bg_image, opacity, fitMode: fit_mode, elementTransforms: element_transforms })
 }
 
 export async function getMousePosition(): Promise<[number, number]> {
@@ -147,7 +170,7 @@ export async function getReminderData(label: string): Promise<{
   fullscreen_bg?: string
   fullscreen_opacity: number
   fullscreen_fit_mode?: string
-  fullscreen_content_pos?: string
+  fullscreen_element_transforms?: string
 } | null> {
   return invoke('get_reminder_data', { label })
 }

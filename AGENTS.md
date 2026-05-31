@@ -122,6 +122,12 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 全屏提醒窗口使用双层背景：底层模糊放大铺满（`filter: blur(40px)`），上层清晰原图居中 contain。
    - 进入全屏提醒路由时，`App.vue` 通过 CSS class 切换 `html/body/#app` 背景为透明，让全屏背景图穿透显示。
 
+5. **全屏提醒元素独立编辑**（`ReminderFullscreen.vue`）
+   - 每个元素（标题、正文、倒计时、按钮）可独立调整位置、缩放、旋转。
+   - 数据存储为 JSON 字符串 `fullscreen_element_transforms`，包含每个元素的 x, y, scale, rotate。
+   - 交互流程：点击右上角锁图标进入编辑模式 → 点击元素选中 → 拖动改变位置 / 滚轮调整缩放 / 滑块调整旋转 → 点击锁定保存。
+   - 编辑模式下元素显示虚线边框，选中元素显示紫色边框和编辑工具栏。
+
 ---
 
 ## 配置项
@@ -137,6 +143,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
 | `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
 | `fullscreen_opacity` | 全屏遮罩透明度（0-100） | 80 |
+| `fullscreen_fit_mode` | 背景填充模式（contain / cover / fill） | contain |
+| `fullscreen_element_transforms` | 全屏元素变换（JSON，包含 title/body/countdown/actions 的 x,y,scale,rotate） | 默认居中 |
 
 **提醒操作（进程级状态，重启后重置）**
 
@@ -326,6 +334,7 @@ CREATE TABLE settings (
 | 36 | 提醒模式切换（系统通知 / 弹窗提醒 / 全屏提醒），全屏背景图与透明度设置仅全屏模式下显示                  | ✅ |
 | 37 | 全屏背景图上传 UI 重设计：预览卡片 + 毛玻璃操作按钮 + 虚线拖拽区域                          | ✅ |
 | 38 | 文案统一：「通知」→「提醒」                                                  | ✅ |
+| 39 | 全屏提醒元素独立编辑：标题/正文/倒计时/按钮可独立调整位置、缩放、旋转                            | ✅ |
 
 ---
 

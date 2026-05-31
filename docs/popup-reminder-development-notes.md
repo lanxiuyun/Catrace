@@ -432,3 +432,61 @@ ReminderFullscreen.vue 使用双层背景：
 ### 8.4 CSS 透明穿透
 
 进入全屏提醒路由时，`App.vue` 通过 `watch(isReminderRoute)` 切换 `html` 元素的 `reminder-transparent` class，将 `html/body/#app` 背景设为 `transparent !important`，让全屏背景图穿透显示。
+
+---
+
+## 9. 全屏提醒元素独立编辑
+
+### 9.1 功能概述
+
+全屏提醒中的每个元素（标题、正文、倒计时、按钮）可以独立调整位置、缩放和旋转，而不是整体调整。
+
+### 9.2 数据结构
+
+使用 JSON 字符串存储每个元素的变换信息，存储在 `fullscreen_element_transforms` 设置项中：
+
+```json
+{
+  "title": { "x": 50, "y": 20, "scale": 1.0, "rotate": 0 },
+  "body": { "x": 50, "y": 40, "scale": 1.0, "rotate": 0 },
+  "countdown": { "x": 50, "y": 60, "scale": 1.0, "rotate": 0 },
+  "actions": { "x": 50, "y": 80, "scale": 1.0, "rotate": 0 }
+}
+```
+
+- `x`, `y`：位置百分比（10-90）
+- `scale`：缩放比例（0.3-3.0）
+- `rotate`：旋转角度（-180 到 180 度）
+
+### 9.3 交互流程
+
+1. **进入编辑模式**：点击右上角锁图标
+2. **选择元素**：点击任意元素（标题/正文/倒计时/按钮）
+3. **调整位置**：拖动选中的元素
+4. **调整缩放**：鼠标滚轮或底部滑块
+5. **调整旋转**：底部滑块
+6. **退出编辑模式**：点击锁图标，自动保存
+
+### 9.4 视觉反馈
+
+- 编辑模式下：元素显示虚线边框
+- 选中元素：紫色实线边框 + 编辑工具栏
+- 拖动时：元素半透明
+
+### 9.5 TypeScript 类型定义
+
+```typescript
+interface ElementTransform {
+  x: number      // 10-90 百分比
+  y: number      // 10-90 百分比
+  scale: number  // 0.3-3.0
+  rotate: number // -180 到 180 度
+}
+
+interface ElementTransforms {
+  title: ElementTransform
+  body: ElementTransform
+  countdown: ElementTransform
+  actions: ElementTransform
+}
+```
