@@ -257,6 +257,7 @@ struct ReminderWindowData {
     break_minutes: i64,
     fullscreen_bg: Option<String>,
     fullscreen_opacity: i64,
+    fullscreen_fit_mode: String,
 }
 
 type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
@@ -643,14 +644,16 @@ fn resolve_bg_for_frontend(raw: &str) -> Option<String> {
 fn get_fullscreen_settings(db: tauri::State<db::Db>) -> serde_json::Value {
     let bg = db.get_setting("fullscreen_bg_image", "");
     let opacity: i64 = db.get_setting("fullscreen_opacity", "80").parse().unwrap_or(80);
+    let fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
     let bg_data_url = resolve_bg_for_frontend(&bg).unwrap_or_default();
-    serde_json::json!({ "bg_image": bg_data_url, "opacity": opacity })
+    serde_json::json!({ "bg_image": bg_data_url, "opacity": opacity, "fit_mode": fit_mode })
 }
 
 #[tauri::command]
 fn set_fullscreen_settings(
     bg_image: String,
     opacity: i64,
+    fit_mode: String,
     db: tauri::State<db::Db>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -676,6 +679,7 @@ fn set_fullscreen_settings(
     }
 
     db.set_setting("fullscreen_opacity", &opacity.to_string()).map_err(|e| e.to_string())?;
+    db.set_setting("fullscreen_fit_mode", &fit_mode).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -756,6 +760,7 @@ fn show_notification(
             let fullscreen_bg_raw = db.get_setting("fullscreen_bg_image", "");
             let fullscreen_bg_opt = resolve_bg_for_frontend(&fullscreen_bg_raw);
             let fullscreen_opacity: i64 = db.get_setting("fullscreen_opacity", "80").parse().unwrap_or(80);
+            let fullscreen_fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
             create_fullscreen_window(
                 app_handle,
                 boundary,
@@ -764,6 +769,7 @@ fn show_notification(
                 break_m,
                 fullscreen_bg_opt,
                 fullscreen_opacity,
+                fullscreen_fit_mode,
                 reminder_state,
                 store,
                 fullscreen_active,
@@ -861,6 +867,7 @@ fn create_popup_window(
         break_minutes: 0,
         fullscreen_bg: None,
         fullscreen_opacity: 0,
+        fullscreen_fit_mode: String::new(),
     };
     store.lock().unwrap().insert(label.to_string(), data);
 
@@ -936,6 +943,7 @@ fn create_fullscreen_window(
     break_minutes: i64,
     fullscreen_bg: Option<String>,
     fullscreen_opacity: i64,
+    fullscreen_fit_mode: String,
     _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
     fullscreen_active: Arc<AtomicBool>,
@@ -952,6 +960,7 @@ fn create_fullscreen_window(
         break_minutes,
         fullscreen_bg,
         fullscreen_opacity,
+        fullscreen_fit_mode,
     };
     store.lock().unwrap().insert(label.to_string(), data);
 

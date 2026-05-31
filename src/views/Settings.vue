@@ -38,6 +38,12 @@ const reminderMode = ref('toast')
 const customBody = ref('')
 const fullscreenBg = ref('')
 const fullscreenOpacity = ref(80)
+const fullscreenFitMode = ref('contain')
+const fullscreenFitOptions = [
+  { label: () => t('settings.reminder.fitContain'), value: 'contain' },
+  { label: () => t('settings.reminder.fitCover'), value: 'cover' },
+  { label: () => t('settings.reminder.fitFill'), value: 'fill' },
+]
 const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, locale: false, reminderMode: false, reminderText: false, fullscreen: false })
 const message = useMessage()
 const isConfigReady = ref(false)
@@ -96,6 +102,7 @@ onMounted(async () => {
     // 后端已将文件路径转为 data URL，直接使用
     fullscreenBg.value = fs.bg_image || ''
     fullscreenOpacity.value = Number(fs.opacity) || 80
+    fullscreenFitMode.value = fs.fit_mode || 'contain'
 
     // 如果 DB 里没有 locale，自动检测并保存
     if (!loc) {
@@ -188,15 +195,15 @@ watch(
 
 let fullscreenSaveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value }),
+  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }),
   async (newVal, oldVal) => {
     if (!isConfigReady.value) return
-    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity) return
+    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity && newVal.fitMode === oldVal.fitMode) return
     if (fullscreenSaveTimer) clearTimeout(fullscreenSaveTimer)
     fullscreenSaveTimer = setTimeout(async () => {
       loading.value.fullscreen = true
       try {
-        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value)
+        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value, fullscreenFitMode.value)
         message.success(t('settings.messages.saved'))
       } catch (e) {
         console.error('[Fullscreen] Save FAILED:', e)
@@ -453,6 +460,16 @@ async function handleInstallUpdate() {
                 <div class="setting-control slider-control">
                   <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
                   <span class="setting-value">{{ fullscreenOpacity }}%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-meta">
+                  <div class="setting-title">{{ t('settings.reminder.fullscreenFitModeTitle') }}</div>
+                  <div class="setting-desc">{{ t('settings.reminder.fullscreenFitModeDesc') }}</div>
+                </div>
+                <div class="setting-control">
+                  <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 140px;" />
                 </div>
               </div>
             </div>

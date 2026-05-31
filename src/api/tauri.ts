@@ -127,12 +127,12 @@ export async function setReminderText(title: string, body: string): Promise<void
   return invoke('set_reminder_text', { title, body })
 }
 
-export async function getFullscreenSettings(): Promise<{ bg_image: string; opacity: number }> {
+export async function getFullscreenSettings(): Promise<{ bg_image: string; opacity: number; fit_mode: string }> {
   return invoke('get_fullscreen_settings')
 }
 
-export async function setFullscreenSettings(bg_image: string, opacity: number): Promise<void> {
-  return invoke('set_fullscreen_settings', { bgImage: bg_image, opacity })
+export async function setFullscreenSettings(bg_image: string, opacity: number, fit_mode: string): Promise<void> {
+  return invoke('set_fullscreen_settings', { bgImage: bg_image, opacity, fitMode: fit_mode })
 }
 
 export async function getMousePosition(): Promise<[number, number]> {
@@ -146,6 +146,7 @@ export async function getReminderData(label: string): Promise<{
   break_minutes: number
   fullscreen_bg?: string
   fullscreen_opacity: number
+  fullscreen_fit_mode?: string
 } | null> {
   return invoke('get_reminder_data', { label })
 }

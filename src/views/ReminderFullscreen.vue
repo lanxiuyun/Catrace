@@ -16,6 +16,7 @@ const boundary = ref(0)
 const breakMinutes = ref(5)
 const bgImage = ref('')
 const opacity = ref(80)
+const fitMode = ref('contain')
 
 const remainingSeconds = ref(0)
 let timerId: ReturnType<typeof setInterval> | null = null
@@ -36,6 +37,7 @@ async function loadData() {
       breakMinutes.value = data.break_minutes || 5
       bgImage.value = data.fullscreen_bg ?? ''
       opacity.value = data.fullscreen_opacity ?? 80
+      fitMode.value = data.fullscreen_fit_mode ?? 'contain'
       remainingSeconds.value = breakMinutes.value * 60
     }
   } catch (e) {
@@ -93,11 +95,11 @@ async function handleSkip() {
       class="fullscreen-bg"
       :style="{ backgroundImage: `url(${bgImage})`, opacity: opacity / 100 }"
     />
-    <!-- 上层：清晰原图居中 contain -->
+    <!-- 上层：清晰原图，按用户选择的填充模式显示 -->
     <div
       v-if="bgImage"
       class="fullscreen-sharp"
-      :style="{ backgroundImage: `url(${bgImage})`, opacity: opacity / 100 }"
+      :style="{ backgroundImage: `url(${bgImage})`, backgroundSize: fitMode === 'fill' ? '100% 100%' : fitMode, opacity: opacity / 100 }"
     />
     <div class="content">
       <div class="pulse-ring">
@@ -152,7 +154,6 @@ async function handleSkip() {
 .fullscreen-sharp {
   position: absolute;
   inset: 0;
-  background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
 }
