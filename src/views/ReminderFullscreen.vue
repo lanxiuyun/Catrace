@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import {
@@ -17,6 +17,15 @@ const breakMinutes = ref(5)
 const bgImage = ref('')
 const opacity = ref(80)
 const fitMode = ref('contain')
+const contentPos = ref('50,50')
+const posX = computed(() => {
+  const parts = contentPos.value.split(',')
+  return Math.min(90, Math.max(10, parseInt(parts[0]) || 50))
+})
+const posY = computed(() => {
+  const parts = contentPos.value.split(',')
+  return Math.min(90, Math.max(10, parseInt(parts[1]) || 50))
+})
 
 const remainingSeconds = ref(0)
 let timerId: ReturnType<typeof setInterval> | null = null
@@ -38,6 +47,7 @@ async function loadData() {
       bgImage.value = data.fullscreen_bg ?? ''
       opacity.value = data.fullscreen_opacity ?? 80
       fitMode.value = data.fullscreen_fit_mode ?? 'contain'
+      contentPos.value = data.fullscreen_content_pos || '50,50'
       remainingSeconds.value = breakMinutes.value * 60
     }
   } catch (e) {
@@ -101,7 +111,7 @@ async function handleSkip() {
       class="fullscreen-sharp"
       :style="{ backgroundImage: `url(${bgImage})`, backgroundSize: fitMode === 'fill' ? '100% 100%' : fitMode, opacity: opacity / 100 }"
     />
-    <div class="content">
+    <div class="content" :style="{ left: posX + '%', top: posY + '%' }">
       <div class="pulse-ring">
         <div class="pulse-dot" />
       </div>
@@ -136,9 +146,6 @@ async function handleSkip() {
   inset: 0;
   width: 100vw;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
 }
 
@@ -159,12 +166,13 @@ async function handleSkip() {
 }
 
 .content {
-  position: relative;
+  position: absolute;
   z-index: 1;
   text-align: center;
   color: #ffffff;
   max-width: 640px;
   padding: 40px;
+  transform: translate(-50%, -50%);
 }
 
 .pulse-ring {
