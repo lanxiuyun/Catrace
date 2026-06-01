@@ -1,6 +1,10 @@
 # Catrace
 
+[中文](README.md) | English
+
 A small tool that helps you balance work and rest.
+
+See [Contributing Guide](CONTRIBUTING.md) to get involved.
 
 ![Catrace Dashboard](.readme/dashboard.png)
 

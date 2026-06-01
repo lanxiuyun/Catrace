@@ -4,6 +4,8 @@
 
 一个帮你平衡工作与休息的小工具。
 
+参与开发请参阅 [贡献指南](CONTRIBUTING.md)。
+
 ![Catrace Dashboard](.readme/dashboard.png)
 
 ## [下载最新版本](https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow)

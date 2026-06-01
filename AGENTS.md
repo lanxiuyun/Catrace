@@ -19,7 +19,6 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 ```
 .
 ├── README.md
-├── PLAN.md
 ├── AGENTS.md
 ├── package.json          # pnpm + Vite + Vue 3
 ├── vite.config.ts
@@ -56,7 +55,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 └── public/
 ```
 
-> **注意**：Rust 侧未按 PLAN.md 的分层目录（`input/`、`engine/` 等）实现，而是将所有逻辑集中在 `lib.rs` 中，通过模块级函数组织。
+> **注意**：Rust 侧未按原分层目录（`input/`、`engine/` 等）实现，而是将所有逻辑集中在 `lib.rs` 中，通过模块级函数组织。
 
 ---
 
@@ -177,7 +176,7 @@ src-tauri/src/
 └── db.rs       -- rusqlite 读写封装 + 单元测试
 ```
 
-> 与 PLAN.md 的差异：原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
+> 原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
 
 ### 前端（Vue 3）
 
@@ -423,7 +422,7 @@ cd src-tauri && cargo test
 
 1. **代码已存在**：项目已完整初始化（Tauri / Vue / Vite / naive-ui），无需再执行框架初始化命令。
 2. **优先读代码再改**：Rust 逻辑集中在 `src-tauri/src/lib.rs`，前端逻辑在 `src/views/`、`src/components/`、`src/theme.ts`。
-3. **保持中文文档**：README、PLAN、AGENTS 均为中文，新增文档继续使用中文。
+3. **保持中文文档**：README、AGENTS 等文档均为中文，新增文档继续使用中文。
 4. **Timeline 实现方式**：详细视图使用 CSS Grid（24×60 的 `<div>` 网格），不是 SVG / Canvas / ECharts；概览视图使用前瞻式 block 切分**卡片网格**（CSS Grid `repeat(auto-fit, minmax(15.625rem, 1fr))`），点击卡片展开整行迷你色块。
 5. **应用分类已砍掉**：不再维护 `app_categories` 配置和 `category` 字段。
 6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
