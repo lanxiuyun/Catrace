@@ -108,6 +108,10 @@ onMounted(async () => {
   timerId = setInterval(() => {
     if (remainingSeconds.value > 0) {
       remainingSeconds.value -= 1
+      if (remainingSeconds.value === 0) {
+        clearInterval(timerId)
+        handleSkip()
+      }
     }
   }, 1000)
 
