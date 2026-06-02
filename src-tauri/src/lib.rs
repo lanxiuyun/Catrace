@@ -575,19 +575,14 @@ fn save_bg_image_to_disk(app_data_dir: &Path, data_url: &str) -> Result<String, 
     Ok(file_path.to_string_lossy().to_string())
 }
 
-/// 将 bundled 默认背景图复制到 app_data_dir/bg/，返回文件路径
-fn ensure_default_bg(app_handle: &tauri::AppHandle, app_data_dir: &Path) -> Result<String, String> {
+/// 默认背景图编译进二进制，写入 app_data_dir/bg/，返回文件路径
+fn ensure_default_bg(app_data_dir: &Path) -> Result<String, String> {
     let bg_dir = app_data_dir.join("bg");
     fs::create_dir_all(&bg_dir).map_err(|e| e.to_string())?;
     let dest = bg_dir.join("fullscreen_bg.png");
     if !dest.exists() {
-        let resource_dir = app_handle.path().resource_dir().map_err(|e| e.to_string())?;
-        let src = resource_dir.join("public").join("catrace.png");
-        if src.exists() {
-            fs::copy(&src, &dest).map_err(|e| e.to_string())?;
-        } else {
-            return Err(format!("Default background image not found: {}", src.display()));
-        }
+        let bytes = include_bytes!("../assets/catrace.png");
+        fs::write(&dest, bytes).map_err(|e| e.to_string())?;
     }
     Ok(dest.to_string_lossy().to_string())
 }
@@ -670,7 +665,7 @@ fn set_fullscreen_settings(
     if bg_image.is_empty() {
         remove_bg_image_from_disk(&app_data_dir);
         // 恢复默认背景图（bundled catrace.png）
-        match ensure_default_bg(&app_handle, &app_data_dir) {
+        match ensure_default_bg(&app_data_dir) {
             Ok(default_path) => {
                 db.set_setting("fullscreen_bg_image", &default_path).map_err(|e| e.to_string())?;
             }
@@ -1089,7 +1084,7 @@ pub fn run() {
             {
                 let current_bg = db.get_setting("fullscreen_bg_image", "");
                 if current_bg.is_empty() {
-                    match ensure_default_bg(app.app_handle(), &app_data_dir) {
+                    match ensure_default_bg(&app_data_dir) {
                         Ok(default_path) => { let _ = db.set_setting("fullscreen_bg_image", &default_path); }
                         Err(e) => eprintln!("[startup] ensure_default_bg failed: {}", e),
                     }

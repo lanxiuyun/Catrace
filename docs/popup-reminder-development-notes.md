@@ -421,7 +421,7 @@ if (reminder === 'popup' || reminder === 'fullscreen') {
 
 ### 8.2 默认背景图
 
-首次启动时，`ensure_default_bg()` 将 bundled `public/catrace.png` 复制到 `app_data_dir/bg/fullscreen_bg.png`。如果资源文件不存在，返回 `Err` 并清空 DB 设置，避免存储无效路径。
+首次启动时，`ensure_default_bg()` 将 bundled `src-tauri/assets/catrace.png` 复制到 `app_data_dir/bg/fullscreen_bg.png`。如果资源文件不存在，返回 `Err` 并清空 DB 设置，避免存储无效路径。
 
 ### 8.3 全屏窗口渲染
 

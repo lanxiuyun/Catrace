@@ -117,7 +117,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 4. **全屏背景图存储**（`lib.rs`）
    - 前端上传的 data URL 经 base64 解码后保存为磁盘文件（`app_data_dir/bg/fullscreen_bg.{ext}`），DB 只存文件路径，避免 SQLite 存储大 blob。
    - 读取时通过 `resolve_bg_for_frontend()` 统一将文件路径转回 data URL 返回前端。
-   - 默认背景图使用 bundled `public/catrace.png`，首次启动时复制到 `app_data_dir/bg/`。
+   - 默认背景图使用 bundled `src-tauri/assets/catrace.png`，首次启动时复制到 `app_data_dir/bg/`。
    - 全屏提醒窗口使用双层背景：底层模糊放大铺满（`filter: blur(40px)`），上层清晰原图居中 contain。
    - 进入全屏提醒路由时，`App.vue` 通过 CSS class 切换 `html/body/#app` 背景为透明，让全屏背景图穿透显示。
 
