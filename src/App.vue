@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, computed, onMounted, watch } from 'vue'
+import qqGroupQr from './assets/qq-group.jpg'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -9,6 +10,7 @@ import {
   NLayoutContent,
   NMenu,
   NMessageProvider,
+  NPopover,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
 import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
@@ -52,6 +54,7 @@ const currentReminderType = computed(() => {
 watch(isReminderRoute, (val) => {
   document.documentElement.classList.toggle('reminder-transparent', val)
 }, { immediate: true })
+
 </script>
 
 <template>
@@ -71,6 +74,18 @@ watch(isReminderRoute, (val) => {
         >
           <div class="logo">Catrace</div>
           <n-menu :value="route.path" :options="menuOptions" />
+          <n-popover trigger="hover" placement="right-start" :show-arrow="false" :delay="200">
+            <template #trigger>
+              <div class="sidebar-community">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <div class="sidebar-community-text">
+                  <span>QQ群</span>
+                  <span>468998176</span>
+                </div>
+              </div>
+            </template>
+            <img :src="qqGroupQr" class="qq-qr-img" width="200" height="200" />
+          </n-popover>
         </n-layout-sider>
         <n-layout-content class="app-content" :native-scrollbar="false">
           <RouterView />
@@ -112,6 +127,7 @@ html.reminder-transparent #app {
 .app-sider {
   background: #ffffff !important;
   border-right-color: #ebe6f2 !important;
+  position: relative;
 }
 
 .app-sider :deep(.n-layout-sider-scroll-container) {
@@ -141,5 +157,41 @@ html.reminder-transparent #app {
 .app-sider :deep(.n-menu .router-link-active) {
   color: inherit;
   text-decoration: none;
+}
+
+.sidebar-community {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  color: #8b5cf6;
+  font-size: 13px;
+  border-top: 1px solid #ebe6f2;
+  background: #fff;
+  transition: background 0.2s;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.sidebar-community:hover {
+  background: #f5f3ff;
+  text-decoration: underline;
+}
+
+.sidebar-community-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.qq-qr-img {
+  width: 200px;
+  height: auto;
+  border-radius: 6px;
 }
 </style>
