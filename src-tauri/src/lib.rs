@@ -403,18 +403,28 @@ fn gsmtcsm_unavailable_msg(locale: &str) -> &'static str {
     }
 }
 
-/** 获取视频检测的实时调试信息，供 Debug 页面展示。 */
+/** 获取视频检测的实时调试信息，供 Debug 页面展示。
+ * 使用 async command + spawn_blocking 避免同步阻塞 IPC，防止前端卡顿。 */
 #[tauri::command]
-fn get_video_debug_info(
-    activity: tauri::State<Arc<Mutex<ActivityState>>>,
-    db: tauri::State<db::Db>,
-) -> VideoDebugInfo {
-    let mouse_keyboard_count = activity.lock().unwrap().count;
+async fn get_video_debug_info(
+    activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
+    db: tauri::State<'_, db::Db>,
+) -> Result<VideoDebugInfo, String> {
+    let mouse_keyboard_count = {
+        let s = activity.lock().unwrap();
+        s.count
+    };
     let _locale = db.get_setting("locale", "zh-CN");
+
+    // 在独立线程中执行可能阻塞的系统 API，避免卡住 tokio worker thread
+    #[cfg(windows)]
+    let gsmtcsm_result = tokio::task::spawn_blocking(get_media_sessions_debug)
+        .await
+        .map_err(|e| format!("spawn blocking failed: {}", e))?;
 
     #[cfg(windows)]
     let (gsmtcsm_available, gsmtcsm_session_count, gsmtcsm_sessions, gsmtcsm_has_playing, gsmtcsm_error) =
-        match get_media_sessions_debug() {
+        match gsmtcsm_result {
             Ok((has_playing, sessions)) => (
                 true,
                 sessions.len() as u32,
@@ -422,7 +432,7 @@ fn get_video_debug_info(
                 has_playing,
                 None,
             ),
-            Err(e) => (false, 0, Vec::new(), false, Some(e.to_string())),
+            Err(e) => (false, 0, Vec::new(), false, Some(e)),
         };
 
     #[cfg(not(windows))]
@@ -435,7 +445,9 @@ fn get_video_debug_info(
     );
 
     let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
-        check_media_active_by_keywords();
+        tokio::task::spawn_blocking(check_media_active_by_keywords)
+            .await
+            .map_err(|e| format!("spawn blocking failed: {}", e))?;
 
     let media_active = if cfg!(windows) && gsmtcsm_available {
         gsmtcsm_has_playing
@@ -443,7 +455,7 @@ fn get_video_debug_info(
         keyword_matched
     };
 
-    VideoDebugInfo {
+    Ok(VideoDebugInfo {
         gsmtcsm_available,
         gsmtcsm_session_count,
         gsmtcsm_sessions,
@@ -456,7 +468,7 @@ fn get_video_debug_info(
         matched_keyword,
         media_active,
         mouse_keyboard_count,
-    }
+    })
 }
 
 /** 获取「视频计入活跃」开关状态（默认 true）。 */
