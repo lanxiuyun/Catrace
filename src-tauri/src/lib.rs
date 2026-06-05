@@ -2,7 +2,7 @@ mod db;
 mod reminder;
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -24,6 +24,22 @@ use std::path::Path;
 // ------------------------------------------------------------------
 // 视频/流媒体检测
 // ------------------------------------------------------------------
+
+#[cfg(windows)]
+static GSMTCSM_FAIL_COUNT: AtomicU32 = AtomicU32::new(0);
+#[cfg(windows)]
+static GSMTCSM_LAST_FAIL_TS: AtomicI64 = AtomicI64::new(0);
+#[cfg(windows)]
+const GSMTCSM_MAX_FAILS: u32 = 3;
+#[cfg(windows)]
+const GSMTCSM_COOLDOWN_SECS: i64 = 600;
+
+#[cfg(windows)]
+fn record_gsmtcsm_failure() {
+    let count = GSMTCSM_FAIL_COUNT.load(Ordering::Relaxed) + 1;
+    GSMTCSM_FAIL_COUNT.store(count, Ordering::Relaxed);
+    GSMTCSM_LAST_FAIL_TS.store(chrono::Local::now().timestamp(), Ordering::Relaxed);
+}
 
 /// 回退方案：通过窗口标题 + 进程名关键词匹配判断是否正在播放视频。
 /// 返回 (是否匹配, 匹配到的关键词, 窗口标题, 应用名, 进程路径)
@@ -126,63 +142,116 @@ fn is_media_active() -> bool {
 /// 尝试通过 GSMTCSM 获取媒体播放状态。
 /// 返回 `Some(true)` 表示有会话在 Playing；
 /// 返回 `Some(false)` 表示 API 可用但无 Playing 会话；
-/// 返回 `None` 表示 API 调用失败（此时应回退关键词匹配）。
+/// 返回 `None` 表示 API 调用失败、超时或处于冷却期（此时应回退关键词匹配）。
+/// 使用独立线程+1秒超时，避免 GSMTCSM 服务未响应时卡死主逻辑。
+/// 连续失败 3 次后进入 10 分钟冷却期，不再尝试调用，防止线程泄漏累积。
 #[cfg(windows)]
 fn try_media_session_active() -> Option<bool> {
+    use std::sync::mpsc::channel;
+    use std::time::Duration;
     use windows::Media::Control::{
         GlobalSystemMediaTransportControlsSessionManager,
         GlobalSystemMediaTransportControlsSessionPlaybackStatus,
     };
 
-    let Ok(async_op) = GlobalSystemMediaTransportControlsSessionManager::RequestAsync() else {
-        return None;
-    };
-    let Ok(manager) = async_op.get() else {
-        return None;
-    };
-    let Ok(sessions) = manager.GetSessions() else {
-        return None;
-    };
-    let Ok(count) = sessions.Size() else {
-        return None;
-    };
-
-    for i in 0..count {
-        let Ok(session) = sessions.GetAt(i) else { continue };
-        let Ok(playback_info) = session.GetPlaybackInfo() else { continue };
-        let Ok(status) = playback_info.PlaybackStatus() else { continue };
-
-        if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
-            return Some(true);
+    // 检查是否处于冷却期
+    let fail_count = GSMTCSM_FAIL_COUNT.load(Ordering::Relaxed);
+    if fail_count >= GSMTCSM_MAX_FAILS {
+        let last_fail = GSMTCSM_LAST_FAIL_TS.load(Ordering::Relaxed);
+        let now = chrono::Local::now().timestamp();
+        if now - last_fail < GSMTCSM_COOLDOWN_SECS {
+            return None;
         }
+        // 冷却期结束，允许再试一次
+        GSMTCSM_FAIL_COUNT.store(0, Ordering::Relaxed);
     }
 
-    Some(false)
+    let (tx, rx) = channel();
+    std::thread::spawn(move || {
+        let result: Result<bool, windows::core::Error> = (|| {
+            let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?;
+            let manager = async_op.get()?;
+            let sessions = manager.GetSessions()?;
+            let count = sessions.Size()?;
+
+            for i in 0..count {
+                let Ok(session) = sessions.GetAt(i) else { continue };
+                let Ok(playback_info) = session.GetPlaybackInfo() else { continue };
+                let Ok(status) = playback_info.PlaybackStatus() else { continue };
+
+                if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })();
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(Duration::from_secs(1)) {
+        Ok(Ok(has_playing)) => {
+            GSMTCSM_FAIL_COUNT.store(0, Ordering::Relaxed);
+            Some(has_playing)
+        }
+        Ok(Err(_)) => {
+            record_gsmtcsm_failure();
+            None
+        }
+        Err(_) => {
+            record_gsmtcsm_failure();
+            None
+        }
+    }
 }
 
 /** Windows：获取系统媒体会话的详细调试信息。
  * 返回 (是否有 Playing 会话, 会话详情列表)。
- * 用于 Debug 页面展示，不用于正式活跃判定。 */
+ * 用于 Debug 页面展示，不用于正式活跃判定。
+ * 通过独立线程+超时机制执行，避免某些媒体应用未响应时导致主线程卡死。 */
 #[cfg(windows)]
-fn get_media_sessions_debug() -> Result<(bool, Vec<MediaSessionInfo>), Box<dyn std::error::Error>> {
+fn get_media_sessions_debug() -> Result<(bool, Vec<MediaSessionInfo>), String> {
+    use std::sync::mpsc::channel;
+    use std::time::Duration;
+
+    let (tx, rx) = channel();
+    std::thread::spawn(move || {
+        let result = get_media_sessions_debug_inner();
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(Duration::from_secs(2)) {
+        Ok(result) => result,
+        Err(_) => Err("媒体会话查询超时（目标应用可能未响应）".into()),
+    }
+}
+
+#[cfg(windows)]
+fn get_media_sessions_debug_inner() -> Result<(bool, Vec<MediaSessionInfo>), String> {
     use windows::Media::Control::{
         GlobalSystemMediaTransportControlsSessionManager,
         GlobalSystemMediaTransportControlsSessionPlaybackStatus,
     };
     use windows::Media::MediaPlaybackType;
 
-    let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?;
-    let manager = async_op.get()?;
-    let sessions = manager.GetSessions()?;
-    let count = sessions.Size()?;
+    let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
+        .map_err(|e| format!("RequestAsync failed: {}", e))?;
+    let manager = async_op.get()
+        .map_err(|e| format!("get manager failed: {}", e))?;
+    let sessions = manager.GetSessions()
+        .map_err(|e| format!("GetSessions failed: {}", e))?;
+    let count = sessions.Size()
+        .map_err(|e| format!("Size failed: {}", e))?;
 
     let mut has_playing = false;
     let mut infos = Vec::new();
 
     for i in 0..count {
-        let session = sessions.GetAt(i)?;
-        let playback_info = session.GetPlaybackInfo()?;
-        let status = playback_info.PlaybackStatus()?;
+        let session = sessions.GetAt(i)
+            .map_err(|e| format!("GetAt({}) failed: {}", i, e))?;
+        let playback_info = session.GetPlaybackInfo()
+            .map_err(|e| format!("GetPlaybackInfo failed: {}", e))?;
+        let status = playback_info.PlaybackStatus()
+            .map_err(|e| format!("PlaybackStatus failed: {}", e))?;
 
         let status_str = match status {
             GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing => "Playing",
@@ -200,18 +269,23 @@ fn get_media_sessions_debug() -> Result<(bool, Vec<MediaSessionInfo>), Box<dyn s
         let mut artist = "Unknown".to_string();
         let mut playback_type = "Unknown".to_string();
 
-        if let Ok(props_async) = session.TryGetMediaPropertiesAsync() {
-            if let Ok(props) = props_async.get() {
-                title = props.Title().unwrap_or_default().to_string();
-                artist = props.Artist().unwrap_or_default().to_string();
-                if let Ok(type_ref) = props.PlaybackType() {
-                    if let Ok(pt) = type_ref.Value() {
-                        playback_type = match pt {
-                            MediaPlaybackType::Video => "Video",
-                            MediaPlaybackType::Music => "Music",
-                            _ => "Other",
+        // 只对 Playing 状态的会话获取详细属性。
+        // 已关闭/残留的会话（状态为 Paused/Stopped）调用 TryGetMediaPropertiesAsync 可能无限挂起，
+        // 因为目标应用已退出，WinRT 跨进程调用会阻塞。
+        if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+            if let Ok(props_async) = session.TryGetMediaPropertiesAsync() {
+                if let Ok(props) = props_async.get() {
+                    title = props.Title().unwrap_or_default().to_string();
+                    artist = props.Artist().unwrap_or_default().to_string();
+                    if let Ok(type_ref) = props.PlaybackType() {
+                        if let Ok(pt) = type_ref.Value() {
+                            playback_type = match pt {
+                                MediaPlaybackType::Video => "Video",
+                                MediaPlaybackType::Music => "Music",
+                                _ => "Other",
+                            }
+                            .to_string();
                         }
-                        .to_string();
                     }
                 }
             }
