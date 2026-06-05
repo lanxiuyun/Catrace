@@ -1128,18 +1128,11 @@ pub fn run() {
                 let mut minute = interval(Duration::from_secs(60));
                 loop {
                     minute.tick().await;
-                    let mut s = settle_state.lock().unwrap();
+                    // 在获取 settle_state 锁之前，先完成所有可能阻塞的系统调用。
+                    // 如果 is_media_active() 或 get_active_window() 卡住，不会阻塞键鼠计数线程。
                     let video_enabled = db_clone.get_setting("video_active_enabled", "true") == "true";
                     let media_active = if video_enabled { is_media_active() } else { false };
                     let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
-                    // 全屏提醒期间：鼠标键盘不计活跃，视为休息
-                    let active = if is_fullscreen {
-                        false
-                    } else {
-                        s.count >= 3 || media_active
-                    };
-                    let timestamp = chrono::Local::now().timestamp() / 60 * 60;
-
                     let process_name = match get_active_window() {
                         Ok(win) => std::path::Path::new(&win.process_path)
                             .file_name()
@@ -1147,6 +1140,15 @@ pub fn run() {
                             .unwrap_or("unknown")
                             .to_string(),
                         Err(_) => "unknown".to_string(),
+                    };
+                    let timestamp = chrono::Local::now().timestamp() / 60 * 60;
+
+                    let mut s = settle_state.lock().unwrap();
+                    // 全屏提醒期间：鼠标键盘不计活跃，视为休息
+                    let active = if is_fullscreen {
+                        false
+                    } else {
+                        s.count >= 3 || media_active
                     };
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         eprintln!("Failed to write to database: {}", e);
