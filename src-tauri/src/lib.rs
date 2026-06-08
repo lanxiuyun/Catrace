@@ -36,8 +36,7 @@ const GSMTCSM_COOLDOWN_SECS: i64 = 600;
 
 #[cfg(windows)]
 fn record_gsmtcsm_failure() {
-    let count = GSMTCSM_FAIL_COUNT.load(Ordering::Relaxed) + 1;
-    GSMTCSM_FAIL_COUNT.store(count, Ordering::Relaxed);
+    GSMTCSM_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
     GSMTCSM_LAST_FAIL_TS.store(chrono::Local::now().timestamp(), Ordering::Relaxed);
 }
 
