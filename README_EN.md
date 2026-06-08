@@ -6,9 +6,7 @@ A small tool that helps you balance work and rest.
 
 See [Contributing Guide](CONTRIBUTING.md) to get involved.
 
-![Catrace Dashboard](.readme/dashboard.png)
-
-![Catrace Notification](.readme/notification.png)
+![Catrace Dashboard](.readme/dashboard-en.png)
 
 ## Download
 
