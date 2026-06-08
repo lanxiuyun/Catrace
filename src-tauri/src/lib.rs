@@ -166,26 +166,29 @@ fn try_media_session_active() -> Option<bool> {
     }
 
     let (tx, rx) = channel();
-    std::thread::spawn(move || {
-        let result: Result<bool, windows::core::Error> = (|| {
-            let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?;
-            let manager = async_op.get()?;
-            let sessions = manager.GetSessions()?;
-            let count = sessions.Size()?;
+    std::thread::Builder::new()
+        .name("gsmtcsm-check".into())
+        .spawn(move || {
+            let result: Result<bool, windows::core::Error> = (|| {
+                let async_op = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()?;
+                let manager = async_op.get()?;
+                let sessions = manager.GetSessions()?;
+                let count = sessions.Size()?;
 
-            for i in 0..count {
-                let Ok(session) = sessions.GetAt(i) else { continue };
-                let Ok(playback_info) = session.GetPlaybackInfo() else { continue };
-                let Ok(status) = playback_info.PlaybackStatus() else { continue };
+                for i in 0..count {
+                    let Ok(session) = sessions.GetAt(i) else { continue };
+                    let Ok(playback_info) = session.GetPlaybackInfo() else { continue };
+                    let Ok(status) = playback_info.PlaybackStatus() else { continue };
 
-                if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
-                    return Ok(true);
+                    if status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
+                        return Ok(true);
+                    }
                 }
-            }
-            Ok(false)
-        })();
-        let _ = tx.send(result);
-    });
+                Ok(false)
+            })();
+            let _ = tx.send(result);
+        })
+        .ok()?;
 
     match rx.recv_timeout(Duration::from_secs(1)) {
         Ok(Ok(has_playing)) => {
@@ -213,10 +216,13 @@ fn get_media_sessions_debug() -> Result<(bool, Vec<MediaSessionInfo>), String> {
     use std::time::Duration;
 
     let (tx, rx) = channel();
-    std::thread::spawn(move || {
-        let result = get_media_sessions_debug_inner();
-        let _ = tx.send(result);
-    });
+    std::thread::Builder::new()
+        .name("gsmtcsm-debug".into())
+        .spawn(move || {
+            let result = get_media_sessions_debug_inner();
+            let _ = tx.send(result);
+        })
+        .map_err(|_| "无法创建 GSMTCSM 调试线程".to_string())?;
 
     match rx.recv_timeout(Duration::from_secs(2)) {
         Ok(result) => result,
@@ -403,7 +409,8 @@ fn gsmtcsm_unavailable_msg(locale: &str) -> &'static str {
 }
 
 /** 获取视频检测的实时调试信息，供 Debug 页面展示。
- * 使用 async command + spawn_blocking 避免同步阻塞 IPC，防止前端卡顿。 */
+ * GSMTCSM 查询内部已有独立线程+超时保护，check_media_active_by_keywords 为纯本地计算，
+ * 均无需额外 spawn_blocking，避免嵌套线程。 */
 #[tauri::command]
 async fn get_video_debug_info(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
@@ -415,11 +422,9 @@ async fn get_video_debug_info(
     };
     let _locale = db.get_setting("locale", "zh-CN");
 
-    // 在独立线程中执行可能阻塞的系统 API，避免卡住 tokio worker thread
+    // GSMTCSM 内部已用独立线程+2秒超时，直接调用即可（最多阻塞2秒）
     #[cfg(windows)]
-    let gsmtcsm_result = tokio::task::spawn_blocking(get_media_sessions_debug)
-        .await
-        .map_err(|e| format!("spawn blocking failed: {}", e))?;
+    let gsmtcsm_result = get_media_sessions_debug();
 
     #[cfg(windows)]
     let (gsmtcsm_available, gsmtcsm_session_count, gsmtcsm_sessions, gsmtcsm_has_playing, gsmtcsm_error) =
@@ -443,10 +448,9 @@ async fn get_video_debug_info(
         Some(gsmtcsm_unavailable_msg(&_locale).to_string()),
     );
 
+    // 纯本地计算，无需 spawn_blocking
     let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
-        tokio::task::spawn_blocking(check_media_active_by_keywords)
-            .await
-            .map_err(|e| format!("spawn blocking failed: {}", e))?;
+        check_media_active_by_keywords();
 
     let media_active = if cfg!(windows) && gsmtcsm_available {
         gsmtcsm_has_playing
