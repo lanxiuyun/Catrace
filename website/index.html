@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catrace — 久坐提醒，默默守护你的健康</title>
+  <meta name="description" content="Catrace 是一款桌面端久坐提醒工具。无需手动开启，后台自动监测键盘鼠标活动，在连续工作过久时温柔提醒你休息。">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-dark: #6D28D9;
+      --primary-light: #EDE9FE;
+      --secondary: #059669;
+      --secondary-light: #D1FAE5;
+      --bg: #F7F5FA;
+      --card: #FFFFFF;
+      --text: #2E1065;
+      --text-secondary: #8B7AAB;
+      --border: #EBE6F2;
+      --shadow: 0 4px 24px rgba(124, 58, 237, 0.08);
+      --shadow-lg: 0 12px 40px rgba(124, 58, 237, 0.12);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo:hover {
+      text-decoration: none;
+    }
+
+    .logo img {
+      width: 32px;
+      height: 32px;
+    }
+
+    nav a {
+      margin-left: 1.5rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.875rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--secondary);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p.lead {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto 1.75rem;
+    }
+
+    .hero .note {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.75rem;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.875rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 9999px;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    /* Pain points */
+    .pain {
+      max-width: 1100px;
+      margin: 3rem auto 0;
+      padding: 0 1rem;
+    }
+
+    .pain-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .pain-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+    }
+
+    .pain-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      margin-top: 0.125rem;
+    }
+
+    .pain-card h4 {
+      font-size: 0.9375rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .pain-card p {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    /* Screenshot */
+    .screenshot {
+      max-width: 1100px;
+      margin: 3rem auto 0;
+      padding: 0 1rem;
+    }
+
+    .screenshot img {
+      width: 100%;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+
+    .screenshot-caption {
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-top: 0.75rem;
+    }
+
+    /* Section title */
+    .section-title {
+      text-align: center;
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+      font-size: 1rem;
+    }
+
+    /* Why */
+    .why {
+      max-width: 1100px;
+      margin: 4rem auto;
+      padding: 0 1rem;
+    }
+
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    .why-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+    }
+
+    .why-box.better {
+      border-color: var(--primary);
+      position: relative;
+    }
+
+    .why-box.better::before {
+      content: "✓ Catrace";
+      position: absolute;
+      top: -12px;
+      left: 1.5rem;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+    }
+
+    .why-box h3 {
+      font-size: 1.125rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .why-box ul {
+      list-style: none;
+    }
+
+    .why-box li {
+      padding: 0.5rem 0;
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      border-bottom: 1px dashed var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .why-box li:last-child {
+      border-bottom: none;
+    }
+
+    .why-box li .mark {
+      color: var(--secondary);
+      font-weight: 700;
+    }
+
+    .why-box.better li .mark {
+      color: var(--primary);
+    }
+
+    /* Features */
+    .features {
+      max-width: 1100px;
+      margin: 4rem auto;
+      padding: 0 1rem;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      transition: all 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      border-color: #DDD6FE;
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.375rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.0625rem;
+      margin-bottom: 0.375rem;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* Quote */
+    .quote {
+      max-width: 760px;
+      margin: 4rem auto;
+      padding: 0 1rem;
+      text-align: center;
+    }
+
+    .quote-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.25rem 2rem;
+      position: relative;
+    }
+
+    .quote-box::before {
+      content: """;
+      font-size: 4rem;
+      color: var(--primary-light);
+      line-height: 1;
+      position: absolute;
+      top: 0.75rem;
+      left: 1.25rem;
+      font-family: Georgia, serif;
+    }
+
+    .quote-text {
+      font-size: 1.125rem;
+      color: var(--text);
+      font-style: italic;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .quote-author {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    /* How it works */
+    .how {
+      max-width: 800px;
+      margin: 4rem auto;
+      padding: 0 1rem;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+    }
+
+    .step-num {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .step h4 {
+      font-size: 1.0625rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .step p {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+    }
+
+    /* CTA */
+    .cta {
+      max-width: 760px;
+      margin: 4rem auto 0;
+      padding: 0 1rem;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: #fff;
+    }
+
+    .cta-box h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .cta-box p {
+      opacity: 0.9;
+      margin-bottom: 1.5rem;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-box .btn {
+      background: #fff;
+      color: var(--primary);
+    }
+
+    .cta-box .btn:hover {
+      background: #F3F0FF;
+      transform: translateY(-1px);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-top: 4rem;
+    }
+
+    footer a {
+      margin: 0 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    footer a:hover {
+      color: var(--primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .why-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero h1 {
+        font-size: 2.25rem;
+      }
+      .hero p.lead {
+        font-size: 1.0625rem;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 {
+        font-size: 1.875rem;
+      }
+      header {
+        padding: 1rem;
+      }
+      nav a {
+        margin-left: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a class="logo" href=".">
+      <img src="favicon.png" alt="Catrace">
+      Catrace
+    </a>
+    <nav>
+      <a href="#why">为什么选它</a>
+      <a href="#features">功能</a>
+      <a href="https://github.com/lanxiuyun/catrace" target="_blank">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      无需手动开启，后台自动运行
+    </div>
+    <h1>久坐提醒，<span>默默守护你的健康</span></h1>
+    <p class="lead">
+      用番茄钟总要手动开启？常常忙着忙着就忘了休息？<br>
+      Catrace 在后台自动监测你的键鼠活动，该休息时轻轻推你一把。
+    </p>
+    <p class="note">不偷拍、不上传，所有数据只存在你自己的电脑上。</p>
+    <div class="btn-group">
+      <a class="btn btn-primary" href="https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        免费下载
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/lanxiuyun/catrace" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        GitHub 源码
+      </a>
+    </div>
+  </section>
+
+  <section class="pain">
+    <div class="pain-grid">
+      <div class="pain-card">
+        <div class="pain-icon">😫</div>
+        <div>
+          <h4>忘记开启番茄钟</h4>
+          <p>每次工作前都要手动点开始，一忙就忘了。</p>
+        </div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">⏰</div>
+        <div>
+          <h4>定时器太机械</h4>
+          <p>刚接杯水回来就响，或者已经坐了三小时还没动静。</p>
+        </div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">🪑</div>
+        <div>
+          <h4>久坐到腰酸背痛</h4>
+          <p>反应过来时，脖子僵了、腰疼了、眼睛干了。</p>
+        </div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">🤖</div>
+        <div>
+          <h4>Catrace 自动识别</h4>
+          <p>根据你真实的键鼠活动判断工作状态，该提醒时才提醒。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screenshot">
+    <img src="screenshot.png" alt="Catrace 主界面：今日统计、活动时间轴、活跃与休息 Block">
+    <p class="screenshot-caption">Dashboard 实时展示今日活动概览与详细时间轴</p>
+  </section>
+
+  <section class="why" id="why">
+    <h2 class="section-title">和传统定时器有什么不同？</h2>
+    <p class="section-subtitle">Catrace 不关心「你计划工作多久」，只关心「你实际坐了多久」。</p>
+    <div class="why-grid">
+      <div class="why-box">
+        <h3>❌ 普通番茄钟 / 定时器</h3>
+        <ul>
+          <li><span class="mark">·</span> 每次工作前要手动开启</li>
+          <li><span class="mark">·</span> 按固定周期响铃，不管你当时在不在干活</li>
+          <li><span class="mark">·</span> 休息的时候也在倒计时，反而增加焦虑</li>
+          <li><span class="mark">·</span> 不提供活动统计，不知道自己真实的节奏</li>
+        </ul>
+      </div>
+      <div class="why-box better">
+        <h3>✅ Catrace</h3>
+        <ul>
+          <li><span class="mark">✓</span> 开机自启，后台静默运行，零操作成本</li>
+          <li><span class="mark">✓</span> 根据真实键鼠活动判断，只在你真正连续工作时提醒</li>
+          <li><span class="mark">✓</span> 一旦你开始休息，提醒立即停止，不会打扰</li>
+          <li><span class="mark">✓</span> 自动生成今日活动报告，帮你了解自己的作息规律</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <h2 class="section-title">核心功能</h2>
+    <p class="section-subtitle">轻量、自动、可定制，让休息提醒真正融入你的工作流。</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#F3E8FF;">🖱️</div>
+        <h3>键鼠轻量监测</h3>
+        <p>不读取按键内容，不追踪鼠标轨迹，只统计活动次数。纯本地运行，隐私零泄露。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#D1FAE5;">⏱️</div>
+        <h3>智能工作窗口</h3>
+        <p>自定义工作窗口长度和休息判定时间。连续活跃达标后自动提醒，休息够后自动重置。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#EDE9FE;">🔔</div>
+        <h3>三种提醒方式</h3>
+        <p>系统通知、弹窗提醒、全屏提醒任选。支持「5分钟后」「10分钟后」「跳过本次」灵活控制。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#ECFDF5;">🎬</div>
+        <h3>视频播放识别</h3>
+        <p>看视频、追剧时自动识别为活跃状态，不误判定为休息，到时间后仍然会提醒你活动一下。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#F3E8FF;">✏️</div>
+        <h3>自定义提示词</h3>
+        <p>提醒内容可以自定义。不仅可以叫你「休息」，还可以提醒你喝水、拉伸、甚至做一些健康小动作。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#D1FAE5;">📊</div>
+        <h3>可视化统计</h3>
+        <p>今日统计四卡片 + 活动时间轴 + 详细分钟级热力图，一眼看清自己的高效时段和休息缺口。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="quote">
+    <div class="quote-box">
+      <p class="quote-text">「以前也用番茄钟，但总是会忘记开启。Catrace 不用手动点开始，开机后就自己跑，真正做到了无感提醒。」</p>
+      <p class="quote-author">—— 一位不想继续久坐的开发者</p>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2 class="section-title">三分钟上手</h2>
+    <p class="section-subtitle">没有复杂设置，安装后就能用。</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h4>下载安装</h4>
+          <p>支持 Windows、macOS、Linux。安装后设置开机自启，即可忘记它的存在。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h4>正常工作</h4>
+          <p>写代码、写文档、回邮件、看视频……Catrace 会根据你的真实活动自动记录，无需任何操作。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h4>到点休息</h4>
+          <p>连续工作时间达到设定窗口后，它会用你选择的方式提醒你。去倒杯水、站起来走走，休息够了再继续。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="cta-box">
+      <h2>从今天开始，不再久坐</h2>
+      <p>Catrace 完全免费开源。下载试用，给你的脖子和腰一个交代。</p>
+      <a class="btn" href="https://download.upgrade.toolsetlink.com/download?appKey=RBrITa0T5PKRzdYuwwxzow" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        立即下载 Catrace
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      <a href="https://github.com/lanxiuyun/catrace" target="_blank">GitHub</a>
+      <a href="https://github.com/lanxiuyun/catrace/releases" target="_blank">Releases</a>
+      <a href="https://github.com/lanxiuyun/catrace/issues" target="_blank">问题反馈</a>
+    </p>
+    <p style="margin-top:0.75rem;">© Catrace — AGPL-3.0 License</p>
+  </footer>
+
+</body>
+</html>
