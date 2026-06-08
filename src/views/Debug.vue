@@ -11,6 +11,7 @@ import {
   NDescriptionsItem,
   NTable,
   NText,
+  NAlert,
 } from 'naive-ui'
 import { getVideoDebugInfo, type VideoDebugInfo } from '../api/tauri'
 
@@ -18,26 +19,38 @@ const { t } = useI18n()
 
 const data = ref<VideoDebugInfo | null>(null)
 const loading = ref(false)
-let timer: ReturnType<typeof setInterval> | null = null
+const errorMsg = ref<string | null>(null)
+let mounted = true
+let timer: ReturnType<typeof setTimeout> | null = null
 
-async function refresh() {
-  loading.value = true
+async function refresh(manual = false) {
+  if (manual) loading.value = true
+  errorMsg.value = null
   try {
     data.value = await getVideoDebugInfo()
-  } catch (e) {
+  } catch (e: any) {
+    errorMsg.value = e?.message || String(e)
     console.error(e)
   } finally {
-    loading.value = false
+    if (manual) loading.value = false
   }
 }
 
+function startRefreshLoop() {
+  refresh(false).finally(() => {
+    if (mounted) {
+      timer = setTimeout(startRefreshLoop, 2000)
+    }
+  })
+}
+
 onMounted(() => {
-  refresh()
-  timer = setInterval(refresh, 1000)
+  startRefreshLoop()
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  mounted = false
+  if (timer) clearTimeout(timer)
 })
 </script>
 
@@ -45,10 +58,15 @@ onUnmounted(() => {
   <div class="debug-page">
     <div class="page-header">
       <h2>{{ t('debug.title') }}</h2>
-      <n-button size="small" :loading="loading" @click="refresh">{{ t('debug.refresh') }}</n-button>
+      <n-button size="small" :loading="loading" @click="refresh(true)">{{ t('debug.refresh') }}</n-button>
     </div>
 
-    <n-space vertical :size="16" v-if="data">
+    <n-space vertical :size="16">
+      <n-alert v-if="errorMsg" type="error" :show-icon="true">
+        {{ errorMsg }}
+      </n-alert>
+
+      <template v-if="data">
       <!-- 最终判定 -->
       <n-card :title="t('debug.finalResult')" size="small">
         <n-space align="center" :size="24">
@@ -137,6 +155,7 @@ onUnmounted(() => {
           </n-descriptions>
         </n-space>
       </n-card>
+      </template>
     </n-space>
   </div>
 </template>
