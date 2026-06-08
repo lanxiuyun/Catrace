@@ -23,8 +23,8 @@ const errorMsg = ref<string | null>(null)
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
 
-async function refresh() {
-  loading.value = true
+async function refresh(manual = false) {
+  if (manual) loading.value = true
   errorMsg.value = null
   try {
     data.value = await getVideoDebugInfo()
@@ -32,12 +32,12 @@ async function refresh() {
     errorMsg.value = e?.message || String(e)
     console.error(e)
   } finally {
-    loading.value = false
+    if (manual) loading.value = false
   }
 }
 
 function startRefreshLoop() {
-  refresh().finally(() => {
+  refresh(false).finally(() => {
     if (mounted) {
       timer = setTimeout(startRefreshLoop, 2000)
     }
@@ -58,7 +58,7 @@ onUnmounted(() => {
   <div class="debug-page">
     <div class="page-header">
       <h2>{{ t('debug.title') }}</h2>
-      <n-button size="small" :loading="loading" @click="refresh">{{ t('debug.refresh') }}</n-button>
+      <n-button size="small" :loading="loading" @click="refresh(true)">{{ t('debug.refresh') }}</n-button>
     </div>
 
     <n-space vertical :size="16">
