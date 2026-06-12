@@ -1128,12 +1128,11 @@ pub fn run() {
     // 因此 macOS 改用 device_query 的事件回调，仅检测按键发生而不解析字符。
     #[cfg(target_os = "macos")]
     {
-        use device_query::{DeviceEvents, DeviceEventsHandler, Keycode};
+        use device_query::{DeviceEvents, DeviceState, Keycode};
         let keyboard_state = state.clone();
         thread::spawn(move || {
-            let event_handler = DeviceEventsHandler::new(Duration::from_millis(10))
-                .expect("Failed to initialize device_query event loop");
-            let _guard = event_handler.on_key_down(move |_: &Keycode| {
+            let device_state = DeviceState::new();
+            let _guard = device_state.on_key_down(move |_: &Keycode| {
                 let mut s = keyboard_state.lock().unwrap();
                 if s.key_debounce.map_or(true, |t| t.elapsed() > Duration::from_secs(2)) {
                     s.count += 1;
