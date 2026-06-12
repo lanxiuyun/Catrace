@@ -1,7 +1,7 @@
 {
   "name": "catrace",
   "private": true,
-  "version": "26.6.8",
+  "version": "26.6.12",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
