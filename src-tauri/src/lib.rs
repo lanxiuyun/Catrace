@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use device_query::{DeviceQuery, DeviceState};
+#[cfg(not(target_os = "macos"))]
 use rdev::{listen, EventType};
 use active_win_pos_rs::get_active_window;
 use chrono::Timelike;
@@ -1121,20 +1122,45 @@ pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
 
-    // 键盘监听线程（rdev 会阻塞，必须独立线程）
-    let keyboard_state = state.clone();
-    thread::spawn(move || {
-        listen(move |event| {
-            if let EventType::KeyPress(_) = event.event_type {
+    // 键盘监听线程
+    // macOS：rdev 在解析按键名称时会调用 TISGetInputSourceProperty，
+    // 该 API 在非主线程/某些输入法下会崩溃（Narsil/rdev #103 #146）。
+    // 因此 macOS 改用 device_query 的事件回调，仅检测按键发生而不解析字符。
+    #[cfg(target_os = "macos")]
+    {
+        use device_query::{DeviceEvents, DeviceEventsHandler, Keycode};
+        let keyboard_state = state.clone();
+        thread::spawn(move || {
+            let event_handler = DeviceEventsHandler::new(Duration::from_millis(10))
+                .expect("Failed to initialize device_query event loop");
+            let _guard = event_handler.on_key_down(move |_: &Keycode| {
                 let mut s = keyboard_state.lock().unwrap();
                 if s.key_debounce.map_or(true, |t| t.elapsed() > Duration::from_secs(2)) {
                     s.count += 1;
                     s.key_debounce = Some(Instant::now());
                 }
+            });
+            loop {
+                thread::sleep(Duration::from_secs(60));
             }
-        })
-        .expect("Failed to start keyboard listener");
-    });
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let keyboard_state = state.clone();
+        thread::spawn(move || {
+            listen(move |event| {
+                if let EventType::KeyPress(_) = event.event_type {
+                    let mut s = keyboard_state.lock().unwrap();
+                    if s.key_debounce.map_or(true, |t| t.elapsed() > Duration::from_secs(2)) {
+                        s.count += 1;
+                        s.key_debounce = Some(Instant::now());
+                    }
+                }
+            })
+            .expect("Failed to start keyboard listener");
+        });
+    }
 
     let reminder_state_clone = reminder_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));

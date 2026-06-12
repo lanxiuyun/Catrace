@@ -66,7 +66,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘）、device_query（鼠标）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-winrt-notification（Windows Toast）、windows-registry |
+| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-winrt-notification（Windows Toast）、windows-registry |
 
 ---
 
@@ -74,7 +74,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 1. **采样**（`lib.rs`）
    - 每 2 秒检查鼠标光标位置（`device_query`）。
-   - 全局监听键盘按下事件（`rdev`），2 秒内去重。
+   - 全局监听键盘按下事件，2 秒内去重：
+     - **Windows / Linux**：使用 `rdev`。
+     - **macOS**：`rdev` 在解析按键名称时会调用 `TISGetInputSourceProperty`，该 API 在非主线程/某些输入法下会崩溃（Narsil/rdev #103 #146），因此 macOS 改用 `device_query::DeviceEventsHandler` 的事件回调，仅检测按键发生而不解析字符。
 2. **分钟判定**（`lib.rs`）
    - 每分钟00秒结算一次：该分钟内活动次数 ≥ 3 → 标记为**活跃**；否则标记为**休息**。
    - 键鼠监听是独立的实时线程，持续累积活动次数，每分钟00秒读取并归零。
@@ -293,7 +295,7 @@ CREATE TABLE settings (
 
 | 步骤 | 内容                                                              | 状态 |
 |------|-----------------------------------------------------------------|-----|
-| 1 | Rust 采样：rdev 键盘 + device_query 鼠标                               | ✅ |
+| 1 | Rust 采样：rdev 键盘（Windows/Linux）+ device_query 鼠标/键盘（macOS）     | ✅ |
 | 2 | 每分钟活跃判定，写入 SQLite                                               | ✅ |
 | 3 | 滑动窗口算法 + 系统通知                                                   | ✅ |
 | 4 | Tauri 套壳 + Vue 3 前端                                             | ✅ |
@@ -414,7 +416,7 @@ cd src-tauri && cargo test
 
 - 全局键鼠监听仅计数，不记录按键内容或鼠标轨迹坐标。
 - 数据库文件保存在 `app_data_dir/catrace.db`，不上传。
-- `rdev` 与 `active-win-pos-rs` 需要系统权限（macOS Accessibility / Windows UI Access）。
+- `rdev`（Windows/Linux）与 `device_query`（macOS 键盘/鼠标）、`active-win-pos-rs` 需要系统权限（macOS Accessibility / Windows UI Access）。
 
 ---
 
