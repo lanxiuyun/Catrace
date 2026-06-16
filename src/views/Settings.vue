@@ -871,6 +871,9 @@ async function handleInstallUpdate() {
   margin-bottom: 12px;
   white-space: pre-wrap;
   line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .bg-preview {
