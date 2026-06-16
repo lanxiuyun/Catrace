@@ -1174,6 +1174,13 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // 单例模式：当用户尝试启动第二个实例时，聚焦到已有实例的主窗口
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(move |app| {
             // 注册 AUMID，让 Windows Toast 通知显示为应用名称
             #[cfg(windows)]

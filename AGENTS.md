@@ -66,7 +66,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-winrt-notification（Windows Toast）、windows-registry |
+| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-single-instance、tauri-winrt-notification（Windows Toast）、windows-registry |
 
 ---
 
@@ -336,6 +336,7 @@ CREATE TABLE settings (
 | 37 | 全屏背景图上传 UI 重设计：预览卡片 + 毛玻璃操作按钮 + 虚线拖拽区域                          | ✅ |
 | 38 | 文案统一：「通知」→「提醒」                                                  | ✅ |
 | 39 | 全屏提醒元素独立编辑：标题/正文/倒计时/按钮可独立调整位置、缩放、旋转                            | ✅ |
+| 40 | 单例模式：重复启动应用时聚焦到已有实例主窗口                                                    | ✅ |
 
 ---
 
