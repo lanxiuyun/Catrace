@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
@@ -26,7 +26,10 @@ interface ToastItem {
 
 const notifications = ref<ToastItem[]>([])
 const showDebug = ref(false)
+const rootRef = ref<HTMLElement | null>(null)
+const stackRef = ref<HTMLElement | null>(null)
 let idCounter = 0
+let resizeObserver: ResizeObserver | null = null
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -59,6 +62,15 @@ onMounted(async () => {
     addNotification(payload)
   }
 
+  // 监听内容高度变化，自动调整窗口尺寸
+  await nextTick()
+  if (stackRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      adjustWindowSize()
+    })
+    resizeObserver.observe(stackRef.value)
+  }
+
   // 读取初始通知
   try {
     const data = await getReminderData('reminder-toast')
@@ -77,6 +89,8 @@ onMounted(async () => {
 onUnmounted(() => {
   delete (window as any).addToastNotification
   notifications.value.forEach(stopTimer)
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 
 function calcWindowHeight(count: number): number {
@@ -88,13 +102,19 @@ async function adjustWindowSize() {
   const count = notifications.value.length
   if (count === 0) return
 
+  // 等 DOM 渲染完成
+  await nextTick()
+
   try {
     const win = getCurrentWebviewWindow()
     const pos = await win.innerPosition()
     const size = await win.innerSize()
     const sf = await win.scaleFactor()
 
-    const newHeightLogical = calcWindowHeight(count)
+    // 先量内容栈实际高度，再加 root 内边距得到窗口总高
+    const stackHeight = stackRef.value?.getBoundingClientRect().height ?? calcWindowHeight(count)
+    const maxWindowHeight = window.screen.availHeight || window.innerHeight
+    const newHeightLogical = Math.min(maxWindowHeight, stackHeight + PADDING * 2)
     const workAreaBottomLogical = pos.y / sf + size.height / sf
     const newYLogical = workAreaBottomLogical - newHeightLogical
 
@@ -247,15 +267,16 @@ async function handleSkip(item: ToastItem) {
 </script>
 
 <template>
-  <div class="toast-root" :class="{ 'debug-bg': showDebug }">
-    <div
-      v-for="item in notifications"
-      :key="item.id"
-      class="toast-card"
-      :class="{ visible: item.visible, hidden: !item.visible }"
-      @mouseenter="handleMouseEnter(item)"
-      @mouseleave="handleMouseLeave(item)"
-    >
+  <div ref="rootRef" class="toast-root" :class="{ 'debug-bg': showDebug }">
+    <div ref="stackRef" class="toast-stack">
+      <div
+        v-for="item in notifications"
+        :key="item.id"
+        class="toast-card"
+        :class="{ visible: item.visible, hidden: !item.visible }"
+        @mouseenter="handleMouseEnter(item)"
+        @mouseleave="handleMouseLeave(item)"
+      >
       <!-- Header -->
       <div class="header">
         <div class="header-left">
@@ -288,6 +309,7 @@ async function handleSkip(item: ToastItem) {
         </button>
       </div>
     </div>
+    </div>
 
     <!-- 调试面板 -->
     <div v-if="showDebug" class="debug-panel">
@@ -311,7 +333,6 @@ async function handleSkip(item: ToastItem) {
   flex-direction: column;
   justify-content: flex-end;
   align-items: flex-end;
-  gap: 12px;
   padding: 20px;
   box-sizing: border-box;
   background: transparent;
@@ -320,13 +341,22 @@ async function handleSkip(item: ToastItem) {
   overflow: hidden;
 }
 
+.toast-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
 .toast-root.debug-bg {
   background: rgba(255, 0, 0, 0.5);
 }
 
 .toast-card {
   width: 320px;
-  height: 180px;
+  min-height: 180px;
+  max-height: 600px;
   background: #ffffff;
   border-radius: 12px;
   padding: 16px;
@@ -461,10 +491,9 @@ async function handleSkip(item: ToastItem) {
   line-height: 1.6;
   margin: 0 0 14px 0;
   word-break: break-word;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Actions */
