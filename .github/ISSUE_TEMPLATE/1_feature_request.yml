@@ -1,0 +1,51 @@
+name: ✨ 功能请求 / Feature Request
+description: "💡 有好想法？欢迎分享你的创意！ / Got a great idea? Share your creativity with us!"
+title: "[✨功能请求 / Feature Request]: "
+labels: ['enhancement']
+body:
+  - type: input
+    id: problem
+    attributes:
+      label: 🌈 你希望加入的功能
+      description: |-
+        Feature You'd Like<br><br>
+        请简要描述你希望添加或改进的功能。让我们一起把软件做得更好！<br>
+        Briefly describe the feature you'd like to add or improve. Let's make the software even better together!
+    validations:
+      required: false
+
+  - type: textarea
+    id: way-to-solve
+    attributes:
+      label: 🚀 理想的解决方案
+      description: |-
+        Ideal Solution<br><br>
+        你心中理想的解决方案是什么样的？请尽情发挥想象，不用担心技术细节！<br>
+        What does your perfect solution look like? Feel free to use your imagination - don't worry about technical details!
+    validations:
+      required: true
+
+  - type: textarea
+    id: instead
+    attributes:
+      label: 🤔 替代方案（可选）
+      description: |-
+        Alternative Solutions (Optional)<br><br>
+        如果你还有其他想法，也欢迎在这里补充。想法越多越好！<br>
+        If you have other ideas, please share them here. The more, the merrier!
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: "latest-version"
+    attributes:
+      label: ✅ 最后确认
+      description: |-
+        Final Step<br><br>
+        在提交你的精彩想法前，请确认以下内容：<br>
+        Before submitting your brilliant idea, please confirm the following:
+      options:
+        - label: "🌟 我已检查最新版本，并确认我请求的功能尚未实现。<br>I've checked the latest version and confirmed my requested feature isn't already implemented."
+          required: true
+        - label: "📋 我已查看现有功能请求，确认这不是重复提交。<br>I've reviewed existing feature requests to make sure this isn't a duplicate."
+          required: true

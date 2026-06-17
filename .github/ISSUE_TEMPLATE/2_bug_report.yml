@@ -1,0 +1,80 @@
+name: 🐛 问题反馈 / Bug Report
+description: "🛠️ 发现问题？请在这里告诉我们！ / Found a problem? Let us know here!"
+title: "[🐛问题 / Bug]: "
+labels: ["bug"]
+body:
+  - type: input
+    id: "expectation"
+    attributes:
+      label: "✨ 你期望发生什么"
+      description: |-
+        What You Expected<br><br>
+        软件本应如何工作？请描述你期望发生的情况。<br>
+        How should the software work? Describe what you expected to happen.
+    validations:
+      required: false
+
+  - type: textarea
+    id: "describe-the-bug"
+    attributes:
+      label: "❓ 实际发生了什么"
+      description: |-
+        What Actually Happened<br><br>
+        出现了什么问题？请告诉我们你看到的情况，细节越多越好！<br>
+        Oops! Something went wrong? Please tell us what you saw - the more details, the better!
+    validations:
+      required: true
+
+  - type: textarea
+    id: "reproduction-method"
+    attributes:
+      label: "📝 复现步骤"
+      description: |-
+        Steps to Reproduce the Issue<br><br>
+        可以告诉我们你是如何遇到这个问题的吗？请列出步骤，方便我们更快定位问题。<br>
+        Can you tell us how you encountered this bug? List the steps so we can find the problem faster.
+      placeholder: |-
+        例如：
+        1. 使用了什么功能
+        2. 接着发生了什么……
+        3. 问题出现了！
+
+        For example:
+        1. Used what feature
+        2. Then this happened...
+        3. Oops! Problem occurred!
+    validations:
+      required: false
+
+  - type: textarea
+    id: "more"
+    attributes:
+      label: "📌 补充信息"
+      description: |-
+        Additional Information<br><br>
+        还有其他想告诉我们的吗？例如系统信息、版本号等。<br>
+        Anything else you'd like to tell us? System information, version numbers, etc.
+      placeholder: |-
+        示例：
+        系统：Windows 11
+        版本：23H2
+
+        Example:
+        System: Windows 11
+        Version: 23H2
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: "latest-version"
+    attributes:
+      label: "✅ 最后检查"
+      description: |-
+        Final Checklist<br><br>
+        在提交问题反馈前，请确认以下内容：<br>
+        Before submitting your bug report, please confirm the following:
+      options:
+        - label: "⚡ 我已确认正在使用最新版本，而不是旧版本。<br>I've confirmed I'm using the latest version, not an older one."
+          required: true
+        - label: "📋 我已查看 FAQ 和已知问题列表，确认这是一个新问题。<br>I've checked the FAQ and known issues list to confirm this is a new bug."
+          required: true
