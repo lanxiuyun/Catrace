@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
 import {
   getReminderData,
   snoozeReminder,
@@ -28,6 +29,22 @@ let idCounter = 0
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
+const CARD_HEIGHT = 180
+const CARD_GAP = 12
+const PADDING = 20
+const WINDOW_WIDTH = 360
+
+// 临时调试信息
+const debugInfo = ref({
+  count: 0,
+  calcHeight: 0,
+  beforeSize: { width: 0, height: 0 },
+  beforePos: { x: 0, y: 0 },
+  sf: 1,
+  afterSize: { width: 0, height: 0 },
+  afterPos: { x: 0, y: 0 },
+  error: '',
+})
 
 onMounted(async () => {
   // 暴露全局函数给 Rust 端 eval 调用
@@ -58,6 +75,50 @@ onUnmounted(() => {
   delete (window as any).addToastNotification
   notifications.value.forEach(stopTimer)
 })
+
+function calcWindowHeight(count: number): number {
+  if (count <= 0) return 0
+  return PADDING * 2 + count * CARD_HEIGHT + (count - 1) * CARD_GAP
+}
+
+async function adjustWindowSize() {
+  const count = notifications.value.length
+  if (count === 0) return
+
+  try {
+    const win = getCurrentWebviewWindow()
+    const pos = await win.innerPosition()
+    const size = await win.innerSize()
+    const sf = await win.scaleFactor()
+
+    const newHeightLogical = calcWindowHeight(count)
+    const workAreaBottomLogical = pos.y / sf + size.height / sf
+    const newYLogical = workAreaBottomLogical - newHeightLogical
+
+    debugInfo.value = {
+      ...debugInfo.value,
+      count,
+      calcHeight: newHeightLogical,
+      beforeSize: { width: size.width, height: size.height },
+      beforePos: { x: pos.x, y: pos.y },
+      sf,
+      error: '',
+    }
+
+    await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeightLogical))
+    await win.setPosition(new LogicalPosition(pos.x / sf, newYLogical))
+
+    const afterSize = await win.innerSize()
+    const afterPos = await win.innerPosition()
+    debugInfo.value = {
+      ...debugInfo.value,
+      afterSize: { width: afterSize.width, height: afterSize.height },
+      afterPos: { x: afterPos.x, y: afterPos.y },
+    }
+  } catch (e: any) {
+    debugInfo.value.error = String(e?.message ?? e)
+  }
+}
 
 function addNotification(payload: { boundary: number; title: string; body: string }) {
   // 限制最大数量，移除最旧的通知
@@ -90,6 +151,7 @@ function addNotification(payload: { boundary: number; title: string; body: strin
   })
 
   startTimer(item)
+  adjustWindowSize()
 }
 
 function startTimer(item: ToastItem) {
@@ -134,12 +196,14 @@ function removeNotification(id: number, animate: boolean) {
     item.visible = false
     setTimeout(() => {
       notifications.value = notifications.value.filter((n) => n.id !== id)
+      adjustWindowSize()
       if (notifications.value.length === 0) {
         closeWindow()
       }
     }, 250)
   } else {
     notifications.value = notifications.value.filter((n) => n.id !== id)
+    adjustWindowSize()
     if (notifications.value.length === 0) {
       closeWindow()
     }
@@ -221,6 +285,18 @@ async function handleSkip(item: ToastItem) {
         </button>
       </div>
     </div>
+
+    <!-- 临时调试面板 -->
+    <div class="debug-panel">
+      <div>count: {{ debugInfo.count }}</div>
+      <div>calcH: {{ debugInfo.calcHeight }}</div>
+      <div>beforeSize: {{ debugInfo.beforeSize.width }}x{{ debugInfo.beforeSize.height }}</div>
+      <div>beforePos: {{ debugInfo.beforePos.x }},{{ debugInfo.beforePos.y }}</div>
+      <div>sf: {{ debugInfo.sf }}</div>
+      <div>afterSize: {{ debugInfo.afterSize.width }}x{{ debugInfo.afterSize.height }}</div>
+      <div>afterPos: {{ debugInfo.afterPos.x }},{{ debugInfo.afterPos.y }}</div>
+      <div v-if="debugInfo.error" class="debug-error">err: {{ debugInfo.error }}</div>
+    </div>
   </div>
 </template>
 
@@ -243,7 +319,7 @@ async function handleSkip(item: ToastItem) {
 
 .toast-card {
   width: 320px;
-  min-height: 180px;
+  height: 180px;
   background: #ffffff;
   border-radius: 12px;
   padding: 16px;
@@ -269,6 +345,25 @@ async function handleSkip(item: ToastItem) {
 .toast-card.hidden {
   transform: translateX(120%);
   opacity: 0;
+}
+
+.debug-panel {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #0f0;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 8px;
+  border-radius: 4px;
+  z-index: 9999;
+  pointer-events: none;
+  line-height: 1.4;
+}
+
+.debug-error {
+  color: #f44;
 }
 
 /* Header */
@@ -359,6 +454,10 @@ async function handleSkip(item: ToastItem) {
   line-height: 1.6;
   margin: 0 0 14px 0;
   word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 /* Actions */

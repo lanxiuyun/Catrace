@@ -7,9 +7,11 @@ use crate::{ActivityState, ReminderState, ReminderWindowData, ReminderWindowStor
 
 const TOAST_WINDOW_LABEL: &str = "reminder-toast";
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
+// 与前端单条通知窗口高度保持一致：卡片 180px + 上下 padding 各 20px
+const TOAST_WINDOW_MIN_HEIGHT: f64 = 220.0;
 
-/// 计算并设置 toast 窗口为右侧全高透明条。
-/// 窗口宽度固定 360px，高度与显示器工作区相同，贴靠屏幕右边缘。
+/// 计算并设置 toast 窗口为右下角初始尺寸。
+/// 窗口宽度固定 360px，高度固定为单条通知高度，贴靠屏幕右下角。
 /// 优先将窗口放到包含鼠标光标的显示器上，否则使用主显示器。
 fn position_toast_window(
     window: &tauri::WebviewWindow,
@@ -43,14 +45,13 @@ fn position_toast_window(
     let work_area = monitor.work_area();
     let sf = monitor.scale_factor();
 
-    let height = work_area.size.height as f64 / sf;
     let x = (work_area.position.x as f64 / sf) + (work_area.size.width as f64 / sf) - TOAST_WINDOW_WIDTH;
-    let y = work_area.position.y as f64 / sf;
+    let y = (work_area.position.y as f64 / sf) + (work_area.size.height as f64 / sf) - TOAST_WINDOW_MIN_HEIGHT;
 
     window
         .set_size(tauri::Size::Logical(tauri::LogicalSize {
             width: TOAST_WINDOW_WIDTH,
-            height,
+            height: TOAST_WINDOW_MIN_HEIGHT,
         }))
         .map_err(|e| e.to_string())?;
     window
@@ -116,11 +117,11 @@ pub fn create_toast_window(
             tauri::WebviewUrl::App("index.html".into()),
         )
         .title("Catrace")
-        .inner_size(TOAST_WINDOW_WIDTH, 400.0)
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
         .decorations(false)
         .always_on_top(true)
         .transparent(true)
-        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .background_color(tauri::window::Color(255, 0, 0, 128))
         .shadow(false)
         .visible(false)
         .skip_taskbar(true)
