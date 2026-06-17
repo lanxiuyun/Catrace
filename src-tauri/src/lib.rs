@@ -464,6 +464,19 @@ fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(
         .map_err(|e| e.to_string())
 }
 
+/** 获取 Toast 调试模式开关状态（默认 false）。 */
+#[tauri::command]
+fn get_toast_debug_mode(db: tauri::State<db::Db>) -> bool {
+    db.get_setting("toast_debug_mode", "false") == "true"
+}
+
+/** 设置 Toast 调试模式开关状态。 */
+#[tauri::command]
+fn set_toast_debug_mode(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("toast_debug_mode", &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_config(db: tauri::State<db::Db>) -> serde_json::Value {
     let window: i64 = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
@@ -1284,6 +1297,7 @@ pub fn run() {
             get_silent_start, set_silent_start,
             get_locale, set_locale,
             get_video_active_enabled, set_video_active_enabled,
+            get_toast_debug_mode, set_toast_debug_mode,
             show_main_window, hide_main_window,
             get_today_stats, get_today_records, get_app_stats,
             test_notification,

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use tauri::Manager;
 
-use crate::{ActivityState, ReminderState, ReminderWindowData, ReminderWindowStore};
+use crate::{db, ActivityState, ReminderState, ReminderWindowData, ReminderWindowStore};
 
 const TOAST_WINDOW_LABEL: &str = "reminder-toast";
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
@@ -60,8 +60,9 @@ fn position_toast_window(
 }
 
 /// 创建或复用 toast 通知窗口。
-/// - 窗口不存在时创建右侧全高透明窗口，并通过 store 传递第一条通知。
+/// - 窗口不存在时创建右下角透明窗口，并通过 store 传递第一条通知。
 /// - 窗口已存在时，直接调用前端全局函数 `window.addToastNotification` 追加通知。
+/// - 根据 `toast_debug_mode` 设置决定是否使用半透明红色背景。
 pub fn create_toast_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
@@ -70,6 +71,11 @@ pub fn create_toast_window(
     _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
 ) {
+    let debug_mode = {
+        let db = app_handle.state::<db::Db>();
+        db.get_setting("toast_debug_mode", "false") == "true"
+    };
+
     let data = ReminderWindowData {
         boundary,
         title: title.to_string(),
@@ -99,10 +105,12 @@ pub fn create_toast_window(
             payload
         );
         let _ = window.eval(&js);
-        // 确保前端路由到 /reminder-toast
-        let _ = window.eval(
-            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';",
+        // 确保前端路由到 /reminder-toast，并同步调试模式状态
+        let debug_js = format!(
+            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
+            debug_mode
         );
+        let _ = window.eval(&debug_js);
         let _ = window.show();
         let _ = window.set_always_on_top(true);
         let _ = window.set_focus();
@@ -121,7 +129,11 @@ pub fn create_toast_window(
         .decorations(false)
         .always_on_top(true)
         .transparent(true)
-        .background_color(tauri::window::Color(255, 0, 0, 128))
+        .background_color(if debug_mode {
+            tauri::window::Color(255, 0, 0, 128)
+        } else {
+            tauri::window::Color(0, 0, 0, 0)
+        })
         .shadow(false)
         .visible(false)
         .skip_taskbar(true)
@@ -134,9 +146,11 @@ pub fn create_toast_window(
                 let _ = window.set_always_on_top(true);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                let _ = window.eval(
-                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';",
+                let debug_js = format!(
+                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
+                    debug_mode
                 );
+                let _ = window.eval(&debug_js);
                 let _ = window.set_focus();
             }
             Err(e) => {

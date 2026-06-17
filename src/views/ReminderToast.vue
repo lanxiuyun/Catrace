@@ -25,6 +25,7 @@ interface ToastItem {
 }
 
 const notifications = ref<ToastItem[]>([])
+const showDebug = ref(false)
 let idCounter = 0
 
 const AUTO_HIDE_MS = 8000
@@ -47,6 +48,8 @@ const debugInfo = ref({
 })
 
 onMounted(async () => {
+  showDebug.value = (window as any).__CATRACE_TOAST_DEBUG__ === true
+
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
     boundary: number
@@ -244,7 +247,7 @@ async function handleSkip(item: ToastItem) {
 </script>
 
 <template>
-  <div class="toast-root">
+  <div class="toast-root" :class="{ 'debug-bg': showDebug }">
     <div
       v-for="item in notifications"
       :key="item.id"
@@ -286,8 +289,8 @@ async function handleSkip(item: ToastItem) {
       </div>
     </div>
 
-    <!-- 临时调试面板 -->
-    <div class="debug-panel">
+    <!-- 调试面板 -->
+    <div v-if="showDebug" class="debug-panel">
       <div>count: {{ debugInfo.count }}</div>
       <div>calcH: {{ debugInfo.calcHeight }}</div>
       <div>beforeSize: {{ debugInfo.beforeSize.width }}x{{ debugInfo.beforeSize.height }}</div>
@@ -315,6 +318,10 @@ async function handleSkip(item: ToastItem) {
   user-select: none;
   -webkit-app-region: no-drag;
   overflow: hidden;
+}
+
+.toast-root.debug-bg {
+  background: rgba(255, 0, 0, 0.5);
 }
 
 .toast-card {
