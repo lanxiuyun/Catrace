@@ -16,6 +16,7 @@ import { themeOverrides } from './theme'
 import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
 import ReminderPopup from './views/ReminderPopup.vue'
 import ReminderFullscreen from './views/ReminderFullscreen.vue'
+import ReminderToast from './views/ReminderToast.vue'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -41,17 +42,25 @@ const menuOptions = computed(() => [
 
 const isReminderRoute = computed(() => {
   const type = (window as any).__CATRACE_REMINDER_TYPE__
-  return type === 'popup' || type === 'fullscreen'
+  return type === 'popup' || type === 'fullscreen' || type === 'toast'
     || route.path === '/reminder-popup'
     || route.path === '/reminder-fullscreen'
+    || route.path === '/reminder-toast'
 })
 
 const currentReminderType = computed(() => {
   return (window as any).__CATRACE_REMINDER_TYPE__ || ''
 })
 
-// 全屏提醒时让 html/body 背景透明
-watch(isReminderRoute, (val) => {
+const needsTransparentBg = computed(() => {
+  const type = (window as any).__CATRACE_REMINDER_TYPE__
+  return type === 'fullscreen' || type === 'toast'
+    || route.path === '/reminder-fullscreen'
+    || route.path === '/reminder-toast'
+})
+
+// 全屏提醒 / toast 提醒时让 html/body 背景透明
+watch(needsTransparentBg, (val) => {
   document.documentElement.classList.toggle('reminder-transparent', val)
 }, { immediate: true })
 
@@ -63,6 +72,7 @@ watch(isReminderRoute, (val) => {
       <template v-if="isReminderRoute">
         <ReminderPopup v-if="currentReminderType === 'popup' || route.path === '/reminder-popup'" />
         <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen' || route.path === '/reminder-fullscreen'" />
+        <ReminderToast v-else-if="currentReminderType === 'toast' || route.path === '/reminder-toast'" />
         <RouterView v-else />
       </template>
       <n-layout v-else has-sider class="app-layout">

@@ -12,10 +12,10 @@ use device_query::{DeviceQuery, DeviceState};
 use rdev::{listen, EventType};
 use active_win_pos_rs::get_active_window;
 use chrono::Timelike;
+use tauri::Emitter;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 use base64::Engine;
 use std::fs;
@@ -314,9 +314,6 @@ fn is_media_active() -> bool {
     is_media_active_by_keywords()
 }
 
-#[cfg(windows)]
-use tauri_winrt_notification::Toast;
-
 
 #[derive(Default)]
 struct ActivityState {
@@ -356,27 +353,6 @@ fn notify_body(locale: &str) -> &'static str {
     match locale {
         "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
         _ => "Stand up, drink some water, stretch your neck and back.",
-    }
-}
-
-fn toast_snooze_5(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "稍后5分钟",
-        _ => "5 min",
-    }
-}
-
-fn toast_snooze_10(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "稍后10分钟",
-        _ => "10 min",
-    }
-}
-
-fn toast_skip(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "跳过本次",
-        _ => "Skip",
     }
 }
 
@@ -787,7 +763,7 @@ fn get_reminder_data(
     label: String,
     store: tauri::State<ReminderWindowStore>,
 ) -> Option<ReminderWindowData> {
-    store.lock().unwrap().remove(&label)
+    store.lock().unwrap().get(&label).cloned()
 }
 
 #[tauri::command]
@@ -872,78 +848,146 @@ fn show_notification(
             );
         }
         _ => {
-            // toast（默认）
-            show_toast_notification(app_handle, boundary, &body, reminder_state, locale);
+            // toast（默认）：使用右下角自定义 Vue 通知窗口
+            create_toast_window(app_handle, boundary, &title, &body, reminder_state, store);
         }
     }
 }
 
-#[cfg(windows)]
-fn show_toast_notification(
+/// 计算并设置 toast 窗口为右侧全高透明条。
+/// 窗口宽度固定 360px，高度与显示器工作区相同，贴靠屏幕右边缘。
+/// 优先将窗口放到包含鼠标光标的显示器上，否则使用主显示器。
+fn position_toast_window(window: &tauri::WebviewWindow, app_handle: &tauri::AppHandle) -> Result<(), String> {
+    eprintln!("[ToastWindow] position_toast_window called");
+    let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
+    eprintln!("[ToastWindow] available monitors: {}", monitors.len());
+    if monitors.is_empty() {
+        return Err("No monitors available".to_string());
+    }
+
+    let (mouse_x, mouse_y) = {
+        let state = app_handle.state::<Arc<Mutex<ActivityState>>>();
+        let s = state.lock().unwrap();
+        s.last_cursor
+    };
+    eprintln!("[ToastWindow] mouse position: ({}, {})", mouse_x, mouse_y);
+
+    let monitor = monitors
+        .iter()
+        .find(|m| {
+            let pos = m.position();
+            let size = m.size();
+            let sf = m.scale_factor();
+            let left = (pos.x as f64 / sf) as i32;
+            let top = (pos.y as f64 / sf) as i32;
+            let right = left + (size.width as f64 / sf) as i32;
+            let bottom = top + (size.height as f64 / sf) as i32;
+            mouse_x >= left && mouse_x < right && mouse_y >= top && mouse_y < bottom
+        })
+        .unwrap_or_else(|| monitors.first().unwrap());
+
+    let pos = monitor.position();
+    let size = monitor.size();
+    let sf = monitor.scale_factor();
+    eprintln!("[ToastWindow] selected monitor: pos=({},{}), size=({}x{}), scale={}", pos.x, pos.y, size.width, size.height, sf);
+
+    let width = 360.0;
+    let height = size.height as f64 / sf;
+    let x = (pos.x as f64 / sf) + (size.width as f64 / sf) - width;
+    let y = pos.y as f64 / sf;
+    eprintln!("[ToastWindow] target geometry: x={}, y={}, width={}, height={}", x, y, width, height);
+
+    window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }))
+        .map_err(|e| e.to_string())?;
+    eprintln!("[ToastWindow] geometry set OK");
+    Ok(())
+}
+
+fn create_toast_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
-    message: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
-) {
-    let app = app_handle.clone();
-    let aumid = app_handle.config().identifier.clone();
-    let state = reminder_state;
-    let b = boundary;
-    let msg = message.to_string();
-    let title = notify_title(locale).to_string();
-    let btn_5 = toast_snooze_5(locale).to_string();
-    let btn_10 = toast_snooze_10(locale).to_string();
-    let btn_skip = toast_skip(locale).to_string();
-
-    if let Err(e) = app.run_on_main_thread(move || {
-        let toast = Toast::new(&aumid)
-            .title(&title)
-            .text1(&msg)
-            .add_button(&btn_5, "snooze_5")
-            .add_button(&btn_10, "snooze_10")
-            .add_button(&btn_skip, "skip")
-            .on_activated(move |action| {
-                let mut s = state.lock().unwrap();
-                match action.as_deref() {
-                    Some("snooze_5") => {
-                        s.snooze_until = Some(Instant::now() + Duration::from_secs(5 * 60));
-                    }
-                    Some("snooze_10") => {
-                        s.snooze_until = Some(Instant::now() + Duration::from_secs(10 * 60));
-                    }
-                    Some("skip") => {
-                        s.skip_until_boundary = Some(b);
-                        s.snooze_until = None;
-                    }
-                    _ => {}
-                }
-                Ok(())
-            });
-
-        if let Err(e) = toast.show() {
-            eprintln!("Toast notification failed (AUMID={}): {}", aumid, e);
-        }
-    }) {
-        eprintln!("Failed to schedule Toast on main thread: {}", e);
-    }
-}
-
-#[cfg(not(windows))]
-fn show_toast_notification(
-    app_handle: &tauri::AppHandle,
-    _boundary: i64,
-    message: &str,
+    title: &str,
+    body: &str,
     _reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
+    store: &ReminderWindowStore,
 ) {
-    if let Err(e) = app_handle.notification().builder()
-        .title(notify_title(locale))
-        .body(message)
-        .show()
-    {
-        eprintln!("Notification failed: {}", e);
+    let label = "reminder-toast";
+    eprintln!("[ToastWindow] create_toast_window called: title={}, body_len={}", title, body.len());
+
+    let data = ReminderWindowData {
+        boundary,
+        title: title.to_string(),
+        body: body.to_string(),
+        break_minutes: 0,
+        fullscreen_bg: None,
+        fullscreen_opacity: 0,
+        fullscreen_fit_mode: String::new(),
+        fullscreen_element_transforms: String::new(),
+    };
+    store.lock().unwrap().insert(label.to_string(), data.clone());
+
+    let app = app_handle.clone();
+
+    // 如果窗口已存在，直接发送新通知事件，让前端堆叠显示
+    if let Some(window) = app_handle.get_webview_window(label) {
+        eprintln!("[ToastWindow] window already exists, emitting new-toast");
+        if let Err(e) = window.emit("new-toast", data) {
+            eprintln!("[ToastWindow] emit failed: {}", e);
+        }
+        // 确保前端路由到 /reminder-toast，防止窗口已打开但页面不在该路由
+        let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';");
+        if let Err(e) = window.show() {
+            eprintln!("[ToastWindow] show failed: {}", e);
+        } else {
+            eprintln!("[ToastWindow] show OK (existing window)");
+        }
+        let _ = window.set_focus();
+        return;
     }
+
+    eprintln!("[ToastWindow] creating new window");
+    tauri::async_runtime::spawn(async move {
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            label,
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .title("Catrace")
+        .inner_size(360.0, 400.0)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                eprintln!("[ToastWindow] window built OK");
+                if let Err(e) = position_toast_window(&window, &app) {
+                    eprintln!("[ToastWindow] position failed: {}", e);
+                }
+                if let Err(e) = window.show() {
+                    eprintln!("[ToastWindow] show failed: {}", e);
+                } else {
+                    eprintln!("[ToastWindow] show OK (new window)");
+                }
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';") {
+                    eprintln!("[ToastWindow] eval failed: {}", e);
+                } else {
+                    eprintln!("[ToastWindow] eval OK");
+                }
+            }
+            Err(e) => {
+                eprintln!("[ToastWindow] build failed: {}", e);
+            }
+        }
+    });
 }
 
 fn create_popup_window(
@@ -1104,15 +1148,6 @@ fn create_fullscreen_window(
     });
 }
 
-#[cfg(windows)]
-fn register_aumid(aumid: &str, app_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use windows_registry::CURRENT_USER;
-    let key = CURRENT_USER.create(format!(r"SOFTWARE\Classes\AppUserModelId\{}", aumid))?;
-    key.set_string("DisplayName", app_name)?;
-    key.set_string("IconBackgroundColor", "0")?;
-    Ok(())
-}
-
 // ------------------------------------------------------------------
 // 主入口
 // ------------------------------------------------------------------
@@ -1182,16 +1217,6 @@ pub fn run() {
             }
         }))
         .setup(move |app| {
-            // 注册 AUMID，让 Windows Toast 通知显示为应用名称
-            #[cfg(windows)]
-            {
-                let aumid = app.config().identifier.clone();
-                let app_name = app.config().product_name.clone().unwrap_or_else(|| "Catrace".to_string());
-                if let Err(e) = register_aumid(&aumid, &app_name) {
-                    eprintln!("AUMID registration failed: {}", e);
-                }
-            }
-
             let mouse_state = state.clone();
             let settle_state = state.clone();
 
