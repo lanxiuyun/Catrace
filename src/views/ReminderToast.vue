@@ -22,12 +22,15 @@ interface ToastItem {
   remainingMs: number
   closeTimer: ReturnType<typeof setTimeout> | null
   lastStartAt: number
+  leaving?: boolean
 }
 
 const notifications = ref<ToastItem[]>([])
+const cardRefs = ref<Map<number, HTMLElement>>(new Map())
 const showDebug = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const stackRef = ref<HTMLElement | null>(null)
+const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 
@@ -66,7 +69,9 @@ onMounted(async () => {
   await nextTick()
   if (stackRef.value) {
     resizeObserver = new ResizeObserver(() => {
-      adjustWindowSize()
+      if (!isAnimating.value) {
+        adjustWindowSize()
+      }
     })
     resizeObserver.observe(stackRef.value)
   }
@@ -93,12 +98,20 @@ onUnmounted(() => {
   resizeObserver = null
 })
 
+function setCardRef(el: unknown, id: number) {
+  if (el) {
+    cardRefs.value.set(id, el as HTMLElement)
+  }
+}
+
 function calcWindowHeight(count: number): number {
   if (count <= 0) return 0
   return PADDING * 2 + count * CARD_HEIGHT + (count - 1) * CARD_GAP
 }
 
 async function adjustWindowSize() {
+  if (isAnimating.value) return
+
   const count = notifications.value.length
   if (count === 0) return
 
@@ -144,7 +157,7 @@ async function adjustWindowSize() {
 }
 
 function addNotification(payload: { boundary: number; title: string; body: string }) {
-  // 限制最大数量，移除最旧的通知
+  // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
   }
@@ -208,6 +221,18 @@ function handleMouseLeave(item: ToastItem) {
   }
 }
 
+function captureRects(excludeLeaving = false): Map<number, DOMRect> {
+  const map = new Map<number, DOMRect>()
+  for (const n of notifications.value) {
+    if (excludeLeaving && n.leaving) continue
+    const el = cardRefs.value.get(n.id)
+    if (el) {
+      map.set(n.id, el.getBoundingClientRect())
+    }
+  }
+  return map
+}
+
 function removeNotification(id: number, animate: boolean) {
   const index = notifications.value.findIndex((n) => n.id === id)
   if (index === -1) return
@@ -215,22 +240,86 @@ function removeNotification(id: number, animate: boolean) {
   const item = notifications.value[index]
   stopTimer(item)
 
-  if (animate) {
-    item.visible = false
-    setTimeout(() => {
-      notifications.value = notifications.value.filter((n) => n.id !== id)
-      adjustWindowSize()
-      if (notifications.value.length === 0) {
-        closeWindow()
-      }
-    }, 250)
-  } else {
+  // 不带动画：直接移除并刷新窗口
+  if (!animate) {
     notifications.value = notifications.value.filter((n) => n.id !== id)
+    cardRefs.value.delete(id)
     adjustWindowSize()
     if (notifications.value.length === 0) {
       closeWindow()
     }
+    return
   }
+
+  // 带动画：先记录老位置，做 FLIP，让剩余卡片掉下来
+  const oldRects = captureRects(false)
+  item.leaving = true
+  isAnimating.value = true
+
+  nextTick(() => {
+    const leavingEl = cardRefs.value.get(id)
+    const oldRect = oldRects.get(id)
+
+    // 把要关闭的卡片固定在老位置，脱离文档流，腾出空间让上面的卡片掉下来
+    if (leavingEl && oldRect) {
+      leavingEl.style.position = 'fixed'
+      leavingEl.style.top = `${oldRect.top}px`
+      leavingEl.style.left = `${oldRect.left}px`
+      leavingEl.style.width = `${oldRect.width}px`
+      leavingEl.style.height = `${oldRect.height}px`
+      leavingEl.style.margin = '0'
+      leavingEl.style.zIndex = '10'
+      leavingEl.style.pointerEvents = 'none'
+    }
+
+    // 现在剩余卡片已经重新排布，记录新位置
+    const newRects = captureRects(true)
+
+    // 给剩余卡片加上反向偏移，让它们看起来还在老位置
+    for (const n of notifications.value) {
+      if (n.leaving) continue
+      const el = cardRefs.value.get(n.id)
+      const oldPos = oldRects.get(n.id)
+      const newPos = newRects.get(n.id)
+      if (!el || !oldPos || !newPos) continue
+
+      const dy = oldPos.top - newPos.top
+      if (Math.abs(dy) > 0.5) {
+        el.style.transition = 'none'
+        el.style.transform = `translateY(${dy}px)`
+      }
+    }
+
+    // 强制重排，让上面的 transform 先生效
+    stackRef.value?.offsetHeight
+
+    // 然后释放 transform，卡片就会从老位置平滑掉落到新位置
+    for (const n of notifications.value) {
+      if (n.leaving) continue
+      const el = cardRefs.value.get(n.id)
+      if (!el) continue
+      el.style.transition = ''
+      el.style.transform = ''
+    }
+
+    // 被关闭的卡片向右滑出并淡出
+    if (leavingEl) {
+      leavingEl.style.transition = 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease'
+      leavingEl.style.transform = 'translateX(120%)'
+      leavingEl.style.opacity = '0'
+    }
+
+    // 动画结束后真正从数据里移除，并调整窗口大小
+    setTimeout(() => {
+      notifications.value = notifications.value.filter((n) => n.id !== id)
+      cardRefs.value.delete(id)
+      isAnimating.value = false
+      adjustWindowSize()
+      if (notifications.value.length === 0) {
+        closeWindow()
+      }
+    }, 350)
+  })
 }
 
 async function closeWindow() {
@@ -272,43 +361,44 @@ async function handleSkip(item: ToastItem) {
       <div
         v-for="item in notifications"
         :key="item.id"
+        :ref="(el) => setCardRef(el, item.id)"
         class="toast-card"
-        :class="{ visible: item.visible, hidden: !item.visible }"
+        :class="{ visible: item.visible }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
-      <!-- Header -->
-      <div class="header">
-        <div class="header-left">
-          <div class="pulse-dot" />
-          <h2 class="title">{{ item.title }}</h2>
+        <!-- Header -->
+        <div class="header">
+          <div class="header-left">
+            <div class="pulse-dot" />
+            <h2 class="title">{{ item.title }}</h2>
+          </div>
+          <button class="close-btn" @click="removeNotification(item.id, true)" aria-label="关闭">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
-        <button class="close-btn" @click="removeNotification(item.id, true)" aria-label="关闭">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
+
+        <!-- Progress bar -->
+        <div class="progress-bar" :class="{ paused: item.isHovered }" />
+
+        <!-- Body -->
+        <p class="body-text">{{ item.body }}</p>
+
+        <!-- Actions -->
+        <div class="actions">
+          <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
+            {{ $t('reminder.snooze5') }}
+          </button>
+          <button class="btn btn-secondary" @click="handleSnooze(item, 10)">
+            {{ $t('reminder.snooze10') }}
+          </button>
+          <button class="btn btn-primary" @click="handleSkip(item)">
+            {{ $t('reminder.skip') }}
+          </button>
+        </div>
       </div>
-
-      <!-- Progress bar -->
-      <div class="progress-bar" :class="{ paused: item.isHovered }" />
-
-      <!-- Body -->
-      <p class="body-text">{{ item.body }}</p>
-
-      <!-- Actions -->
-      <div class="actions">
-        <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
-          {{ $t('reminder.snooze5') }}
-        </button>
-        <button class="btn btn-secondary" @click="handleSnooze(item, 10)">
-          {{ $t('reminder.snooze10') }}
-        </button>
-        <button class="btn btn-primary" @click="handleSkip(item)">
-          {{ $t('reminder.skip') }}
-        </button>
-      </div>
-    </div>
     </div>
 
     <!-- 调试面板 -->
@@ -368,20 +458,18 @@ async function handleSkip(item: ToastItem) {
     0 8px 16px rgba(0,0,0,0.04),
     0 16px 32px rgba(0,0,0,0.06),
     0 32px 64px rgba(0,0,0,0.08);
-  transform: translateX(120%);
+  transform: translateX(120%) scale(0.96);
   opacity: 0;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.3s ease;
   flex-shrink: 0;
+  will-change: transform, opacity;
 }
 
 .toast-card.visible {
-  transform: translateX(0);
+  transform: translateX(0) scale(1);
   opacity: 1;
-}
-
-.toast-card.hidden {
-  transform: translateX(120%);
-  opacity: 0;
 }
 
 .debug-panel {
