@@ -11,30 +11,47 @@ import {
 
 useI18n()
 
-const title = ref('')
-const body = ref('')
-const boundary = ref(0)
-const isHovered = ref(false)
-const visible = ref(false)
-const AUTO_HIDE_MS = 8000
+interface ToastItem {
+  id: number
+  title: string
+  body: string
+  boundary: number
+  visible: boolean
+  isHovered: boolean
+  remainingMs: number
+  closeTimer: ReturnType<typeof setTimeout> | null
+  lastStartAt: number
+}
 
-let closeTimer: ReturnType<typeof setTimeout> | null = null
-let remainingMs = AUTO_HIDE_MS
-let lastStartAt = 0
+const notifications = ref<ToastItem[]>([])
+let idCounter = 0
+
+const AUTO_HIDE_MS = 8000
+const MAX_NOTIFICATIONS = 5
 
 onMounted(async () => {
   console.log('[ReminderToast] onMounted')
+
+  // 暴露全局函数给 Rust 端 eval 调用
+  ;(window as any).addToastNotification = (payload: {
+    boundary: number
+    title: string
+    body: string
+  }) => {
+    console.log('[ReminderToast] addToastNotification called:', payload)
+    addNotification(payload)
+  }
+
+  // 读取初始通知
   try {
     const data = await getReminderData('reminder-toast')
     console.log('[ReminderToast] getReminderData result:', data)
     if (data) {
-      title.value = data.title
-      body.value = data.body
-      boundary.value = data.boundary
-      requestAnimationFrame(() => {
-        visible.value = true
+      addNotification({
+        boundary: data.boundary,
+        title: data.title,
+        body: data.body,
       })
-      startTimer()
     }
   } catch (e) {
     console.error('[ReminderToast] getReminderData error:', e)
@@ -42,93 +59,154 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  stopTimer()
+  console.log('[ReminderToast] onUnmounted')
+  delete (window as any).addToastNotification
+  notifications.value.forEach(stopTimer)
 })
 
-function startTimer() {
-  stopTimer()
-  lastStartAt = Date.now()
-  closeTimer = setTimeout(() => {
-    handleClose()
-  }, remainingMs)
-}
+function addNotification(payload: { boundary: number; title: string; body: string }) {
+  console.log('[ReminderToast] addNotification:', payload.title)
 
-function stopTimer() {
-  if (closeTimer) {
-    const elapsed = Date.now() - lastStartAt
-    remainingMs = Math.max(0, remainingMs - elapsed)
-    clearTimeout(closeTimer)
-    closeTimer = null
+  // 限制最大数量，移除最旧的通知
+  while (notifications.value.length >= MAX_NOTIFICATIONS) {
+    removeNotification(notifications.value[0].id, false)
   }
-}
 
-function handleMouseEnter() {
-  isHovered.value = true
-  stopTimer()
-}
-
-function handleMouseLeave() {
-  isHovered.value = false
-  if (remainingMs > 0) {
-    startTimer()
-  } else {
-    handleClose()
+  const id = ++idCounter
+  const item: ToastItem = {
+    id,
+    title: payload.title,
+    body: payload.body,
+    boundary: payload.boundary,
+    visible: false,
+    isHovered: false,
+    remainingMs: AUTO_HIDE_MS,
+    closeTimer: null,
+    lastStartAt: 0,
   }
-}
 
-async function handleClose() {
-  visible.value = false
-  stopTimer()
-  setTimeout(async () => {
-    try {
-      await closeReminderWindow('reminder-toast')
-    } catch (e) {
-      console.error('[Toast] closeReminderWindow failed:', e)
-      try {
-        await getCurrentWebviewWindow().close()
-      } catch (e2) {
-        console.error('[Toast] getCurrentWebviewWindow().close() failed:', e2)
-      }
+  // 新通知加到底部（数组末尾）
+  notifications.value.push(item)
+  console.log('[ReminderToast] notifications count:', notifications.value.length)
+
+  // 触发动画
+  requestAnimationFrame(() => {
+    const found = notifications.value.find((n) => n.id === id)
+    if (found) {
+      found.visible = true
+      console.log('[ReminderToast] card visible:', id)
     }
-  }, 250)
+  })
+
+  startTimer(item)
 }
 
-async function handleSnooze(minutes: number) {
-  stopTimer()
+function startTimer(item: ToastItem) {
+  stopTimer(item)
+  item.lastStartAt = Date.now()
+  item.closeTimer = setTimeout(() => {
+    console.log('[ReminderToast] auto close:', item.id)
+    removeNotification(item.id, true)
+  }, item.remainingMs)
+}
+
+function stopTimer(item: ToastItem) {
+  if (item.closeTimer) {
+    const elapsed = Date.now() - item.lastStartAt
+    item.remainingMs = Math.max(0, item.remainingMs - elapsed)
+    clearTimeout(item.closeTimer)
+    item.closeTimer = null
+  }
+}
+
+function handleMouseEnter(item: ToastItem) {
+  item.isHovered = true
+  stopTimer(item)
+}
+
+function handleMouseLeave(item: ToastItem) {
+  item.isHovered = false
+  if (item.remainingMs > 0) {
+    startTimer(item)
+  } else {
+    removeNotification(item.id, true)
+  }
+}
+
+function removeNotification(id: number, animate: boolean) {
+  const index = notifications.value.findIndex((n) => n.id === id)
+  if (index === -1) return
+
+  const item = notifications.value[index]
+  stopTimer(item)
+
+  if (animate) {
+    item.visible = false
+    setTimeout(() => {
+      notifications.value = notifications.value.filter((n) => n.id !== id)
+      if (notifications.value.length === 0) {
+        closeWindow()
+      }
+    }, 250)
+  } else {
+    notifications.value = notifications.value.filter((n) => n.id !== id)
+    if (notifications.value.length === 0) {
+      closeWindow()
+    }
+  }
+}
+
+async function closeWindow() {
+  try {
+    await closeReminderWindow('reminder-toast')
+  } catch (e) {
+    console.error('[Toast] closeReminderWindow failed:', e)
+    try {
+      await getCurrentWebviewWindow().close()
+    } catch (e2) {
+      console.error('[Toast] getCurrentWebviewWindow().close() failed:', e2)
+    }
+  }
+}
+
+async function handleSnooze(item: ToastItem, minutes: number) {
+  stopTimer(item)
   try {
     await snoozeReminder(minutes)
   } catch (e) {
     console.error(e)
   }
-  await handleClose()
+  removeNotification(item.id, true)
 }
 
-async function handleSkip() {
-  stopTimer()
+async function handleSkip(item: ToastItem) {
+  stopTimer(item)
   try {
-    await skipReminder(boundary.value)
+    await skipReminder(item.boundary)
   } catch (e) {
     console.error(e)
   }
-  await handleClose()
+  removeNotification(item.id, true)
 }
 </script>
 
 <template>
   <div class="toast-root">
     <div
+      v-for="item in notifications"
+      :key="item.id"
       class="toast-card"
-      :class="{ visible: visible, hidden: !visible }"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
+      :class="{ visible: item.visible, hidden: !item.visible }"
+      @mouseenter="handleMouseEnter(item)"
+      @mouseleave="handleMouseLeave(item)"
     >
       <!-- Header -->
       <div class="header">
         <div class="header-left">
           <div class="pulse-dot" />
-          <h2 class="title">{{ title }}</h2>
+          <h2 class="title">{{ item.title }}</h2>
         </div>
-        <button class="close-btn" @click="handleClose" aria-label="关闭">
+        <button class="close-btn" @click="removeNotification(item.id, true)" aria-label="关闭">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
@@ -136,20 +214,20 @@ async function handleSkip() {
       </div>
 
       <!-- Progress bar -->
-      <div class="progress-bar" :class="{ paused: isHovered }" />
+      <div class="progress-bar" :class="{ paused: item.isHovered }" />
 
       <!-- Body -->
-      <p class="body-text">{{ body }}</p>
+      <p class="body-text">{{ item.body }}</p>
 
       <!-- Actions -->
       <div class="actions">
-        <button class="btn btn-secondary" @click="handleSnooze(5)">
+        <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
           {{ $t('reminder.snooze5') }}
         </button>
-        <button class="btn btn-secondary" @click="handleSnooze(10)">
+        <button class="btn btn-secondary" @click="handleSnooze(item, 10)">
           {{ $t('reminder.snooze10') }}
         </button>
-        <button class="btn btn-primary" @click="handleSkip">
+        <button class="btn btn-primary" @click="handleSkip(item)">
           {{ $t('reminder.skip') }}
         </button>
       </div>
@@ -165,6 +243,7 @@ async function handleSkip() {
   flex-direction: column;
   justify-content: flex-end;
   align-items: flex-end;
+  gap: 12px;
   padding: 20px;
   box-sizing: border-box;
   background: transparent;
@@ -190,6 +269,7 @@ async function handleSkip() {
   transform: translateX(120%);
   opacity: 0;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  flex-shrink: 0;
 }
 
 .toast-card.visible {

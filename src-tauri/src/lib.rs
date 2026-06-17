@@ -12,7 +12,6 @@ use device_query::{DeviceQuery, DeviceState};
 use rdev::{listen, EventType};
 use active_win_pos_rs::get_active_window;
 use chrono::Timelike;
-use tauri::Emitter;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -930,11 +929,22 @@ fn create_toast_window(
 
     let app = app_handle.clone();
 
-    // 如果窗口已存在，直接发送新通知事件，让前端堆叠显示
+    // 如果窗口已存在，直接调用前端全局函数添加新通知
     if let Some(window) = app_handle.get_webview_window(label) {
-        eprintln!("[ToastWindow] window already exists, emitting new-toast");
-        if let Err(e) = window.emit("new-toast", data) {
-            eprintln!("[ToastWindow] emit failed: {}", e);
+        eprintln!("[ToastWindow] window already exists, calling addToastNotification");
+        let payload = serde_json::json!({
+            "boundary": data.boundary,
+            "title": data.title,
+            "body": data.body,
+        });
+        let js = format!(
+            "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+            payload
+        );
+        if let Err(e) = window.eval(&js) {
+            eprintln!("[ToastWindow] eval addToastNotification failed: {}", e);
+        } else {
+            eprintln!("[ToastWindow] eval addToastNotification OK");
         }
         // 确保前端路由到 /reminder-toast，防止窗口已打开但页面不在该路由
         let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';");
