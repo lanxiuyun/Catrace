@@ -30,22 +30,18 @@ const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
 
 onMounted(async () => {
-  console.log('[ReminderToast] onMounted')
-
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
     boundary: number
     title: string
     body: string
   }) => {
-    console.log('[ReminderToast] addToastNotification called:', payload)
     addNotification(payload)
   }
 
   // 读取初始通知
   try {
     const data = await getReminderData('reminder-toast')
-    console.log('[ReminderToast] getReminderData result:', data)
     if (data) {
       addNotification({
         boundary: data.boundary,
@@ -53,20 +49,17 @@ onMounted(async () => {
         body: data.body,
       })
     }
-  } catch (e) {
-    console.error('[ReminderToast] getReminderData error:', e)
+  } catch {
+    // ignore
   }
 })
 
 onUnmounted(() => {
-  console.log('[ReminderToast] onUnmounted')
   delete (window as any).addToastNotification
   notifications.value.forEach(stopTimer)
 })
 
 function addNotification(payload: { boundary: number; title: string; body: string }) {
-  console.log('[ReminderToast] addNotification:', payload.title)
-
   // 限制最大数量，移除最旧的通知
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
@@ -87,14 +80,12 @@ function addNotification(payload: { boundary: number; title: string; body: strin
 
   // 新通知加到底部（数组末尾）
   notifications.value.push(item)
-  console.log('[ReminderToast] notifications count:', notifications.value.length)
 
   // 触发动画
   requestAnimationFrame(() => {
     const found = notifications.value.find((n) => n.id === id)
     if (found) {
       found.visible = true
-      console.log('[ReminderToast] card visible:', id)
     }
   })
 
@@ -105,7 +96,6 @@ function startTimer(item: ToastItem) {
   stopTimer(item)
   item.lastStartAt = Date.now()
   item.closeTimer = setTimeout(() => {
-    console.log('[ReminderToast] auto close:', item.id)
     removeNotification(item.id, true)
   }, item.remainingMs)
 }
@@ -159,12 +149,11 @@ function removeNotification(id: number, animate: boolean) {
 async function closeWindow() {
   try {
     await closeReminderWindow('reminder-toast')
-  } catch (e) {
-    console.error('[Toast] closeReminderWindow failed:', e)
+  } catch {
     try {
       await getCurrentWebviewWindow().close()
-    } catch (e2) {
-      console.error('[Toast] getCurrentWebviewWindow().close() failed:', e2)
+    } catch {
+      // ignore
     }
   }
 }
@@ -173,8 +162,8 @@ async function handleSnooze(item: ToastItem, minutes: number) {
   stopTimer(item)
   try {
     await snoozeReminder(minutes)
-  } catch (e) {
-    console.error(e)
+  } catch {
+    // ignore
   }
   removeNotification(item.id, true)
 }
@@ -183,8 +172,8 @@ async function handleSkip(item: ToastItem) {
   stopTimer(item)
   try {
     await skipReminder(item.boundary)
-  } catch (e) {
-    console.error(e)
+  } catch {
+    // ignore
   }
   removeNotification(item.id, true)
 }

@@ -1,5 +1,6 @@
 mod db;
 mod reminder;
+mod reminder_toast;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
@@ -315,10 +316,10 @@ fn is_media_active() -> bool {
 
 
 #[derive(Default)]
-struct ActivityState {
-    count: u32,
-    last_cursor: (i32, i32),
-    key_debounce: Option<Instant>,
+pub struct ActivityState {
+    pub count: u32,
+    pub last_cursor: (i32, i32),
+    pub key_debounce: Option<Instant>,
 }
 
 use reminder::ReminderState;
@@ -326,18 +327,18 @@ use reminder::ReminderState;
 // ---------- 提醒窗口数据 ----------
 
 #[derive(Default, serde::Serialize, Clone)]
-struct ReminderWindowData {
-    boundary: i64,
-    title: String,
-    body: String,
-    break_minutes: i64,
-    fullscreen_bg: Option<String>,
-    fullscreen_opacity: i64,
-    fullscreen_fit_mode: String,
-    fullscreen_element_transforms: String,
+pub struct ReminderWindowData {
+    pub boundary: i64,
+    pub title: String,
+    pub body: String,
+    pub break_minutes: i64,
+    pub fullscreen_bg: Option<String>,
+    pub fullscreen_opacity: i64,
+    pub fullscreen_fit_mode: String,
+    pub fullscreen_element_transforms: String,
 }
 
-type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
+pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
 // ---------- i18n helpers ----------
 
@@ -848,156 +849,9 @@ fn show_notification(
         }
         _ => {
             // toast（默认）：使用右下角自定义 Vue 通知窗口
-            create_toast_window(app_handle, boundary, &title, &body, reminder_state, store);
+            reminder_toast::create_toast_window(app_handle, boundary, &title, &body, reminder_state, store);
         }
     }
-}
-
-/// 计算并设置 toast 窗口为右侧全高透明条。
-/// 窗口宽度固定 360px，高度与显示器工作区相同，贴靠屏幕右边缘。
-/// 优先将窗口放到包含鼠标光标的显示器上，否则使用主显示器。
-fn position_toast_window(window: &tauri::WebviewWindow, app_handle: &tauri::AppHandle) -> Result<(), String> {
-    eprintln!("[ToastWindow] position_toast_window called");
-    let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
-    eprintln!("[ToastWindow] available monitors: {}", monitors.len());
-    if monitors.is_empty() {
-        return Err("No monitors available".to_string());
-    }
-
-    let (mouse_x, mouse_y) = {
-        let state = app_handle.state::<Arc<Mutex<ActivityState>>>();
-        let s = state.lock().unwrap();
-        s.last_cursor
-    };
-    eprintln!("[ToastWindow] mouse position: ({}, {})", mouse_x, mouse_y);
-
-    let monitor = monitors
-        .iter()
-        .find(|m| {
-            let pos = m.position();
-            let size = m.size();
-            let sf = m.scale_factor();
-            let left = (pos.x as f64 / sf) as i32;
-            let top = (pos.y as f64 / sf) as i32;
-            let right = left + (size.width as f64 / sf) as i32;
-            let bottom = top + (size.height as f64 / sf) as i32;
-            mouse_x >= left && mouse_x < right && mouse_y >= top && mouse_y < bottom
-        })
-        .unwrap_or_else(|| monitors.first().unwrap());
-
-    let pos = monitor.position();
-    let size = monitor.size();
-    let sf = monitor.scale_factor();
-    eprintln!("[ToastWindow] selected monitor: pos=({},{}), size=({}x{}), scale={}", pos.x, pos.y, size.width, size.height, sf);
-
-    let width = 360.0;
-    let height = size.height as f64 / sf;
-    let x = (pos.x as f64 / sf) + (size.width as f64 / sf) - width;
-    let y = pos.y as f64 / sf;
-    eprintln!("[ToastWindow] target geometry: x={}, y={}, width={}, height={}", x, y, width, height);
-
-    window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }))
-        .map_err(|e| e.to_string())?;
-    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }))
-        .map_err(|e| e.to_string())?;
-    eprintln!("[ToastWindow] geometry set OK");
-    Ok(())
-}
-
-fn create_toast_window(
-    app_handle: &tauri::AppHandle,
-    boundary: i64,
-    title: &str,
-    body: &str,
-    _reminder_state: Arc<Mutex<ReminderState>>,
-    store: &ReminderWindowStore,
-) {
-    let label = "reminder-toast";
-    eprintln!("[ToastWindow] create_toast_window called: title={}, body_len={}", title, body.len());
-
-    let data = ReminderWindowData {
-        boundary,
-        title: title.to_string(),
-        body: body.to_string(),
-        break_minutes: 0,
-        fullscreen_bg: None,
-        fullscreen_opacity: 0,
-        fullscreen_fit_mode: String::new(),
-        fullscreen_element_transforms: String::new(),
-    };
-    store.lock().unwrap().insert(label.to_string(), data.clone());
-
-    let app = app_handle.clone();
-
-    // 如果窗口已存在，直接调用前端全局函数添加新通知
-    if let Some(window) = app_handle.get_webview_window(label) {
-        eprintln!("[ToastWindow] window already exists, calling addToastNotification");
-        let payload = serde_json::json!({
-            "boundary": data.boundary,
-            "title": data.title,
-            "body": data.body,
-        });
-        let js = format!(
-            "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
-            payload
-        );
-        if let Err(e) = window.eval(&js) {
-            eprintln!("[ToastWindow] eval addToastNotification failed: {}", e);
-        } else {
-            eprintln!("[ToastWindow] eval addToastNotification OK");
-        }
-        // 确保前端路由到 /reminder-toast，防止窗口已打开但页面不在该路由
-        let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';");
-        if let Err(e) = window.show() {
-            eprintln!("[ToastWindow] show failed: {}", e);
-        } else {
-            eprintln!("[ToastWindow] show OK (existing window)");
-        }
-        let _ = window.set_focus();
-        return;
-    }
-
-    eprintln!("[ToastWindow] creating new window");
-    tauri::async_runtime::spawn(async move {
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            label,
-            tauri::WebviewUrl::App("index.html".into()),
-        )
-        .title("Catrace")
-        .inner_size(360.0, 400.0)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
-            Ok(window) => {
-                eprintln!("[ToastWindow] window built OK");
-                if let Err(e) = position_toast_window(&window, &app) {
-                    eprintln!("[ToastWindow] position failed: {}", e);
-                }
-                if let Err(e) = window.show() {
-                    eprintln!("[ToastWindow] show failed: {}", e);
-                } else {
-                    eprintln!("[ToastWindow] show OK (new window)");
-                }
-
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';") {
-                    eprintln!("[ToastWindow] eval failed: {}", e);
-                } else {
-                    eprintln!("[ToastWindow] eval OK");
-                }
-            }
-            Err(e) => {
-                eprintln!("[ToastWindow] build failed: {}", e);
-            }
-        }
-    });
 }
 
 fn create_popup_window(
