@@ -51,6 +51,16 @@ export async function setLocale(locale: string): Promise<void> {
   return invoke('set_locale', { locale })
 }
 
+/** 获取「隐藏统计面板」开关 */
+export async function getHideStats(): Promise<boolean> {
+  return invoke('get_hide_stats')
+}
+
+/** 设置「隐藏统计面板」开关 */
+export async function setHideStats(enabled: boolean): Promise<void> {
+  return invoke('set_hide_stats', { enabled })
+}
+
 /** 获取今日活跃/休息分钟数 */
 export async function getTodayStats(): Promise<DailyStats> {
   return invoke('get_today_stats')

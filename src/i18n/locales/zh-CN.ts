@@ -6,6 +6,9 @@ export default {
   },
   dashboard: {
     title: '今日统计',
+    hideStats: {
+      label: '隐藏统计',
+    },
     stats: {
       active: '活跃',
       rest: '休息',

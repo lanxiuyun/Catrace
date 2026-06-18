@@ -564,6 +564,19 @@ fn set_silent_start(enabled: bool, db: tauri::State<db::Db>) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+/** 获取「隐藏统计面板」开关状态（默认 false）。 */
+#[tauri::command]
+fn get_hide_stats(db: tauri::State<db::Db>) -> bool {
+    db.get_setting("hide_stats", "false") == "true"
+}
+
+/** 设置「隐藏统计面板」开关状态。 */
+#[tauri::command]
+fn set_hide_stats(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("hide_stats", &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn show_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window("main") {
@@ -1393,6 +1406,7 @@ pub fn run() {
             get_config, set_config,
             skip_reminder, snooze_reminder,
             get_silent_start, set_silent_start,
+            get_hide_stats, set_hide_stats,
             get_locale, set_locale,
             get_video_active_enabled, set_video_active_enabled,
             show_main_window, hide_main_window,

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useI18n } from 'vue-i18n'
-import { NCard, NRadioGroup, NRadioButton } from "naive-ui";
-import { getTodayStats, getTodayRecords, getConfig } from "../api/tauri";
+import { NCard, NRadioGroup, NRadioButton, NSwitch } from "naive-ui";
+import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
 import TimelineWindows from "../components/TimelineWindows.vue";
 import type { MinuteData } from "../components/Timeline.vue";
@@ -14,6 +14,17 @@ const stats = ref({ active_minutes: 0, rest_minutes: 0 });
 const records = ref<Map<number, boolean>>(new Map());
 const config = ref({ window_minutes: 45, break_minutes: 5 });
 const timelineMode = ref<"grid" | "segments">("segments");
+const hideStats = ref(false);
+
+async function toggleHideStats(val: boolean) {
+  try {
+    await setHideStats(val);
+    hideStats.value = val;
+  } catch (e) {
+    console.error("Failed to set hide stats", e);
+    hideStats.value = !val;
+  }
+}
 
 function startOfDayTs(): number {
   const d = new Date();
@@ -101,11 +112,12 @@ function fmtDuration(minutes: number): string {
 
 async function loadData() {
   try {
-    const c = await getConfig();
+    const [c, hs] = await Promise.all([getConfig(), getHideStats()]);
     config.value = {
       window_minutes: Number(c.window_minutes),
       break_minutes: Number(c.break_minutes),
     };
+    hideStats.value = hs;
     stats.value = await getTodayStats();
     const raw = await getTodayRecords();
     const map = new Map<number, boolean>();
@@ -136,19 +148,29 @@ onUnmounted(() => {
 <template>
   <div class="dashboard">
     <header class="header">
-      <h1 class="title">{{ t('dashboard.title') }}</h1>
-      <p class="subtitle">
-        {{
-          new Date().toLocaleDateString(locale, {
-            month: "long",
-            day: "numeric",
-            weekday: "long",
-          })
-        }}
-      </p>
+      <div class="header-main">
+        <h1 class="title">{{ t('dashboard.title') }}</h1>
+        <p class="subtitle">
+          {{
+            new Date().toLocaleDateString(locale, {
+              month: "long",
+              day: "numeric",
+              weekday: "long",
+            })
+          }}
+        </p>
+      </div>
+      <div class="header-actions">
+        <span class="hide-stats-label">{{ t('dashboard.hideStats.label') }}</span>
+        <n-switch
+          :value="hideStats"
+          size="small"
+          @update:value="toggleHideStats"
+        />
+      </div>
     </header>
 
-    <section class="stats">
+    <section v-show="!hideStats" class="stats">
       <div class="stat stat-active">
         <div class="stat-head">
           <span class="dot dot-active" />
@@ -215,7 +237,29 @@ onUnmounted(() => {
 }
 
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
   margin-bottom: 22px;
+}
+
+.header-main {
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.hide-stats-label {
+  font-size: 12px;
+  color: #8b7aab;
+  white-space: nowrap;
 }
 
 .title {

@@ -6,6 +6,9 @@ export default {
   },
   dashboard: {
     title: "Today's Statistics",
+    hideStats: {
+      label: 'Hide stats',
+    },
     stats: {
       active: 'Active',
       rest: 'Rest',
