@@ -66,6 +66,10 @@ export default {
       clearBg: 'Clear Background',
       changeBg: 'Change',
       fullscreenSection: 'Fullscreen Settings',
+      waterTitle: 'Water Reminder',
+      waterDesc: 'Remind you to drink water at intervals',
+      waterIntervalTitle: 'Water Interval',
+      waterIntervalDesc: 'How long without drinking before reminding',
     },
     update: {
       softwareVersion: 'Software Version',
@@ -169,5 +173,17 @@ export default {
     scale: 'Scale',
     rotate: 'Rotate',
     resetElement: 'Reset this element',
+  },
+  water: {
+    title: 'Drink Water',
+    body: 'Time to drink some water.',
+    drank: 'Drank',
+    skip: 'Skip',
+    todayCount: 'Drinks today',
+    lastDrank: 'Last drink',
+    justNow: 'Just now',
+    minutesAgo: '{n} min ago',
+    hoursAgo: '{n} hr ago',
+    add: 'Log a drink',
   },
 }

@@ -66,6 +66,10 @@ export default {
       clearBg: '清除背景图',
       changeBg: '更换背景',
       fullscreenSection: '全屏提醒设置',
+      waterTitle: '喝水提醒',
+      waterDesc: '按间隔提醒你喝水，保持身体水分',
+      waterIntervalTitle: '喝水间隔',
+      waterIntervalDesc: '多久未喝水就弹出提醒',
     },
     update: {
       softwareVersion: '软件版本',
@@ -169,5 +173,17 @@ export default {
     scale: '缩放',
     rotate: '旋转',
     resetElement: '重置此元素',
+  },
+  water: {
+    title: '喝水提醒',
+    body: '该喝水了，给身体补补水吧。',
+    drank: '已喝水',
+    skip: '跳过本次',
+    todayCount: '今日喝水',
+    lastDrank: '最近喝水',
+    justNow: '刚刚',
+    minutesAgo: '{n} 分钟前',
+    hoursAgo: '{n} 小时前',
+    add: '记一次喝水',
   },
 }

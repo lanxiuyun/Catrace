@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use tauri::Manager;
 
-use crate::{db, ActivityState, ReminderState, ReminderWindowData, ReminderWindowStore};
+use crate::{db, ActivityState, ReminderWindowData, ReminderWindowStore};
 
 const TOAST_WINDOW_LABEL: &str = "reminder-toast";
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
@@ -45,8 +45,10 @@ fn position_toast_window(
     let work_area = monitor.work_area();
     let sf = monitor.scale_factor();
 
-    let x = (work_area.position.x as f64 / sf) + (work_area.size.width as f64 / sf) - TOAST_WINDOW_WIDTH;
-    let y = (work_area.position.y as f64 / sf) + (work_area.size.height as f64 / sf) - TOAST_WINDOW_MIN_HEIGHT;
+    let x = (work_area.position.x as f64 / sf) + (work_area.size.width as f64 / sf)
+        - TOAST_WINDOW_WIDTH;
+    let y = (work_area.position.y as f64 / sf) + (work_area.size.height as f64 / sf)
+        - TOAST_WINDOW_MIN_HEIGHT;
 
     window
         .set_size(tauri::Size::Logical(tauri::LogicalSize {
@@ -68,7 +70,7 @@ pub fn create_toast_window(
     boundary: i64,
     title: &str,
     body: &str,
-    _reminder_state: Arc<Mutex<ReminderState>>,
+    kind: &str,
     store: &ReminderWindowStore,
 ) {
     let debug_mode = {
@@ -77,6 +79,7 @@ pub fn create_toast_window(
     };
 
     let data = ReminderWindowData {
+        kind: kind.to_string(),
         boundary,
         title: title.to_string(),
         body: body.to_string(),
@@ -96,6 +99,7 @@ pub fn create_toast_window(
     // 窗口已存在：直接调用前端全局函数追加通知
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
         let payload = serde_json::json!({
+            "kind": data.kind,
             "boundary": data.boundary,
             "title": data.title,
             "body": data.body,

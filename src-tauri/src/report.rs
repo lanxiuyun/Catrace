@@ -49,7 +49,13 @@ fn generate_nonce() -> String {
 
 /// 根据 toolsetlink 签名规则生成 MD5 签名。
 /// signStr = body=${body}&nonce=${X-Nonce}&secretKey=${SecretKey}&timestamp=${X-Timestamp}&url=${uri}
-fn generate_signature(body: &str, nonce: &str, timestamp: &str, secret_key: &str, uri: &str) -> String {
+fn generate_signature(
+    body: &str,
+    nonce: &str,
+    timestamp: &str,
+    secret_key: &str,
+    uri: &str,
+) -> String {
     let sign_str = format!(
         "body={}&nonce={}&secretKey={}&timestamp={}&url={}",
         body, nonce, secret_key, timestamp, uri
@@ -93,7 +99,10 @@ struct ReportBody {
     event_data: EventData,
 }
 
-async fn do_report_app_start(app_handle: &tauri::AppHandle, db: &Db) -> Result<(), Box<dyn std::error::Error>> {
+async fn do_report_app_start(
+    app_handle: &tauri::AppHandle,
+    db: &Db,
+) -> Result<(), Box<dyn std::error::Error>> {
     let package_info = app_handle.package_info();
     let version = package_info.version.clone();
     let launch_time = chrono::Local::now().to_rfc3339_opts(SecondsFormat::Secs, false);
@@ -132,9 +141,15 @@ async fn do_report_app_start(app_handle: &tauri::AppHandle, db: &Db) -> Result<(
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
     if status.is_success() {
-        println!("[toolsetlink-report] app_start reported successfully: {}", text);
+        println!(
+            "[toolsetlink-report] app_start reported successfully: {}",
+            text
+        );
     } else {
-        eprintln!("[toolsetlink-report] app_start report failed ({}): {}", status, text);
+        eprintln!(
+            "[toolsetlink-report] app_start report failed ({}): {}",
+            status, text
+        );
     }
     Ok(())
 }
@@ -191,9 +206,12 @@ mod tests {
             "89c8b3d5f2a74e1b",
             "/v1/url/upgrade",
         );
-        let expected = format!("{:x}", md5::compute(
-            r#"body={"urlKey": "key1","versionCode": 1,"appointVersionCode": 0}&nonce=abcdef1234567890&secretKey=89c8b3d5f2a74e1b&timestamp=2025-02-17T10:34:55+08:00&url=/v1/url/upgrade"#
-        ));
+        let expected = format!(
+            "{:x}",
+            md5::compute(
+                r#"body={"urlKey": "key1","versionCode": 1,"appointVersionCode": 0}&nonce=abcdef1234567890&secretKey=89c8b3d5f2a74e1b&timestamp=2025-02-17T10:34:55+08:00&url=/v1/url/upgrade"#
+            )
+        );
         assert_eq!(sig, expected);
     }
 }

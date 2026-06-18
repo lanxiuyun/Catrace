@@ -24,6 +24,7 @@ import {
   getReminderMode, setReminderMode,
   getReminderText, setReminderText,
   getFullscreenSettings, setFullscreenSettings,
+  getWaterSettings, setWaterSettings,
 } from '../api/tauri'
 import i18n from '../i18n'
 
@@ -33,6 +34,8 @@ const config = ref({ window_minutes: 45, break_minutes: 5, snooze_interval_minut
 const autostart = ref(false)
 const silentStart = ref(false)
 const videoActiveEnabled = ref(true)
+const waterEnabled = ref(true)
+const waterInterval = ref(60)
 const localeVal = ref('zh-CN')
 const reminderMode = ref('toast')
 const customBody = ref('')
@@ -44,7 +47,7 @@ const fullscreenFitOptions = [
   { label: () => t('settings.reminder.fitCover'), value: 'cover' },
   { label: () => t('settings.reminder.fitFill'), value: 'fill' },
 ]
-const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, locale: false, reminderMode: false, reminderText: false, fullscreen: false })
+const loading = ref({ config: false, autostart: false, silent: false, videoActive: false, water: false, locale: false, reminderMode: false, reminderText: false, fullscreen: false })
 const message = useMessage()
 const isConfigReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -77,12 +80,13 @@ function detectDefaultLocale(): string {
 
 onMounted(async () => {
   try {
-    const [c, a, s, v, va, loc, rm, rt, fs] = await Promise.all([
+    const [c, a, s, v, va, ws, loc, rm, rt, fs] = await Promise.all([
       getConfig(),
       isEnabled(),
       getSilentStart(),
       getVersion(),
       getVideoActiveEnabled(),
+      getWaterSettings(),
       getLocale(),
       getReminderMode(),
       getReminderText(),
@@ -96,6 +100,8 @@ onMounted(async () => {
     autostart.value = a
     silentStart.value = s
     videoActiveEnabled.value = va
+    waterEnabled.value = ws.enabled
+    waterInterval.value = Number(ws.interval_minutes) || 60
     appVersion.value = v
     reminderMode.value = rm || 'toast'
     customBody.value = rt.body || ''
@@ -276,6 +282,41 @@ async function toggleVideoActive(val: boolean) {
   }
 }
 
+async function toggleWaterEnabled(val: boolean) {
+  loading.value.water = true
+  try {
+    await setWaterSettings(val, waterInterval.value)
+    waterEnabled.value = val
+    message.success(t('settings.messages.saved'))
+  } catch (e) {
+    message.error(t('settings.messages.saveFailed'))
+    waterEnabled.value = !val
+  } finally {
+    loading.value.water = false
+  }
+}
+
+let waterSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => waterInterval.value,
+  async (newVal, oldVal) => {
+    if (!isConfigReady.value) return
+    if (newVal === oldVal) return
+    if (waterSaveTimer) clearTimeout(waterSaveTimer)
+    waterSaveTimer = setTimeout(async () => {
+      loading.value.water = true
+      try {
+        await setWaterSettings(waterEnabled.value, newVal)
+        message.success(t('settings.messages.saved'))
+      } catch (e) {
+        message.error(t('settings.messages.saveFailed'))
+      } finally {
+        loading.value.water = false
+      }
+    }, 500)
+  }
+)
+
 async function notify() {
   try {
     await testNotification()
@@ -406,6 +447,33 @@ async function handleInstallUpdate() {
               :loading="loading.videoActive"
               @update:value="toggleVideoActive"
             />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.waterTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.waterDesc') }}</div>
+            </div>
+            <n-switch
+              :value="waterEnabled"
+              :loading="loading.water"
+              @update:value="toggleWaterEnabled"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.waterIntervalTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.waterIntervalDesc') }}</div>
+            </div>
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
+              <span class="setting-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
+            </div>
           </div>
         </div>
 

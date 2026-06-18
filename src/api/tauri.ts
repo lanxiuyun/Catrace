@@ -81,6 +81,40 @@ export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
 
+/** 发送一条测试喝水提醒 */
+export async function testWaterNotification(): Promise<void> {
+  return invoke('test_water_notification')
+}
+
+export interface WaterSettings {
+  enabled: boolean
+  interval_minutes: number
+}
+
+export async function getWaterSettings(): Promise<WaterSettings> {
+  return invoke('get_water_settings')
+}
+
+export async function setWaterSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
+  return invoke('set_water_settings', { enabled, intervalMinutes })
+}
+
+export async function recordWater(timestamp: number): Promise<void> {
+  return invoke('record_water', { timestamp })
+}
+
+export async function getWaterStats(): Promise<{ count: number; last_ts: number | null }> {
+  return invoke('get_water_stats')
+}
+
+export async function snoozeWaterReminder(minutes: number): Promise<void> {
+  return invoke('snooze_water_reminder', { minutes })
+}
+
+export async function skipWaterReminder(minutes: number): Promise<void> {
+  return invoke('skip_water_reminder', { minutes })
+}
+
 export interface MediaSessionInfo {
   title: string
   artist: string
@@ -183,6 +217,7 @@ export async function getMousePosition(): Promise<[number, number]> {
 }
 
 export async function getReminderData(label: string): Promise<{
+  kind?: string
   boundary: number
   title: string
   body: string

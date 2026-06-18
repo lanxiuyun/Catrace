@@ -5,6 +5,7 @@ import { NCard, NRadioGroup, NRadioButton, NSwitch } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../api/tauri";
 import Timeline from "../components/Timeline.vue";
 import TimelineWindows from "../components/TimelineWindows.vue";
+import WaterWidget from "../components/WaterWidget.vue";
 import type { MinuteData } from "../components/Timeline.vue";
 import { computeTimeBlocks } from "../utils/timeBlocks";
 
@@ -209,6 +210,10 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <section class="water-section">
+      <WaterWidget />
+    </section>
+
     <n-card class="panel" :bordered="false">
       <div class="panel-header">
         <h2 class="panel-title">{{ t('dashboard.activity.title') }}</h2>
@@ -361,6 +366,11 @@ onUnmounted(() => {
 .stat-ratio .stat-value,
 .stat-blocks .stat-value {
   color: #4c1d95;
+}
+
+.water-section {
+  margin-bottom: 18px;
+  display: flex;
 }
 
 .panel {

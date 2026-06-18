@@ -8,12 +8,18 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
+  recordWater,
+  snoozeWaterReminder,
+  skipWaterReminder,
 } from '../api/tauri'
 
 useI18n()
 
+type ToastKind = 'rest' | 'water'
+
 interface ToastItem {
   id: number
+  kind: ToastKind
   title: string
   body: string
   boundary: number
@@ -58,11 +64,12 @@ onMounted(async () => {
 
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
+    kind?: ToastKind
     boundary: number
     title: string
     body: string
   }) => {
-    addNotification(payload)
+    addNotification({ kind: payload.kind || 'rest', ...payload })
   }
 
   // 监听内容高度变化，自动调整窗口尺寸
@@ -81,6 +88,7 @@ onMounted(async () => {
     const data = await getReminderData('reminder-toast')
     if (data) {
       addNotification({
+        kind: (data.kind as ToastKind) || 'rest',
         boundary: data.boundary,
         title: data.title,
         body: data.body,
@@ -156,7 +164,7 @@ async function adjustWindowSize() {
   }
 }
 
-async function addNotification(payload: { boundary: number; title: string; body: string }) {
+async function addNotification(payload: { kind: ToastKind; boundary: number; title: string; body: string }) {
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
@@ -165,6 +173,7 @@ async function addNotification(payload: { boundary: number; title: string; body:
   const id = ++idCounter
   const item: ToastItem = {
     id,
+    kind: payload.kind,
     title: payload.title,
     body: payload.body,
     boundary: payload.boundary,
@@ -356,6 +365,36 @@ async function handleSkip(item: ToastItem) {
   }
   removeNotification(item.id, true)
 }
+
+async function handleDrinkWater(item: ToastItem) {
+  stopTimer(item)
+  try {
+    await recordWater(Math.floor(Date.now() / 1000))
+  } catch {
+    // ignore
+  }
+  removeNotification(item.id, true)
+}
+
+async function handleWaterSnooze(item: ToastItem, minutes: number) {
+  stopTimer(item)
+  try {
+    await snoozeWaterReminder(minutes)
+  } catch {
+    // ignore
+  }
+  removeNotification(item.id, true)
+}
+
+async function handleWaterSkip(item: ToastItem) {
+  stopTimer(item)
+  try {
+    await skipWaterReminder(30)
+  } catch {
+    // ignore
+  }
+  removeNotification(item.id, true)
+}
 </script>
 
 <template>
@@ -390,7 +429,7 @@ async function handleSkip(item: ToastItem) {
         <p class="body-text">{{ item.body }}</p>
 
         <!-- Actions -->
-        <div class="actions">
+        <div v-if="item.kind === 'rest'" class="actions">
           <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
             {{ $t('reminder.snooze5') }}
           </button>
@@ -399,6 +438,17 @@ async function handleSkip(item: ToastItem) {
           </button>
           <button class="btn btn-primary" @click="handleSkip(item)">
             {{ $t('reminder.skip') }}
+          </button>
+        </div>
+        <div v-else class="actions">
+          <button class="btn btn-water" @click="handleDrinkWater(item)">
+            {{ $t('water.drank') }}
+          </button>
+          <button class="btn btn-secondary" @click="handleWaterSnooze(item, 5)">
+            {{ $t('reminder.snooze5') }}
+          </button>
+          <button class="btn btn-primary" @click="handleWaterSkip(item)">
+            {{ $t('water.skip') }}
           </button>
         </div>
       </div>
@@ -624,6 +674,14 @@ async function handleSkip(item: ToastItem) {
 }
 .btn-primary:hover {
   background: #6D28D9;
+}
+
+.btn-water {
+  background: #3B82F6;
+  color: #ffffff;
+}
+.btn-water:hover {
+  background: #2563EB;
 }
 
 .btn:active {
