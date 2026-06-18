@@ -99,8 +99,8 @@ onUnmounted(() => {
 })
 
 function setCardRef(el: unknown, id: number) {
-  if (el) {
-    cardRefs.value.set(id, el as HTMLElement)
+  if (el instanceof HTMLElement) {
+    cardRefs.value.set(id, el)
   }
 }
 
@@ -156,7 +156,7 @@ async function adjustWindowSize() {
   }
 }
 
-function addNotification(payload: { boundary: number; title: string; body: string }) {
+async function addNotification(payload: { boundary: number; title: string; body: string }) {
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
@@ -187,7 +187,7 @@ function addNotification(payload: { boundary: number; title: string; body: strin
   })
 
   startTimer(item)
-  adjustWindowSize()
+  await adjustWindowSize()
 }
 
 function startTimer(item: ToastItem) {
@@ -238,6 +238,9 @@ function removeNotification(id: number, animate: boolean) {
   if (index === -1) return
 
   const item = notifications.value[index]
+  // 已经在关闭动画中，避免重复触发
+  if (item.leaving) return
+
   stopTimer(item)
 
   // 不带动画：直接移除并刷新窗口
@@ -417,6 +420,7 @@ async function handleSkip(item: ToastItem) {
 
 <style scoped>
 .toast-root {
+  --toast-auto-hide-ms: 8000ms;
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -537,7 +541,7 @@ async function handleSkip(item: ToastItem) {
   background: linear-gradient(90deg, #7C3AED, #A78BFA);
   border-radius: 2px;
   margin: 10px 0 12px;
-  animation: progress-shrink 8s linear forwards;
+  animation: progress-shrink var(--toast-auto-hide-ms) linear forwards;
 }
 
 .progress-bar.paused {
