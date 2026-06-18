@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
 import {
   getReminderData,
   snoozeReminder,
@@ -15,6 +16,11 @@ const body = ref('')
 const boundary = ref(0)
 const customMinutes = ref(15)
 const showCustomInput = ref(false)
+const cardRef = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+
+const POPUP_WIDTH = 440
+const POPUP_MIN_HEIGHT = 300
 
 onMounted(async () => {
   try {
@@ -27,7 +33,50 @@ onMounted(async () => {
   } catch (e) {
     console.error(e)
   }
+
+  await nextTick()
+  if (cardRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      adjustWindowSize()
+    })
+    resizeObserver.observe(cardRef.value)
+  }
 })
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+watch([title, body, showCustomInput], () => {
+  adjustWindowSize()
+})
+
+async function adjustWindowSize() {
+  await nextTick()
+  if (!cardRef.value) return
+
+  try {
+    const win = getCurrentWebviewWindow()
+    const pos = await win.outerPosition()
+    const size = await win.outerSize()
+    const sf = await win.scaleFactor()
+
+    const cardHeight = cardRef.value.getBoundingClientRect().height
+    const newHeight = Math.min(600, Math.max(POPUP_MIN_HEIGHT, Math.round(cardHeight)))
+
+    // 保持窗口中心点不变，避免长高后重心下移
+    const centerX = pos.x / sf + size.width / sf / 2
+    const centerY = pos.y / sf + size.height / sf / 2
+    const newX = centerX - POPUP_WIDTH / 2
+    const newY = centerY - newHeight / 2
+
+    await win.setSize(new LogicalSize(POPUP_WIDTH, newHeight))
+    await win.setPosition(new LogicalPosition(newX, newY))
+  } catch (e) {
+    console.error(e)
+  }
+}
 
 async function handleClose() {
   await getCurrentWebviewWindow().close()
@@ -59,7 +108,7 @@ async function handleSkip() {
 
 <template>
   <div class="popup-root">
-    <div class="popup-card">
+    <div ref="cardRef" class="popup-card">
       <!-- Header -->
       <div class="header">
         <div class="header-left">
@@ -122,7 +171,8 @@ async function handleSkip() {
 
 .popup-card {
   width: 100%;
-  height: 100%;
+  min-height: 100vh;
+  max-height: 600px;
   background: #ffffff;
   border-radius: 16px;
   padding: 16px 20px 14px;
@@ -199,6 +249,9 @@ async function handleSkip() {
   color: #6B5B8A;
   line-height: 1.6;
   margin: 0 0 16px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Snooze Grid */

@@ -121,6 +121,16 @@ export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
   return invoke('set_video_active_enabled', { enabled })
 }
 
+/** 获取 Toast 调试模式开关 */
+export async function getToastDebugMode(): Promise<boolean> {
+  return invoke('get_toast_debug_mode')
+}
+
+/** 设置 Toast 调试模式开关 */
+export async function setToastDebugMode(enabled: boolean): Promise<void> {
+  return invoke('set_toast_debug_mode', { enabled })
+}
+
 export async function getReminderMode(): Promise<string> {
   return invoke('get_reminder_mode')
 }

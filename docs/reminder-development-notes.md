@@ -1,4 +1,4 @@
-# Catrace 弹窗提醒开发笔记
+# Catrace 提醒窗口开发笔记
 
 > Tauri v2 + Vue 3 多模式提醒窗口（Toast / Popup / Fullscreen）踩坑与解决方案
 
@@ -7,11 +7,13 @@
 ## 1. 需求背景
 
 Catrace 需要三种提醒方式：
-- **Toast**：系统级通知（Windows Toast）
+- **Toast**：屏幕右下角浮动通知卡片，支持堆叠；带「5 分钟后提醒」「10 分钟后提醒」「跳过本次」按钮
 - **Popup**：小弹窗（440×300，无边框，置顶，主窗口中央）
 - **Fullscreen**：全屏遮罩（全屏 + 倒计时）
 
-Popup 和 Fullscreen 都是独立的 Tauri WebviewWindow，与主窗口共享同一套 Vue 构建产物，但渲染不同的组件。
+三种提醒都基于独立的 Tauri WebviewWindow，与主窗口共享同一套 Vue 构建产物，但渲染不同的组件。
+
+> 历史：早期 Toast 使用 Windows 原生 Toast（`tauri-winrt-notification`），但仅支持 Windows 且行为受限。当前实现改为跨平台的 Vue 透明窗口方案。
 
 ---
 
@@ -49,21 +51,51 @@ tauri::WebviewUrl::App("index.html?reminder=popup".into())
 ```ts
 const url = new URL(window.location.href)
 const reminder = url.searchParams.get('reminder')
-if (reminder === 'popup' || reminder === 'fullscreen') {
+if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
   (window as any).__CATRACE_REMINDER_TYPE__ = reminder
-  window.location.hash = reminder === 'popup' ? '#/reminder-popup' : '#/reminder-fullscreen'
+  const routeMap: Record<string, string> = {
+    toast: '#/reminder-toast',
+    popup: '#/reminder-popup',
+    fullscreen: '#/reminder-fullscreen',
+  }
+  window.location.hash = routeMap[reminder]
 }
 ```
 
 提醒路由不使用懒加载（避免新窗口 chunk 加载失败）：
 
 ```ts
+import ReminderToast from '../views/ReminderToast.vue'
 import ReminderPopup from '../views/ReminderPopup.vue'
 import ReminderFullscreen from '../views/ReminderFullscreen.vue'
 
+{ path: '/reminder-toast', component: ReminderToast }
 { path: '/reminder-popup', component: ReminderPopup }
 { path: '/reminder-fullscreen', component: ReminderFullscreen }
 ```
+
+`App.vue` 现已简化为直接通过 `route.path` 判断当前提醒类型：
+
+```ts
+const currentReminderType = computed(() => {
+  if (route.path === '/reminder-popup') return 'popup'
+  if (route.path === '/reminder-fullscreen') return 'fullscreen'
+  if (route.path === '/reminder-toast') return 'toast'
+  return ''
+})
+```
+
+### 2.3 Toast 窗口的特殊性
+
+Toast 窗口与 Popup / Fullscreen 最大的区别：
+
+- **复用 + 追加**：同一 `reminder-toast` 标签的窗口会被复用；Rust 通过 `window.eval("window.__CATRACE_ADD_TOAST__?.(...)")` 向已有窗口追加新卡片。
+- **透明背景**：窗口本身透明，所有视觉（圆角、阴影、背景色）由 Vue 卡片 CSS 渲染。
+- **尺寸自适应**：`ReminderToast.vue` 内部通过 ResizeObserver 监听内容高度，动态调用 `adjustWindowSize()` 让 Rust 窗口匹配内容高度（最大高度 600px）。
+- **右下角定位**：Rust 在 `reminder_toast.rs` 中读取当前工作区（work area），将窗口放在右下角，并根据内容高度调整 `y` 坐标。
+- **FLIP 动画**：关闭卡片时先记录旧位置，再触发动画，让下方卡片平滑上移补位。
+- **并发保护**：`removeNotification` 会检查 `item.leaving`，避免快速点击或 hover 状态导致动画重复触发。
+- **调试模式**：`toast_debug_mode` 为 `true` 时，窗口背景显示半透明黄色，便于排查透明窗口的点击/布局问题。
 
 ---
 
@@ -100,8 +132,6 @@ let builder = tauri::WebviewWindowBuilder::new(&app, label, url)
 
 > 注意：移除 `parent` 后，弹窗不再随主窗口移动/最小化，这正是我们想要的行为（独立提醒窗口）。
 
----
-
 ### 3.2 透明窗口的 DWM 边框（Windows）
 
 **现象**：透明窗口边缘有一个淡淡的方形边框，`.shadow(false)` 和 CSS 都去不掉。
@@ -122,8 +152,6 @@ let builder = tauri::WebviewWindowBuilder::new(&app, label, url)
 
 > 卡片用 CSS `border-radius: 16px` + `box-shadow` 营造浮动效果。因为窗口本身不透明，圆角处显示窗口背景色（白色），和卡片颜色一致，圆角效果自然。
 
----
-
 ### 3.3 子窗口随主窗口最小化
 
 **现象**：主窗口最小化时，弹窗也跟着最小化。
@@ -131,8 +159,6 @@ let builder = tauri::WebviewWindowBuilder::new(&app, label, url)
 **根因**：`.parent()` 设置的 owner window 会随 owner 最小化。
 
 **解决**：去掉 `.parent()`，弹窗作为完全独立的窗口。
-
----
 
 ### 3.4 Hash 路由无法通过 URL 传递
 
@@ -142,17 +168,13 @@ let builder = tauri::WebviewWindowBuilder::new(&app, label, url)
 
 **解决**：使用 URL query 参数：`WebviewUrl::App("index.html?reminder=popup".into())`，然后在 `main.ts` 中读取并设置 hash。
 
----
-
 ### 3.5 eval 时序与 Dashboard 闪现
 
 **现象**：弹窗先显示主窗口 Dashboard 内容，约 300ms 后才切换到提醒内容。
 
 **根因**：`eval` 设置 `window.location.hash` 有延迟，Vue 在延迟期间已渲染默认路由。
 
-**解决**：用 URL query 参数在 Vue 挂载前确定路由（见 2.2 节）。eval 只作为后备手段设置全局变量。
-
----
+**解决**：用 URL query 参数在 Vue 挂载前确定路由（见 2.2 节）。eval 只作为向已有 Toast 窗口追加卡片的手段。
 
 ### 3.6 窗口左上角闪现
 
@@ -186,8 +208,6 @@ if let Some(window) = app_handle.get_webview_window(label) {
 }
 ```
 
----
-
 ### 3.7 "webview with label already exists"
 
 **现象**：连续触发提醒时，第二次创建窗口报错 `a webview with label 'reminder-popup' already exists`。
@@ -206,8 +226,6 @@ if let Some(window) = app_handle.get_webview_window(label) {
 }
 ```
 
----
-
 ### 3.8 权限：`window.close not allowed`
 
 **现象**：点击弹窗按钮调用 `getCurrentWebviewWindow().close()` 时报权限错误。
@@ -218,15 +236,13 @@ if let Some(window) = app_handle.get_webview_window(label) {
 
 ```json
 {
-  "windows": ["main", "reminder-popup", "reminder-fullscreen"],
+  "windows": ["main", "reminder-toast", "reminder-popup", "reminder-fullscreen"],
   "permissions": [
     "core:default",
     "core:window:allow-close"
   ]
 }
 ```
-
----
 
 ### 3.9 物理像素 vs 逻辑像素（位置偏移）
 
@@ -242,13 +258,27 @@ let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
 let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
 ```
 
----
-
 ### 3.10 DevTools 在弹窗中打不开
 
 **现象**：按 F12 或调用 `window.open_devtools()` 在弹窗窗口无反应。
 
 **状态**：未解决。主窗口 DevTools 正常，弹窗窗口的 WebView 似乎处于某种隔离状态。目前通过截图 + `eprintln!` 日志调试。
+
+### 3.11 Toast 窗口高度自适应
+
+**现象**：Toast 卡片数量变化时，窗口高度不变，导致新卡片被截断或空白过多。
+
+**解决**：`ReminderToast.vue` 使用 ResizeObserver 监听 `.toast-stack` 高度，调用 `adjustWindowSize()` 命令让 Rust 重新设置窗口大小。Rust 端限制最大高度为 600px，超出时卡片区域内部滚动。
+
+### 3.12 Toast 透明窗口点击穿透
+
+**现象**：透明 Toast 窗口周围空白区域遮挡了下方应用，导致用户无法操作。
+
+**根因**：透明窗口默认会把整个窗口区域都作为可点击区域。
+
+**解决**：
+- 窗口尺寸严格贴合卡片内容（见 3.11）。
+- 调试模式下背景色可见，便于确认实际窗口范围；关闭调试后背景透明，视觉上只有卡片本身。
 
 ---
 
@@ -276,7 +306,38 @@ let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
 
 ---
 
-## 5. 完整正确代码
+## 5. Toast 实现细节
+
+### 5.1 堆叠与动画
+
+- 每条通知是一个对象：`{ id, boundary, title, body, visible, leaving, hover, progress, remainingMs }`
+- `visible` 控制入场动画：DOM 渲染后下一帧设为 true，触发 CSS transition。
+- `leaving` 控制离场动画：关闭时先记录卡片位置，更新数据后使用 FLIP 让剩余卡片平滑上移。
+- 关闭动画期间再次触发关闭会直接返回，避免并发导致位置错乱。
+
+### 5.2 生命周期
+
+- 默认 8 秒后自动消失，CSS 进度条与 JS 计时器使用同一时长（通过 CSS 变量 `--toast-auto-hide-ms` 统一）。
+- `mouseenter` 暂停计时器和 CSS 动画；`mouseleave` 恢复，若剩余时间已耗尽则立即关闭。
+- 组件卸载时清理所有定时器。
+
+### 5.3 调试模式
+
+Rust 在创建 Toast 窗口时读取 `toast_debug_mode` 配置，决定窗口背景色：
+
+```rust
+let bg_color = if debug_mode {
+    Some(Color::from((255, 255, 0, 128)))
+} else {
+    None
+};
+```
+
+前端 Debug.vue 提供开关，可实时查看当前焦点窗口、GSMTCSM 会话、键鼠计数，以及切换 Toast 调试背景。
+
+---
+
+## 6. 完整正确代码
 
 ### Popup 窗口创建
 
@@ -364,15 +425,20 @@ fn create_popup_window(
 ```ts
 const url = new URL(window.location.href)
 const reminder = url.searchParams.get('reminder')
-if (reminder === 'popup' || reminder === 'fullscreen') {
+if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
   (window as any).__CATRACE_REMINDER_TYPE__ = reminder
-  window.location.hash = reminder === 'popup' ? '#/reminder-popup' : '#/reminder-fullscreen'
+  const routeMap: Record<string, string> = {
+    toast: '#/reminder-toast',
+    popup: '#/reminder-popup',
+    fullscreen: '#/reminder-fullscreen',
+  }
+  window.location.hash = routeMap[reminder]
 }
 ```
 
 ---
 
-## 6. 关键结论
+## 7. 关键结论
 
 | 问题 | 结论 |
 |------|------|
@@ -386,19 +452,8 @@ if (reminder === 'popup' || reminder === 'fullscreen') {
 | 权限 | `core:window:allow-close` + 弹窗标签加入 `windows` 数组 |
 | 位置偏移 | 物理像素 vs 逻辑像素，除以 `scale_factor()` |
 | DevTools | 弹窗中无法打开，用日志和截图调试 |
-
----
-
-## 7. 相关文件
-
-- `src-tauri/src/lib.rs` - `create_popup_window`, `create_fullscreen_window`, `show_notification`
-- `src-tauri/capabilities/default.json` - 权限配置
-- `src/main.ts` - query 参数预读路由
-- `src/App.vue` - 条件渲染提醒组件 vs 主布局
-- `src/router/index.ts` - 提醒路由（非懒加载）
-- `src/views/ReminderPopup.vue` - 弹窗 UI
-- `src/views/ReminderFullscreen.vue` - 全屏 UI
-- `src/views/Settings.vue` - 提醒模式设置
+| Toast 高度自适应 | ResizeObserver + `adjustWindowSize()` 命令，最大高度 600px |
+| Toast 并发关闭 | `item.leaving` 标志位保护，避免 FLIP 动画重复触发 |
 
 ---
 
@@ -432,6 +487,10 @@ ReminderFullscreen.vue 使用双层背景：
 ### 8.4 CSS 透明穿透
 
 进入全屏提醒路由时，`App.vue` 通过 `watch(isReminderRoute)` 切换 `html` 元素的 `reminder-transparent` class，将 `html/body/#app` 背景设为 `transparent !important`，让全屏背景图穿透显示。
+
+### 8.5 元素变换保护
+
+`set_fullscreen_settings` 在 `element_transforms` 为空字符串时保留已有值，避免 Settings.vue 调整背景/透明度/填充模式时覆盖用户在 ReminderFullscreen.vue 中调整的元素位置、缩放和旋转。
 
 ---
 
@@ -490,3 +549,19 @@ interface ElementTransforms {
   actions: ElementTransform
 }
 ```
+
+---
+
+## 10. 相关文件
+
+- `src-tauri/src/lib.rs` - `create_toast_window`, `create_popup_window`, `create_fullscreen_window`, `show_notification`, `set_fullscreen_settings`
+- `src-tauri/src/reminder_toast.rs` - Toast 窗口尺寸与位置计算
+- `src-tauri/capabilities/default.json` - 权限配置
+- `src/main.ts` - query 参数预读路由
+- `src/App.vue` - 条件渲染提醒组件 vs 主布局
+- `src/router/index.ts` - 提醒路由（非懒加载）
+- `src/views/ReminderToast.vue` - Toast 堆叠卡片 UI
+- `src/views/ReminderPopup.vue` - 弹窗 UI
+- `src/views/ReminderFullscreen.vue` - 全屏 UI
+- `src/views/Settings.vue` - 提醒模式设置
+- `src/views/Debug.vue` - 调试开关与实时状态

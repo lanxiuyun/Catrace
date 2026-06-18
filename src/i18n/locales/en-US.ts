@@ -47,7 +47,7 @@ export default {
       testNotifyBtn: 'Test Notification',
       modeTitle: 'Reminder Mode',
       modeDesc: 'Choose how you want to be reminded',
-      modeToast: 'System Toast',
+      modeToast: 'Notification Reminder',
       modePopup: 'Popup',
       modeFullscreen: 'Fullscreen',
       customTitle: 'Reminder Title',

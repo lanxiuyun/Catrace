@@ -47,7 +47,7 @@ export default {
       testNotifyBtn: '测试通知',
       modeTitle: '提醒模式',
       modeDesc: '选择提醒你的方式',
-      modeToast: '系统通知',
+      modeToast: '通知提醒',
       modePopup: '弹窗提醒',
       modeFullscreen: '全屏提醒',
       customTitle: '提醒标题',

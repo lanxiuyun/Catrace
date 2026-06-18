@@ -12,16 +12,35 @@ import {
   NTable,
   NText,
   NAlert,
+  NSwitch,
 } from 'naive-ui'
-import { getVideoDebugInfo, type VideoDebugInfo } from '../api/tauri'
+import { getVideoDebugInfo, type VideoDebugInfo, getToastDebugMode, setToastDebugMode } from '../api/tauri'
 
 const { t } = useI18n()
 
 const data = ref<VideoDebugInfo | null>(null)
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
+const toastDebugMode = ref(false)
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
+
+async function loadToastDebugMode() {
+  try {
+    toastDebugMode.value = await getToastDebugMode()
+  } catch (e: any) {
+    console.error(e)
+  }
+}
+
+async function toggleToastDebugMode(value: boolean) {
+  try {
+    await setToastDebugMode(value)
+    toastDebugMode.value = value
+  } catch (e: any) {
+    console.error(e)
+  }
+}
 
 async function refresh(manual = false) {
   if (manual) loading.value = true
@@ -46,6 +65,7 @@ function startRefreshLoop() {
 
 onMounted(() => {
   startRefreshLoop()
+  loadToastDebugMode()
 })
 
 onUnmounted(() => {
@@ -58,7 +78,13 @@ onUnmounted(() => {
   <div class="debug-page">
     <div class="page-header">
       <h2>{{ t('debug.title') }}</h2>
-      <n-button size="small" :loading="loading" @click="refresh(true)">{{ t('debug.refresh') }}</n-button>
+      <n-space align="center" :size="16">
+        <n-space align="center" :size="8">
+          <span class="debug-switch-label">Toast 调试背景</span>
+          <n-switch :value="toastDebugMode" @update:value="toggleToastDebugMode" />
+        </n-space>
+        <n-button size="small" :loading="loading" @click="refresh(true)">{{ t('debug.refresh') }}</n-button>
+      </n-space>
     </div>
 
     <n-space vertical :size="16">
@@ -187,5 +213,10 @@ onUnmounted(() => {
   font-size: 12px;
   color: #8b7aab;
   margin-bottom: 6px;
+}
+
+.debug-switch-label {
+  font-size: 13px;
+  color: #6b5b8a;
 }
 </style>

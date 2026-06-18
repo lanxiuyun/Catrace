@@ -1,5 +1,6 @@
 mod db;
 mod reminder;
+mod reminder_toast;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
@@ -15,7 +16,6 @@ use chrono::Timelike;
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri_plugin_notification::NotificationExt;
 use tokio::time::interval;
 use base64::Engine;
 use std::fs;
@@ -314,15 +314,12 @@ fn is_media_active() -> bool {
     is_media_active_by_keywords()
 }
 
-#[cfg(windows)]
-use tauri_winrt_notification::Toast;
-
 
 #[derive(Default)]
-struct ActivityState {
-    count: u32,
-    last_cursor: (i32, i32),
-    key_debounce: Option<Instant>,
+pub struct ActivityState {
+    pub count: u32,
+    pub last_cursor: (i32, i32),
+    pub key_debounce: Option<Instant>,
 }
 
 use reminder::ReminderState;
@@ -330,18 +327,18 @@ use reminder::ReminderState;
 // ---------- 提醒窗口数据 ----------
 
 #[derive(Default, serde::Serialize, Clone)]
-struct ReminderWindowData {
-    boundary: i64,
-    title: String,
-    body: String,
-    break_minutes: i64,
-    fullscreen_bg: Option<String>,
-    fullscreen_opacity: i64,
-    fullscreen_fit_mode: String,
-    fullscreen_element_transforms: String,
+pub struct ReminderWindowData {
+    pub boundary: i64,
+    pub title: String,
+    pub body: String,
+    pub break_minutes: i64,
+    pub fullscreen_bg: Option<String>,
+    pub fullscreen_opacity: i64,
+    pub fullscreen_fit_mode: String,
+    pub fullscreen_element_transforms: String,
 }
 
-type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
+pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
 // ---------- i18n helpers ----------
 
@@ -356,27 +353,6 @@ fn notify_body(locale: &str) -> &'static str {
     match locale {
         "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
         _ => "Stand up, drink some water, stretch your neck and back.",
-    }
-}
-
-fn toast_snooze_5(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "稍后5分钟",
-        _ => "5 min",
-    }
-}
-
-fn toast_snooze_10(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "稍后10分钟",
-        _ => "10 min",
-    }
-}
-
-fn toast_skip(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "跳过本次",
-        _ => "Skip",
     }
 }
 
@@ -485,6 +461,19 @@ fn get_video_active_enabled(db: tauri::State<db::Db>) -> bool {
 #[tauri::command]
 fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
     db.set_setting("video_active_enabled", &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
+/** 获取 Toast 调试模式开关状态（默认 false）。 */
+#[tauri::command]
+fn get_toast_debug_mode(db: tauri::State<db::Db>) -> bool {
+    db.get_setting("toast_debug_mode", "false") == "true"
+}
+
+/** 设置 Toast 调试模式开关状态。 */
+#[tauri::command]
+fn set_toast_debug_mode(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting("toast_debug_mode", &enabled.to_string())
         .map_err(|e| e.to_string())
 }
 
@@ -786,7 +775,11 @@ fn set_fullscreen_settings(
 
     db.set_setting("fullscreen_opacity", &opacity.to_string()).map_err(|e| e.to_string())?;
     db.set_setting("fullscreen_fit_mode", &fit_mode).map_err(|e| e.to_string())?;
-    db.set_setting("fullscreen_element_transforms", &element_transforms).map_err(|e| e.to_string())?;
+    // 空字符串表示调用方不想修改元素变换（如 Settings.vue 只改背景/透明度/填充模式），
+    // 此时保留已有值，避免覆盖用户在 ReminderFullscreen.vue 中调整的位置/缩放/旋转。
+    if !element_transforms.is_empty() {
+        db.set_setting("fullscreen_element_transforms", &element_transforms).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -800,7 +793,7 @@ fn get_reminder_data(
     label: String,
     store: tauri::State<ReminderWindowStore>,
 ) -> Option<ReminderWindowData> {
-    store.lock().unwrap().remove(&label)
+    store.lock().unwrap().get(&label).cloned()
 }
 
 #[tauri::command]
@@ -885,77 +878,9 @@ fn show_notification(
             );
         }
         _ => {
-            // toast（默认）
-            show_toast_notification(app_handle, boundary, &body, reminder_state, locale);
+            // toast（默认）：使用右下角自定义 Vue 通知窗口
+            reminder_toast::create_toast_window(app_handle, boundary, &title, &body, reminder_state, store);
         }
-    }
-}
-
-#[cfg(windows)]
-fn show_toast_notification(
-    app_handle: &tauri::AppHandle,
-    boundary: i64,
-    message: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
-) {
-    let app = app_handle.clone();
-    let aumid = app_handle.config().identifier.clone();
-    let state = reminder_state;
-    let b = boundary;
-    let msg = message.to_string();
-    let title = notify_title(locale).to_string();
-    let btn_5 = toast_snooze_5(locale).to_string();
-    let btn_10 = toast_snooze_10(locale).to_string();
-    let btn_skip = toast_skip(locale).to_string();
-
-    if let Err(e) = app.run_on_main_thread(move || {
-        let toast = Toast::new(&aumid)
-            .title(&title)
-            .text1(&msg)
-            .add_button(&btn_5, "snooze_5")
-            .add_button(&btn_10, "snooze_10")
-            .add_button(&btn_skip, "skip")
-            .on_activated(move |action| {
-                let mut s = state.lock().unwrap();
-                match action.as_deref() {
-                    Some("snooze_5") => {
-                        s.snooze_until = Some(Instant::now() + Duration::from_secs(5 * 60));
-                    }
-                    Some("snooze_10") => {
-                        s.snooze_until = Some(Instant::now() + Duration::from_secs(10 * 60));
-                    }
-                    Some("skip") => {
-                        s.skip_until_boundary = Some(b);
-                        s.snooze_until = None;
-                    }
-                    _ => {}
-                }
-                Ok(())
-            });
-
-        if let Err(e) = toast.show() {
-            eprintln!("Toast notification failed (AUMID={}): {}", aumid, e);
-        }
-    }) {
-        eprintln!("Failed to schedule Toast on main thread: {}", e);
-    }
-}
-
-#[cfg(not(windows))]
-fn show_toast_notification(
-    app_handle: &tauri::AppHandle,
-    _boundary: i64,
-    message: &str,
-    _reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
-) {
-    if let Err(e) = app_handle.notification().builder()
-        .title(notify_title(locale))
-        .body(message)
-        .show()
-    {
-        eprintln!("Notification failed: {}", e);
     }
 }
 
@@ -1117,15 +1042,6 @@ fn create_fullscreen_window(
     });
 }
 
-#[cfg(windows)]
-fn register_aumid(aumid: &str, app_name: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use windows_registry::CURRENT_USER;
-    let key = CURRENT_USER.create(format!(r"SOFTWARE\Classes\AppUserModelId\{}", aumid))?;
-    key.set_string("DisplayName", app_name)?;
-    key.set_string("IconBackgroundColor", "0")?;
-    Ok(())
-}
-
 // ------------------------------------------------------------------
 // 主入口
 // ------------------------------------------------------------------
@@ -1179,7 +1095,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -1195,16 +1110,6 @@ pub fn run() {
             }
         }))
         .setup(move |app| {
-            // 注册 AUMID，让 Windows Toast 通知显示为应用名称
-            #[cfg(windows)]
-            {
-                let aumid = app.config().identifier.clone();
-                let app_name = app.config().product_name.clone().unwrap_or_else(|| "Catrace".to_string());
-                if let Err(e) = register_aumid(&aumid, &app_name) {
-                    eprintln!("AUMID registration failed: {}", e);
-                }
-            }
-
             let mouse_state = state.clone();
             let settle_state = state.clone();
 
@@ -1409,6 +1314,7 @@ pub fn run() {
             get_hide_stats, set_hide_stats,
             get_locale, set_locale,
             get_video_active_enabled, set_video_active_enabled,
+            get_toast_debug_mode, set_toast_debug_mode,
             show_main_window, hide_main_window,
             get_today_stats, get_today_records, get_app_stats,
             test_notification,

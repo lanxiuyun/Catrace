@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main", "reminder-popup", "reminder-fullscreen"],
+  "windows": ["main", "reminder-popup", "reminder-fullscreen", "reminder-toast"],
   "permissions": [
     "core:default",
     "opener:default",
@@ -10,7 +10,11 @@
     "autostart:default",
     "updater:default",
     "process:default",
-    "notification:default",
-    "core:window:allow-close"
+    "core:window:allow-close",
+    "core:window:allow-inner-position",
+    "core:window:allow-inner-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-scale-factor"
   ]
 }

@@ -36,7 +36,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   ├── Settings.vue              # 设置页：提醒偏好 + 提醒设置 + 系统 + 链接
-│   │   ├── Debug.vue
+│   │   ├── Debug.vue                 # 视频检测与提醒窗口调试页面
+│   │   ├── ReminderToast.vue         # Toast 提醒窗口（堆叠通知卡片）
 │   │   ├── ReminderPopup.vue         # 弹窗提醒窗口
 │   │   └── ReminderFullscreen.vue    # 全屏提醒窗口
 │   ├── App.vue                 # 布局 + naive-ui 主题注入
@@ -45,10 +46,11 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   └── vite-env.d.ts
 ├── src-tauri/            # Tauri 2 + Rust
 │   ├── src/
-│   │   ├── main.rs       # 入口，调用 lib::run()
-│   │   ├── lib.rs        # 全部业务逻辑（采样、结算、通知、命令）
-│   │   ├── reminder.rs   # 提醒状态机 ReminderState + 单元测试
-│   │   └── db.rs         # rusqlite 封装
+│   │   ├── main.rs             # 入口，调用 lib::run()
+│   │   ├── lib.rs              # 全部业务逻辑（采样、结算、通知、命令）
+│   │   ├── reminder.rs         # 提醒状态机 ReminderState + 单元测试
+│   │   ├── reminder_toast.rs   # Toast 窗口位置计算与尺寸调整
+│   │   └── db.rs               # rusqlite 封装
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── ...
@@ -66,7 +68,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-single-instance、tauri-winrt-notification（Windows Toast）、windows-registry |
+| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-window-state、tauri-plugin-single-instance |
 
 ---
 
@@ -96,7 +98,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
    - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复活跃后重新判断。
    - **自动间隔提醒**：通知触发后自动设置 `snooze_interval_minutes`（默认3分钟）的 snooze，到期后再次提醒。用户手动选择 5/10 分钟会覆盖自动间隔。
-   - **Toast 按钮操作**（Windows）：通知带三个按钮——「5分钟后提醒」「10分钟后提醒」「跳过本次」。点击后直接更新 `ReminderState`，无需打开主窗口。
+   - **Toast 提醒窗口**：采用独立透明 WebviewWindow + Vue 卡片实现，替代原 Windows 原生 Toast。支持多条通知堆叠显示，右下角依次排列，倒计时进度条，hover 暂停，离开恢复；每个卡片都有「5分钟后提醒」「10分钟后提醒」「跳过本次」按钮，点击后直接更新 `ReminderState`，无需打开主窗口。
 
 **提醒场景示例（`window=45, break=5, snooze_interval=3`）**
 
@@ -116,14 +118,21 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 > 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
 
-4. **全屏背景图存储**（`lib.rs`）
+4. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
+   - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
+   - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
+   - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
+   - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口显示半透明黄色背景，便于排查布局/点击问题。
+
+5. **全屏背景图存储**（`lib.rs`）
    - 前端上传的 data URL 经 base64 解码后保存为磁盘文件（`app_data_dir/bg/fullscreen_bg.{ext}`），DB 只存文件路径，避免 SQLite 存储大 blob。
    - 读取时通过 `resolve_bg_for_frontend()` 统一将文件路径转回 data URL 返回前端。
    - 默认背景图使用 bundled `src-tauri/assets/catrace.png`，首次启动时复制到 `app_data_dir/bg/`。
    - 全屏提醒窗口使用双层背景：底层模糊放大铺满（`filter: blur(40px)`），上层清晰原图居中 contain。
    - 进入全屏提醒路由时，`App.vue` 通过 CSS class 切换 `html/body/#app` 背景为透明，让全屏背景图穿透显示。
+   - `set_fullscreen_settings` 在 `element_transforms` 为空字符串时保留已有值，避免 Settings.vue 调整背景/透明度/填充模式时覆盖用户在 ReminderFullscreen.vue 中调整的元素位置/缩放/旋转。
 
-5. **全屏提醒元素独立编辑**（`ReminderFullscreen.vue`）
+6. **全屏提醒元素独立编辑**（`ReminderFullscreen.vue`）
    - 每个元素（标题、正文、倒计时、按钮）可独立调整位置、缩放、旋转。
    - 数据存储为 JSON 字符串 `fullscreen_element_transforms`，包含每个元素的 x, y, scale, rotate。
    - 交互流程：点击右上角锁图标进入编辑模式 → 点击元素选中 → 拖动改变位置 / 滚轮调整缩放 / 滑块调整旋转 → 点击锁定保存。
@@ -192,16 +201,17 @@ src/
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
 │   ├── Settings.vue         -- 设置页：提醒偏好（窗口/休息/视频活跃）+ 提醒设置（模式/内容/全屏背景/测试）+ 系统 + 链接
-│   ├── Debug.vue            -- 视频检测调试页面
-│   ├── ReminderPopup.vue    -- 弹窗提醒窗口
-│   └── ReminderFullscreen.vue -- 全屏提醒窗口
+│   ├── Debug.vue                -- 视频检测与提醒窗口调试页面
+│   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
+│   ├── ReminderPopup.vue        -- 弹窗提醒窗口
+│   └── ReminderFullscreen.vue   -- 全屏提醒窗口
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   └── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
-│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-popup, /reminder-fullscreen）
+│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-toast, /reminder-popup, /reminder-fullscreen）
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
 ├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
@@ -294,22 +304,22 @@ CREATE TABLE settings (
 ## 开发进度
 
 | 步骤 | 内容                                                              | 状态 |
-|------|-----------------------------------------------------------------|-----|
-| 1 | Rust 采样：rdev 键盘（Windows/Linux）+ device_query 鼠标/键盘（macOS）     | ✅ |
-| 2 | 每分钟活跃判定，写入 SQLite                                               | ✅ |
-| 3 | 滑动窗口算法 + 系统通知                                                   | ✅ |
-| 4 | Tauri 套壳 + Vue 3 前端                                             | ✅ |
-| 5 | Settings 页：滑块改配置（自动保存）                                          | ✅ |
-| 6 | Dashboard：今日活动（详细/概览双视图）+ 统计                                    | ✅ |
-| 7 | 系统托盘图标                                                          | ✅ |
-| 8 | ~~应用分类名单~~                                                      | ❌ 已砍掉 |
+|----|-----------------------------------------------------------------|-----|
+| 1  | Rust 采样：rdev 键盘（Windows/Linux）+ device_query 鼠标/键盘（macOS）     | ✅ |
+| 2  | 每分钟活跃判定，写入 SQLite                                               | ✅ |
+| 3  | 滑动窗口算法 + 系统通知                                                   | ✅ |
+| 4  | Tauri 套壳 + Vue 3 前端                                             | ✅ |
+| 5  | Settings 页：滑块改配置（自动保存）                                          | ✅ |
+| 6  | Dashboard：今日活动（详细/概览双视图）+ 统计                                    | ✅ |
+| 7  | 系统托盘图标                                                          | ✅ |
+| 8  | ~~应用分类名单~~                                                      | ❌ 已砍掉 |
 | 22 | 提醒设置：skip / snooze（3/5分钟）状态管理                                   | ✅ |
 | 23 | 休息即静音：当前分钟在休息则不提醒                                               | ✅ |
-| 24 | Windows Toast 通知带按钮（tauri-winrt-notification）                   | ✅ |
-| 25 | AUMID 注册：通知显示应用名称                                               | ✅ |
+| 24 | ~~Windows Toast 通知带按钮（tauri-winrt-notification）~~                   | ~~✅~~ 已重构为跨平台 Vue Toast |
+| 25 | ~~AUMID 注册：通知显示应用名称~~                                               | ~~✅~~ 随原生 Toast 移除 |
 | 26 | 弹窗提醒模式                                                          | ✅ |
 | 26 | 全屏提醒模式（双层背景 + 自定义背景图 + 透明度设置）                                  | ✅ |
-| 9 | Dashboard UI 初版（统计卡片 + 环形图 + 双栏布局）                              | ✅（已被步骤 11 取代） |
+| 9  | Dashboard UI 初版（统计卡片 + 环形图 + 双栏布局）                              | ✅（已被步骤 11 取代） |
 | 18 | 记住窗口位置和大小，下次启动恢复                                                | ✅ |
 | 10 | 概览视图：前瞻式 block 切分列表（默认概览）                                       | ✅ |
 | 11 | Dashboard UI 精简重构：去环形图/状态标签、紧凑列表、统一主题、修复滚动条                     | ✅ |
@@ -332,12 +342,13 @@ CREATE TABLE settings (
 | 33 | 支持 zh-CN / en-US 双语，设置页语言切换器                                    | ✅ |
 | 34 | 默认自动检测系统语言（navigator.language），首次启动保存到 DB                       | ✅ |
 | 35 | 设置页重构：拆分为「提醒偏好」与「提醒设置」两个独立卡片                                    | ✅ |
-| 36 | 提醒模式切换（系统通知 / 弹窗提醒 / 全屏提醒），全屏背景图与透明度设置仅全屏模式下显示                  | ✅ |
+| 36 | 提醒模式切换（通知提醒 / 弹窗提醒 / 全屏提醒），全屏背景图与透明度设置仅全屏模式下显示                  | ✅ |
 | 37 | 全屏背景图上传 UI 重设计：预览卡片 + 毛玻璃操作按钮 + 虚线拖拽区域                          | ✅ |
 | 38 | 文案统一：「通知」→「提醒」                                                  | ✅ |
 | 39 | 全屏提醒元素独立编辑：标题/正文/倒计时/按钮可独立调整位置、缩放、旋转                            | ✅ |
 | 40 | 单例模式：重复启动应用时聚焦到已有实例主窗口                                                    | ✅ |
-| 41 | Dashboard 统计隐藏开关：一键模糊统计数值，避免他人看到休息时长                                  | ✅ |
+| 41 | Toast 提醒重构：Vue 透明窗口 + 堆叠卡片 + FLIP 动画 + 调试模式，移除 Windows 原生 Toast 依赖            | ✅ |
+| 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 
 ---
 
@@ -372,7 +383,7 @@ cd src-tauri && cargo test
 - 前端使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
 - Rust 当前未按功能拆分子模块（全部在 `lib.rs`），后续扩展时建议拆分。
 - UI 配色统一维护在 `src/theme.ts`，改主题时优先改此文件。
-- **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows-registry`、`tauri-winrt-notification`）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
+- **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows` crate 用于 GSMTCSM 媒体会话检测）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
 
 ---
 
