@@ -20,7 +20,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
-tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-autostart = "2"
 tauri-plugin-updater = "2.10.1"
@@ -39,9 +38,6 @@ active-win-pos-rs = "0.10"
 rdev = "0.5"
 
 [target.'cfg(windows)'.dependencies]
-tauri-winrt-notification = "0.7"
-windows-registry = "0.5"
 windows = { version = "0.61", features = ["Media_Control", "Foundation", "Foundation_Collections", "Win32_Graphics_Dwm"] }
-raw-window-handle = "0.6"
 
 
