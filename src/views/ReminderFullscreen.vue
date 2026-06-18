@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import {
@@ -8,7 +8,6 @@ import {
   skipReminder,
   setFullscreenSettings,
   DEFAULT_ELEMENT_TRANSFORMS,
-  type ElementTransform,
   type ElementTransforms,
 } from '../api/tauri'
 
@@ -23,12 +22,7 @@ const opacity = ref(80)
 const fitMode = ref('contain')
 
 // Element transforms
-const elementTransforms = reactive<ElementTransforms>({
-  title: { ...DEFAULT_ELEMENT_TRANSFORMS.title },
-  body: { ...DEFAULT_ELEMENT_TRANSFORMS.body },
-  countdown: { ...DEFAULT_ELEMENT_TRANSFORMS.countdown },
-  actions: { ...DEFAULT_ELEMENT_TRANSFORMS.actions },
-})
+const elementTransforms = ref<ElementTransforms>(getDefaultTransforms())
 
 // Edit mode state
 const isEditMode = ref(false)
@@ -78,18 +72,20 @@ async function loadData() {
         try {
           const parsed = JSON.parse(data.fullscreen_element_transforms) as ElementTransforms
           // Apply parsed values with defaults for missing fields
+          const next = getDefaultTransforms()
           Object.keys(DEFAULT_ELEMENT_TRANSFORMS).forEach((key) => {
             const k = key as keyof ElementTransforms
             if (parsed[k]) {
-              elementTransforms[k] = { ...DEFAULT_ELEMENT_TRANSFORMS[k], ...parsed[k] }
+              next[k] = { ...DEFAULT_ELEMENT_TRANSFORMS[k], ...parsed[k] }
             }
           })
+          elementTransforms.value = next
         } catch (e) {
           console.error('[FS] Failed to parse element transforms:', e)
-          Object.assign(elementTransforms, getDefaultTransforms())
+          elementTransforms.value = getDefaultTransforms()
         }
       } else {
-        Object.assign(elementTransforms, getDefaultTransforms())
+        elementTransforms.value = getDefaultTransforms()
       }
     }
   } catch (e) {
@@ -109,7 +105,7 @@ onMounted(async () => {
     if (remainingSeconds.value > 0) {
       remainingSeconds.value -= 1
       if (remainingSeconds.value === 0) {
-        clearInterval(timerId)
+        if (timerId) clearInterval(timerId)
         handleSkip()
       }
     }
@@ -172,8 +168,8 @@ function startDrag(name: string, e: MouseEvent) {
   dragElement.value = name
   dragStartX = e.clientX
   dragStartY = e.clientY
-  dragStartElemX = elementTransforms[name as keyof ElementTransforms].x
-  dragStartElemY = elementTransforms[name as keyof ElementTransforms].y
+  dragStartElemX = elementTransforms.value[name as keyof ElementTransforms].x
+  dragStartElemY = elementTransforms.value[name as keyof ElementTransforms].y
 }
 
 function onMouseMove(e: MouseEvent) {
@@ -190,8 +186,8 @@ function onMouseMove(e: MouseEvent) {
   const newY = Math.min(90, Math.max(10, dragStartElemY + deltaYPercent))
 
   const key = dragElement.value as keyof ElementTransforms
-  elementTransforms[key].x = Math.round(newX)
-  elementTransforms[key].y = Math.round(newY)
+  elementTransforms.value[key].x = Math.round(newX)
+  elementTransforms.value[key].y = Math.round(newY)
 }
 
 function onMouseUp() {
@@ -208,8 +204,8 @@ function handleWheel(e: WheelEvent) {
 
   const delta = e.deltaY > 0 ? -0.05 : 0.05
   const key = selectedElement.value as keyof ElementTransforms
-  const newScale = Math.max(0.3, Math.min(3.0, elementTransforms[key].scale + delta))
-  elementTransforms[key].scale = Math.round(newScale * 100) / 100
+  const newScale = Math.max(0.3, Math.min(3.0, elementTransforms.value[key].scale + delta))
+  elementTransforms.value[key].scale = Math.round(newScale * 100) / 100
 }
 
 // Save transforms to backend
@@ -222,7 +218,7 @@ function saveTransforms() {
         bgImage.value,
         opacity.value,
         fitMode.value,
-        JSON.stringify(elementTransforms),
+        JSON.stringify(elementTransforms.value),
       )
     } catch (e) {
       console.error('[FS] saveTransforms error:', e)
@@ -234,12 +230,12 @@ function saveTransforms() {
 function resetSelectedElement() {
   if (!selectedElement.value) return
   const key = selectedElement.value as keyof ElementTransforms
-  elementTransforms[key] = { ...DEFAULT_ELEMENT_TRANSFORMS[key] }
+  elementTransforms.value[key] = { ...DEFAULT_ELEMENT_TRANSFORMS[key] }
 }
 
-// Watch for changes and save
+// Watch for changes and save (e.g. slider adjustments when not in edit mode)
 watch(
-  () => ({ ...elementTransforms }),
+  elementTransforms,
   () => {
     if (isEditMode.value) return // Don't save while editing, save on lock
     saveTransforms()
