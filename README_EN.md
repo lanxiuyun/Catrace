@@ -32,7 +32,7 @@ Then it follows a simple set of rules:
 
 When it's time, Catrace reminds you to take a break using your chosen method. Three reminder modes are available:
 
-- **System Toast** — A system notification pops up with three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time"
+- **Notification Reminder** — Floating notification cards stack in the bottom-right corner; each card has three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time". Hovering a card pauses its countdown timer
 - **Popup** — An in-app popup with a countdown timer that auto-closes when done
 - **Fullscreen** — A full-screen overlay that forces you to stop and rest, with customizable background image and overlay opacity
 
@@ -51,6 +51,6 @@ Catrace offers a clean Dashboard to help you review your work and rest rhythm fo
 - **Today's Stats**: total active time, total rest time, active ratio, and number of work blocks
 - **Today's Activity (Overview)**: Time-block cards based on your work rhythm, showing at a glance how work and rest alternated today; click a card to expand and see details in 10-minute slices
 - **Today's Activity (Detailed)**: A 24-hour minute-level heatmap, useful when you want to check a specific moment precisely
-- **Settings**: Adjust work window length and rest threshold, choose reminder mode (System Toast / Popup / Fullscreen), customize reminder content and fullscreen background, enable auto-start on boot, and switch interface language (Simplified Chinese / English)
+- **Settings**: Adjust work window length and rest threshold, choose reminder mode (Notification Reminder / Popup / Fullscreen), customize reminder content and fullscreen background, enable auto-start on boot, and switch interface language (Simplified Chinese / English)
 
 The interface uses a soft purple wellness theme with a sidebar navigation and main content area — clean and refreshing. Supports bilingual switching between Simplified Chinese and English, defaulting to your system language.
