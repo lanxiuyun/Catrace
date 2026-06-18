@@ -762,7 +762,11 @@ fn set_fullscreen_settings(
 
     db.set_setting("fullscreen_opacity", &opacity.to_string()).map_err(|e| e.to_string())?;
     db.set_setting("fullscreen_fit_mode", &fit_mode).map_err(|e| e.to_string())?;
-    db.set_setting("fullscreen_element_transforms", &element_transforms).map_err(|e| e.to_string())?;
+    // 空字符串表示调用方不想修改元素变换（如 Settings.vue 只改背景/透明度/填充模式），
+    // 此时保留已有值，避免覆盖用户在 ReminderFullscreen.vue 中调整的位置/缩放/旋转。
+    if !element_transforms.is_empty() {
+        db.set_setting("fullscreen_element_transforms", &element_transforms).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
