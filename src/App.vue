@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, computed, onMounted, watch } from 'vue'
+import { h, computed, watch } from 'vue'
 import qqGroupQr from './assets/qq-group.jpg'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -41,22 +41,18 @@ const menuOptions = computed(() => [
 ])
 
 const isReminderRoute = computed(() => {
-  const type = (window as any).__CATRACE_REMINDER_TYPE__
-  return type === 'popup' || type === 'fullscreen' || type === 'toast'
-    || route.path === '/reminder-popup'
-    || route.path === '/reminder-fullscreen'
-    || route.path === '/reminder-toast'
+  return ['/reminder-popup', '/reminder-fullscreen', '/reminder-toast'].includes(route.path)
 })
 
 const currentReminderType = computed(() => {
-  return (window as any).__CATRACE_REMINDER_TYPE__ || ''
+  if (route.path === '/reminder-popup') return 'popup'
+  if (route.path === '/reminder-fullscreen') return 'fullscreen'
+  if (route.path === '/reminder-toast') return 'toast'
+  return ''
 })
 
 const needsTransparentBg = computed(() => {
-  const type = (window as any).__CATRACE_REMINDER_TYPE__
-  return type === 'fullscreen' || type === 'toast'
-    || route.path === '/reminder-fullscreen'
-    || route.path === '/reminder-toast'
+  return route.path === '/reminder-fullscreen' || route.path === '/reminder-toast'
 })
 
 // 全屏提醒 / toast 提醒时让 html/body 背景透明
@@ -70,9 +66,9 @@ watch(needsTransparentBg, (val) => {
   <n-config-provider :theme-overrides="themeOverrides" :locale="naiveLocale">
     <n-message-provider>
       <template v-if="isReminderRoute">
-        <ReminderPopup v-if="currentReminderType === 'popup' || route.path === '/reminder-popup'" />
-        <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen' || route.path === '/reminder-fullscreen'" />
-        <ReminderToast v-else-if="currentReminderType === 'toast' || route.path === '/reminder-toast'" />
+        <ReminderPopup v-if="currentReminderType === 'popup'" />
+        <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen'" />
+        <ReminderToast v-else-if="currentReminderType === 'toast'" />
         <RouterView v-else />
       </template>
       <n-layout v-else has-sider class="app-layout">
