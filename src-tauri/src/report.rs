@@ -1,5 +1,6 @@
 use crate::db::Db;
 use chrono::SecondsFormat;
+use std::sync::OnceLock;
 
 const APP_KEY: &str = "RBrITa0T5PKRzdYuwwxzow";
 const ACCESS_KEY: &str = "9SzxzOb3pQgkOB-LU-QU1Q";
@@ -7,6 +8,17 @@ const SECRET_KEY: &str = "auf6yeKP1JLKBSAx3cfAKAjZynKl3siahyHXDoQPyWU";
 const REPORT_URL: &str = "https://api.upgrade.toolsetlink.com/v1/app/report";
 const SIGN_URI: &str = "/v1/app/report";
 const DEV_KEY_SETTING: &str = "toolsetlink_dev_key";
+const HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(HTTP_TIMEOUT)
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    })
+}
 
 /// 将 Tauri 版本号转换为 toolsetlink 所需的整数 versionCode。
 /// 规则：major * 10000 + minor * 100 + patch。
@@ -106,8 +118,7 @@ async fn do_report_app_start(app_handle: &tauri::AppHandle, db: &Db) -> Result<(
     let body_str = serde_json::to_string(&body)?;
     let signature = generate_signature(&body_str, &nonce, &timestamp, SECRET_KEY, SIGN_URI);
 
-    let client = reqwest::Client::new();
-    let resp = client
+    let resp = http_client()
         .post(REPORT_URL)
         .header("Content-Type", "application/json")
         .header("X-Timestamp", timestamp)
