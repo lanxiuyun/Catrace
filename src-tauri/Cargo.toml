@@ -1,6 +1,6 @@
 [package]
 name = "catrace"
-version = "26.6.16"
+version = "26.6.18"
 description = "Desktop tool to balance work and rest"
 authors = ["lanxiuyun"]
 edition = "2021"
