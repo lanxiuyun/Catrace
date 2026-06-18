@@ -1,6 +1,7 @@
 mod db;
 mod reminder;
 mod reminder_toast;
+mod report;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
@@ -1129,6 +1130,9 @@ pub fn run() {
                     }
                 }
             }
+
+            // 上报应用启动事件到 UpgradeLink
+            report::spawn_report_app_start(app.app_handle().clone(), db.clone());
 
             let store: ReminderWindowStore = Arc::new(Mutex::new(HashMap::new()));
             app.manage(db.clone());

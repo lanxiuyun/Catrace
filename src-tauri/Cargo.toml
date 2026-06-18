@@ -33,6 +33,10 @@ tokio = { version = "1", features = ["full"] }
 chrono = "0.4"
 base64 = "0.22"
 active-win-pos-rs = "0.10"
+reqwest = { version = "0.12", features = ["json"] }
+uuid = { version = "1", features = ["v4"] }
+md5 = "0.7"
+semver = "1"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 rdev = "0.5"

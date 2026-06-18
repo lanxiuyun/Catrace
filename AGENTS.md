@@ -50,7 +50,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   ├── lib.rs              # 全部业务逻辑（采样、结算、通知、命令）
 │   │   ├── reminder.rs         # 提醒状态机 ReminderState + 单元测试
 │   │   ├── reminder_toast.rs   # Toast 窗口位置计算与尺寸调整
-│   │   └── db.rs               # rusqlite 封装
+│   │   ├── db.rs               # rusqlite 封装
+│   │   └── report.rs           # UpgradeLink 事件上报（app_start 等）
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── ...
@@ -68,7 +69,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-window-state、tauri-plugin-single-instance |
+| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、reqwest（HTTP）、uuid（devKey）、md5（签名）、semver（版本号）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-window-state、tauri-plugin-single-instance |
 
 ---
 
@@ -138,6 +139,15 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 交互流程：点击右上角锁图标进入编辑模式 → 点击元素选中 → 拖动改变位置 / 滚轮调整缩放 / 滑块调整旋转 → 点击锁定保存。
    - 编辑模式下元素显示虚线边框，选中元素显示紫色边框和编辑工具栏。
 
+7. **启动事件上报**（`report.rs`）
+   - 应用启动时（`lib.rs` setup 阶段）异步上报 `app_start` 事件到 `https://api.upgrade.toolsetlink.com/v1/app/report`。
+   - 请求头携带 `X-Timestamp`、`X-Nonce`、`X-AccessKey`、`X-Signature`，Body 包含 `eventType`、`appKey`、`timestamp` 与 `eventData`（`launchTime`、`versionCode`、`target`、`arch`、`devKey`）。
+   - 签名规则：`MD5(body=${body}&nonce=${X-Nonce}&secretKey=${SecretKey}&timestamp=${X-Timestamp}&url=/v1/app/report)`。
+   - `versionCode` 由应用版本号按 `major * 10000 + minor * 100 + patch` 计算（如 `26.6.18` → `260618`）。
+   - `target` 做平台映射：`macos` → `darwin`，`windows`/`linux` 保持原值。
+   - `devKey` 首次启动时生成一个 `dev_${UUID}` 并持久化到 DB，后续启动复用，用于设备级统计。
+   - 上报失败不影响主流程，仅打印错误日志。
+
 ---
 
 ## 配置项
@@ -184,7 +194,9 @@ src-tauri/src/
 │                 · #[tauri::command] 暴露给前端
 │                 · 系统托盘
 ├── reminder.rs -- 提醒状态机 ReminderState + 单元测试
-└── db.rs       -- rusqlite 读写封装 + 单元测试
+├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
+├── db.rs       -- rusqlite 读写封装 + 单元测试
+└── report.rs   -- UpgradeLink 事件上报（app_start 等）
 ```
 
 > 原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
@@ -389,7 +401,7 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：共 18 个单元测试，分布在 `db.rs`（14 个）和 `reminder.rs`（4 个）：
+- **Rust**：共 22 个单元测试，分布在 `db.rs`（14 个）、`reminder.rs`（4 个）和 `report.rs`（4 个）：
 
   **Block 切分（`db.rs`，3 个）**
   | 测试名 | 说明 |
@@ -421,6 +433,14 @@ cd src-tauri && cargo test
   | `test_snooze_interval_overridden_by_user_choice` | 用户点击「5分钟」会覆盖自动设置的 3 分钟 snooze |
   | `test_snooze_auto_interval_expiry` | 自动 snooze 间隔到期后不再处于 snoozed 状态 |
 
+  **启动事件上报（`report.rs`，4 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_version_code` | 版本号 `26.6.18` 转换为 `260618` |
+  | `test_map_target` | `macos` → `darwin`，其他平台保持原值 |
+  | `test_generate_signature_format` | 签名输出为 32 位十六进制字符串 |
+  | `test_generate_signature_matches_official_rule` | 与文档签名示例规则一致 |
+
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
 ---
@@ -429,6 +449,7 @@ cd src-tauri && cargo test
 
 - 全局键鼠监听仅计数，不记录按键内容或鼠标轨迹坐标。
 - 数据库文件保存在 `app_data_dir/catrace.db`，不上传。
+- 应用启动时会向 UpgradeLink 上报 `app_start` 事件（包含版本号、目标平台、架构、匿名设备标识），用于统计分析；不上传任何活动记录或隐私内容。
 - `rdev`（Windows/Linux）与 `device_query`（macOS 键盘/鼠标）、`active-win-pos-rs` 需要系统权限（macOS Accessibility / Windows UI Access）。
 
 ---
