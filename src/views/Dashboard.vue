@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onActivated, onDeactivated, computed } from "vue";
 import { useI18n } from 'vue-i18n'
 import { NCard, NRadioGroup, NRadioButton, NSwitch } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../api/tauri";
@@ -133,12 +133,14 @@ async function loadData() {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-onMounted(() => {
+onActivated(() => {
   loadData();
-  pollTimer = setInterval(loadData, 10000);
+  if (!pollTimer) {
+    pollTimer = setInterval(loadData, 10000);
+  }
 });
 
-onUnmounted(() => {
+onDeactivated(() => {
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;

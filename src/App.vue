@@ -94,7 +94,11 @@ watch(needsTransparentBg, (val) => {
           </n-popover>
         </n-layout-sider>
         <n-layout-content class="app-content" :native-scrollbar="false">
-          <RouterView />
+          <RouterView v-slot="{ Component }">
+            <KeepAlive>
+              <component :is="Component" />
+            </KeepAlive>
+          </RouterView>
         </n-layout-content>
       </n-layout>
     </n-message-provider>

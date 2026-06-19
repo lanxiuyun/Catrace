@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onActivated, onDeactivated } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NCard,
@@ -63,12 +63,13 @@ function startRefreshLoop() {
   })
 }
 
-onMounted(() => {
+onActivated(() => {
+  mounted = true
   startRefreshLoop()
   loadToastDebugMode()
 })
 
-onUnmounted(() => {
+onDeactivated(() => {
   mounted = false
   if (timer) clearTimeout(timer)
 })
