@@ -389,7 +389,7 @@ async function handleWaterSnooze(item: ToastItem, minutes: number) {
 async function handleWaterSkip(item: ToastItem) {
   stopTimer(item)
   try {
-    await skipWaterReminder(30)
+    await skipWaterReminder()
   } catch {
     // ignore
   }

@@ -119,8 +119,8 @@ export async function snoozeWaterReminder(minutes: number): Promise<void> {
   return invoke('snooze_water_reminder', { minutes })
 }
 
-export async function skipWaterReminder(minutes: number): Promise<void> {
-  return invoke('skip_water_reminder', { minutes })
+export async function skipWaterReminder(): Promise<void> {
+  return invoke('skip_water_reminder')
 }
 
 export interface MediaSessionInfo {

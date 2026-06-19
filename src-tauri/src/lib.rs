@@ -760,9 +760,13 @@ fn snooze_water_reminder(minutes: u64, state: tauri::State<Arc<Mutex<WaterRemind
 }
 
 #[tauri::command]
-fn skip_water_reminder(minutes: u64, state: tauri::State<Arc<Mutex<WaterReminderState>>>) {
+fn skip_water_reminder(db: tauri::State<db::Db>, state: tauri::State<Arc<Mutex<WaterReminderState>>>) {
+    let water_interval: u64 = db
+        .get_setting("water_interval_minutes", "60")
+        .parse()
+        .unwrap_or(60);
     let mut s = state.lock().unwrap();
-    s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
+    s.snooze_until = Some(Instant::now() + Duration::from_secs(water_interval * 60));
 }
 
 // ------------------------------------------------------------------
@@ -1501,14 +1505,15 @@ pub fn run() {
                         };
 
                         if overdue {
-                            let state = water_state_for_settle.lock().unwrap();
+                            let mut state = water_state_for_settle.lock().unwrap();
                             if !state.is_snoozed() && state.can_send_reminder() {
+                                state.last_reminder_sent = Some(Instant::now());
+                                state.snooze_until = Some(
+                                    Instant::now()
+                                        + Duration::from_secs((water_interval as u64) * 60),
+                                );
                                 drop(state);
                                 show_water_notification(&app_handle, &locale, &store_for_settle);
-                                let mut state = water_state_for_settle.lock().unwrap();
-                                state.last_reminder_sent = Some(Instant::now());
-                                state.snooze_until =
-                                    Some(Instant::now() + Duration::from_secs(10 * 60));
                             }
                         }
                     }
