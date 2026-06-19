@@ -30,7 +30,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── components/
 │   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
 │   │   ├── TimelineWindows.vue # 概览视图：block 卡片网格（可展开整行）
-│   │   └── WaterWidget.vue     # 喝水提醒小组件（Dashboard 右上角）
+│   │   └── WaterWidget.vue     # 喝水提醒小组件（Dashboard 右上角，开关关闭时隐藏）
 │   ├── router/index.ts
 │   ├── utils/
 │   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
@@ -127,6 +127,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 仅在当前分钟为**活跃**时检查；休息期间不提醒，恢复活跃后重新判断。
    - 触发后自动按 `water_interval_minutes` 设置 snooze，避免短时间内重复弹窗。
    - 用户可在 Dashboard 的 `WaterWidget.vue` 中手动记录「+1 次喝水」或删除最近一次记录；点击 Toast 的「已喝水」按钮也会立即记录并关闭通知。
+   - `WaterWidget` 仅在 `water_reminder_enabled` 开启时显示；关闭喝水提醒后 Dashboard 不再展示喝水统计。
    - 喝水提醒 Toast 采用与 `WaterWidget` 统一的蓝色主题，与休息提醒的紫色主题区分。
    - `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
 
@@ -236,7 +237,7 @@ src/
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
 │   ├── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
-│   └── WaterWidget.vue      -- 喝水提醒小组件：次数 / 最近一次 / 时间轴
+│   └── WaterWidget.vue      -- 喝水提醒小组件：次数 / 最近一次 / 时间轴（关闭时隐藏）
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
@@ -270,6 +271,7 @@ src/
   - **活跃**：按 **block 语义** 计算——活跃 block 的全部时长（含里面的休息分钟）+ 休息 block 里实际活跃的分钟。
   - **休息**：休息 block 里实际休息的分钟。
   - **活跃占比**、**活跃时段**：基于上述 block 语义统计。
+- **喝水提醒**：Dashboard 中的 `WaterWidget` 仅在 `water_reminder_enabled` 为 `true` 时显示；关闭喝水提醒后，对应统计卡片完全隐藏，设置页仍可调整开关与间隔。
 - **滚动**：根节点 `overflow: hidden`，仅 `n-layout-content` 区域在内容溢出时滚动；页面内不使用 `min-height: 100vh`。
 
 ### 时间轴实现说明
@@ -387,6 +389,7 @@ CREATE TABLE settings (
 | 41 | Toast 提醒重构：Vue 透明窗口 + 堆叠卡片 + FLIP 动画 + 调试模式，移除 Windows 原生 Toast 依赖            | ✅ |
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
+| 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
 
 ---
 
