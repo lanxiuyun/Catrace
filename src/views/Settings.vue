@@ -449,7 +449,10 @@ async function handleInstallUpdate() {
             />
           </div>
 
-          <div class="divider" />
+        </div>
+
+        <div class="group water-group">
+          <div class="group-label">{{ t('settings.groups.water') }}</div>
 
           <div class="setting-row">
             <div class="setting-meta">
@@ -472,7 +475,7 @@ async function handleInstallUpdate() {
             </div>
             <div class="setting-control slider-control">
               <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
-              <span class="setting-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
+              <span class="setting-value water-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
             </div>
           </div>
         </div>
@@ -1093,6 +1096,33 @@ async function handleInstallUpdate() {
 .pos-reset {
   font-size: 11px;
   padding: 4px 10px;
+}
+
+.water-group {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  border-color: #bfdbfe;
+}
+.water-group .group-label {
+  color: #2563eb;
+}
+.water-group .divider {
+  background: #dbeafe;
+}
+.water-value {
+  color: #2563eb;
+}
+.water-group :deep(.n-switch--active) {
+  --n-rail-color-active: #3b82f6 !important;
+}
+.water-group :deep(.n-switch.n-switch--active .n-switch__rail) {
+  background-color: #3b82f6 !important;
+}
+.water-group :deep(.n-slider-rail__fill) {
+  background-color: #3b82f6 !important;
+}
+.water-group :deep(.n-slider-handle) {
+  background-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
 }
 
 /* 响应式 */

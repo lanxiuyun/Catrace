@@ -28,6 +28,7 @@ export default {
     subtitle: '自定义 Catrace 的工作方式',
     groups: {
       reminder: '提醒偏好',
+      water: '喝水提醒',
       notification: '提醒设置',
       update: '软件更新',
       system: '系统',

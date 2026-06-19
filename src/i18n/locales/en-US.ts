@@ -28,6 +28,7 @@ export default {
     subtitle: 'Customize how Catrace works',
     groups: {
       reminder: 'Reminder Preferences',
+      water: 'Water Reminder',
       notification: 'Reminder Settings',
       update: 'Software Update',
       system: 'System',
