@@ -339,8 +339,8 @@ let bg_color = if debug_mode {
 
 Toast 通知对象增加 `kind: 'rest' | 'water'` 字段，用于区分休息提醒与喝水提醒：
 
-- **休息卡片**（`kind: 'rest'`）：显示「5 分钟后提醒」「10 分钟后提醒」「跳过本次」。
-- **喝水卡片**（`kind: 'water'`）：显示「已喝水」「5 分钟后提醒」「跳过本次」。
+- **休息卡片**（`kind: 'rest'`）：显示「5 分钟后提醒」「10 分钟后提醒」「跳过本次」，采用紫色主题。
+- **喝水卡片**（`kind: 'water'`）：显示「已喝水」「5 分钟后提醒」「跳过本次」，采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）。
 
 点击「已喝水」调用 `recordWater()` 记录当前时间，并关闭该卡片；「跳过本次」调用 `skipWaterReminder()`，由后端读取 `water_interval_minutes` 设置 snooze。
 

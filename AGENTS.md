@@ -127,12 +127,14 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 仅在当前分钟为**活跃**时检查；休息期间不提醒，恢复活跃后重新判断。
    - 触发后自动按 `water_interval_minutes` 设置 snooze，避免短时间内重复弹窗。
    - 用户可在 Dashboard 的 `WaterWidget.vue` 中手动记录「+1 次喝水」或删除最近一次记录；点击 Toast 的「已喝水」按钮也会立即记录并关闭通知。
+   - 喝水提醒 Toast 采用与 `WaterWidget` 统一的蓝色主题，与休息提醒的紫色主题区分。
    - `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
 
 5. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
    - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
    - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
    - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
+   - 通知按 `kind` 区分主题：**休息提醒**保持紫色主题；**喝水提醒**采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）。
    - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口显示半透明黄色背景，便于排查布局/点击问题。
 
 6. **全屏背景图存储**（`lib.rs`）
