@@ -214,8 +214,9 @@ onDeactivated(() => {
       </div>
     </section>
 
-    <section v-if="waterEnabled" class="water-section">
-      <WaterWidget />
+    <!-- 小组件网格：与 stats 独立成行，支持后续扩展更多卡片 -->
+    <section v-if="waterEnabled" class="widget-grid">
+      <WaterWidget class="widget-card" />
     </section>
 
     <n-card class="panel" :bordered="false">
@@ -304,6 +305,18 @@ onDeactivated(() => {
   }
 }
 
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: stretch;
+}
+
+.widget-card {
+  min-width: 0;
+}
+
 .stat {
   background: #fff;
   border: 1px solid #ebe6f2;
@@ -370,11 +383,6 @@ onDeactivated(() => {
 .stat-ratio .stat-value,
 .stat-blocks .stat-value {
   color: #4c1d95;
-}
-
-.water-section {
-  margin-bottom: 18px;
-  display: flex;
 }
 
 .panel {
