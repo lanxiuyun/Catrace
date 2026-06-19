@@ -405,7 +405,7 @@ async function handleWaterSkip(item: ToastItem) {
         :key="item.id"
         :ref="(el) => setCardRef(el, item.id)"
         class="toast-card"
-        :class="{ visible: item.visible }"
+        :class="{ visible: item.visible, 'toast-card-water': item.kind === 'water' }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
@@ -520,6 +520,43 @@ async function handleWaterSkip(item: ToastItem) {
 .toast-card.visible {
   transform: translateX(0) scale(1);
   opacity: 1;
+}
+
+/* Water reminder theming — unified with WaterWidget / Dashboard */
+.toast-card-water .pulse-dot {
+  background: #3B82F6;
+}
+
+.toast-card-water .progress-bar {
+  background: linear-gradient(90deg, #2563EB, #60A5FA);
+}
+
+.toast-card-water .title {
+  color: #1E40AF;
+}
+
+.toast-card-water .close-btn:hover {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+
+.toast-card-water .body-text {
+  color: #3B82F6;
+}
+
+.toast-card-water .btn-secondary {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+.toast-card-water .btn-secondary:hover {
+  background: #DBEAFE;
+}
+
+.toast-card-water .btn-primary {
+  background: #2563EB;
+}
+.toast-card-water .btn-primary:hover {
+  background: #1D4ED8;
 }
 
 .debug-panel {
