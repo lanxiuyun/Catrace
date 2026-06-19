@@ -507,11 +507,7 @@ async function handleWaterSkip(item: ToastItem) {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  box-shadow:
-    0 1px 2px rgba(0,0,0,0.02),
-    0 8px 16px rgba(0,0,0,0.04),
-    0 16px 32px rgba(0,0,0,0.06),
-    0 32px 64px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   transform: translateX(120%) scale(0.96);
   opacity: 0;
   transition:
