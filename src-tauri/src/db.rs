@@ -2,6 +2,16 @@ use rusqlite::{Connection, Result};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+fn start_of_day_ts() -> i64 {
+    chrono::Local::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(chrono::Local)
+        .unwrap()
+        .timestamp()
+}
+
 #[derive(Clone)]
 pub struct Db {
     conn: Arc<Mutex<Connection>>,
@@ -162,13 +172,7 @@ impl Db {
 
     pub fn get_today_water_count(&self) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let start_of_day = chrono::Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_local_timezone(chrono::Local)
-            .unwrap()
-            .timestamp();
+        let start_of_day = start_of_day_ts();
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM water_records WHERE timestamp >= ?1",
             [start_of_day],
@@ -179,13 +183,7 @@ impl Db {
 
     pub fn get_today_water_records(&self) -> Result<Vec<i64>> {
         let conn = self.conn.lock().unwrap();
-        let start_of_day = chrono::Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_local_timezone(chrono::Local)
-            .unwrap()
-            .timestamp();
+        let start_of_day = start_of_day_ts();
         let mut stmt = conn.prepare(
             "SELECT timestamp FROM water_records WHERE timestamp >= ?1 ORDER BY timestamp ASC",
         )?;
@@ -195,22 +193,17 @@ impl Db {
 
     pub fn delete_last_water(&self) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
+        let start_of_day = start_of_day_ts();
         let deleted = conn.execute(
-            "DELETE FROM water_records WHERE timestamp = (SELECT MAX(timestamp) FROM water_records)",
-            [],
+            "DELETE FROM water_records WHERE timestamp = (SELECT MAX(timestamp) FROM water_records WHERE timestamp >= ?1)",
+            [start_of_day],
         )?;
         Ok(deleted > 0)
     }
 
     /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
     fn get_today_minutes(&self) -> Result<Vec<(i64, bool)>> {
-        let start_of_day = chrono::Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_local_timezone(chrono::Local)
-            .unwrap()
-            .timestamp();
+        let start_of_day = start_of_day_ts();
 
         let records = self.get_records_since(start_of_day)?;
         if records.is_empty() {
@@ -384,16 +377,6 @@ fn compute_completed_blocks(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn start_of_day_ts() -> i64 {
-        chrono::Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_local_timezone(chrono::Local)
-            .unwrap()
-            .timestamp()
-    }
 
     #[test]
     fn test_notify_after_active_block_completes() {
@@ -690,5 +673,18 @@ mod tests {
         db.record_water(base - 86400).unwrap();
         let records = db.get_today_water_records().unwrap();
         assert_eq!(records, vec![base + 60, base + 120]);
+
+        // 删除最近一次应只删今天的，不影响昨天记录
+        assert!(db.delete_last_water().unwrap());
+        assert_eq!(db.get_last_water(), Some(base + 60));
+        assert_eq!(db.get_today_water_count().unwrap(), 1);
+
+        // 删除 today's 最后一条后再删应返回 false
+        assert!(db.delete_last_water().unwrap());
+        assert!(!db.delete_last_water().unwrap());
+        assert_eq!(db.get_today_water_count().unwrap(), 0);
+
+        // 昨天的记录仍在
+        assert_eq!(db.get_last_water(), Some(base - 86400));
     }
 }
