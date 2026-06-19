@@ -177,6 +177,31 @@ impl Db {
         Ok(count)
     }
 
+    pub fn get_today_water_records(&self) -> Result<Vec<i64>> {
+        let conn = self.conn.lock().unwrap();
+        let start_of_day = chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .timestamp();
+        let mut stmt = conn.prepare(
+            "SELECT timestamp FROM water_records WHERE timestamp >= ?1 ORDER BY timestamp ASC",
+        )?;
+        let rows = stmt.query_map([start_of_day], |row| row.get::<_, i64>(0))?;
+        rows.collect::<Result<Vec<_>>>()
+    }
+
+    pub fn delete_last_water(&self) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let deleted = conn.execute(
+            "DELETE FROM water_records WHERE timestamp = (SELECT MAX(timestamp) FROM water_records)",
+            [],
+        )?;
+        Ok(deleted > 0)
+    }
+
     /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
     fn get_today_minutes(&self) -> Result<Vec<(i64, bool)>> {
         let start_of_day = chrono::Local::now()
@@ -657,5 +682,13 @@ mod tests {
         db.record_water(base + 120).unwrap();
         assert_eq!(db.get_last_water(), Some(base + 120));
         assert_eq!(db.get_today_water_count().unwrap(), 2);
+
+        let records = db.get_today_water_records().unwrap();
+        assert_eq!(records, vec![base + 60, base + 120]);
+
+        // 昨天的记录不应出现在今日列表中
+        db.record_water(base - 86400).unwrap();
+        let records = db.get_today_water_records().unwrap();
+        assert_eq!(records, vec![base + 60, base + 120]);
     }
 }

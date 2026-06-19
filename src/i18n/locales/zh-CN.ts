@@ -71,6 +71,7 @@ export default {
       waterDesc: '按间隔提醒你喝水，保持身体水分',
       waterIntervalTitle: '喝水间隔',
       waterIntervalDesc: '多久未喝水就弹出提醒',
+      waterTest: '测试',
     },
     update: {
       softwareVersion: '软件版本',
@@ -186,5 +187,10 @@ export default {
     minutesAgo: '{n} 分钟前',
     hoursAgo: '{n} 小时前',
     add: '记一次喝水',
+    remove: '删除最近一次记录',
+    empty: '今天还没有记录喝水',
+    at: '{time}',
+    times: '次',
+    now: '现在',
   },
 }

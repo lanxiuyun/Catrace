@@ -743,6 +743,17 @@ fn get_water_stats(db: tauri::State<db::Db>) -> Result<serde_json::Value, String
 }
 
 #[tauri::command]
+fn get_water_records(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
+    let records = db.get_today_water_records().map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "records": records }))
+}
+
+#[tauri::command]
+fn delete_last_water(db: tauri::State<db::Db>) -> Result<bool, String> {
+    db.delete_last_water().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn snooze_water_reminder(minutes: u64, state: tauri::State<Arc<Mutex<WaterReminderState>>>) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
@@ -1592,6 +1603,8 @@ pub fn run() {
             set_water_settings,
             record_water,
             get_water_stats,
+            get_water_records,
+            delete_last_water,
             snooze_water_reminder,
             skip_water_reminder,
         ])

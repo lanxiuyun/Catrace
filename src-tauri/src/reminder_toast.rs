@@ -126,7 +126,7 @@ pub fn create_toast_window(
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html".into()),
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
         )
         .title("Catrace")
         .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)

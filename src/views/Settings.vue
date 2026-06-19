@@ -20,7 +20,7 @@ import {
   getSilentStart, setSilentStart,
   getVideoActiveEnabled, setVideoActiveEnabled,
   getLocale, setLocale,
-  testNotification,
+  testNotification, testWaterNotification,
   getReminderMode, setReminderMode,
   getReminderText, setReminderText,
   getFullscreenSettings, setFullscreenSettings,
@@ -326,6 +326,15 @@ async function notify() {
   }
 }
 
+async function notifyWater() {
+  try {
+    await testWaterNotification()
+    message.success(t('settings.messages.notifySent'))
+  } catch (e) {
+    message.error(t('settings.messages.notifyFailed'))
+  }
+}
+
 async function handleCheckUpdate() {
   updateLoading.value = true
   try {
@@ -466,18 +475,31 @@ async function handleInstallUpdate() {
             />
           </div>
 
-          <div class="divider" />
+          <template v-if="waterEnabled">
+            <div class="divider" />
 
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.waterIntervalTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.waterIntervalDesc') }}</div>
+            <div class="setting-row">
+              <div class="setting-meta">
+                <div class="setting-title">{{ t('settings.reminder.waterIntervalTitle') }}</div>
+                <div class="setting-desc">{{ t('settings.reminder.waterIntervalDesc') }}</div>
+              </div>
+              <div class="setting-control slider-control">
+                <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
+                <span class="setting-value water-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
+              </div>
             </div>
-            <div class="setting-control slider-control">
-              <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
-              <span class="setting-value water-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
+
+            <div class="divider" />
+
+            <div class="setting-row">
+              <div class="setting-meta">
+                <div class="setting-title">{{ t('settings.reminder.waterTest') }}</div>
+              </div>
+              <button class="water-test-btn" :disabled="!waterEnabled" @click="notifyWater">
+                {{ t('settings.reminder.waterTest') }}
+              </button>
             </div>
-          </div>
+          </template>
         </div>
 
         <div class="group">
@@ -1123,6 +1145,25 @@ async function handleInstallUpdate() {
 .water-group :deep(.n-slider-handle) {
   background-color: #3b82f6 !important;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+}
+.water-test-btn {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.water-test-btn:hover {
+  background: #2563eb;
+}
+.water-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 响应式 */

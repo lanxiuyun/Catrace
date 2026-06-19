@@ -71,6 +71,7 @@ export default {
       waterDesc: 'Remind you to drink water at intervals',
       waterIntervalTitle: 'Water Interval',
       waterIntervalDesc: 'How long without drinking before reminding',
+      waterTest: 'Test Water Reminder',
     },
     update: {
       softwareVersion: 'Software Version',
@@ -186,5 +187,10 @@ export default {
     minutesAgo: '{n} min ago',
     hoursAgo: '{n} hr ago',
     add: 'Log a drink',
+    remove: 'Remove last drink',
+    empty: 'No water logged today',
+    at: '{time}',
+    times: 'drinks',
+    now: 'now',
   },
 }

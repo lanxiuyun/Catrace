@@ -107,6 +107,14 @@ export async function getWaterStats(): Promise<{ count: number; last_ts: number 
   return invoke('get_water_stats')
 }
 
+export async function getWaterRecords(): Promise<{ records: number[] }> {
+  return invoke('get_water_records')
+}
+
+export async function deleteLastWater(): Promise<boolean> {
+  return invoke('delete_last_water')
+}
+
 export async function snoozeWaterReminder(minutes: number): Promise<void> {
   return invoke('snooze_water_reminder', { minutes })
 }
