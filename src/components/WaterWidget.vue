@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getWaterStats, getWaterRecords, recordWater, deleteLastWater } from '../api/tauri'
 
@@ -34,7 +34,7 @@ function startOfDayTs(): number {
 }
 
 const dayStart = computed(() => startOfDayTs())
-const nowTs = computed(() => Math.floor(Date.now() / 1000))
+const nowTs = ref(Math.floor(Date.now() / 1000))
 
 const timelineStart = computed(() => {
   if (records.value.length > 0) {
@@ -75,18 +75,19 @@ async function load() {
   }
 }
 
-watch(count, () => {
+function triggerPulse() {
   pulseCount.value = true
   setTimeout(() => {
     pulseCount.value = false
   }, 250)
-})
+}
 
 async function addDrink() {
   loading.value = true
   try {
     await recordWater(Math.floor(Date.now() / 1000))
     await load()
+    triggerPulse()
   } catch (e) {
     console.error('Failed to record water', e)
   } finally {
@@ -100,6 +101,7 @@ async function removeDrink() {
   try {
     await deleteLastWater()
     await load()
+    triggerPulse()
   } catch (e) {
     console.error('Failed to delete last water record', e)
   } finally {
@@ -108,14 +110,19 @@ async function removeDrink() {
 }
 
 let timer: ReturnType<typeof setInterval> | null = null
+let nowTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   load()
   timer = setInterval(load, 30000)
+  nowTimer = setInterval(() => {
+    nowTs.value = Math.floor(Date.now() / 1000)
+  }, 30000)
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (nowTimer) clearInterval(nowTimer)
 })
 </script>
 
