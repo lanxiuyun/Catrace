@@ -121,12 +121,13 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 > 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
 
-4. **喝水提醒**（`lib.rs` + `water.rs` + `WaterWidget.vue`）
-   - 在每分钟活跃结算时，若距上次喝水超过 `water_interval_minutes`，则通过右下角 Toast 提醒用户喝水。
+4. **喝水提醒**（`water.rs` + `lib.rs` + `WaterWidget.vue`）
+   - `water.rs` 集中管理喝水提醒：状态机 `WaterReminderState`、Tauri 命令、Toast 通知、每分钟结算检查。
+   - 在每分钟活跃结算时，`lib.rs` 调用 `water::check_and_notify(...)`；若距上次喝水超过 `water_interval_minutes`，则通过右下角 Toast 提醒用户喝水。
    - 仅在当前分钟为**活跃**时检查；休息期间不提醒，恢复活跃后重新判断。
    - 触发后自动按 `water_interval_minutes` 设置 snooze，避免短时间内重复弹窗。
    - 用户可在 Dashboard 的 `WaterWidget.vue` 中手动记录「+1 次喝水」或删除最近一次记录；点击 Toast 的「已喝水」按钮也会立即记录并关闭通知。
-   - `water.rs` 中的 `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
+   - `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
 
 5. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
    - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
@@ -208,7 +209,7 @@ src-tauri/src/
 ├── reminder.rs -- 提醒状态机 ReminderState + 单元测试
 ├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
 ├── db.rs       -- rusqlite 读写封装 + block/喝水记录 + 单元测试
-├── water.rs    -- 喝水提醒状态机 WaterReminderState + 单元测试
+├── water.rs    -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
 └── report.rs   -- UpgradeLink 事件上报（app_start 等）
 ```
 

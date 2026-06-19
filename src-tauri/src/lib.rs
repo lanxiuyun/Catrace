@@ -400,20 +400,6 @@ fn test_notify_msg(locale: &str) -> &'static str {
     }
 }
 
-fn water_notify_title(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "喝水提醒",
-        _ => "Drink Water",
-    }
-}
-
-fn water_notify_body(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "该喝水了，给身体补补水吧。",
-        _ => "Time to drink some water.",
-    }
-}
-
 fn tray_show(locale: &str) -> &'static str {
     match locale {
         "zh-CN" => "显示主窗口",
@@ -698,78 +684,6 @@ fn set_reminder_text(title: String, body: String, db: tauri::State<db::Db>) -> R
 }
 
 // ------------------------------------------------------------------
-// 喝水提醒
-// ------------------------------------------------------------------
-
-#[tauri::command]
-fn get_water_settings(db: tauri::State<db::Db>) -> serde_json::Value {
-    let enabled = db.get_setting("water_reminder_enabled", "true") == "true";
-    let interval: i64 = db
-        .get_setting("water_interval_minutes", "60")
-        .parse()
-        .unwrap_or(60);
-    serde_json::json!({ "enabled": enabled, "interval_minutes": interval })
-}
-
-#[tauri::command]
-fn set_water_settings(
-    enabled: bool,
-    interval_minutes: i64,
-    db: tauri::State<db::Db>,
-) -> Result<(), String> {
-    db.set_setting("water_reminder_enabled", &enabled.to_string())
-        .map_err(|e| e.to_string())?;
-    db.set_setting("water_interval_minutes", &interval_minutes.to_string())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn record_water(
-    timestamp: i64,
-    db: tauri::State<db::Db>,
-    state: tauri::State<Arc<Mutex<WaterReminderState>>>,
-) -> Result<(), String> {
-    db.record_water(timestamp).map_err(|e| e.to_string())?;
-    let mut s = state.lock().unwrap();
-    s.record_drink();
-    Ok(())
-}
-
-#[tauri::command]
-fn get_water_stats(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
-    let count = db.get_today_water_count().map_err(|e| e.to_string())?;
-    let last_ts = db.get_last_water();
-    Ok(serde_json::json!({ "count": count, "last_ts": last_ts }))
-}
-
-#[tauri::command]
-fn get_water_records(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
-    let records = db.get_today_water_records().map_err(|e| e.to_string())?;
-    Ok(serde_json::json!({ "records": records }))
-}
-
-#[tauri::command]
-fn delete_last_water(db: tauri::State<db::Db>) -> Result<bool, String> {
-    db.delete_last_water().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn snooze_water_reminder(minutes: u64, state: tauri::State<Arc<Mutex<WaterReminderState>>>) {
-    let mut s = state.lock().unwrap();
-    s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
-}
-
-#[tauri::command]
-fn skip_water_reminder(db: tauri::State<db::Db>, state: tauri::State<Arc<Mutex<WaterReminderState>>>) {
-    let water_interval: u64 = db
-        .get_setting("water_interval_minutes", "60")
-        .parse()
-        .unwrap_or(60);
-    let mut s = state.lock().unwrap();
-    s.snooze_until = Some(Instant::now() + Duration::from_secs(water_interval * 60));
-}
-
-// ------------------------------------------------------------------
 // 全屏背景图：保存到磁盘文件，数据库只存路径
 // ------------------------------------------------------------------
 
@@ -1002,16 +916,6 @@ fn test_notification(
     );
 }
 
-#[tauri::command]
-fn test_water_notification(
-    app_handle: tauri::AppHandle,
-    db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
-) {
-    let locale = db.get_setting("locale", "zh-CN");
-    show_water_notification(&app_handle, &locale, &store);
-}
-
 // ------------------------------------------------------------------
 // 通知：统一入口（支持 toast / popup / fullscreen）
 // ------------------------------------------------------------------
@@ -1076,16 +980,6 @@ fn show_notification(
             reminder_toast::create_toast_window(app_handle, boundary, &title, &body, "rest", store);
         }
     }
-}
-
-fn show_water_notification(
-    app_handle: &tauri::AppHandle,
-    locale: &str,
-    store: &ReminderWindowStore,
-) {
-    let title = water_notify_title(locale).to_string();
-    let body = water_notify_body(locale).to_string();
-    reminder_toast::create_toast_window(app_handle, 0, &title, &body, "water", store);
 }
 
 fn create_popup_window(
@@ -1491,32 +1385,14 @@ pub fn run() {
                     }
 
                     // 喝水提醒逻辑（仅在当前分钟活跃时检查）
-                    let water_enabled =
-                        db_clone.get_setting("water_reminder_enabled", "true") == "true";
-                    if active && water_enabled {
-                        let water_interval: i64 = db_clone
-                            .get_setting("water_interval_minutes", "60")
-                            .parse()
-                            .unwrap_or(60);
-                        let now_ts = chrono::Local::now().timestamp();
-                        let overdue = match db_clone.get_last_water() {
-                            Some(last_ts) => now_ts - last_ts >= water_interval * 60,
-                            None => true,
-                        };
-
-                        if overdue {
-                            let mut state = water_state_for_settle.lock().unwrap();
-                            if !state.is_snoozed() && state.can_send_reminder() {
-                                state.last_reminder_sent = Some(Instant::now());
-                                state.snooze_until = Some(
-                                    Instant::now()
-                                        + Duration::from_secs((water_interval as u64) * 60),
-                                );
-                                drop(state);
-                                show_water_notification(&app_handle, &locale, &store_for_settle);
-                            }
-                        }
-                    }
+                    water::check_and_notify(
+                        active,
+                        &db_clone,
+                        &water_state_for_settle,
+                        &app_handle,
+                        &locale,
+                        &store_for_settle,
+                    );
 
                     s.count = 0;
                 }
@@ -1593,7 +1469,7 @@ pub fn run() {
             get_today_records,
             get_app_stats,
             test_notification,
-            test_water_notification,
+            water::test_water_notification,
             get_video_debug_info,
             get_reminder_mode,
             set_reminder_mode,
@@ -1604,14 +1480,14 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
-            get_water_settings,
-            set_water_settings,
-            record_water,
-            get_water_stats,
-            get_water_records,
-            delete_last_water,
-            snooze_water_reminder,
-            skip_water_reminder,
+            water::get_water_settings,
+            water::set_water_settings,
+            water::record_water,
+            water::get_water_stats,
+            water::get_water_records,
+            water::delete_last_water,
+            water::snooze_water_reminder,
+            water::skip_water_reminder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
