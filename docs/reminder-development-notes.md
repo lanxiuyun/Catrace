@@ -335,6 +335,24 @@ let bg_color = if debug_mode {
 
 前端 Debug.vue 提供开关，可实时查看当前焦点窗口、GSMTCSM 会话、键鼠计数，以及切换 Toast 调试背景。
 
+### 5.4 水提醒卡片
+
+Toast 通知对象增加 `kind: 'rest' | 'water'` 字段，用于区分休息提醒与喝水提醒：
+
+- **休息卡片**（`kind: 'rest'`）：显示「5 分钟后提醒」「10 分钟后提醒」「跳过本次」。
+- **喝水卡片**（`kind: 'water'`）：显示「已喝水」「5 分钟后提醒」「跳过本次」。
+
+点击「已喝水」调用 `recordWater()` 记录当前时间，并关闭该卡片；「跳过本次」调用 `skipWaterReminder()`，由后端读取 `water_interval_minutes` 设置 snooze。
+
+Rust 创建 Toast 时通过 `kind` 参数传入类型：
+
+```rust
+reminder_toast::create_toast_window(app_handle, boundary, &title, &body, "rest", store);
+reminder_toast::create_toast_window(app_handle, 0, &title, &body, "water", store);
+```
+
+水提醒没有 `boundary` 概念，因此 `boundary` 传 `0`。
+
 ---
 
 ## 6. 完整正确代码

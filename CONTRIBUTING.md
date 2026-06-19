@@ -79,7 +79,7 @@ pnpm tauri build
 
 - **文档与注释**：项目文档使用中文；代码注释与现有风格保持一致。
 - **前端**：Vue 3 Composition API + `<script setup>` + TypeScript；UI 配色统一维护在 `src/theme.ts`。
-- **Rust**：业务逻辑主要在 `src-tauri/src/lib.rs`、`db.rs`、`reminder.rs`；扩展时优先复用现有模块，避免重复实现。
+- **Rust**：业务逻辑主要在 `src-tauri/src/lib.rs`、`db.rs`、`reminder.rs`、`water.rs`；扩展时优先复用现有模块，避免重复实现。
 - **跨平台（强约束）**：
   - 新增系统 API、原生依赖、文件路径、通知、托盘等功能时，**必须先评估** Windows / macOS / Linux 兼容性。
   - 平台专属 crate（如 `tauri-winrt-notification`、`windows-registry`）须在 `Cargo.toml` 中按 `target.'cfg(...)'.dependencies` 声明，代码中用 `#[cfg(target_os = "...")]` 隔离。

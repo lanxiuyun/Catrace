@@ -29,7 +29,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── assets/
 │   ├── components/
 │   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
-│   │   └── TimelineWindows.vue # 概览视图：block 卡片网格（可展开整行）
+│   │   ├── TimelineWindows.vue # 概览视图：block 卡片网格（可展开整行）
+│   │   └── WaterWidget.vue     # 喝水提醒小组件（Dashboard 右上角）
 │   ├── router/index.ts
 │   ├── utils/
 │   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
@@ -50,7 +51,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   ├── lib.rs              # 全部业务逻辑（采样、结算、通知、命令）
 │   │   ├── reminder.rs         # 提醒状态机 ReminderState + 单元测试
 │   │   ├── reminder_toast.rs   # Toast 窗口位置计算与尺寸调整
-│   │   ├── db.rs               # rusqlite 封装
+│   │   ├── db.rs               # rusqlite 读写封装 + block/喝水记录
+│   │   ├── water.rs            # 喝水提醒状态机 WaterReminderState + 单元测试
 │   │   └── report.rs           # UpgradeLink 事件上报（app_start 等）
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
@@ -119,13 +121,20 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 > 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
 
-4. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
+4. **喝水提醒**（`lib.rs` + `water.rs` + `WaterWidget.vue`）
+   - 在每分钟活跃结算时，若距上次喝水超过 `water_interval_minutes`，则通过右下角 Toast 提醒用户喝水。
+   - 仅在当前分钟为**活跃**时检查；休息期间不提醒，恢复活跃后重新判断。
+   - 触发后自动按 `water_interval_minutes` 设置 snooze，避免短时间内重复弹窗。
+   - 用户可在 Dashboard 的 `WaterWidget.vue` 中手动记录「+1 次喝水」或删除最近一次记录；点击 Toast 的「已喝水」按钮也会立即记录并关闭通知。
+   - `water.rs` 中的 `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
+
+5. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
    - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
    - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
    - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
    - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口显示半透明黄色背景，便于排查布局/点击问题。
 
-5. **全屏背景图存储**（`lib.rs`）
+6. **全屏背景图存储**（`lib.rs`）
    - 前端上传的 data URL 经 base64 解码后保存为磁盘文件（`app_data_dir/bg/fullscreen_bg.{ext}`），DB 只存文件路径，避免 SQLite 存储大 blob。
    - 读取时通过 `resolve_bg_for_frontend()` 统一将文件路径转回 data URL 返回前端。
    - 默认背景图使用 bundled `src-tauri/assets/catrace.png`，首次启动时复制到 `app_data_dir/bg/`。
@@ -133,13 +142,13 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 进入全屏提醒路由时，`App.vue` 通过 CSS class 切换 `html/body/#app` 背景为透明，让全屏背景图穿透显示。
    - `set_fullscreen_settings` 在 `element_transforms` 为空字符串时保留已有值，避免 Settings.vue 调整背景/透明度/填充模式时覆盖用户在 ReminderFullscreen.vue 中调整的元素位置/缩放/旋转。
 
-6. **全屏提醒元素独立编辑**（`ReminderFullscreen.vue`）
+7. **全屏提醒元素独立编辑**（`ReminderFullscreen.vue`）
    - 每个元素（标题、正文、倒计时、按钮）可独立调整位置、缩放、旋转。
    - 数据存储为 JSON 字符串 `fullscreen_element_transforms`，包含每个元素的 x, y, scale, rotate。
    - 交互流程：点击右上角锁图标进入编辑模式 → 点击元素选中 → 拖动改变位置 / 滚轮调整缩放 / 滑块调整旋转 → 点击锁定保存。
    - 编辑模式下元素显示虚线边框，选中元素显示紫色边框和编辑工具栏。
 
-7. **启动事件上报**（`report.rs`）
+8. **启动事件上报**（`report.rs`）
    - 应用启动时（`lib.rs` setup 阶段）异步上报 `app_start` 事件到 `https://api.upgrade.toolsetlink.com/v1/app/report`。
    - 请求头携带 `X-Timestamp`、`X-Nonce`、`X-AccessKey`、`X-Signature`，Body 包含 `eventType`、`appKey`、`timestamp` 与 `eventData`（`launchTime`、`versionCode`、`target`、`arch`、`devKey`）。
    - 签名规则：`MD5(body=${body}&nonce=${X-Nonce}&secretKey=${SecretKey}&timestamp=${X-Timestamp}&url=/v1/app/report)`。
@@ -157,6 +166,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `window_minutes` | 工作窗口长度（分钟） | 45 |
 | `break_minutes` | 连续休息多少分钟算断开（分钟） | 5 |
 | `snooze_interval_minutes` | 活跃满后重复提醒间隔（分钟） | 3 |
+| `water_reminder_enabled` | 开启喝水提醒 | true |
+| `water_interval_minutes` | 喝水间隔（多久未喝水则提醒，分钟） | 60 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
@@ -191,11 +202,13 @@ src-tauri/src/
 │                 · 键盘/鼠标采样线程（实时累积活动次数）
 │                 · 每分钟00秒结算 + 写入 DB
 │                 · 滑动窗口检测 + 通知
+│                 · 喝水提醒触发
 │                 · #[tauri::command] 暴露给前端
 │                 · 系统托盘
 ├── reminder.rs -- 提醒状态机 ReminderState + 单元测试
 ├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
-├── db.rs       -- rusqlite 读写封装 + 单元测试
+├── db.rs       -- rusqlite 读写封装 + block/喝水记录 + 单元测试
+├── water.rs    -- 喝水提醒状态机 WaterReminderState + 单元测试
 └── report.rs   -- UpgradeLink 事件上报（app_start 等）
 ```
 
@@ -219,7 +232,8 @@ src/
 │   └── ReminderFullscreen.vue   -- 全屏提醒窗口
 ├── components/
 │   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
-│   └── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
+│   ├── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
+│   └── WaterWidget.vue      -- 喝水提醒小组件：次数 / 最近一次 / 时间轴
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
@@ -239,6 +253,9 @@ src/
 │ 概览     │  ┌────┐ ┌────┐ ┌────┐ ┌────┐       │
 │ 设置     │  │活跃│ │休息│ │占比│ │时段│       │
 │          │  └────┘ └────┘ └────┘ └────┘       │
+│          │  ┌──── 喝水提醒 ────┐               │
+│          │  │ 今日次数 · 时间轴 │               │
+│          │  └───────────────────┘               │
 │          │  ┌─ 今日活动 ──── [概览|详细] ─┐   │
 │          │  │  block 列表 / 24h 热力图    │   │
 │          │  └─────────────────────────────┘   │
@@ -304,6 +321,11 @@ CREATE TABLE records (
     category TEXT                   -- [已弃用] 原应用分类，现保留列以兼容旧数据
 );
 
+-- 喝水记录
+CREATE TABLE water_records (
+    timestamp INTEGER PRIMARY KEY   -- 秒级时间戳
+);
+
 -- 配置键值对
 CREATE TABLE settings (
     key TEXT PRIMARY KEY,
@@ -361,6 +383,7 @@ CREATE TABLE settings (
 | 40 | 单例模式：重复启动应用时聚焦到已有实例主窗口                                                    | ✅ |
 | 41 | Toast 提醒重构：Vue 透明窗口 + 堆叠卡片 + FLIP 动画 + 调试模式，移除 Windows 原生 Toast 依赖            | ✅ |
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
+| 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 
 ---
 
@@ -401,7 +424,7 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：共 22 个单元测试，分布在 `db.rs`（14 个）、`reminder.rs`（4 个）和 `report.rs`（4 个）：
+- **Rust**：共 26 个单元测试，分布在 `db.rs`（15 个）、`reminder.rs`（4 个）、`report.rs`（4 个）和 `water.rs`（3 个）：
 
   **Block 切分（`db.rs`，3 个）**
   | 测试名 | 说明 |
@@ -425,6 +448,11 @@ cd src-tauri && cargo test
   | `test_notify_full_cycle_active_rest_active` | 场景 5 完整 | 活跃 45min → 休息 5min → 再活跃 45min，验证完整周期 |
   | `test_notify_no_duplicate_boundary` | 场景 1 | 同一数据多次调用，boundary 稳定 |
 
+  **喝水记录（`db.rs`，1 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_water_records` | 记录喝水、同分钟去重、今日查询、删除今日最近一次、不跨天删除 |
+
   **提醒状态机（`reminder.rs`，4 个）**
   | 测试名 | 说明 |
   |---|---|
@@ -440,6 +468,13 @@ cd src-tauri && cargo test
   | `test_map_target` | `macos` → `darwin`，其他平台保持原值 |
   | `test_generate_signature_format` | 签名输出为 32 位十六进制字符串 |
   | `test_generate_signature_matches_official_rule` | 与文档签名示例规则一致 |
+
+  **喝水提醒状态机（`water.rs`，3 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_water_state_snooze` | `is_snoozed()` 正确判断未来/过去时刻 |
+  | `test_water_state_can_send_reminder` | `can_send_reminder()` 1 秒去重 |
+  | `test_water_state_record_drink_clears_snooze` | 喝水后清除 snooze |
 
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 

@@ -38,6 +38,14 @@ When it's time, Catrace reminds you to take a break using your chosen method. Th
 
 You can customize your work window length and rest threshold to find the rhythm that suits you best.
 
+## Water Reminder
+
+In addition to reminding you to stand up and rest, Catrace can also remind you to drink water at your chosen interval, so you don't forget to stay hydrated while busy.
+
+- Checks only when you are currently active; it won't bother you while resting.
+- Pops a water reminder Toast in the bottom-right corner; click "Drank" to log a glass.
+- Use the water widget on the Dashboard to manually add or remove today's drink count and view your drinking timeline.
+
 > As soon as you start resting (even just one minute), reminders stop automatically. They won't keep buzzing while you're on a break. They only resume after you get back to work.
 
 ## Privacy
