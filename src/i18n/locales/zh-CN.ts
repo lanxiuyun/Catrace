@@ -2,6 +2,7 @@ export default {
   nav: {
     overview: '概览',
     settings: '设置',
+    videoRules: '视频规则',
     debug: '调试',
   },
   dashboard: {
@@ -117,6 +118,21 @@ export default {
       updateFailed: '更新失败',
     },
   },
+  videoRules: {
+    title: '视频活跃规则',
+    subtitle: '每行一个规则，匹配窗口标题、应用名、进程名或进程路径',
+    enabled: '视频计入活跃',
+    enabledDesc: '开启后，匹配规则的窗口会被计为活跃',
+    resetDefault: '重置为默认',
+    saveRules: '保存规则',
+    loadFailed: '加载规则失败',
+    confirmReset: '确定要重置为默认规则吗？当前自定义规则将丢失。',
+    invalidPattern: '无效正则: {pattern}',
+    saveSuccess: '规则已保存',
+    saveFailed: '保存失败',
+    placeholder: '例如：\nyoutube\nbilibili\n# 这是一行注释\n斗鱼直播',
+    hint: '每行一个正则表达式。\n以 # 开头的行会被忽略。\n规则会同时匹配窗口标题、应用名、进程名和进程路径。',
+  },
   debug: {
     title: '视频检测调试',
     refresh: '手动刷新',
@@ -139,11 +155,11 @@ export default {
       status: '状态',
       type: '类型',
     },
-    focusWindow: '焦点窗口（关键词匹配）',
+    focusWindow: '焦点窗口（规则匹配）',
     windowTitle: '窗口标题',
     appName: '应用名',
     processPath: '进程路径',
-    keywordMatch: '关键词匹配',
+    ruleMatch: '规则匹配',
     matchedPrefix: '命中：',
   },
   timeline: {

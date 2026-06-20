@@ -2,6 +2,7 @@ export default {
   nav: {
     overview: 'Overview',
     settings: 'Settings',
+    videoRules: 'Video Rules',
     debug: 'Debug',
   },
   dashboard: {
@@ -117,6 +118,21 @@ export default {
       updateFailed: 'Update failed',
     },
   },
+  videoRules: {
+    title: 'Video Active Rules',
+    subtitle: 'One rule per line, matches window title, app name, process name or process path',
+    enabled: 'Video counts as active',
+    enabledDesc: 'When enabled, windows matching these rules are counted as active',
+    resetDefault: 'Reset to Defaults',
+    saveRules: 'Save Rules',
+    loadFailed: 'Failed to load rules',
+    confirmReset: 'Reset to default rules? Your custom rules will be lost.',
+    invalidPattern: 'Invalid regex: {pattern}',
+    saveSuccess: 'Rules saved',
+    saveFailed: 'Failed to save rules',
+    placeholder: 'e.g.\nyoutube\nbilibili\n# this is a comment\ndouyu',
+    hint: 'One regex pattern per line.\nLines starting with # are ignored.\nRules match against window title, app name, process name and process path.',
+  },
   debug: {
     title: 'Video Detection Debug',
     refresh: 'Refresh',
@@ -139,11 +155,11 @@ export default {
       status: 'Status',
       type: 'Type',
     },
-    focusWindow: 'Focus Window (Keyword Matching)',
+    focusWindow: 'Focus Window (Rule Matching)',
     windowTitle: 'Window Title',
     appName: 'App Name',
     processPath: 'Process Path',
-    keywordMatch: 'Keyword Match',
+    ruleMatch: 'Rule Match',
     matchedPrefix: 'Matched: ',
   },
   timeline: {

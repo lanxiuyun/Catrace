@@ -171,12 +171,12 @@ onDeactivated(() => {
             <n-descriptions-item :label="t('debug.windowTitle')">{{ data.focus_window_title }}</n-descriptions-item>
             <n-descriptions-item :label="t('debug.appName')">{{ data.focus_app_name }}</n-descriptions-item>
             <n-descriptions-item :label="t('debug.processPath')">{{ data.focus_process_path }}</n-descriptions-item>
-            <n-descriptions-item :label="t('debug.keywordMatch')">
-              <n-tag :type="data.keyword_matched ? 'success' : 'default'">
-                {{ data.keyword_matched ? t('debug.yes') : t('debug.no') }}
+            <n-descriptions-item :label="t('debug.ruleMatch')">
+              <n-tag :type="data.rule_matched ? 'success' : 'default'">
+                {{ data.rule_matched ? t('debug.yes') : t('debug.no') }}
               </n-tag>
-              <n-text v-if="data.matched_keyword" depth="3" style="margin-left: 8px;">
-                {{ t('debug.matchedPrefix') }}{{ data.matched_keyword }}
+              <n-text v-if="data.matched_rule" depth="3" style="margin-left: 8px;">
+                {{ t('debug.matchedPrefix') }}{{ data.matched_rule }}
               </n-text>
             </n-descriptions-item>
           </n-descriptions>

@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.6.18"
+version = "26.6.19"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
@@ -506,6 +506,7 @@ dependencies = [
  "device_query",
  "md5",
  "rdev",
+ "regex",
  "reqwest 0.12.28",
  "rusqlite",
  "semver",

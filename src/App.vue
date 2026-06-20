@@ -35,6 +35,10 @@ const menuOptions = computed(() => [
     key: '/settings',
   },
   {
+    label: () => h(RouterLink, { to: '/video-rules' }, { default: () => t('nav.videoRules') }),
+    key: '/video-rules',
+  },
+  {
     label: () => h(RouterLink, { to: '/debug' }, { default: () => t('nav.debug') }),
     key: '/debug',
   },

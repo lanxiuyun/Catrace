@@ -37,6 +37,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   ├── Settings.vue              # 设置页：提醒偏好 + 提醒设置 + 系统 + 链接
+│   │   ├── VideoRules.vue            # 视频活跃规则设置页
 │   │   ├── Debug.vue                 # 视频检测与提醒窗口调试页面
 │   │   ├── ReminderToast.vue         # Toast 提醒窗口（堆叠通知卡片）
 │   │   ├── ReminderPopup.vue         # 弹窗提醒窗口
@@ -86,8 +87,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 每分钟00秒结算一次：该分钟内活动次数 ≥ 3 → 标记为**活跃**；否则标记为**休息**。
    - 键鼠监听是独立的实时线程，持续累积活动次数，每分钟00秒读取并归零。
    - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
-     - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 调用成功时完全信任其结果（无 Playing 会话也视为不活跃），仅在 API 调用失败时才回退到窗口标题 + 进程名关键词匹配。
-     - **macOS / Linux**：直接走窗口标题 + 进程名关键词匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
+     - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 可用但无 Playing 会话时，回退到用户自定义规则匹配；API 调用失败/超时时同样回退到规则匹配。
+     - **macOS / Linux**：直接走用户自定义规则匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
+     - **规则可配置**：用户可在「视频规则」页以纯文本形式自定义正则规则，每行一条，同时匹配窗口标题、应用名、进程名、进程路径；首次使用自动填充原先的默认关键词列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
@@ -174,6 +176,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `water_interval_minutes` | 喝水间隔（多久未喝水则提醒，分钟） | 60 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
+| `video_active_rules` | 视频活跃规则（JSON 字符串数组，每个元素为正则表达式） | 默认关键词规则 |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 | `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
 | `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
@@ -201,19 +204,20 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 ```
 src-tauri/src/
-├── main.rs     -- Tauri 入口，仅调用 lib::run()
-├── lib.rs      -- 全部业务逻辑：
-│                 · 键盘/鼠标采样线程（实时累积活动次数）
-│                 · 每分钟00秒结算 + 写入 DB
-│                 · 滑动窗口检测 + 通知
-│                 · 喝水提醒触发
-│                 · #[tauri::command] 暴露给前端
-│                 · 系统托盘
-├── reminder.rs -- 提醒状态机 ReminderState + 单元测试
+├── main.rs         -- Tauri 入口，仅调用 lib::run()
+├── lib.rs          -- 全部业务逻辑：
+│                     · 键盘/鼠标采样线程（实时累积活动次数）
+│                     · 每分钟00秒结算 + 写入 DB
+│                     · 滑动窗口检测 + 通知
+│                     · 喝水提醒触发
+│                     · #[tauri::command] 暴露给前端
+│                     · 系统托盘
+├── reminder.rs     -- 提醒状态机 ReminderState + 单元测试
 ├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
-├── db.rs       -- rusqlite 读写封装 + block/喝水记录 + 单元测试
-├── water.rs    -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
-└── report.rs   -- UpgradeLink 事件上报（app_start 等）
+├── video_rules.rs  -- 视频活跃规则：模型 + 默认规则 + 编译缓存 + 匹配 + 单元测试
+├── db.rs           -- rusqlite 读写封装 + block/喝水记录 + 单元测试
+├── water.rs        -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
+└── report.rs       -- UpgradeLink 事件上报（app_start 等）
 ```
 
 > 原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
@@ -229,7 +233,8 @@ src/
 │       └── en-US.ts     -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   ├── Settings.vue         -- 设置页：提醒偏好（窗口/休息/视频活跃）+ 提醒设置（模式/内容/全屏背景/测试）+ 系统 + 链接
+│   ├── Settings.vue         -- 设置页：提醒偏好（窗口/休息/视频活跃开关）+ 提醒设置（模式/内容/全屏背景/测试）+ 系统 + 链接
+│   ├── VideoRules.vue       -- 视频活跃规则设置页（正则 / 从当前窗口添加）
 │   ├── Debug.vue                -- 视频检测与提醒窗口调试页面
 │   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
 │   ├── ReminderPopup.vue        -- 弹窗提醒窗口
@@ -390,6 +395,7 @@ CREATE TABLE settings (
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
+| 45 | 视频活跃规则设置页：用户可编辑正则规则、从当前窗口添加、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
 
 ---
 

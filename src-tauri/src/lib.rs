@@ -2,6 +2,7 @@ mod db;
 mod reminder;
 mod reminder_toast;
 mod report;
+mod video_rules;
 mod water;
 
 use std::collections::HashMap;
@@ -43,84 +44,17 @@ fn record_gsmtcsm_failure() {
     GSMTCSM_LAST_FAIL_TS.store(chrono::Local::now().timestamp(), Ordering::Relaxed);
 }
 
-/// 回退方案：通过窗口标题 + 进程名关键词匹配判断是否正在播放视频。
-/// 返回 (是否匹配, 匹配到的关键词, 窗口标题, 应用名, 进程路径)
-fn check_media_active_by_keywords() -> (bool, Option<String>, String, String, String) {
-    match get_active_window() {
-        Ok(win) => {
-            let title_lower = win.title.to_lowercase();
-            let app_name_lower = win.app_name.to_lowercase();
-            let path_lower = win.process_path.to_string_lossy().to_lowercase();
-
-            let video_site_keywords = [
-                "youtube",
-                "bilibili",
-                "netflix",
-                "twitch",
-                "爱奇艺",
-                "腾讯视频",
-                "优酷",
-                "芒果tv",
-                "disney+",
-                "hbo max",
-                "prime video",
-                "hulu",
-                "crunchyroll",
-                "niconico",
-                "dailymotion",
-                "vimeo",
-                "live",
-                "直播",
-            ];
-            let video_player_keywords = [
-                "vlc",
-                "mpv",
-                "potplayer",
-                "mpc-hc",
-                "mpc-be",
-                "kmplayer",
-                "gom",
-                "mx player",
-                "infuse",
-                "iina",
-                "quicktime",
-                "movies & tv",
-                "电影和电视",
-                "windows media player",
-                "媒体播放器",
-            ];
-
-            let matched_site = video_site_keywords
-                .iter()
-                .find(|&&k| title_lower.contains(k))
-                .copied();
-            let matched_player = video_player_keywords
-                .iter()
-                .find(|&&k| app_name_lower.contains(k) || path_lower.contains(k))
-                .copied();
-
-            let matched = matched_site.or(matched_player).map(|s| s.to_string());
-            let is_match = matched.is_some();
-            (
-                is_match,
-                matched,
-                win.title,
-                win.app_name,
-                win.process_path.to_string_lossy().to_string(),
-            )
-        }
-        Err(_) => (
-            false,
-            None,
-            "Unknown".to_string(),
-            "Unknown".to_string(),
-            "Unknown".to_string(),
-        ),
-    }
+/// 使用用户自定义规则检查当前焦点窗口是否正在播放视频/媒体。
+/// 返回 (是否匹配, 命中的规则标签, 窗口标题, 应用名, 进程路径)
+fn check_media_active_by_rules(
+    rules: &video_rules::CompiledVideoRules,
+) -> (bool, Option<String>, String, String, String) {
+    video_rules::check_media_active(rules)
 }
 
-fn is_media_active_by_keywords() -> bool {
-    check_media_active_by_keywords().0
+/// 将规则列表转换为前端纯文本，每行一个规则。
+fn rules_to_text(rules: &[String]) -> String {
+    rules.join("\n")
 }
 
 // ---------- 调试结构体 ----------
@@ -145,8 +79,8 @@ struct VideoDebugInfo {
     focus_app_name: String,
     focus_process_path: String,
 
-    keyword_matched: bool,
-    matched_keyword: Option<String>,
+    rule_matched: bool,
+    matched_rule: Option<String>,
 
     media_active: bool,
     mouse_keyboard_count: u32,
@@ -155,13 +89,15 @@ struct VideoDebugInfo {
 // ---------- Windows 视频检测 ----------
 
 /// Windows：优先使用系统媒体会话（GSMTCSM）判定。
-/// - GSMTCSM API 可用时，完全信任其结果（有 Playing 即活跃，无则不活跃），不再回退关键词匹配。
-/// - GSMTCSM 调用失败时才回退到窗口标题+进程名关键词匹配。
+/// - GSMTCSM API 检测到任意 Playing 会话时，直接视为活跃。
+/// - GSMTCSM API 可用但无 Playing 会话时，回退到用户自定义规则匹配。
+/// - GSMTCSM 调用失败/超时时，同样回退到用户自定义规则匹配。
 #[cfg(windows)]
-fn is_media_active() -> bool {
+fn is_media_active(rules: &video_rules::CompiledVideoRules) -> bool {
     match try_media_session_active() {
-        Some(active) => active,
-        None => is_media_active_by_keywords(),
+        Some(true) => true,
+        Some(false) => check_media_active_by_rules(rules).0,
+        None => check_media_active_by_rules(rules).0,
     }
 }
 
@@ -344,10 +280,10 @@ fn get_media_sessions_debug_inner() -> Result<(bool, Vec<MediaSessionInfo>), Str
     Ok((has_playing, infos))
 }
 
-/// 非 Windows：直接走关键词匹配
+/// 非 Windows：直接走用户自定义规则匹配
 #[cfg(not(windows))]
-fn is_media_active() -> bool {
-    is_media_active_by_keywords()
+fn is_media_active(rules: &video_rules::CompiledVideoRules) -> bool {
+    check_media_active_by_rules(rules).0
 }
 
 #[derive(Default)]
@@ -423,12 +359,13 @@ fn gsmtcsm_unavailable_msg(locale: &str) -> &'static str {
 }
 
 /** 获取视频检测的实时调试信息，供 Debug 页面展示。
- * GSMTCSM 查询内部已有独立线程+超时保护，check_media_active_by_keywords 为纯本地计算，
+ * GSMTCSM 查询内部已有独立线程+超时保护，check_media_active_by_rules 为纯本地计算，
  * 均无需额外 spawn_blocking，避免嵌套线程。 */
 #[tauri::command]
 async fn get_video_debug_info(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
     db: tauri::State<'_, db::Db>,
+    rules: tauri::State<'_, Arc<Mutex<video_rules::CompiledVideoRules>>>,
 ) -> Result<VideoDebugInfo, String> {
     let mouse_keyboard_count = {
         let s = activity.lock().unwrap();
@@ -468,13 +405,15 @@ async fn get_video_debug_info(
     );
 
     // 纯本地计算，无需 spawn_blocking
-    let (keyword_matched, matched_keyword, focus_title, focus_app, focus_path) =
-        check_media_active_by_keywords();
+    let rules = rules.lock().unwrap();
+    let (rule_matched, matched_rule, focus_title, focus_app, focus_path) =
+        check_media_active_by_rules(&rules);
 
     let media_active = if cfg!(windows) && gsmtcsm_available {
-        gsmtcsm_has_playing
+        // GSMTCSM 有 Playing 时直接视为活跃；无 Playing 时回退到规则匹配
+        gsmtcsm_has_playing || rule_matched
     } else {
-        keyword_matched
+        rule_matched
     };
 
     Ok(VideoDebugInfo {
@@ -486,8 +425,8 @@ async fn get_video_debug_info(
         focus_window_title: focus_title,
         focus_app_name: focus_app,
         focus_process_path: focus_path,
-        keyword_matched,
-        matched_keyword,
+        rule_matched,
+        matched_rule,
         media_active,
         mouse_keyboard_count,
     })
@@ -504,6 +443,32 @@ fn get_video_active_enabled(db: tauri::State<db::Db>) -> bool {
 fn set_video_active_enabled(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
     db.set_setting("video_active_enabled", &enabled.to_string())
         .map_err(|e| e.to_string())
+}
+
+/** 获取视频活跃规则文本（一行一个规则，首次读取时自动初始化默认值）。 */
+#[tauri::command]
+fn get_video_active_rules_text(db: tauri::State<db::Db>) -> String {
+    rules_to_text(&video_rules::load_rules(&db))
+}
+
+/** 设置视频活跃规则文本；保存前会校验并重新编译正则。
+ * 传入空文本或仅注释视为恢复默认规则。 */
+#[tauri::command]
+fn set_video_active_rules_text(
+    text: String,
+    db: tauri::State<db::Db>,
+    state: tauri::State<'_, Arc<Mutex<video_rules::CompiledVideoRules>>>,
+) -> Result<(), String> {
+    let mut rules = video_rules::parse_rules_text(&text);
+    if rules.is_empty() {
+        rules = video_rules::default_rules();
+    }
+    let compiled = video_rules::compile_rules(&rules)?;
+    let json = serde_json::to_string(&rules).map_err(|e| e.to_string())?;
+    db.set_setting("video_active_rules", &json)
+        .map_err(|e| e.to_string())?;
+    *state.lock().unwrap() = compiled;
+    Ok(())
 }
 
 /** 获取 Toast 调试模式开关状态（默认 false）。 */
@@ -1238,6 +1203,17 @@ pub fn run() {
             let db_path = app_data_dir.join("catrace.db");
             let db = db::Db::new(&db_path).expect("Failed to initialize database");
 
+            // 加载并编译视频活跃规则
+            let video_rules = video_rules::load_rules(&db);
+            let compiled_video_rules = match video_rules::compile_rules(&video_rules) {
+                Ok(c) => Arc::new(Mutex::new(c)),
+                Err(e) => {
+                    eprintln!("[setup] 编译视频活跃规则失败: {}", e);
+                    Arc::new(Mutex::new(video_rules::CompiledVideoRules::empty()))
+                }
+            };
+            app.manage(compiled_video_rules.clone());
+
             // 首次启动：将 bundled catrace.png 复制为默认全屏背景
             {
                 let current_bg = db.get_setting("fullscreen_bg_image", "");
@@ -1284,6 +1260,7 @@ pub fn run() {
             let water_state_for_settle = water_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
+            let compiled_video_rules_for_settle = compiled_video_rules.clone();
             tauri::async_runtime::spawn(async move {
                 // 计算距离下一个整分钟还有多少秒
                 let now = chrono::Local::now();
@@ -1298,7 +1275,7 @@ pub fn run() {
                     let video_enabled =
                         db_clone.get_setting("video_active_enabled", "true") == "true";
                     let media_active = if video_enabled {
-                        is_media_active()
+                        is_media_active(&compiled_video_rules_for_settle.lock().unwrap())
                     } else {
                         false
                     };
@@ -1461,6 +1438,8 @@ pub fn run() {
             set_locale,
             get_video_active_enabled,
             set_video_active_enabled,
+            get_video_active_rules_text,
+            set_video_active_rules_text,
             get_toast_debug_mode,
             set_toast_debug_mode,
             show_main_window,

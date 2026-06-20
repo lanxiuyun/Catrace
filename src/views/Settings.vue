@@ -10,6 +10,7 @@ import {
   NInput,
   useMessage,
 } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { getVersion } from '@tauri-apps/api/app'
@@ -29,6 +30,7 @@ import {
 import i18n from '../i18n'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const config = ref({ window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 })
 const autostart = ref(false)
@@ -449,7 +451,12 @@ async function handleInstallUpdate() {
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.videoActiveDesc') }}</div>
+              <div class="setting-desc">
+                {{ t('settings.reminder.videoActiveDesc') }}
+                <a class="video-rules-link" @click="router.push('/video-rules')">
+                  {{ t('videoRules.title') }} →
+                </a>
+              </div>
             </div>
             <n-switch
               :value="videoActiveEnabled"
@@ -1164,6 +1171,17 @@ async function handleInstallUpdate() {
 .water-test-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.video-rules-link {
+  color: #7C3AED;
+  cursor: pointer;
+  margin-left: 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.video-rules-link:hover {
+  color: #6D28D9;
 }
 
 /* 响应式 */

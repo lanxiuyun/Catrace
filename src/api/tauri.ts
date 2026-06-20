@@ -141,12 +141,14 @@ export interface VideoDebugInfo {
   focus_app_name: string
   focus_process_path: string
 
-  keyword_matched: boolean
-  matched_keyword: string | null
+  rule_matched: boolean
+  matched_rule: string | null
 
   media_active: boolean
   mouse_keyboard_count: number
 }
+
+
 
 /** 获取视频检测调试信息 */
 export async function getVideoDebugInfo(): Promise<VideoDebugInfo> {
@@ -161,6 +163,16 @@ export async function getVideoActiveEnabled(): Promise<boolean> {
 /** 设置「视频计入活跃」开关 */
 export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
   return invoke('set_video_active_enabled', { enabled })
+}
+
+/** 获取视频活跃规则文本（一行一个规则） */
+export async function getVideoActiveRulesText(): Promise<string> {
+  return invoke('get_video_active_rules_text')
+}
+
+/** 设置视频活跃规则文本（一行一个规则） */
+export async function setVideoActiveRulesText(text: string): Promise<void> {
+  return invoke('set_video_active_rules_text', { text })
 }
 
 /** 获取 Toast 调试模式开关 */
