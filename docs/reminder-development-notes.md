@@ -333,7 +333,7 @@ let bg_color = if debug_mode {
 };
 ```
 
-前端 Debug.vue 提供开关，可实时查看当前焦点窗口、GSMTCSM 会话、键鼠计数，以及切换 Toast 调试背景。
+前端 Debug.vue 提供开关，可实时查看当前焦点窗口、GSMTCSM 会话、键鼠计数、当前命中的视频活跃规则，以及切换 Toast 调试背景。
 
 ### 5.4 水提醒卡片
 
@@ -582,4 +582,5 @@ interface ElementTransforms {
 - `src/views/ReminderPopup.vue` - 弹窗 UI
 - `src/views/ReminderFullscreen.vue` - 全屏 UI
 - `src/views/Settings.vue` - 提醒模式设置
+- `src/views/VideoRules.vue` - 视频活跃规则设置
 - `src/views/Debug.vue` - 调试开关与实时状态
