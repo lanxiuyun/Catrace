@@ -477,7 +477,7 @@ async function handleWaterSkip(item: ToastItem) {
   flex-direction: column;
   justify-content: flex-end;
   align-items: flex-end;
-  padding: 20px;
+  padding: 1.25rem;
   box-sizing: border-box;
   background: transparent;
   user-select: none;
@@ -489,7 +489,7 @@ async function handleWaterSkip(item: ToastItem) {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 12px;
+  gap: 0.75rem;
   width: 100%;
 }
 
@@ -498,16 +498,16 @@ async function handleWaterSkip(item: ToastItem) {
 }
 
 .toast-card {
-  width: 320px;
-  min-height: 180px;
-  max-height: 600px;
+  width: 20rem;
+  min-height: 11.25rem;
+  max-height: 37.5rem;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 0.75rem;
+  padding: 1rem;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.08);
   transform: translateX(120%) scale(0.96);
   opacity: 0;
   transition:
@@ -561,14 +561,14 @@ async function handleWaterSkip(item: ToastItem) {
 
 .debug-panel {
   position: fixed;
-  top: 8px;
-  left: 8px;
+  top: 0.5rem;
+  left: 0.5rem;
   background: rgba(0, 0, 0, 0.7);
   color: #0f0;
   font-family: monospace;
-  font-size: 11px;
-  padding: 8px;
-  border-radius: 4px;
+  font-size: 0.6875rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
   z-index: 9999;
   pointer-events: none;
   line-height: 1.4;
@@ -583,19 +583,19 @@ async function handleWaterSkip(item: ToastItem) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   min-width: 0;
 }
 
 .pulse-dot {
-  width: 10px;
-  height: 10px;
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 50%;
   background: #EF4444;
   animation: pulse 1.5s ease-in-out infinite;
@@ -608,7 +608,7 @@ async function handleWaterSkip(item: ToastItem) {
 }
 
 .title {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   color: #2E1065;
   margin: 0;
@@ -620,10 +620,10 @@ async function handleWaterSkip(item: ToastItem) {
 /* Progress bar */
 .progress-bar {
   width: 100%;
-  height: 3px;
+  height: 0.1875rem;
   background: linear-gradient(90deg, #7C3AED, #A78BFA);
-  border-radius: 2px;
-  margin: 10px 0 12px;
+  border-radius: 0.125rem;
+  margin: 0.625rem 0 0.75rem;
   animation: progress-shrink var(--toast-auto-hide-ms) linear forwards;
 }
 
@@ -637,8 +637,8 @@ async function handleWaterSkip(item: ToastItem) {
 }
 
 .close-btn {
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -646,7 +646,7 @@ async function handleWaterSkip(item: ToastItem) {
   border: none;
   color: #9C8DB5;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 0.5rem;
   padding: 0;
   flex-shrink: 0;
   transition: all 0.2s ease;
@@ -661,10 +661,10 @@ async function handleWaterSkip(item: ToastItem) {
 
 /* Body */
 .body-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #6B5B8A;
   line-height: 1.6;
-  margin: 0 0 14px 0;
+  margin: 0 0 0.875rem 0;
   word-break: break-word;
   flex: 1 1 auto;
   min-height: 0;
@@ -674,15 +674,15 @@ async function handleWaterSkip(item: ToastItem) {
 /* Actions */
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   margin-top: auto;
 }
 
 .btn {
   flex: 1;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 13px;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   border: none;

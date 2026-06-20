@@ -426,10 +426,10 @@ watch(
 
 .fullscreen-bg {
   position: absolute;
-  inset: -40px;
+  inset: 2.5rem;
   background-size: cover;
   background-position: center;
-  filter: blur(40px) saturate(1.2);
+  filter: blur(2.5rem) saturate(1.2);
   transform: scale(1.05);
 }
 
@@ -443,18 +443,18 @@ watch(
 /* Edit toggle button */
 .edit-toggle {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 1.25rem;
+  right: 1.25rem;
   z-index: 100;
 }
 
 .lock-btn {
-  width: 44px;
-  height: 44px;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 50%;
   border: none;
   background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(0.5rem);
   color: #ffffff;
   cursor: pointer;
   display: flex;
@@ -471,26 +471,26 @@ watch(
 /* Edit toolbar */
 .edit-toolbar {
   position: fixed;
-  top: 80px;
+  top: 5rem;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
-  padding: 12px 20px;
+  backdrop-filter: blur(0.75rem);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
   z-index: 100;
   text-align: center;
 }
 
 .toolbar-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #7C3AED;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .toolbar-hint {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -500,16 +500,16 @@ watch(
   z-index: 1;
   text-align: center;
   color: #ffffff;
-  max-width: 640px;
-  padding: 20px 40px;
+  max-width: 40rem;
+  padding: 1.25rem 2.5rem;
   transform-origin: center center;
   transition: box-shadow 0.2s ease;
 }
 
 .editable-element.edit-mode {
   cursor: grab;
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+  border: 0.125rem dashed rgba(255, 255, 255, 0.3);
+  border-radius: 0.5rem;
 }
 
 .editable-element.edit-mode:hover {
@@ -518,7 +518,7 @@ watch(
 }
 
 .editable-element.selected {
-  border: 2px solid #7C3AED;
+  border: 0.125rem solid #7C3AED;
   background: rgba(124, 58, 237, 0.15);
 }
 
@@ -529,14 +529,14 @@ watch(
 
 .element-label {
   position: absolute;
-  top: -24px;
+  top: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: rgba(255, 255, 255, 0.7);
   background: rgba(0, 0, 0, 0.5);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
   white-space: nowrap;
 }
 
@@ -545,12 +545,12 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
 }
 
 .pulse-dot {
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
   background: #EF4444;
   animation: pulse 1.5s ease-in-out infinite;
@@ -558,24 +558,24 @@ watch(
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  50% { opacity: 0.7; transform: scale(1.2); box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+  50% { opacity: 0.7; transform: scale(1.2); box-shadow: 0 0 0 1rem rgba(239, 68, 68, 0); }
 }
 
 /* Typography */
 .title {
-  font-size: 42px;
+  font-size: 2.625rem;
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0.125rem 0.75rem rgba(0, 0, 0, 0.3);
 }
 
 .subtitle {
-  font-size: 18px;
+  font-size: 1.125rem;
   margin: 0;
   opacity: 0.9;
   line-height: 1.5;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 0.0625rem 0.375rem rgba(0, 0, 0, 0.25);
 }
 
 /* Countdown */
@@ -584,33 +584,33 @@ watch(
 }
 
 .countdown-label {
-  font-size: 14px;
+  font-size: 0.875rem;
   opacity: 0.7;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.0625rem;
 }
 
 .countdown-time {
-  font-size: 80px;
+  font-size: 5rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -2px;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.125rem;
+  text-shadow: 0 0.125rem 1rem rgba(0, 0, 0, 0.3);
   line-height: 1;
 }
 
 /* Actions */
 .actions {
   display: flex;
-  gap: 12px;
+  gap: 0.75rem;
   justify-content: center;
 }
 
 .btn {
-  padding: 12px 28px;
-  border-radius: 10px;
-  font-size: 15px;
+  padding: 0.75rem 1.75rem;
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
@@ -620,7 +620,7 @@ watch(
 .btn-secondary {
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(0.5rem);
 }
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.25);
@@ -637,32 +637,32 @@ watch(
 /* Element controls */
 .element-controls {
   position: fixed;
-  bottom: 40px;
+  bottom: 2.5rem;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
-  padding: 16px 24px;
-  min-width: 280px;
+  backdrop-filter: blur(0.75rem);
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  min-width: 17.5rem;
   z-index: 100;
 }
 
 .control-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   color: #ffffff;
-  font-size: 13px;
-  margin-bottom: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 0.75rem;
 }
 
 .control-row:last-of-type {
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
 }
 
 .control-row label {
-  min-width: 50px;
+  min-width: 3.125rem;
   font-weight: 600;
 }
 
@@ -672,7 +672,7 @@ watch(
 }
 
 .control-row span {
-  min-width: 56px;
+  min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -682,9 +682,9 @@ watch(
   background: rgba(255, 255, 255, 0.15);
   border: none;
   color: #ffffff;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 12px;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.15s;
 }

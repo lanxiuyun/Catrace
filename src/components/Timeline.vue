@@ -76,7 +76,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
     backgroundColor: getColor(m),
   }
   if (m.active !== null && isAdjacentSame(i)) {
-    style.borderRadius = '1px'
+    style.borderRadius = '0.0625rem'
   }
   return style
 }
@@ -175,19 +175,19 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 .grid-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .minute-ticks {
   position: relative;
-  height: 14px;
-  margin-left: 34px;
+  height: 0.875rem;
+  margin-left: 2.125rem;
 }
 
 .minute-tick {
   position: absolute;
   top: 0;
-  font-size: 10px;
+  font-size: 0.625rem;
   color: #A78BFA;
   transform: translateX(-50%);
   font-weight: 500;
@@ -195,24 +195,24 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 
 .grid-area {
   display: flex;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .hour-labels {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 28px;
+  width: 1.75rem;
   padding-top: 0;
   padding-bottom: 0;
 }
 
 .hour-label {
-  font-size: 10px;
+  font-size: 0.625rem;
   color: #A78BFA;
   text-align: right;
   line-height: 1;
-  height: 14px;
+  height: 0.875rem;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -223,16 +223,16 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
   display: grid;
   grid-template-columns: repeat(60, 1fr);
   grid-template-rows: repeat(24, 1fr);
-  gap: 2px;
+  gap: 0.125rem;
   flex: 1;
   cursor: crosshair;
 }
 
 .cell {
   aspect-ratio: 1;
-  border-radius: 3px;
-  min-width: 4px;
-  min-height: 4px;
+  border-radius: 0.1875rem;
+  min-width: 0.25rem;
+  min-height: 0.25rem;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-radius 0.1s;
   position: relative;
 }
@@ -240,39 +240,39 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 .cell:hover,
 .cell.is-hovered {
   transform: scale(1.5);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0.125rem 0.5rem rgba(139, 92, 246, 0.3);
   z-index: 2;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .cell.is-selected {
-  box-shadow: 0 0 0 2px #F59E0B;
+  box-shadow: 0 0 0 0.125rem #F59E0B;
   z-index: 3;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .cell.is-now {
-  box-shadow: 0 0 0 2px #EF4444;
-  border-radius: 4px;
+  box-shadow: 0 0 0 0.125rem #EF4444;
+  border-radius: 0.25rem;
   z-index: 1;
   animation: pulse-ring 2s infinite;
 }
 
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 0.125rem rgba(239, 68, 68, 0.6);
   }
   50% {
-    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0.3125rem rgba(239, 68, 68, 0);
   }
   100% {
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 0.125rem rgba(239, 68, 68, 0.6);
   }
 }
 
 .hover-row {
-  margin-top: 12px;
-  min-height: 28px;
+  margin-top: 0.75rem;
+  min-height: 1.75rem;
   display: flex;
   align-items: center;
 }
@@ -280,8 +280,8 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 .hover-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
   color: #6D28D9;
 }
 
@@ -292,24 +292,24 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 }
 
 .hover-badge {
-  padding: 2px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 0.125rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.6875rem;
   color: white;
   font-weight: 600;
 }
 
 .hover-placeholder {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #C4B5FD;
 }
 
 .legend {
-  margin-top: 16px;
+  margin-top: 1rem;
   display: flex;
-  gap: 16px;
+  gap: 1rem;
   align-items: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #7C7CAA;
   flex-wrap: wrap;
   font-weight: 500;
@@ -318,17 +318,17 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 0.1875rem;
 }
 
 .dot.is-now-demo {
-  box-shadow: 0 0 0 2px #EF4444;
+  box-shadow: 0 0 0 0.125rem #EF4444;
   background: transparent;
   animation: pulse-ring 2s infinite;
 }

@@ -158,48 +158,48 @@ function goBack() {
 <style scoped>
 .video-rules {
   padding: 1.5rem;
-  max-width: 720px;
+  max-width: 45rem;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #2E1065;
-  margin: 0 0 4px 0;
+  margin: 0 0 0.25rem 0;
 }
 .subtitle {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #8B7AAB;
   margin: 0;
 }
 
 .group {
   background: #fff;
-  border: 1px solid #EBE6F2;
-  border-radius: 14px;
-  padding: 20px 28px;
-  margin-bottom: 16px;
+  border: 0.0625rem solid #EBE6F2;
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 1rem;
 }
 .group-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: #8B7AAB;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  letter-spacing: 0.0312rem;
+  margin-bottom: 0.25rem;
 }
 .group-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 .group-header .group-label {
   margin-bottom: 0;
@@ -209,33 +209,33 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
-  padding: 14px 0;
+  gap: 2rem;
+  padding: 0.875rem 0;
 }
 .setting-meta {
   flex-shrink: 1;
   min-width: 0;
 }
 .setting-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 2px;
+  margin-bottom: 0.125rem;
 }
 .setting-desc {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
 }
 
 .rules-textarea :deep(.n-input__textarea-el) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 
 .hint {
-  margin-top: 10px;
-  font-size: 12px;
+  margin-top: 0.625rem;
+  font-size: 0.75rem;
   color: #8B7AAB;
   line-height: 1.5;
   white-space: pre-line;
@@ -245,8 +245,8 @@ function goBack() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #F5F3FF;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 0.0625rem solid #F5F3FF;
 }
 </style>

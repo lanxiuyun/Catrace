@@ -396,6 +396,7 @@ CREATE TABLE settings (
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
 | 45 | 视频活跃规则设置页：用户可编辑正则规则、从当前窗口添加、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
+| 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
 
 ---
 
@@ -430,6 +431,7 @@ cd src-tauri && cargo test
 - 前端使用 **Vue 3 Composition API + `<script setup>` + TypeScript**。
 - Rust 当前未按功能拆分子模块（全部在 `lib.rs`），后续扩展时建议拆分。
 - UI 配色统一维护在 `src/theme.ts`，改主题时优先改此文件。
+- **前端长度单位统一使用 rem**：`src/` 下所有 Vue/CSS/SCSS 样式中的长度尺寸（padding、margin、gap、width、height、border-radius、font-size、letter-spacing、box-shadow 偏移/模糊等）统一使用 `rem`，不再写 `px`。换算基准为根字体大小 `16px`（即 `1rem = 16px`）。例外：物理 1px 边框、`backdrop-filter: blur(...)` 的精确像素控制、SVG 的 `width/height/viewBox` 属性可保留 px。
 - **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows` crate 用于 GSMTCSM 媒体会话检测）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
 
 ---

@@ -343,24 +343,24 @@ function countActiveInBlock(block: WindowBlock): number {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15.625rem, 1fr));
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .card {
   background: #fff;
-  border: 1px solid #ebe6f2;
-  border-radius: 12px;
-  padding: 16px;
+  border: 0.0625rem solid #ebe6f2;
+  border-radius: 0.75rem;
+  padding: 1rem;
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.1s ease;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .card:hover {
-  box-shadow: 0 4px 12px rgba(46, 16, 101, 0.08);
-  transform: translateY(-1px);
+  box-shadow: 0 0.25rem 0.75rem rgba(46, 16, 101, 0.08);
+  transform: translateY(0.0625rem);
 }
 
 .card.is-current {
@@ -374,8 +374,8 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
 }
 
@@ -410,10 +410,10 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .badge {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
   white-space: nowrap;
 }
 
@@ -439,14 +439,14 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .card-time {
   font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: #18181b;
 }
 
 .time-sep {
   color: #d4d4d8;
-  margin: 0 4px;
+  margin: 0 0.25rem;
 }
 
 .card-meta {
@@ -456,47 +456,47 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .card-duration {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #71717a;
 }
 
 .card-nested-active {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #a1a1aa;
 }
 
 /* 展开详情 */
 .detail {
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid #ebe6f2;
+  margin-top: 0.25rem;
+  padding-top: 0.625rem;
+  border-top: 0.0625rem solid #ebe6f2;
 }
 
 .minute-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .minute-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .minute-row-bar {
   display: flex;
-  height: 8px;
+  height: 0.5rem;
   flex: 1;
   min-width: 0;
-  gap: 1px;
-  border-radius: 2px;
+  gap: 0.0625rem;
+  border-radius: 0.125rem;
   overflow: visible;
 }
 
 .m-seg {
   height: 100%;
-  min-width: 1px;
+  min-width: 0.0625rem;
   position: relative;
   cursor: pointer;
   transition: filter 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
@@ -504,22 +504,22 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .m-seg:hover {
   filter: brightness(1.15);
-  transform: translateY(-2px);
+  transform: translateY(0.125rem);
   z-index: 2;
 }
 
 .m-cells {
   display: flex;
-  gap: 1px;
+  gap: 0.0625rem;
   height: 100%;
   min-width: 0;
 }
 
 .m-cell {
   flex: 1;
-  min-width: 1px;
+  min-width: 0.0625rem;
   height: 100%;
-  border-radius: 1px;
+  border-radius: 0.0625rem;
   position: relative;
   cursor: pointer;
   transition: filter 0.12s ease, transform 0.12s ease;
@@ -527,7 +527,7 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .m-cell:hover {
   filter: brightness(1.15);
-  transform: translateY(-2px);
+  transform: translateY(0.125rem);
   z-index: 2;
 }
 
@@ -545,22 +545,22 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .seg-tip {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 0.375rem);
   left: 50%;
   transform: translateX(-50%);
-  padding: 3px 10px;
+  padding: 0.1875rem 0.625rem;
   background: rgba(24, 24, 27, 0.95);
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease, transform 0.12s ease;
   line-height: 1.4;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0.25rem 0.875rem rgba(0, 0, 0, 0.3);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.08);
 }
 
 .m-seg:hover .seg-tip,
@@ -582,12 +582,12 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .m-placeholder {
   height: 100%;
-  border-radius: 1px;
-  min-width: 1px;
+  border-radius: 0.0625rem;
+  min-width: 0.0625rem;
 }
 
 .minute-row-time {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: #a1a1aa;
   font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
   white-space: nowrap;
@@ -611,6 +611,6 @@ function countActiveInBlock(block: WindowBlock): number {
 .expand-enter-to,
 .expand-leave-from {
   opacity: 1;
-  max-height: 400px;
+  max-height: 25rem;
 }
 </style>

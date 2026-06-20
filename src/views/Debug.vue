@@ -175,7 +175,7 @@ onDeactivated(() => {
               <n-tag :type="data.rule_matched ? 'success' : 'default'">
                 {{ data.rule_matched ? t('debug.yes') : t('debug.no') }}
               </n-tag>
-              <n-text v-if="data.matched_rule" depth="3" style="margin-left: 8px;">
+              <n-text v-if="data.matched_rule" depth="3" style="margin-left: 0.5rem;">
                 {{ t('debug.matchedPrefix') }}{{ data.matched_rule }}
               </n-text>
             </n-descriptions-item>
@@ -190,19 +190,19 @@ onDeactivated(() => {
 <style scoped>
 .debug-page {
   padding: 1.5rem;
-  max-width: 900px;
+  max-width: 56.25rem;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   color: #2e1065;
 }
 
@@ -211,13 +211,13 @@ onDeactivated(() => {
 }
 
 .result-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8b7aab;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .debug-switch-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #6b5b8a;
 }
 </style>

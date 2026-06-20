@@ -230,13 +230,13 @@ onUnmounted(() => {
 <style scoped>
 .water-widget {
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
-  border: 1px solid #bfdbfe;
-  border-radius: 14px;
-  padding: 14px 16px;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.06);
+  border: 0.0625rem solid #bfdbfe;
+  border-radius: 0.875rem;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 0.125rem 0.375rem rgba(37, 99, 235, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -244,8 +244,8 @@ onUnmounted(() => {
 }
 
 .water-widget:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+  transform: translateY(0.0625rem);
+  box-shadow: 0 0.25rem 0.75rem rgba(37, 99, 235, 0.1);
 }
 
 .water-header {
@@ -257,19 +257,19 @@ onUnmounted(() => {
 .water-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .water-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 0.5rem;
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   color: #2563eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0.0625rem 0.125rem rgba(37, 99, 235, 0.12);
 }
 
 .water-icon svg {
@@ -277,7 +277,7 @@ onUnmounted(() => {
 }
 
 .water-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #2563eb;
   font-weight: 600;
 }
@@ -285,7 +285,7 @@ onUnmounted(() => {
 .water-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .water-btn-wrap {
@@ -296,9 +296,9 @@ onUnmounted(() => {
 }
 
 .water-add {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
   border: none;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
@@ -306,14 +306,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 0.125rem 0.3125rem rgba(37, 99, 235, 0.25);
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .water-add:hover {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.32);
+  transform: translateY(0.0625rem) scale(1.05);
+  box-shadow: 0 0.25rem 0.625rem rgba(37, 99, 235, 0.32);
 }
 
 .water-add:active {
@@ -327,10 +327,10 @@ onUnmounted(() => {
 }
 
 .water-remove {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid #dbeafe;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  border: 0.0625rem solid #dbeafe;
   background: #fff;
   color: #60a5fa;
   display: flex;
@@ -344,7 +344,7 @@ onUnmounted(() => {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #ef4444;
-  transform: translateY(-1px);
+  transform: translateY(0.0625rem);
 }
 
 .water-remove:active {
@@ -359,20 +359,20 @@ onUnmounted(() => {
 
 .water-btn-tooltip {
   position: absolute;
-  top: calc(100% + 7px);
+  top: calc(100% + 0.4375rem);
   left: 50%;
   transform: translateX(-50%);
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #bfdbfe;
+  border: 0.0625rem solid #bfdbfe;
   color: #2563eb;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
-  backdrop-filter: blur(4px);
+  box-shadow: 0 0.25rem 0.875rem rgba(37, 99, 235, 0.14);
+  backdrop-filter: blur(0.25rem);
   z-index: 10;
 }
 
@@ -382,7 +382,7 @@ onUnmounted(() => {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 5px solid transparent;
+  border: 0.3125rem solid transparent;
   border-bottom-color: #bfdbfe;
 }
 
@@ -392,8 +392,8 @@ onUnmounted(() => {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: -1px;
-  border: 4px solid transparent;
+  margin-bottom: 0.0625rem;
+  border: 0.25rem solid transparent;
   border-bottom-color: rgba(255, 255, 255, 0.95);
 }
 
@@ -405,22 +405,22 @@ onUnmounted(() => {
 .btn-tooltip-enter-from,
 .btn-tooltip-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(-3px);
+  transform: translateX(-50%) translateY(0.1875rem);
 }
 
 .water-body {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  min-height: 42px;
+  gap: 0.375rem;
+  min-height: 2.625rem;
 }
 
 .water-count {
-  font-size: 34px;
+  font-size: 2.125rem;
   font-weight: 700;
   color: #2563eb;
   line-height: 1;
-  letter-spacing: -0.5px;
+  letter-spacing: 0.0312rem;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -429,30 +429,30 @@ onUnmounted(() => {
 }
 
 .water-unit {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #60a5fa;
   font-weight: 500;
 }
 
 .water-divider {
-  width: 1px;
-  height: 12px;
+  width: 0.0625rem;
+  height: 0.75rem;
   background: #dbeafe;
-  margin: 0 2px;
+  margin: 0 0.125rem;
 }
 
 .water-last {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #3b82f6;
 }
 
 .water-timeline {
-  margin-top: 2px;
+  margin-top: 0.125rem;
 }
 
 .timeline-track {
   position: relative;
-  height: 18px;
+  height: 1.125rem;
   display: flex;
   align-items: center;
 }
@@ -461,22 +461,22 @@ onUnmounted(() => {
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
+  height: 0.125rem;
   background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 50%, #dbeafe 100%);
-  border-radius: 1px;
+  border-radius: 0.0625rem;
 }
 
 .timeline-now {
   position: absolute;
-  top: 1px;
-  bottom: 1px;
-  width: 2px;
+  top: 0.0625rem;
+  bottom: 0.0625rem;
+  width: 0.125rem;
   background: repeating-linear-gradient(
     to bottom,
     #93c5fd 0,
-    #93c5fd 3px,
-    transparent 3px,
-    transparent 5px
+    #93c5fd 0.1875rem,
+    transparent 0.1875rem,
+    transparent 0.3125rem
   );
   transform: translateX(-50%);
   z-index: 1;
@@ -496,7 +496,7 @@ onUnmounted(() => {
 
 .drop-icon {
   color: #3b82f6;
-  filter: drop-shadow(0 1px 2px rgba(37, 99, 235, 0.2));
+  filter: drop-shadow(0 0.0625rem 0.125rem rgba(37, 99, 235, 0.2));
   transition: color 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -513,20 +513,20 @@ onUnmounted(() => {
 
 .timeline-tooltip {
   position: absolute;
-  bottom: calc(100% + 7px);
+  bottom: calc(100% + 0.4375rem);
   left: 50%;
   transform: translateX(-50%);
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #bfdbfe;
+  border: 0.0625rem solid #bfdbfe;
   color: #2563eb;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.14);
-  backdrop-filter: blur(4px);
+  box-shadow: 0 0.25rem 0.875rem rgba(37, 99, 235, 0.14);
+  backdrop-filter: blur(0.25rem);
   z-index: 10;
 }
 
@@ -536,7 +536,7 @@ onUnmounted(() => {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 5px solid transparent;
+  border: 0.3125rem solid transparent;
   border-top-color: #bfdbfe;
 }
 
@@ -546,8 +546,8 @@ onUnmounted(() => {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: -1px;
-  border: 4px solid transparent;
+  margin-top: 0.0625rem;
+  border: 0.25rem solid transparent;
   border-top-color: rgba(255, 255, 255, 0.95);
 }
 
@@ -559,14 +559,14 @@ onUnmounted(() => {
 .tooltip-enter-from,
 .tooltip-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(0.125rem);
 }
 
 .timeline-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 5px;
-  font-size: 10px;
+  margin-top: 0.3125rem;
+  font-size: 0.625rem;
   color: #93c5fd;
 }
 
@@ -574,13 +574,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 0;
-  font-size: 11px;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+  padding: 0.5rem 0;
+  font-size: 0.6875rem;
   color: #93c5fd;
   background: rgba(219, 234, 254, 0.4);
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 .timeline-empty svg {
@@ -590,7 +590,7 @@ onUnmounted(() => {
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
+  50% { transform: translateY(0.125rem); }
 }
 
 @keyframes dropFloat {

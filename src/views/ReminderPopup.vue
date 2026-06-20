@@ -172,18 +172,18 @@ async function handleSkip() {
 .popup-card {
   width: 100%;
   min-height: 100vh;
-  max-height: 600px;
+  max-height: 37.5rem;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 16px 20px 14px;
+  border-radius: 1rem;
+  padding: 1rem 1.25rem 0.875rem;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.02),
-    0 8px 16px rgba(0,0,0,0.04),
-    0 16px 32px rgba(0,0,0,0.06),
-    0 32px 64px rgba(0,0,0,0.08);
+    0 0.0625rem 0.125rem rgba(0,0,0,0.02),
+    0 0.5rem 1rem rgba(0,0,0,0.04),
+    0 1rem 2rem rgba(0,0,0,0.06),
+    0 2rem 4rem rgba(0,0,0,0.08);
 }
 
 /* Header */
@@ -191,18 +191,18 @@ async function handleSkip() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .pulse-dot {
-  width: 10px;
-  height: 10px;
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 50%;
   background: #EF4444;
   animation: pulse 1.5s ease-in-out infinite;
@@ -215,15 +215,15 @@ async function handleSkip() {
 }
 
 .title {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   color: #2E1065;
   margin: 0;
 }
 
 .close-btn {
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -231,7 +231,7 @@ async function handleSkip() {
   border: none;
   color: #9C8DB5;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 0.5rem;
   padding: 0;
   transition: all 0.2s ease;
 }
@@ -245,10 +245,10 @@ async function handleSkip() {
 
 /* Body */
 .body-text {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #6B5B8A;
   line-height: 1.6;
-  margin: 0 0 16px 0;
+  margin: 0 0 1rem 0;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -258,14 +258,14 @@ async function handleSkip() {
 .snooze-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .pill {
-  height: 32px;
-  border-radius: 10px;
-  font-size: 13px;
+  height: 2rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
@@ -288,23 +288,23 @@ async function handleSkip() {
 /* Custom Row */
 .custom-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
   animation: slideDown 0.2s ease;
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(0.25rem); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .custom-input {
   flex: 1;
-  height: 36px;
-  border: 1.5px solid #E8E4F0;
-  border-radius: 10px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 2.25rem;
+  border: 0.0938rem solid #E8E4F0;
+  border-radius: 0.625rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #2E1065;
   outline: none;
@@ -314,7 +314,7 @@ async function handleSkip() {
 .custom-input:focus {
   border-color: #7C3AED;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+  box-shadow: 0 0 0 0.1875rem rgba(124,58,237,0.08);
 }
 .custom-input::-webkit-outer-spin-button,
 .custom-input::-webkit-inner-spin-button {
@@ -324,9 +324,9 @@ async function handleSkip() {
 
 /* Buttons */
 .btn {
-  height: 36px;
-  border-radius: 10px;
-  font-size: 14px;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
@@ -339,7 +339,7 @@ async function handleSkip() {
 .btn-primary {
   background: #7C3AED;
   color: #ffffff;
-  padding: 0 20px;
+  padding: 0 1.25rem;
 }
 .btn-primary:hover {
   background: #6D28D9;
@@ -349,9 +349,9 @@ async function handleSkip() {
 }
 
 .btn-small {
-  height: 36px;
-  padding: 0 16px;
-  font-size: 13px;
+  height: 2.25rem;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
 }
 
 .btn-skip {
@@ -359,7 +359,7 @@ async function handleSkip() {
   margin-top: auto;
   background: transparent;
   color: #8B7AAB;
-  border: 1.5px solid #E8E4F0;
+  border: 0.0938rem solid #E8E4F0;
 }
 .btn-skip:hover {
   background: #FAFAFC;
