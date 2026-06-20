@@ -10,6 +10,7 @@
     "autostart:default",
     "updater:default",
     "process:default",
+    "store:default",
     "core:window:allow-close",
     "core:window:allow-inner-position",
     "core:window:allow-inner-size",

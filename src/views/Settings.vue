@@ -16,6 +16,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { getVersion } from '@tauri-apps/api/app'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { load, type Store } from '@tauri-apps/plugin-store'
 import {
   getConfig, setConfig,
   getSilentStart, setSilentStart,
@@ -53,6 +54,91 @@ const loading = ref({ config: false, autostart: false, silent: false, videoActiv
 const message = useMessage()
 const isConfigReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+// 设置页卡片拖拽排序
+const GROUP_KEYS = ['reminder', 'system', 'notification', 'links', 'water'] as const
+type GroupKey = typeof GROUP_KEYS[number]
+const defaultGroupOrder: GroupKey[] = ['reminder', 'system', 'notification', 'links', 'water']
+const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
+const draggingKey = ref<GroupKey | null>(null)
+const dragOverKey = ref<GroupKey | null>(null)
+let settingsStore: Store | null = null
+
+async function getSettingsStore() {
+  if (!settingsStore) {
+    settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
+  }
+  return settingsStore
+}
+
+async function loadGroupOrder() {
+  try {
+    const store = await getSettingsStore()
+    const saved = await store.get<GroupKey[]>('settings_group_order')
+    if (saved && saved.length === GROUP_KEYS.length && saved.every(k => GROUP_KEYS.includes(k))) {
+      groupOrder.value = saved
+    }
+  } catch (e) {
+    console.error('Failed to load settings group order', e)
+  }
+}
+
+async function saveGroupOrder() {
+  try {
+    const store = await getSettingsStore()
+    await store.set('settings_group_order', groupOrder.value)
+  } catch (e) {
+    console.error('Failed to save settings group order', e)
+    message.error(t('settings.messages.saveFailed'))
+  }
+}
+
+function onHandleMouseDown(e: MouseEvent, key: GroupKey) {
+  e.preventDefault()
+  draggingKey.value = key
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!draggingKey.value) return
+  const target = document.elementFromPoint(e.clientX, e.clientY)
+  if (!target) {
+    dragOverKey.value = null
+    return
+  }
+  const groupEl = target.closest('.group[data-group-key]')
+  if (!groupEl) {
+    dragOverKey.value = null
+    return
+  }
+  const key = groupEl.getAttribute('data-group-key') as GroupKey | null
+  if (key && key !== draggingKey.value && GROUP_KEYS.includes(key)) {
+    dragOverKey.value = key
+  } else {
+    dragOverKey.value = null
+  }
+}
+
+function onMouseUp() {
+  if (draggingKey.value && dragOverKey.value) {
+    const fromIndex = groupOrder.value.indexOf(draggingKey.value)
+    const toIndex = groupOrder.value.indexOf(dragOverKey.value)
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+      const newOrder = [...groupOrder.value]
+      newOrder.splice(fromIndex, 1)
+      newOrder.splice(toIndex, 0, draggingKey.value)
+      groupOrder.value = newOrder
+      saveGroupOrder()
+    }
+  }
+  draggingKey.value = null
+  dragOverKey.value = null
+  document.body.style.userSelect = ''
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+}
 
 // 更新状态
 const appVersion = ref('')
@@ -122,6 +208,9 @@ onMounted(async () => {
       localeVal.value = loc
       i18n.global.locale.value = loc as 'zh-CN' | 'en-US'
     }
+
+    // 加载用户自定义卡片顺序
+    await loadGroupOrder()
 
     // 等待 Vue 处理完批量 watcher（此时 isConfigReady 仍为 false，watcher 会跳过）
     await nextTick()
@@ -404,7 +493,15 @@ async function handleInstallUpdate() {
 
     <div class="settings-grid">
       <!-- 提醒偏好 -->
-      <div class="group group-reminder">
+      <div
+        class="group group-reminder"
+        :class="{ dragging: draggingKey === 'reminder', 'drag-over': dragOverKey === 'reminder' }"
+        :style="{ order: groupOrder.indexOf('reminder') + 1 }"
+        data-group-key="reminder"
+      >
+        <div class="drag-handle" @mousedown.prevent="onHandleMouseDown($event, 'reminder')">
+          <svg width="1rem" height="1rem" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+        </div>
         <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
         <div class="setting-row">
@@ -465,7 +562,15 @@ async function handleInstallUpdate() {
       </div>
 
       <!-- 系统 -->
-      <div class="group group-system">
+      <div
+        class="group group-system"
+        :class="{ dragging: draggingKey === 'system', 'drag-over': dragOverKey === 'system' }"
+        :style="{ order: groupOrder.indexOf('system') + 1 }"
+        data-group-key="system"
+      >
+        <div class="drag-handle" @mousedown.prevent="onHandleMouseDown($event, 'system')">
+          <svg width="1rem" height="1rem" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+        </div>
         <div class="group-label">{{ t('settings.groups.system') }}</div>
 
         <div class="setting-row">
@@ -560,7 +665,15 @@ async function handleInstallUpdate() {
       </div>
 
       <!-- 提醒设置 -->
-      <div class="group group-notification">
+      <div
+        class="group group-notification"
+        :class="{ dragging: draggingKey === 'notification', 'drag-over': dragOverKey === 'notification' }"
+        :style="{ order: groupOrder.indexOf('notification') + 1 }"
+        data-group-key="notification"
+      >
+        <div class="drag-handle" @mousedown.prevent="onHandleMouseDown($event, 'notification')">
+          <svg width="1rem" height="1rem" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+        </div>
         <div class="group-label">{{ t('settings.groups.notification') }}</div>
 
         <div class="setting-row">
@@ -655,7 +768,15 @@ async function handleInstallUpdate() {
       </div>
 
       <!-- 相关链接 -->
-      <div class="group links-group group-links">
+      <div
+        class="group links-group group-links"
+        :class="{ dragging: draggingKey === 'links', 'drag-over': dragOverKey === 'links' }"
+        :style="{ order: groupOrder.indexOf('links') + 1 }"
+        data-group-key="links"
+      >
+        <div class="drag-handle" @mousedown.prevent="onHandleMouseDown($event, 'links')">
+          <svg width="1rem" height="1rem" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+        </div>
         <div class="group-label">{{ t('settings.groups.links') }}</div>
         <div class="link-list">
           <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace')">
@@ -694,7 +815,15 @@ async function handleInstallUpdate() {
       </div>
 
       <!-- 喝水提醒 -->
-      <div class="group water-group group-water">
+      <div
+        class="group water-group group-water"
+        :class="{ dragging: draggingKey === 'water', 'drag-over': dragOverKey === 'water' }"
+        :style="{ order: groupOrder.indexOf('water') + 1 }"
+        data-group-key="water"
+      >
+        <div class="drag-handle" @mousedown.prevent="onHandleMouseDown($event, 'water')">
+          <svg width="1rem" height="1rem" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="9" cy="18" r="2"/><circle cx="15" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+        </div>
         <div class="group-label">{{ t('settings.groups.water') }}</div>
 
         <div class="setting-row">
@@ -760,19 +889,45 @@ async function handleInstallUpdate() {
 
 /* 分组卡片 */
 .group {
+  position: relative;
   background: #fff;
   border: 0.0625rem solid #EBE6F2;
   border-radius: 0.875rem;
   padding: 1rem 1.25rem;
   box-sizing: border-box;
+  transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
 }
-
-/* 卡片视觉顺序：系统与相关链接放在最后 */
-.group-reminder { order: 1; }
-.group-notification { order: 2; }
-.group-water { order: 3; }
-.group-system { order: 4; }
-.group-links { order: 5; }
+.group.dragging {
+  opacity: 0.55;
+  transform: scale(0.985);
+  pointer-events: none;
+}
+.group.drag-over {
+  border: 0.0625rem dashed #7C3AED;
+  background: #FAF5FF;
+}
+.drag-handle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: #C4B5FD;
+  border-radius: 0.375rem;
+  transition: all 0.15s ease;
+  z-index: 1;
+}
+.drag-handle:hover {
+  background: #F5F3FF;
+  color: #7C3AED;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
 .group-label {
   font-size: 0.6875rem;
   font-weight: 600;

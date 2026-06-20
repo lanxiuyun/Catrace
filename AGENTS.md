@@ -397,6 +397,7 @@ CREATE TABLE settings (
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
 | 45 | 视频活跃规则设置页：用户可编辑正则规则、从当前窗口添加、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
 | 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
+| 47 | Settings 页卡片支持拖拽排序并持久化 | ✅ |
 
 ---
 
