@@ -117,6 +117,18 @@ html, body, #app {
   background: #f7f5fa;
 }
 
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
 html.reminder-transparent,
 html.reminder-transparent body,
 html.reminder-transparent #app {
