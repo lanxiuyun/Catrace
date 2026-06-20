@@ -157,7 +157,7 @@ function goBack() {
 
 <style scoped>
 .video-rules {
-  padding: 32px 40px;
+  padding: 1.5rem;
   max-width: 720px;
 }
 

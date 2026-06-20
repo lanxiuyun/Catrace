@@ -243,7 +243,7 @@ onDeactivated(() => {
 
 <style scoped>
 .dashboard {
-  padding: 28px 32px;
+  padding: 1.5rem;
 }
 
 .header {

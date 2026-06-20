@@ -741,7 +741,7 @@ async function handleInstallUpdate() {
 
 <style scoped>
 .settings {
-  padding: 32px 40px;
+  padding: 1.5rem;
 }
 
 .title {
@@ -1184,7 +1184,7 @@ async function handleInstallUpdate() {
 /* 响应式 */
 @media (max-width: 900px) {
   .settings {
-    padding: 24px;
+    padding: 1.5rem;
   }
   .slider-control {
     max-width: 260px;

@@ -189,7 +189,7 @@ onDeactivated(() => {
 
 <style scoped>
 .debug-page {
-  padding: 24px;
+  padding: 1.5rem;
   max-width: 900px;
 }
 
