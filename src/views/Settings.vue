@@ -401,7 +401,6 @@ async function handleInstallUpdate() {
 <template>
   <div class="settings">
     <h1 class="title">{{ t('settings.title') }}</h1>
-    <p class="subtitle">{{ t('settings.subtitle') }}</p>
 
     <div class="settings-grid">
       <!-- 提醒偏好 -->
@@ -749,11 +748,6 @@ async function handleInstallUpdate() {
   font-size: 22px;
   font-weight: 700;
   color: #2E1065;
-  margin: 0 0 4px 0;
-}
-.subtitle {
-  font-size: 13px;
-  color: #8B7AAB;
   margin: 0 0 28px 0;
 }
 
