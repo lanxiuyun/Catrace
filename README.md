@@ -2,6 +2,8 @@
 
 [English](README_EN.md) | 中文
 
+🏠 官网主页：https://lanxiuyun.github.io/Catrace
+
 一个帮你平衡工作与休息的小工具。
 
 参与开发请参阅 [贡献指南](CONTRIBUTING.md)。

@@ -2,6 +2,8 @@
 
 [中文](README.md) | English
 
+🏠 Homepage: https://lanxiuyun.github.io/Catrace
+
 A small tool that helps you balance work and rest.
 
 See [Contributing Guide](CONTRIBUTING.md) to get involved.
