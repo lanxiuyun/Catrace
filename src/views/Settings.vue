@@ -478,7 +478,7 @@ async function handleInstallUpdate() {
             :options="localeOptions"
             :loading="loading.locale"
             size="small"
-            style="width: 160px;"
+            style="width: 10rem;"
           />
         </div>
 
@@ -573,7 +573,7 @@ async function handleInstallUpdate() {
             :options="reminderModeOptions"
             :loading="loading.reminderMode"
             size="small"
-            style="width: 160px;"
+            style="width: 10rem;"
           />
         </div>
 
@@ -603,7 +603,7 @@ async function handleInstallUpdate() {
               </label>
             </div>
 
-            <div class="setting-row" style="padding-top: 4px;">
+            <div class="setting-row" style="padding-top: 0.25rem;">
               <div class="setting-meta">
                 <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
                 <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
@@ -620,7 +620,7 @@ async function handleInstallUpdate() {
                 <div class="setting-desc">{{ t('settings.reminder.fullscreenFitModeDesc') }}</div>
               </div>
               <div class="setting-control">
-                <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 140px;" />
+                <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 8.75rem;" />
               </div>
             </div>
           </div>
@@ -639,7 +639,7 @@ async function handleInstallUpdate() {
             type="textarea"
             :rows="2"
             size="small"
-            style="width: 220px;"
+            style="width: 13.75rem;"
           />
         </div>
 
@@ -741,29 +741,29 @@ async function handleInstallUpdate() {
 
 <style scoped>
 .settings {
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #2E1065;
-  margin: 0 0 28px 0;
+  margin: 0 0 1rem 0;
 }
 
 /* 响应式卡片网格布局（与今日活动概览一致） */
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(23.75rem, 1fr));
+  gap: 0.75rem;
 }
 
 /* 分组卡片 */
 .group {
   background: #fff;
-  border: 1px solid #EBE6F2;
-  border-radius: 14px;
-  padding: 20px 28px;
+  border: 0.0625rem solid #EBE6F2;
+  border-radius: 0.875rem;
+  padding: 1rem 1.25rem;
   box-sizing: border-box;
 }
 
@@ -774,12 +774,12 @@ async function handleInstallUpdate() {
 .group-system { order: 4; }
 .group-links { order: 5; }
 .group-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: #8B7AAB;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  letter-spacing: 0.0312rem;
+  margin-bottom: 0;
 }
 
 /* 设置行 */
@@ -787,11 +787,11 @@ async function handleInstallUpdate() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
-  padding: 14px 0;
+  gap: 1.5rem;
+  padding: 0.625rem 0;
 }
 .setting-row.actions {
-  padding: 8px 0 4px;
+  padding: 0.375rem 0 0.25rem;
 }
 
 .setting-meta {
@@ -799,41 +799,41 @@ async function handleInstallUpdate() {
   min-width: 0;
 }
 .setting-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 .setting-desc {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
 }
 
 .setting-control {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 1rem;
 }
 .slider-control {
   flex: 1;
-  max-width: 320px;
-  min-width: 120px;
+  max-width: 20rem;
+  min-width: 7.5rem;
 }
 .slider-control :deep(.n-slider) {
   flex: 1;
 }
 .setting-value {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #7C3AED;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  min-width: 56px;
+  min-width: 3.5rem;
   text-align: right;
 }
 
 .divider {
-  height: 1px;
+  height: 0.0625rem;
   background: #F5F3FF;
   margin: 0;
 }
@@ -841,20 +841,20 @@ async function handleInstallUpdate() {
 /* 全屏提醒子区域 */
 .fullscreen-section {
   background: #FAFAFF;
-  border: 1px solid #F5F3FF;
-  border-radius: 10px;
-  margin: 2px 0 8px;
-  padding: 10px 14px;
+  border: 0.0625rem solid #F5F3FF;
+  border-radius: 0.625rem;
+  margin: 0.125rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
 }
 .fullscreen-section .divider {
   background: #F0EDFA;
 }
 .fullscreen-section-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: #7C3AED;
-  letter-spacing: 0.3px;
-  margin-bottom: 6px;
+  letter-spacing: 0.0187rem;
+  margin-bottom: 0.25rem;
 }
 
 /* 展开/收起过渡动画 */
@@ -875,39 +875,39 @@ async function handleInstallUpdate() {
 .fade-slide-enter-to,
 .fade-slide-leave-from {
   opacity: 1;
-  max-height: 400px;
+  max-height: 25rem;
 }
 
 /* 相关链接 */
 .links-group {
-  padding: 20px 28px 12px;
+  padding: 1rem 1.25rem 0.625rem;
 }
 .link-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 .link-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
   background: #FAFAFF;
-  border: 1px solid #F5F3FF;
-  border-radius: 12px;
+  border: 0.0625rem solid #F5F3FF;
+  border-radius: 0.75rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .link-item:hover {
   background: #F5F3FF;
   border-color: #EDE9FE;
-  transform: translateY(-1px);
+  transform: translateY(0.0625rem);
 }
 .link-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -918,13 +918,13 @@ async function handleInstallUpdate() {
   min-width: 0;
 }
 .link-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 2px;
+  margin-bottom: 0.125rem;
 }
 .link-desc {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
 }
 .link-arrow {
@@ -936,16 +936,16 @@ async function handleInstallUpdate() {
   color: #7C3AED;
 }
 .download-progress {
-  margin-top: 12px;
+  margin-top: 0.75rem;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
 }
 .download-progress :deep(.n-progress-graph-line) {
   flex: 1;
 }
 .download-progress-text {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
@@ -954,32 +954,32 @@ async function handleInstallUpdate() {
 
 /* 更新提示 */
 .update-banner {
-  padding: 14px 0 4px;
+  padding: 0.625rem 0 0.25rem;
 }
 .update-banner-title {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 6px;
+  margin-bottom: 0.375rem;
 }
 .update-banner-body {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
   white-space: pre-wrap;
   line-height: 1.5;
-  max-height: 160px;
+  max-height: 10rem;
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 0.5rem;
 }
 
 .bg-preview {
   position: relative;
-  width: 220px;
-  height: 120px;
-  border-radius: 10px;
+  width: 13.75rem;
+  height: 7.5rem;
+  border-radius: 0.625rem;
   overflow: hidden;
-  border: 1px solid #EBE6F2;
+  border: 0.0625rem solid #EBE6F2;
 }
 .bg-preview img {
   width: 100%;
@@ -988,14 +988,14 @@ async function handleInstallUpdate() {
 }
 .bg-clear {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  bottom: 0.375rem;
+  right: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
   border: none;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -1005,15 +1005,15 @@ async function handleInstallUpdate() {
 
 /* 全屏背景上传 */
 .fs-bg-upload {
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 .fs-bg-preview {
   position: relative;
   width: 100%;
-  height: 110px;
-  border-radius: 10px;
+  height: 6.875rem;
+  border-radius: 0.625rem;
   overflow: hidden;
-  border: 1px solid #EBE6F2;
+  border: 0.0625rem solid #EBE6F2;
 }
 .fs-bg-preview img {
   width: 100%;
@@ -1022,19 +1022,19 @@ async function handleInstallUpdate() {
 }
 .fs-bg-actions {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
+  bottom: 0.625rem;
+  right: 0.625rem;
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .fs-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  gap: 0.3125rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
   border: none;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1042,16 +1042,16 @@ async function handleInstallUpdate() {
 .fs-btn-secondary {
   background: rgba(255, 255, 255, 0.92);
   color: #2E1065;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(0.5rem);
 }
 .fs-btn-secondary:hover {
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.12);
 }
 .fs-btn-danger {
   background: rgba(255, 255, 255, 0.92);
   color: #EF4444;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(0.5rem);
 }
 .fs-btn-danger:hover {
   background: #FEE2E2;
@@ -1063,13 +1063,13 @@ async function handleInstallUpdate() {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100px;
-  border-radius: 10px;
-  border: 2px dashed #E0D8F0;
+  height: 6.25rem;
+  border-radius: 0.625rem;
+  border: 0.125rem dashed #E0D8F0;
   background: #FAFAFF;
   cursor: pointer;
   transition: all 0.2s ease;
-  gap: 6px;
+  gap: 0.375rem;
 }
 .fs-bg-empty:hover {
   border-color: #C4B5FD;
@@ -1079,12 +1079,12 @@ async function handleInstallUpdate() {
   stroke: #7C3AED;
 }
 .fs-empty-text {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #2E1065;
 }
 .fs-empty-hint {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #8B7AAB;
 }
 
@@ -1093,35 +1093,35 @@ async function handleInstallUpdate() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .pos-preview {
   position: relative;
-  width: 180px;
-  height: 101px;
-  border-radius: 8px;
+  width: 11.25rem;
+  height: 6.3125rem;
+  border-radius: 0.5rem;
   background: #1a1a2e;
   background-size: cover;
   background-position: center;
-  border: 1px solid #EBE6F2;
+  border: 0.0625rem solid #EBE6F2;
   cursor: crosshair;
   overflow: hidden;
 }
 .pos-dot {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   border-radius: 50%;
   background: #7C3AED;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 0.125rem solid #fff;
+  box-shadow: 0 0 0 0.125rem rgba(124, 58, 237, 0.4), 0 0.125rem 0.5rem rgba(0, 0, 0, 0.3);
   transform: translate(-50%, -50%);
   pointer-events: none;
   transition: left 0.05s, top 0.05s;
 }
 .pos-reset {
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.625rem;
 }
 
 .water-group {
@@ -1148,16 +1148,16 @@ async function handleInstallUpdate() {
 }
 .water-group :deep(.n-slider-handle) {
   background-color: #3b82f6 !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+  box-shadow: 0 0 0 0.125rem rgba(59, 130, 246, 0.3) !important;
 }
 .water-test-btn {
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 8px;
+  height: 1.875rem;
+  padding: 0 0.875rem;
+  border-radius: 0.5rem;
   border: none;
   background: #3b82f6;
   color: #fff;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1173,21 +1173,21 @@ async function handleInstallUpdate() {
 .video-rules-link {
   color: #7C3AED;
   cursor: pointer;
-  margin-left: 6px;
+  margin-left: 0.375rem;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0.125rem;
 }
 .video-rules-link:hover {
   color: #6D28D9;
 }
 
 /* 响应式 */
-@media (max-width: 900px) {
+@media (max-width: 56.25rem) {
   .settings {
-    padding: 1.5rem;
+    padding: 1.25rem;
   }
   .slider-control {
-    max-width: 260px;
+    max-width: 16.25rem;
   }
 }
 </style>
