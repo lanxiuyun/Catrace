@@ -97,7 +97,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - **媒体计入活跃**：若键鼠活动不足，但检测到正在进行屏幕消费（如看视频、听音乐、看直播），该分钟仍视为**活跃**。
      - **Windows**：使用 WASAPI 枚举系统音频输出会话，直接检查每个音频输出进程的进程名是否在「排除列表」内；任一非排除列表中的进程正在发声即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。对受保护进程（如 `audiodg.exe`）若句柄方式无法获取名称，会回退到 Toolhelp32 进程快照读取进程名。
      - **macOS / Linux**：暂未实现系统音频捕获，媒体计入活跃功能在该平台不可用（`is_media_active` 恒返回 `false`）。后续将通过跨平台音频 API 统一实现。
-     - **排除列表可配置（Windows 专属）**：用户可在 Settings 页的「视频与音乐」Card 中以纯文本形式自定义排除列表，每行一个进程名（不区分大小写），首次使用自动填充默认系统进程列表。开关关闭时不显示该列表。
+     - **排除列表可配置（Windows 专属）**：用户可在 Settings 页的「视频与音乐」Card 中以纯文本形式自定义排除列表，每行一个进程名（不区分大小写），编辑后 500ms 自动保存；首次使用自动填充默认系统进程列表。开关关闭时不显示该列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
@@ -241,24 +241,24 @@ src/
 │       └── en-US.ts     -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   ├── Settings.vue         -- 设置页容器：标题、响应式网格、卡片拖拽排序；具体卡片见 components/settings/
+│   ├── Settings.vue         -- 设置页容器：标题、响应式网格、卡片拖拽排序；每张卡片右上角有拖拽把手，点击把手可拖动排序；具体卡片见 components/settings/
 │   ├── Debug.vue                -- 媒体检测与提醒窗口调试页面
 │   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
 │   ├── ReminderPopup.vue        -- 弹窗提醒窗口
 │   └── ReminderFullscreen.vue   -- 全屏提醒窗口
 ├── components/
 │   ├── settings/                 -- 设置页拆分出的卡片组件
-│   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）
+│   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）；默认左侧宽度自适应，提醒偏好卡片通过 scoped CSS 固定为 13rem
 │   │   ├── SliderControl.vue     -- 滑块 + 数值显示组合
 │   │   ├── ReminderSettingsCard.vue      -- 提醒偏好卡片
-│   │   ├── MediaSettingsCard.vue         -- 视频与音乐卡片（Windows：开关 + 排除列表，开关关闭时隐藏列表；macOS / Linux 仅显示开关占位）
+│   │   ├── MediaSettingsCard.vue         -- 视频与音乐卡片（Windows：开关 + 排除列表，开关关闭时隐藏列表；排除列表编辑后 500ms 自动保存，「重置为默认」按钮位于标题右侧；macOS / Linux 仅显示开关占位）
 │   │   ├── SystemSettingsCard.vue        -- 系统卡片（语言/自启/更新）
 │   │   ├── NotificationSettingsCard.vue  -- 提醒设置卡片（模式/全屏背景/文案/测试）
 │   │   ├── LinksSettingsCard.vue         -- 相关链接卡片
 │   │   └── WaterSettingsCard.vue         -- 喝水提醒卡片
 │   ├── Timeline.vue              -- 24h × 60min 色块热力图（CSS Grid）
 │   ├── TimelineWindows.vue       -- 概览 block 卡片网格（自适应列数，点击展开整行）
-│   └── WaterWidget.vue           -- 喝水提醒小组件：次数 / 最近一次 / 时间轴（关闭时隐藏）
+│   └── WaterWidget.vue           -- 喝水提醒小组件：次数 / 最近一次 / 时间轴；上次喝水时间每秒刷新（1 分钟前、N 分钟前等）；开关关闭时隐藏
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
@@ -417,6 +417,10 @@ CREATE TABLE settings (
 | 48 | 媒体设置从独立 Tab 抽离为 Settings 的 MediaSettingsCard，开关与排除列表集中管理 | ✅ |
 | 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 音频输出进程排除列表 | ✅ |
 | 50 | 移除正则规则匹配降级逻辑：`video_rules.rs` 删除、`regex` 依赖移除、i18n 与 UI 清理 | ✅ |
+| 51 | 仅「提醒偏好」卡片左侧文字固定宽度（13rem），其余设置卡片左侧宽度随内容自适应；SettingRow 取消 `fixedMeta` 属性 | ✅ |
+| 52 | Dashboard `WaterWidget` 上次喝水时间每秒刷新（刚刚 → N 分钟前 → N 小时前） | ✅ |
+| 53 | Settings 页卡片拖拽把手移到右上角，卡片高度撑满 Grid 行 | ✅ |
+| 54 | MediaSettingsCard 排除列表自动保存（500ms 防抖），「重置为默认」改为默认按钮样式并置于标题右侧 | ✅ |
 
 ---
 
