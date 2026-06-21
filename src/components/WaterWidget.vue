@@ -14,9 +14,8 @@ const btnHovered = ref(false)
 const btnRemoveHovered = ref(false)
 const pulseCount = ref(false)
 
-function fmtLast(ts: number | null): string {
+function fmtLast(ts: number | null, now: number): string {
   if (!ts) return t('water.lastDrank')
-  const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
   if (diff < 60) return t('water.justNow')
   const minutes = Math.floor(diff / 60)
@@ -25,7 +24,7 @@ function fmtLast(ts: number | null): string {
   return t('water.hoursAgo', { n: hours })
 }
 
-const lastLabel = computed(() => fmtLast(lastTs.value))
+const lastLabel = computed(() => fmtLast(lastTs.value, nowTs.value))
 
 function startOfDayTs(): number {
   const d = new Date()
@@ -115,9 +114,10 @@ let nowTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   load()
   timer = setInterval(load, 30000)
+  nowTs.value = Math.floor(Date.now() / 1000)
   nowTimer = setInterval(() => {
     nowTs.value = Math.floor(Date.now() / 1000)
-  }, 30000)
+  }, 1000)
 })
 
 onUnmounted(() => {
