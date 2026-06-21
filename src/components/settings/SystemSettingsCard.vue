@@ -54,6 +54,7 @@ onMounted(async () => {
       localeVal.value = detected
       await setLocale(detected)
       i18n.global.locale.value = detected as 'zh-CN' | 'en-US'
+      // 首次自动检测默认语言，静默保存，不弹「已保存」提示
     } else {
       localeVal.value = loc
       i18n.global.locale.value = loc as 'zh-CN' | 'en-US'

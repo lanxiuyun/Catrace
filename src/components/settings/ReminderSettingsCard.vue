@@ -10,6 +10,7 @@ const { t } = useI18n()
 const message = useMessage()
 
 const config = ref({ window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 })
+const savedConfig = ref({ ...config.value })
 const loading = ref(false)
 const isReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -22,6 +23,7 @@ onMounted(async () => {
       break_minutes: Number(c.break_minutes),
       snooze_interval_minutes: Number(c.snooze_interval_minutes) || 3,
     }
+    savedConfig.value = { ...config.value }
     isReady.value = true
   } catch (e) {
     console.error('Failed to load reminder settings', e)
@@ -30,14 +32,19 @@ onMounted(async () => {
 
 watch(
   () => ({ window_minutes: config.value.window_minutes, break_minutes: config.value.break_minutes, snooze_interval_minutes: config.value.snooze_interval_minutes }),
-  async (newVal, oldVal) => {
+  async () => {
     if (!isReady.value) return
-    if (newVal.window_minutes === oldVal.window_minutes && newVal.break_minutes === oldVal.break_minutes && newVal.snooze_interval_minutes === oldVal.snooze_interval_minutes) return
+    if (config.value.window_minutes === savedConfig.value.window_minutes &&
+        config.value.break_minutes === savedConfig.value.break_minutes &&
+        config.value.snooze_interval_minutes === savedConfig.value.snooze_interval_minutes) {
+      return
+    }
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
       loading.value = true
       try {
         await setConfig(config.value)
+        savedConfig.value = { ...config.value }
         message.success(t('settings.messages.saved'))
       } catch (e) {
         message.error(t('settings.messages.saveFailed'))

@@ -1,44 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NInput, useMessage } from 'naive-ui'
+import { NSwitch, NButton, NInput, NAlert, useMessage } from 'naive-ui'
 import {
   getMediaActiveEnabled,
   setMediaActiveEnabled,
   getMediaWhitelistText,
   setMediaWhitelistText,
-  getMediaFallbackRulesText,
-  setMediaFallbackRulesText,
+  getPlatform,
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
+const platform = ref('windows')
+const isWindows = computed(() => platform.value === 'windows')
 const enabled = ref(true)
 const whitelistText = ref('')
-const rulesText = ref('')
-const loading = ref({ enabled: false, whitelist: false, rules: false })
-const saving = ref({ whitelist: false, rules: false })
+const loading = ref({ enabled: false, whitelist: false })
+const saving = ref(false)
 
 onMounted(async () => {
   loading.value.whitelist = true
-  loading.value.rules = true
   try {
-    const [whitelist, rules, e] = await Promise.all([
+    const [whitelist, e, p] = await Promise.all([
       getMediaWhitelistText(),
-      getMediaFallbackRulesText(),
       getMediaActiveEnabled(),
+      getPlatform(),
     ])
     whitelistText.value = whitelist
-    rulesText.value = rules
     enabled.value = e
+    platform.value = p
   } catch (err) {
     console.error(err)
     message.error(t('mediaWhitelist.loadFailed'))
   } finally {
     loading.value.whitelist = false
-    loading.value.rules = false
   }
 })
 
@@ -58,7 +56,7 @@ async function toggleEnabled(val: boolean) {
 }
 
 async function saveWhitelist() {
-  saving.value.whitelist = true
+  saving.value = true
   try {
     await setMediaWhitelistText(whitelistText.value)
     message.success(t('mediaWhitelist.saveSuccess'))
@@ -66,13 +64,13 @@ async function saveWhitelist() {
     console.error(err)
     message.error(t('mediaWhitelist.saveFailed'))
   } finally {
-    saving.value.whitelist = false
+    saving.value = false
   }
 }
 
 async function resetWhitelistDefaults() {
   if (!window.confirm(t('mediaWhitelist.confirmReset'))) return
-  saving.value.whitelist = true
+  saving.value = true
   try {
     await setMediaWhitelistText('')
     whitelistText.value = await getMediaWhitelistText()
@@ -81,54 +79,7 @@ async function resetWhitelistDefaults() {
     console.error(err)
     message.error(t('mediaWhitelist.saveFailed'))
   } finally {
-    saving.value.whitelist = false
-  }
-}
-
-function validatePatterns(text: string): string | null {
-  const lines = text.split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    try {
-      new RegExp(trimmed)
-    } catch {
-      return trimmed
-    }
-  }
-  return null
-}
-
-async function saveRules() {
-  const invalid = validatePatterns(rulesText.value)
-  if (invalid) {
-    message.error(t('mediaRules.invalidPattern', { pattern: invalid }))
-    return
-  }
-  saving.value.rules = true
-  try {
-    await setMediaFallbackRulesText(rulesText.value)
-    message.success(t('mediaRules.saveSuccess'))
-  } catch (err) {
-    console.error(err)
-    message.error(t('mediaRules.saveFailed'))
-  } finally {
-    saving.value.rules = false
-  }
-}
-
-async function resetRulesDefaults() {
-  if (!window.confirm(t('mediaRules.confirmReset'))) return
-  saving.value.rules = true
-  try {
-    await setMediaFallbackRulesText('')
-    rulesText.value = await getMediaFallbackRulesText()
-    message.success(t('mediaRules.saveSuccess'))
-  } catch (err) {
-    console.error(err)
-    message.error(t('mediaRules.saveFailed'))
-  } finally {
-    saving.value.rules = false
+    saving.value = false
   }
 }
 </script>
@@ -145,63 +96,43 @@ async function resetRulesDefaults() {
       />
     </setting-row>
 
-    <div class="divider" />
+    <template v-if="isWindows">
+      <div class="divider" />
 
-    <div class="section-header">
-      <div class="section-meta">
-        <div class="setting-title">{{ t('mediaWhitelist.title') }}</div>
-        <div class="setting-desc">{{ t('mediaWhitelist.subtitle') }}</div>
+      <div class="section-header">
+        <div class="section-meta">
+          <div class="setting-title">{{ t('mediaWhitelist.title') }}</div>
+          <div class="setting-desc">{{ t('mediaWhitelist.subtitle') }}</div>
+        </div>
       </div>
-    </div>
 
-    <n-input
-      v-model:value="whitelistText"
-      type="textarea"
-      :placeholder="t('mediaWhitelist.placeholder')"
-      :rows="6"
-      :disabled="loading.whitelist"
-      class="rules-textarea"
-    />
+      <n-input
+        v-model:value="whitelistText"
+        type="textarea"
+        :placeholder="t('mediaWhitelist.placeholder')"
+        :rows="8"
+        :disabled="loading.whitelist"
+        class="rules-textarea"
+      />
 
-    <div class="hint">{{ t('mediaWhitelist.hint') }}</div>
+      <div class="hint">{{ t('mediaWhitelist.hint') }}</div>
 
-    <div class="rule-actions">
-      <n-button size="small" quaternary @click="resetWhitelistDefaults">
-        {{ t('mediaWhitelist.resetDefault') }}
-      </n-button>
-      <n-button type="primary" size="small" :loading="saving.whitelist" @click="saveWhitelist">
-        {{ t('mediaWhitelist.saveRules') }}
-      </n-button>
-    </div>
-
-    <div class="divider" />
-
-    <div class="section-header">
-      <div class="section-meta">
-        <div class="setting-title">{{ t('mediaRules.title') }}</div>
-        <div class="setting-desc">{{ t('mediaRules.subtitle') }}</div>
+      <div class="rule-actions">
+        <n-button size="small" quaternary @click="resetWhitelistDefaults">
+          {{ t('mediaWhitelist.resetDefault') }}
+        </n-button>
+        <n-button type="primary" size="small" :loading="saving" @click="saveWhitelist">
+          {{ t('mediaWhitelist.saveRules') }}
+        </n-button>
       </div>
-    </div>
+    </template>
 
-    <n-input
-      v-model:value="rulesText"
-      type="textarea"
-      :placeholder="t('mediaRules.placeholder')"
-      :rows="6"
-      :disabled="loading.rules"
-      class="rules-textarea"
-    />
-
-    <div class="hint">{{ t('mediaRules.hint') }}</div>
-
-    <div class="rule-actions">
-      <n-button size="small" quaternary @click="resetRulesDefaults">
-        {{ t('mediaRules.resetDefault') }}
-      </n-button>
-      <n-button type="primary" size="small" :loading="saving.rules" @click="saveRules">
-        {{ t('mediaRules.saveRules') }}
-      </n-button>
-    </div>
+    <template v-else>
+      <div class="divider" />
+      <n-alert type="info" :show-icon="true" class="platform-hint">
+        {{ t('media.unsupportedPlatformHint') }}
+      </n-alert>
+    </template>
   </div>
 </template>
 
@@ -255,5 +186,14 @@ async function resetRulesDefaults() {
   margin-top: 1rem;
   padding-top: 0.75rem;
   border-top: 0.0625rem solid #F5F3FF;
+}
+
+.platform-hint {
+  margin-top: 0.5rem;
+}
+
+.platform-hint :deep(.n-alert-body__content) {
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 </style>

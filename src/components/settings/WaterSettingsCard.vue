@@ -11,6 +11,7 @@ const message = useMessage()
 
 const waterEnabled = ref(true)
 const waterInterval = ref(60)
+const savedInterval = ref(60)
 const loading = ref(false)
 const isReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -20,6 +21,7 @@ onMounted(async () => {
     const ws = await getWaterSettings()
     waterEnabled.value = ws.enabled
     waterInterval.value = Number(ws.interval_minutes) || 60
+    savedInterval.value = waterInterval.value
     isReady.value = true
   } catch (e) {
     console.error('Failed to load water settings', e)
@@ -42,13 +44,14 @@ async function toggleWaterEnabled(val: boolean) {
 
 watch(
   () => waterInterval.value,
-  async (newVal, oldVal) => {
-    if (!isReady.value || newVal === oldVal) return
+  async () => {
+    if (!isReady.value || waterInterval.value === savedInterval.value) return
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(async () => {
       loading.value = true
       try {
-        await setWaterSettings(waterEnabled.value, newVal)
+        await setWaterSettings(waterEnabled.value, waterInterval.value)
+        savedInterval.value = waterInterval.value
         message.success(t('settings.messages.saved'))
       } catch (e) {
         message.error(t('settings.messages.saveFailed'))

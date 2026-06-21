@@ -116,54 +116,6 @@ onDeactivated(() => {
         </n-space>
       </n-card>
 
-      <!-- GSMTCSM -->
-      <n-card :title="t('debug.gsmtcsm')" size="small">
-        <n-space vertical :size="12">
-          <n-descriptions :column="3" size="small" bordered>
-            <n-descriptions-item :label="t('debug.available')">
-              <n-tag :type="data.gsmtcsm_available ? 'success' : 'error'">
-                {{ data.gsmtcsm_available ? t('debug.yes') : t('debug.no') }}
-              </n-tag>
-            </n-descriptions-item>
-            <n-descriptions-item :label="t('debug.sessionCount')">{{ data.gsmtcsm_session_count }}</n-descriptions-item>
-            <n-descriptions-item :label="t('debug.hasPlaying')">
-              <n-tag :type="data.gsmtcsm_has_playing ? 'success' : 'default'">
-                {{ data.gsmtcsm_has_playing ? t('debug.yes') : t('debug.no') }}
-              </n-tag>
-            </n-descriptions-item>
-          </n-descriptions>
-
-          <n-text v-if="data.gsmtcsm_error" type="error">
-            {{ t('debug.errorPrefix') }}{{ data.gsmtcsm_error }}
-          </n-text>
-
-          <n-table v-if="data.gsmtcsm_sessions.length > 0" :single-line="false" size="small">
-            <thead>
-              <tr>
-                <th>{{ t('debug.table.title') }}</th>
-                <th>{{ t('debug.table.artist') }}</th>
-                <th>{{ t('debug.table.status') }}</th>
-                <th>{{ t('debug.table.type') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(s, i) in data.gsmtcsm_sessions" :key="i">
-                <td>{{ s.title }}</td>
-                <td>{{ s.artist }}</td>
-                <td>
-                  <n-tag :type="s.status === 'Playing' ? 'success' : 'default'" size="small">
-                    {{ s.status }}
-                  </n-tag>
-                </td>
-                <td>{{ s.playback_type }}</td>
-              </tr>
-            </tbody>
-          </n-table>
-
-          <n-empty v-else-if="!data.gsmtcsm_error" :description="t('debug.noMediaSessions')" size="small" />
-        </n-space>
-      </n-card>
-
       <!-- 音频会话 -->
       <n-card :title="t('debug.audioSessions')" size="small">
         <n-space vertical :size="12">
@@ -219,14 +171,6 @@ onDeactivated(() => {
             <n-descriptions-item :label="t('debug.windowTitle')">{{ data.focus_window_title }}</n-descriptions-item>
             <n-descriptions-item :label="t('debug.appName')">{{ data.focus_app_name }}</n-descriptions-item>
             <n-descriptions-item :label="t('debug.processPath')">{{ data.focus_process_path }}</n-descriptions-item>
-            <n-descriptions-item :label="t('debug.ruleMatch')">
-              <n-tag :type="data.rule_matched ? 'success' : 'default'">
-                {{ data.rule_matched ? t('debug.yes') : t('debug.no') }}
-              </n-tag>
-              <n-text v-if="data.matched_rule" depth="3" style="margin-left: 0.5rem;">
-                {{ t('debug.matchedPrefix') }}{{ data.matched_rule }}
-              </n-text>
-            </n-descriptions-item>
           </n-descriptions>
         </n-space>
       </n-card>

@@ -10,10 +10,13 @@ const { t } = useI18n()
 const message = useMessage()
 
 const reminderMode = ref('toast')
+const savedReminderMode = ref('toast')
 const customBody = ref('')
+const savedCustomBody = ref('')
 const fullscreenBg = ref('')
 const fullscreenOpacity = ref(80)
 const fullscreenFitMode = ref('contain')
+const savedFullscreen = ref({ bg: '', opacity: 80, fitMode: 'contain' })
 const loading = ref({ reminderMode: false, reminderText: false, fullscreen: false })
 const isReady = ref(false)
 let textSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -39,10 +42,13 @@ onMounted(async () => {
       getFullscreenSettings(),
     ])
     reminderMode.value = rm || 'toast'
+    savedReminderMode.value = reminderMode.value
     customBody.value = rt.body || ''
+    savedCustomBody.value = customBody.value
     fullscreenBg.value = fs.bg_image || ''
     fullscreenOpacity.value = Number(fs.opacity) || 80
     fullscreenFitMode.value = fs.fit_mode || 'contain'
+    savedFullscreen.value = { bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }
     isReady.value = true
   } catch (e) {
     console.error('Failed to load notification settings', e)
@@ -50,10 +56,11 @@ onMounted(async () => {
 })
 
 watch(reminderMode, async (newVal, oldVal) => {
-  if (!isReady.value || newVal === oldVal) return
+  if (!isReady.value || newVal === savedReminderMode.value) return
   loading.value.reminderMode = true
   try {
     await setReminderMode(newVal)
+    savedReminderMode.value = newVal
     message.success(t('settings.messages.saved'))
   } catch (e) {
     message.error(t('settings.messages.saveFailed'))
@@ -65,13 +72,14 @@ watch(reminderMode, async (newVal, oldVal) => {
 
 watch(
   () => customBody.value,
-  async (newVal, oldVal) => {
-    if (!isReady.value || newVal === oldVal) return
+  async () => {
+    if (!isReady.value || customBody.value === savedCustomBody.value) return
     if (textSaveTimer) clearTimeout(textSaveTimer)
     textSaveTimer = setTimeout(async () => {
       loading.value.reminderText = true
       try {
         await setReminderText('', customBody.value)
+        savedCustomBody.value = customBody.value
         message.success(t('settings.messages.saved'))
       } catch (e) {
         message.error(t('settings.messages.saveFailed'))
@@ -84,14 +92,19 @@ watch(
 
 watch(
   () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }),
-  async (newVal, oldVal) => {
+  async () => {
     if (!isReady.value) return
-    if (newVal.bg === oldVal.bg && newVal.opacity === oldVal.opacity && newVal.fitMode === oldVal.fitMode) return
+    if (fullscreenBg.value === savedFullscreen.value.bg &&
+        fullscreenOpacity.value === savedFullscreen.value.opacity &&
+        fullscreenFitMode.value === savedFullscreen.value.fitMode) {
+      return
+    }
     if (fullscreenSaveTimer) clearTimeout(fullscreenSaveTimer)
     fullscreenSaveTimer = setTimeout(async () => {
       loading.value.fullscreen = true
       try {
         await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value, fullscreenFitMode.value, '')
+        savedFullscreen.value = { bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }
         message.success(t('settings.messages.saved'))
       } catch (e) {
         console.error('[Fullscreen] Save FAILED:', e)

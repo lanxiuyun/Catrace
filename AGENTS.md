@@ -32,7 +32,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   │   ├── SettingRow.vue
 │   │   │   ├── SliderControl.vue
 │   │   │   ├── ReminderSettingsCard.vue
-│   │   │   ├── VideoSettingsCard.vue
+│   │   │   ├── MediaSettingsCard.vue
 │   │   │   ├── SystemSettingsCard.vue
 │   │   │   ├── NotificationSettingsCard.vue
 │   │   │   ├── LinksSettingsCard.vue
@@ -46,7 +46,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   ├── Settings.vue              # 设置页容器：标题、响应式网格、卡片拖拽排序
-│   │   ├── Debug.vue                 # 视频检测与提醒窗口调试页面
+│   │   ├── Debug.vue                 # 媒体检测与提醒窗口调试页面
 │   │   ├── ReminderToast.vue         # Toast 提醒窗口（堆叠通知卡片）
 │   │   ├── ReminderPopup.vue         # 弹窗提醒窗口
 │   │   └── ReminderFullscreen.vue    # 全屏提醒窗口
@@ -80,7 +80,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 桌面框架 | Tauri 2 |
 | 前端 | Vue 3 + TypeScript + Vite + naive-ui |
 | 图表 | **未使用 ECharts**（时间轴用 CSS Grid 实现） |
-| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、reqwest（HTTP）、uuid（devKey）、md5（签名）、semver（版本号）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-window-state、tauri-plugin-single-instance |
+| 后端（Rust）| rdev（键盘，Windows/Linux）、device_query（鼠标 + macOS 键盘）、rusqlite（DB）、tokio、active-win-pos-rs（焦点窗口）、windows（WASAPI 音频会话检测，Windows 专属）、reqwest（HTTP）、uuid（devKey）、md5（签名）、semver（版本号）、tauri-plugin-autostart、tauri-plugin-opener、tauri-plugin-window-state、tauri-plugin-single-instance |
 
 ---
 
@@ -94,10 +94,10 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 2. **分钟判定**（`lib.rs`）
    - 每分钟00秒结算一次：该分钟内活动次数 ≥ 3 → 标记为**活跃**；否则标记为**休息**。
    - 键鼠监听是独立的实时线程，持续累积活动次数，每分钟00秒读取并归零。
-   - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
-     - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 可用但无 Playing 会话时，回退到用户自定义规则匹配；API 调用失败/超时时同样回退到规则匹配。
-     - **macOS / Linux**：直接走用户自定义规则匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
-     - **规则可配置**：用户可在 Settings 页的「视频规则」Card 中以纯文本形式自定义正则规则，每行一条，同时匹配窗口标题、应用名、进程名、进程路径；首次使用自动填充原先的默认关键词列表。
+   - **媒体计入活跃**：若键鼠活动不足，但检测到正在进行屏幕消费（如看视频、听音乐、看直播），该分钟仍视为**活跃**。
+     - **Windows**：使用 WASAPI 检测系统音频输出。有音频输出时，再检查当前焦点窗口进程名是否在「媒体排除白名单」内；不在白名单内即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。
+     - **macOS / Linux**：暂未实现系统音频捕获，媒体计入活跃功能在该平台不可用（`is_media_active` 恒返回 `false`）。后续将通过跨平台音频 API 统一实现。
+     - **白名单可配置（Windows 专属）**：用户可在 Settings 页的「媒体计入活跃」Card 中以纯文本形式自定义排除白名单，每行一个进程名（不区分大小写），首次使用自动填充默认系统进程列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
@@ -183,8 +183,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `water_reminder_enabled` | 开启喝水提醒 | true |
 | `water_interval_minutes` | 喝水间隔（多久未喝水则提醒，分钟） | 60 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
-| `video_active_enabled` | 视频计入活跃（开启后看视频算活跃，活跃时长到达后仍会提醒休息） | true |
-| `video_active_rules` | 视频活跃规则（JSON 字符串数组，每个元素为正则表达式） | 默认关键词规则 |
+| `video_active_enabled` | 媒体计入活跃总开关（底层 key 保留为 `video_active_enabled` 以兼容旧设置；开启后播放音乐/视频等声音时也算活跃） | true |
+| `media_whitelist` | 媒体排除白名单（JSON 字符串数组，Windows 下用于排除系统提示音、会议软件等；焦点窗口进程名在白名单内时不视为活跃） | 默认系统进程列表 |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 | `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
 | `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
@@ -222,7 +222,7 @@ src-tauri/src/
 │                     · 系统托盘
 ├── reminder.rs     -- 提醒状态机 ReminderState + 单元测试
 ├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
-├── video_rules.rs  -- 视频活跃规则：模型 + 默认规则 + 编译缓存 + 匹配 + 单元测试
+├── media_audio.rs  -- Windows WASAPI 音频会话检测 + 排除白名单 + 单元测试
 ├── db.rs           -- rusqlite 读写封装 + block/喝水记录 + 单元测试
 ├── water.rs        -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
 └── report.rs       -- UpgradeLink 事件上报（app_start 等）
@@ -242,7 +242,7 @@ src/
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
 │   ├── Settings.vue         -- 设置页容器：标题、响应式网格、卡片拖拽排序；具体卡片见 components/settings/
-│   ├── Debug.vue                -- 视频检测与提醒窗口调试页面
+│   ├── Debug.vue                -- 媒体检测与提醒窗口调试页面
 │   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
 │   ├── ReminderPopup.vue        -- 弹窗提醒窗口
 │   └── ReminderFullscreen.vue   -- 全屏提醒窗口
@@ -251,7 +251,7 @@ src/
 │   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）
 │   │   ├── SliderControl.vue     -- 滑块 + 数值显示组合
 │   │   ├── ReminderSettingsCard.vue      -- 提醒偏好卡片
-│   │   ├── VideoSettingsCard.vue         -- 视频规则卡片（开关 + 正则规则编辑）
+│   │   ├── MediaSettingsCard.vue         -- 媒体计入活跃卡片（Windows：开关 + 排除白名单；macOS / Linux 仅显示开关，功能待实现）
 │   │   ├── SystemSettingsCard.vue        -- 系统卡片（语言/自启/更新）
 │   │   ├── NotificationSettingsCard.vue  -- 提醒设置卡片（模式/全屏背景/文案/测试）
 │   │   ├── LinksSettingsCard.vue         -- 相关链接卡片
@@ -262,7 +262,7 @@ src/
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
-│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-toast, /reminder-popup, /reminder-fullscreen）；视频规则已合并到 /settings 的 VideoSettingsCard
+│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-toast, /reminder-popup, /reminder-fullscreen）；媒体计入活跃已合并到 /settings 的 MediaSettingsCard
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
 ├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
@@ -393,9 +393,9 @@ CREATE TABLE settings (
 | 19 | 设置页文本优化 + 开机自启/静默启动开关                                           | ✅ |
 | 20 | 关闭不退出最小化到托盘，双击托盘显示主页面                                           | ✅ |
 | 21 | 设置页响应式卡片网格布局 + 相关链接（GitHub/更新日志/问题反馈）                      | ✅ |
-| 27 | 视频检测：GSMTCSM 优先，API 失败时关键词兜底，去掉 Video 类型限制                      | ✅ |
-| 28 | 视频检测调试页面（实时显示 GSMTCSM 会话、焦点窗口、键鼠计数）                             | ✅ |
-| 29 | 「视频计入活跃」开关设置                                                    | ✅ |
+| 27 | ~~视频检测：GSMTCSM 优先，API 失败时关键词兜底，去掉 Video 类型限制~~                    | ~~已移除 GSMTCSM~~ |
+| 28 | 媒体检测调试页面（实时显示音频会话、焦点窗口、键鼠计数）                             | ✅ |
+| 29 | 「媒体计入活跃」开关设置                                                    | ✅ |
 | 30 | 文案中性化：「工作」→「活跃」                                                 | ✅ |
 | 31 | 设置页去掉保存按钮，提醒偏好滑块自动保存                                            | ✅ |
 | 32 | 国际化 i18n：vue-i18n 前端全量替换 + Rust 后端通知/托盘本地化                      | ✅ |
@@ -411,10 +411,12 @@ CREATE TABLE settings (
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
-| 45 | 视频活跃规则设置：用户可编辑正则规则、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
+| 45 | 媒体计入活跃重构：Windows 使用 WASAPI 音频检测 + 焦点窗口白名单；macOS / Linux 暂不支持 | ✅ |
 | 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
 | 47 | Settings 页卡片支持拖拽排序并持久化 | ✅ |
-| 48 | 视频规则从独立 Tab 抽离为 Settings 的 VideoSettingsCard，开关与规则编辑集中管理 | ✅ |
+| 48 | 媒体设置从独立 Tab 抽离为 Settings 的 MediaSettingsCard，开关与白名单集中管理 | ✅ |
+| 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 焦点窗口白名单 | ✅ |
+| 50 | 移除正则规则匹配降级逻辑：`video_rules.rs` 删除、`regex` 依赖移除、i18n 与 UI 清理 | ✅ |
 
 ---
 
@@ -451,13 +453,13 @@ cd src-tauri && cargo test
 - UI 配色统一维护在 `src/theme.ts`，改主题时优先改此文件。
 - **前端长度单位统一使用 rem**：`src/` 下所有 Vue/CSS/SCSS 样式中的长度尺寸（padding、margin、gap、width、height、border-radius、font-size、letter-spacing、box-shadow 偏移/模糊等）统一使用 `rem`，不再写 `px`。换算基准为根字体大小 `16px`（即 `1rem = 16px`）。例外：物理 1px 边框、`backdrop-filter: blur(...)` 的精确像素控制、SVG 的 `width/height/viewBox` 属性可保留 px。
 - **简单存储优先使用 Tauri Store 插件**：轻量级、前端相关的键值配置（如 UI 布局、排序、开关状态等）优先使用 `@tauri-apps/plugin-store`，存放到 `app_data_dir` 下的 JSON 文件中；仅当数据需要被 Rust 后端频繁读取、涉及业务核心状态或需要复杂查询时，才写入 SQLite。避免为简单配置新增 Rust 命令和 DB 表。
-- **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows` crate 用于 GSMTCSM 媒体会话检测）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
+- **🔴 强约束 — 跨平台**：Rust 后端开发任何功能（尤其是新增依赖、系统调用、原生 API、文件路径处理、通知、托盘、键鼠监听等）**必须首先评估跨平台兼容性**。Catrace 目标平台为 **Windows / macOS / Linux**，禁止引入仅限单一平台的代码而不提供条件编译或降级方案。新增 `Cargo.toml` 依赖时，必须检查该 crate 是否支持目标平台；涉及平台专属 API（如 `windows` crate 用于 WASAPI 音频会话检测）时，必须使用 `#[cfg(target_os = ...)]` 隔离，并为其他平台提供等效实现或优雅降级。
 
 ---
 
 ## 测试策略
 
-- **Rust**：共 26 个单元测试，分布在 `db.rs`（15 个）、`reminder.rs`（4 个）、`report.rs`（4 个）和 `water.rs`（3 个）：
+- **Rust**：共 30 个单元测试，分布在 `db.rs`（15 个）、`reminder.rs`（4 个）、`report.rs`（4 个）、`water.rs`（3 个）和 `media_audio.rs`（4 个）：
 
   **Block 切分（`db.rs`，3 个）**
   | 测试名 | 说明 |
@@ -508,6 +510,14 @@ cd src-tauri && cargo test
   | `test_water_state_snooze` | `is_snoozed()` 正确判断未来/过去时刻 |
   | `test_water_state_can_send_reminder` | `can_send_reminder()` 1 秒去重 |
   | `test_water_state_record_drink_clears_snooze` | 喝水后清除 snooze |
+
+  **媒体音频检测（`media_audio.rs`，4 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_is_any_session_active_respects_whitelist` | 非白名单音频会话使 media_audio 判定为活跃 |
+  | `test_is_any_session_active_all_whitelisted` | 全部在白名单内时判定为不活跃 |
+  | `test_is_any_session_active_no_sound` | 无音频输出时判定为不活跃 |
+  | `test_parse_whitelist_text_ignores_comments_and_empty` | 白名单文本解析忽略注释与空行 |
 
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
