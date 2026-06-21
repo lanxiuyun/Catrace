@@ -28,15 +28,23 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── api/tauri.ts
 │   ├── assets/
 │   ├── components/
-│   │   ├── Timeline.vue        # 详细视图：24h 分钟级色块热力图（CSS Grid）
-│   │   ├── TimelineWindows.vue # 概览视图：block 卡片网格（可展开整行）
-│   │   └── WaterWidget.vue     # 喝水提醒小组件（Dashboard 右上角，开关关闭时隐藏）
+│   │   ├── settings/                 # 设置页拆分出的卡片组件
+│   │   │   ├── SettingRow.vue
+│   │   │   ├── SliderControl.vue
+│   │   │   ├── ReminderSettingsCard.vue
+│   │   │   ├── SystemSettingsCard.vue
+│   │   │   ├── NotificationSettingsCard.vue
+│   │   │   ├── LinksSettingsCard.vue
+│   │   │   └── WaterSettingsCard.vue
+│   │   ├── Timeline.vue              # 详细视图：24h 分钟级色块热力图（CSS Grid）
+│   │   ├── TimelineWindows.vue       # 概览视图：block 卡片网格（可展开整行）
+│   │   └── WaterWidget.vue           # 喝水提醒小组件（Dashboard 右上角，开关关闭时隐藏）
 │   ├── router/index.ts
 │   ├── utils/
 │   │   └── timeBlocks.ts       # 前瞻式 block 切分（前后端共用逻辑）
 │   ├── views/
 │   │   ├── Dashboard.vue
-│   │   ├── Settings.vue              # 设置页：响应式 CSS Grid 卡片网格（提醒偏好 / 提醒设置 / 喝水提醒 / 系统 / 相关链接）
+│   │   ├── Settings.vue              # 设置页容器：标题、响应式网格、卡片拖拽排序
 │   │   ├── VideoRules.vue            # 视频活跃规则设置页
 │   │   ├── Debug.vue                 # 视频检测与提醒窗口调试页面
 │   │   ├── ReminderToast.vue         # Toast 提醒窗口（堆叠通知卡片）
@@ -233,16 +241,24 @@ src/
 │       └── en-US.ts     -- 英文翻译
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
-│   ├── Settings.vue         -- 设置页：响应式 CSS Grid 卡片网格；包含提醒偏好、提醒设置、喝水提醒、系统、相关链接五个分组
+│   ├── Settings.vue         -- 设置页容器：标题、响应式网格、卡片拖拽排序；具体卡片见 components/settings/
 │   ├── VideoRules.vue       -- 视频活跃规则设置页（正则 / 从当前窗口添加）
 │   ├── Debug.vue                -- 视频检测与提醒窗口调试页面
 │   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
 │   ├── ReminderPopup.vue        -- 弹窗提醒窗口
 │   └── ReminderFullscreen.vue   -- 全屏提醒窗口
 ├── components/
-│   ├── Timeline.vue         -- 24h × 60min 色块热力图（CSS Grid）
-│   ├── TimelineWindows.vue  -- 概览 block 卡片网格（自适应列数，点击展开整行）
-│   └── WaterWidget.vue      -- 喝水提醒小组件：次数 / 最近一次 / 时间轴（关闭时隐藏）
+│   ├── settings/                 -- 设置页拆分出的卡片组件
+│   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）
+│   │   ├── SliderControl.vue     -- 滑块 + 数值显示组合
+│   │   ├── ReminderSettingsCard.vue      -- 提醒偏好卡片
+│   │   ├── SystemSettingsCard.vue        -- 系统卡片（语言/自启/更新）
+│   │   ├── NotificationSettingsCard.vue  -- 提醒设置卡片（模式/全屏背景/文案/测试）
+│   │   ├── LinksSettingsCard.vue         -- 相关链接卡片
+│   │   └── WaterSettingsCard.vue         -- 喝水提醒卡片
+│   ├── Timeline.vue              -- 24h × 60min 色块热力图（CSS Grid）
+│   ├── TimelineWindows.vue       -- 概览 block 卡片网格（自适应列数，点击展开整行）
+│   └── WaterWidget.vue           -- 喝水提醒小组件：次数 / 最近一次 / 时间轴（关闭时隐藏）
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
