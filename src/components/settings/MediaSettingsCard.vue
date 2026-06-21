@@ -96,10 +96,11 @@ async function resetWhitelistDefaults() {
       />
     </setting-row>
 
-    <template v-if="isWindows">
+    <template v-if="isWindows && enabled">
       <div class="divider" />
 
       <div class="whitelist-title">{{ t('mediaWhitelist.title') }}</div>
+      <div class="whitelist-desc">{{ t('mediaWhitelist.desc') }}</div>
 
       <n-input
         v-model:value="whitelistText"
@@ -120,7 +121,7 @@ async function resetWhitelistDefaults() {
       </div>
     </template>
 
-    <template v-else>
+    <template v-if="!isWindows">
       <div class="divider" />
       <n-alert type="info" :show-icon="true" class="platform-hint">
         {{ t('media.unsupportedPlatformHint') }}
@@ -135,10 +136,17 @@ async function resetWhitelistDefaults() {
 }
 
 .whitelist-title {
-  margin: 0.75rem 0 0.5rem;
+  margin: 0.75rem 0 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
+}
+
+.whitelist-desc {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #8B7AAB;
+  line-height: 1.5;
 }
 
 .rules-textarea :deep(.n-input__textarea-el) {

@@ -28,7 +28,7 @@ export default {
     subtitle: 'Customize how Catrace works',
     groups: {
       reminder: 'Reminder Preferences',
-      media: 'Media Counts as Active',
+      media: 'Video & Music',
       water: 'Water Reminder',
       notification: 'Reminder Settings',
       update: 'Software Update',
@@ -73,7 +73,7 @@ export default {
       waterTest: 'Test Water Reminder',
     },
     media: {
-      enabledTitle: 'Watching videos / listening to music counts as active',
+      enabledTitle: 'Videos / music count as active',
       enabledDesc: 'When enabled, any sound from your computer counts as activity, even if you aren\'t using the mouse or keyboard',
       unsupportedPlatformHint: 'System-level audio detection is not yet implemented on this platform (macOS / Linux). This feature is currently unavailable and will be added via system audio capture in the future.',
     },
@@ -123,13 +123,14 @@ export default {
   },
   mediaWhitelist: {
     title: 'Exclusion list',
+    desc: "These apps don't count as active when playing sound. One process name per line.",
     resetDefault: 'Reset to defaults',
     saveRules: 'Save',
     loadFailed: 'Failed to load list',
     confirmReset: 'Reset to default list? Your custom list will be lost.',
     saveSuccess: 'Saved',
     saveFailed: 'Failed to save',
-    placeholder: "These apps don't count as active when playing sound. One process name per line.\ne.g.\naudiodg.exe\nchrome.exe",
+    placeholder: 'e.g.\naudiodg.exe\nchrome.exe',
   },
   debug: {
     title: 'Media Detection Debug',

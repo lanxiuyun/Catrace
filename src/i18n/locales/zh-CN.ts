@@ -28,7 +28,7 @@ export default {
     subtitle: '自定义 Catrace 的工作方式',
     groups: {
       reminder: '提醒偏好',
-      media: '声音与视频',
+      media: '视频与音乐',
       water: '喝水提醒',
       notification: '提醒设置',
       update: '软件更新',
@@ -73,7 +73,7 @@ export default {
       waterTest: '测试',
     },
     media: {
-      enabledTitle: '看视频/听音乐也算活跃',
+      enabledTitle: '视频/音乐也算活跃',
       enabledDesc: '开启后，只要电脑在播放声音，即使没动鼠标键盘，也会视为活跃',
       unsupportedPlatformHint: '当前平台（macOS / Linux）尚未实现系统音频检测，该功能暂不可用。后续将通过系统音频检测实现。',
     },
@@ -123,13 +123,14 @@ export default {
   },
   mediaWhitelist: {
     title: '排除列表',
+    desc: '这些程序播放声音时不算活跃，每行一个进程名',
     resetDefault: '重置为默认',
     saveRules: '保存',
     loadFailed: '加载失败',
     confirmReset: '确定要重置为默认列表吗？当前自定义列表将丢失。',
     saveSuccess: '已保存',
     saveFailed: '保存失败',
-    placeholder: '这些程序播放声音时不算活跃，每行一个进程名\n例如：\naudiodg.exe\nchrome.exe',
+    placeholder: '例如：\naudiodg.exe\nchrome.exe',
   },
   debug: {
     title: '媒体检测调试',
