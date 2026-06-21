@@ -581,7 +581,7 @@ interface ElementTransforms {
 - `src/views/ReminderToast.vue` - Toast 堆叠卡片 UI
 - `src/views/ReminderPopup.vue` - 弹窗 UI
 - `src/views/ReminderFullscreen.vue` - 全屏 UI
-- `src/views/Settings.vue` - 提醒模式设置容器
+- `src/views/Settings.vue` - 设置页容器，包含提醒模式、视频规则、全屏背景、自定义文案等卡片
 - `src/components/settings/NotificationSettingsCard.vue` - 提醒模式、全屏背景、自定义文案设置
-- `src/views/VideoRules.vue` - 视频活跃规则设置
+- `src/components/settings/VideoSettingsCard.vue` - 视频计入活跃开关与正则规则编辑
 - `src/views/Debug.vue` - 调试开关与实时状态

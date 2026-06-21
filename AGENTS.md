@@ -32,6 +32,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   │   ├── SettingRow.vue
 │   │   │   ├── SliderControl.vue
 │   │   │   ├── ReminderSettingsCard.vue
+│   │   │   ├── VideoSettingsCard.vue
 │   │   │   ├── SystemSettingsCard.vue
 │   │   │   ├── NotificationSettingsCard.vue
 │   │   │   ├── LinksSettingsCard.vue
@@ -45,7 +46,6 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   ├── views/
 │   │   ├── Dashboard.vue
 │   │   ├── Settings.vue              # 设置页容器：标题、响应式网格、卡片拖拽排序
-│   │   ├── VideoRules.vue            # 视频活跃规则设置页
 │   │   ├── Debug.vue                 # 视频检测与提醒窗口调试页面
 │   │   ├── ReminderToast.vue         # Toast 提醒窗口（堆叠通知卡片）
 │   │   ├── ReminderPopup.vue         # 弹窗提醒窗口
@@ -97,7 +97,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - **视频/流媒体检测**：若键鼠活动不足，但检测到正在播放视频，该分钟仍视为**活跃**。
      - **Windows**：优先尝试 `GlobalSystemMediaTransportControlsSessionManager` 枚举系统媒体会话，只要有会话处于 **Playing** 状态即算活跃（不限 `PlaybackType`，覆盖浏览器、UWP 播放器、Spotify 等）。GSMTCSM API 可用但无 Playing 会话时，回退到用户自定义规则匹配；API 调用失败/超时时同样回退到规则匹配。
      - **macOS / Linux**：直接走用户自定义规则匹配（YouTube、Bilibili、Netflix、VLC 等），基于 `active-win-pos-rs`。
-     - **规则可配置**：用户可在「视频规则」页以纯文本形式自定义正则规则，每行一条，同时匹配窗口标题、应用名、进程名、进程路径；首次使用自动填充原先的默认关键词列表。
+     - **规则可配置**：用户可在 Settings 页的「视频规则」Card 中以纯文本形式自定义正则规则，每行一条，同时匹配窗口标题、应用名、进程名、进程路径；首次使用自动填充原先的默认关键词列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
@@ -242,7 +242,6 @@ src/
 ├── views/
 │   ├── Dashboard.vue        -- 今日统计四卡片 + 今日活动（概览/详细切换）
 │   ├── Settings.vue         -- 设置页容器：标题、响应式网格、卡片拖拽排序；具体卡片见 components/settings/
-│   ├── VideoRules.vue       -- 视频活跃规则设置页（正则 / 从当前窗口添加）
 │   ├── Debug.vue                -- 视频检测与提醒窗口调试页面
 │   ├── ReminderToast.vue        -- Toast 提醒窗口（堆叠通知卡片）
 │   ├── ReminderPopup.vue        -- 弹窗提醒窗口
@@ -252,6 +251,7 @@ src/
 │   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）
 │   │   ├── SliderControl.vue     -- 滑块 + 数值显示组合
 │   │   ├── ReminderSettingsCard.vue      -- 提醒偏好卡片
+│   │   ├── VideoSettingsCard.vue         -- 视频规则卡片（开关 + 正则规则编辑）
 │   │   ├── SystemSettingsCard.vue        -- 系统卡片（语言/自启/更新）
 │   │   ├── NotificationSettingsCard.vue  -- 提醒设置卡片（模式/全屏背景/文案/测试）
 │   │   ├── LinksSettingsCard.vue         -- 相关链接卡片
@@ -262,7 +262,7 @@ src/
 ├── utils/
 │   └── timeBlocks.ts    -- computeTimeBlocks / mergeRestBlocks
 ├── router/
-│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-toast, /reminder-popup, /reminder-fullscreen）
+│   └── index.ts         -- hash 路由（/dashboard, /settings, /debug, /reminder-toast, /reminder-popup, /reminder-fullscreen）；视频规则已合并到 /settings 的 VideoSettingsCard
 ├── api/
 │   └── tauri.ts         -- invoke 调用 Rust 命令的封装
 ├── theme.ts             -- 色板常量 + naive-ui GlobalThemeOverrides
@@ -411,9 +411,10 @@ CREATE TABLE settings (
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
-| 45 | 视频活跃规则设置页：用户可编辑正则规则、从当前窗口添加、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
+| 45 | 视频活跃规则设置：用户可编辑正则规则、重置默认；GSMTCSM 无 Playing 时回退规则 | ✅ |
 | 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
 | 47 | Settings 页卡片支持拖拽排序并持久化 | ✅ |
+| 48 | 视频规则从独立 Tab 抽离为 Settings 的 VideoSettingsCard，开关与规则编辑集中管理 | ✅ |
 
 ---
 
