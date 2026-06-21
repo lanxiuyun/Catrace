@@ -126,7 +126,6 @@ export async function skipWaterReminder(): Promise<void> {
 export interface AudioSessionInfo {
   pid: number
   process_name: string
-  process_path: string
   peak: number
   whitelisted: boolean
 }

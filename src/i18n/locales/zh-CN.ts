@@ -130,8 +130,8 @@ export default {
     confirmReset: '确定要重置为默认白名单吗？当前自定义白名单将丢失。',
     saveSuccess: '白名单已保存',
     saveFailed: '保存失败',
-    placeholder: '例如：\nsvchost.exe\nexplorer.exe\n# 这是一行注释\nruntimebroker.exe\nC:\\Program Files\\App\\app.exe',
-    hint: '每行一个进程名或路径（不区分大小写）。\n以 # 开头的行会被忽略。\n支持进程名、完整路径、路径后缀匹配。白名单内的进程即使正在播放音频，也不会被计为活跃。',
+    placeholder: '例如：\nsvchost.exe\nexplorer.exe\n# 这是一行注释\nruntimebroker.exe',
+    hint: '每行一个进程名（不区分大小写）。\n以 # 开头的行会被忽略。\n白名单内的进程即使正在播放音频，也不会被计为活跃。',
   },
   debug: {
     title: '媒体检测调试',
@@ -150,7 +150,6 @@ export default {
     errorPrefix: '错误：',
     noAudioSessions: '无音频输出',
     processName: '进程名',
-    audioProcessPath: '进程路径',
     peak: '峰值',
     whitelisted: '在白名单',
     focusWindow: '焦点窗口',

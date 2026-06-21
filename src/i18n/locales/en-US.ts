@@ -130,8 +130,8 @@ export default {
     confirmReset: 'Reset to default whitelist? Your custom whitelist will be lost.',
     saveSuccess: 'Whitelist saved',
     saveFailed: 'Failed to save whitelist',
-    placeholder: 'e.g.\nsvchost.exe\nexplorer.exe\n# this is a comment\nruntimebroker.exe\nC:\\Program Files\\App\\app.exe',
-    hint: 'One process name or path per line (case-insensitive).\nLines starting with # are ignored.\nMatches process name, full path, or path suffix. Processes in this list will not be counted as active even if they are playing audio.',
+    placeholder: 'e.g.\nsvchost.exe\nexplorer.exe\n# this is a comment\nruntimebroker.exe',
+    hint: 'One process name per line (case-insensitive).\nLines starting with # are ignored.\nProcesses in this list will not be counted as active even if they are playing audio.',
   },
   debug: {
     title: 'Media Detection Debug',
@@ -150,7 +150,6 @@ export default {
     errorPrefix: 'Error: ',
     noAudioSessions: 'No audio output',
     processName: 'Process Name',
-    audioProcessPath: 'Process Path',
     peak: 'Peak',
     whitelisted: 'Whitelisted',
     focusWindow: 'Focus Window',
