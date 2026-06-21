@@ -95,7 +95,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 每分钟00秒结算一次：该分钟内活动次数 ≥ 3 → 标记为**活跃**；否则标记为**休息**。
    - 键鼠监听是独立的实时线程，持续累积活动次数，每分钟00秒读取并归零。
    - **媒体计入活跃**：若键鼠活动不足，但检测到正在进行屏幕消费（如看视频、听音乐、看直播），该分钟仍视为**活跃**。
-     - **Windows**：使用 WASAPI 检测系统音频输出。有音频输出时，再检查当前焦点窗口进程名是否在「媒体排除白名单」内；不在白名单内即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。
+     - **Windows**：使用 WASAPI 枚举系统音频输出会话，直接检查每个音频输出进程的进程名是否在「媒体排除白名单」内；任一非白名单进程正在发声即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。对受保护进程（如 `audiodg.exe`）若句柄方式无法获取名称，会回退到 Toolhelp32 进程快照读取进程名。
      - **macOS / Linux**：暂未实现系统音频捕获，媒体计入活跃功能在该平台不可用（`is_media_active` 恒返回 `false`）。后续将通过跨平台音频 API 统一实现。
      - **白名单可配置（Windows 专属）**：用户可在 Settings 页的「媒体计入活跃」Card 中以纯文本形式自定义排除白名单，每行一个进程名（不区分大小写），首次使用自动填充默认系统进程列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
@@ -184,7 +184,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `water_interval_minutes` | 喝水间隔（多久未喝水则提醒，分钟） | 60 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
 | `video_active_enabled` | 媒体计入活跃总开关（底层 key 保留为 `video_active_enabled` 以兼容旧设置；开启后播放音乐/视频等声音时也算活跃） | true |
-| `media_whitelist` | 媒体排除白名单（JSON 字符串数组，Windows 下用于排除系统提示音、会议软件等；焦点窗口进程名在白名单内时不视为活跃） | 默认系统进程列表 |
+| `media_whitelist` | 媒体排除白名单（JSON 字符串数组，Windows 下用于排除系统提示音、会议软件等；音频输出进程名在白名单内时不视为活跃） | 默认系统进程列表 |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 | `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
 | `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
@@ -411,11 +411,11 @@ CREATE TABLE settings (
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
-| 45 | 媒体计入活跃重构：Windows 使用 WASAPI 音频检测 + 焦点窗口白名单；macOS / Linux 暂不支持 | ✅ |
+| 45 | 媒体计入活跃重构：Windows 使用 WASAPI 音频检测 + 音频输出进程白名单；macOS / Linux 暂不支持 | ✅ |
 | 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
 | 47 | Settings 页卡片支持拖拽排序并持久化 | ✅ |
 | 48 | 媒体设置从独立 Tab 抽离为 Settings 的 MediaSettingsCard，开关与白名单集中管理 | ✅ |
-| 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 焦点窗口白名单 | ✅ |
+| 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 音频输出进程白名单 | ✅ |
 | 50 | 移除正则规则匹配降级逻辑：`video_rules.rs` 删除、`regex` 依赖移除、i18n 与 UI 清理 | ✅ |
 
 ---

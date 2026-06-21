@@ -10,7 +10,7 @@ pnpm tauri dev        # Full desktop app in development mode
 pnpm tauri build      # Production build
 
 cd src-tauri && cargo check   # Rust type check
-cd src-tauri && cargo test    # Rust unit tests (14 tests in db.rs)
+cd src-tauri && cargo test    # Rust unit tests (30 tests in db.rs/reminder.rs/report.rs/water.rs/media_audio.rs)
 ```
 
 Package manager is **pnpm**.
