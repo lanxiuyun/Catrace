@@ -70,7 +70,7 @@ async function notifyWater() {
 </script>
 
 <template>
-  <div class="group water-group">
+  <div class="group water-group water-group">
     <div class="group-label">{{ t('settings.groups.water') }}</div>
 
     <setting-row :title="t('settings.reminder.waterTitle')" :desc="t('settings.reminder.waterDesc')">
@@ -100,36 +100,36 @@ async function notifyWater() {
 </template>
 
 <style scoped>
-.water-group {
+.water-group.water-group {
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
   border-color: #bfdbfe;
 }
 
-.water-group :deep(.group-label) {
+.water-group.water-group :deep(.group-label) {
   color: #2563eb;
 }
 
-.water-group :deep(.divider) {
+.water-group.water-group :deep(.divider) {
   background: #dbeafe;
 }
 
-.water-group :deep(.setting-value) {
+.water-group.water-group :deep(.setting-value) {
   color: #2563eb;
 }
 
-.water-group :deep(.n-switch--active) {
+.water-group.water-group :deep(.n-switch--active) {
   --n-rail-color-active: #3b82f6 !important;
 }
 
-.water-group :deep(.n-switch.n-switch--active .n-switch__rail) {
+.water-group.water-group :deep(.n-switch.n-switch--active .n-switch__rail) {
   background-color: #3b82f6 !important;
 }
 
-.water-group :deep(.n-slider-rail__fill) {
+.water-group.water-group :deep(.n-slider-rail__fill) {
   background-color: #3b82f6 !important;
 }
 
-.water-group :deep(.n-slider-handle) {
+.water-group.water-group :deep(.n-slider-handle) {
   background-color: #3b82f6 !important;
   box-shadow: 0 0 0 0.125rem rgba(59, 130, 246, 0.3) !important;
 }
