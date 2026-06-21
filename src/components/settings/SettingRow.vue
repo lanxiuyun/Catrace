@@ -2,13 +2,12 @@
 defineProps<{
   title: string
   desc?: string
-  fixedMeta?: boolean
 }>()
 </script>
 
 <template>
   <div class="setting-row">
-    <div class="setting-meta" :class="{ 'is-fixed': fixedMeta }">
+    <div class="setting-meta">
       <div class="setting-title">{{ title }}</div>
       <div v-if="desc" class="setting-desc">{{ desc }}</div>
     </div>
@@ -31,12 +30,6 @@ defineProps<{
   flex: 0 1 auto;
   min-width: 0;
   max-width: calc(100% - 4rem);
-}
-
-.setting-meta.is-fixed {
-  width: 13rem;
-  flex-shrink: 0;
-  max-width: none;
 }
 
 .setting-title {
