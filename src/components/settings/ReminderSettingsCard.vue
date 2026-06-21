@@ -60,19 +60,19 @@ watch(
   <div class="group">
     <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
-    <setting-row :title="t('settings.reminder.windowTitle')" :desc="t('settings.reminder.windowDesc')">
+    <setting-row :title="t('settings.reminder.windowTitle')" :desc="t('settings.reminder.windowDesc')" fixed-meta>
       <slider-control v-model:model-value="config.window_minutes" :min="10" :max="120" :step="5" :suffix="' ' + t('common.minutes')" />
     </setting-row>
 
     <div class="divider" />
 
-    <setting-row :title="t('settings.reminder.breakTitle')" :desc="t('settings.reminder.breakDesc')">
+    <setting-row :title="t('settings.reminder.breakTitle')" :desc="t('settings.reminder.breakDesc')" fixed-meta>
       <slider-control v-model:model-value="config.break_minutes" :min="1" :max="30" :step="1" :suffix="' ' + t('common.minutes')" />
     </setting-row>
 
     <div class="divider" />
 
-    <setting-row :title="t('settings.reminder.snoozeIntervalTitle')" :desc="t('settings.reminder.snoozeIntervalDesc')">
+    <setting-row :title="t('settings.reminder.snoozeIntervalTitle')" :desc="t('settings.reminder.snoozeIntervalDesc')" fixed-meta>
       <slider-control v-model:model-value="config.snooze_interval_minutes" :min="1" :max="10" :step="1" :suffix="' ' + t('common.minutes')" />
     </setting-row>
   </div>

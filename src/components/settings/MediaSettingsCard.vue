@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSwitch, NButton, NInput, NAlert, useMessage } from 'naive-ui'
 import {
@@ -18,8 +18,11 @@ const platform = ref('windows')
 const isWindows = computed(() => platform.value === 'windows')
 const enabled = ref(true)
 const whitelistText = ref('')
+const savedWhitelist = ref('')
 const loading = ref({ enabled: false, whitelist: false })
 const saving = ref(false)
+const isReady = ref(false)
+let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(async () => {
   loading.value.whitelist = true
@@ -30,14 +33,32 @@ onMounted(async () => {
       getPlatform(),
     ])
     whitelistText.value = whitelist
+    savedWhitelist.value = whitelist
     enabled.value = e
     platform.value = p
+    isReady.value = true
   } catch (err) {
     console.error(err)
     message.error(t('mediaWhitelist.loadFailed'))
   } finally {
     loading.value.whitelist = false
   }
+})
+
+watch(whitelistText, async () => {
+  if (!isReady.value) return
+  if (whitelistText.value === savedWhitelist.value) return
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    try {
+      await setMediaWhitelistText(whitelistText.value)
+      savedWhitelist.value = whitelistText.value
+      message.success(t('mediaWhitelist.saveSuccess'))
+    } catch (err) {
+      console.error(err)
+      message.error(t('mediaWhitelist.saveFailed'))
+    }
+  }, 500)
 })
 
 async function toggleEnabled(val: boolean) {
@@ -55,25 +76,15 @@ async function toggleEnabled(val: boolean) {
   }
 }
 
-async function saveWhitelist() {
-  saving.value = true
-  try {
-    await setMediaWhitelistText(whitelistText.value)
-    message.success(t('mediaWhitelist.saveSuccess'))
-  } catch (err) {
-    console.error(err)
-    message.error(t('mediaWhitelist.saveFailed'))
-  } finally {
-    saving.value = false
-  }
-}
-
 async function resetWhitelistDefaults() {
   if (!window.confirm(t('mediaWhitelist.confirmReset'))) return
   saving.value = true
+  if (saveTimer) clearTimeout(saveTimer)
   try {
     await setMediaWhitelistText('')
-    whitelistText.value = await getMediaWhitelistText()
+    const defaultText = await getMediaWhitelistText()
+    whitelistText.value = defaultText
+    savedWhitelist.value = defaultText
     message.success(t('mediaWhitelist.saveSuccess'))
   } catch (err) {
     console.error(err)
@@ -99,8 +110,15 @@ async function resetWhitelistDefaults() {
     <template v-if="isWindows && enabled">
       <div class="divider" />
 
-      <div class="whitelist-title">{{ t('mediaWhitelist.title') }}</div>
-      <div class="whitelist-desc">{{ t('mediaWhitelist.desc') }}</div>
+      <div class="whitelist-header">
+        <div>
+          <div class="whitelist-title">{{ t('mediaWhitelist.title') }}</div>
+          <div class="whitelist-desc">{{ t('mediaWhitelist.desc') }}</div>
+        </div>
+        <n-button :loading="saving" @click="resetWhitelistDefaults">
+          {{ t('mediaWhitelist.resetDefault') }}
+        </n-button>
+      </div>
 
       <n-input
         v-model:value="whitelistText"
@@ -110,15 +128,6 @@ async function resetWhitelistDefaults() {
         :disabled="loading.whitelist"
         class="rules-textarea"
       />
-
-      <div class="rule-actions">
-        <n-button size="small" quaternary @click="resetWhitelistDefaults">
-          {{ t('mediaWhitelist.resetDefault') }}
-        </n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="saveWhitelist">
-          {{ t('mediaWhitelist.saveRules') }}
-        </n-button>
-      </div>
     </template>
 
     <template v-if="!isWindows">
@@ -135,15 +144,23 @@ async function resetWhitelistDefaults() {
   background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
 }
 
+.whitelist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
 .whitelist-title {
-  margin: 0.75rem 0 0.25rem;
+  margin: 0 0 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
 }
 
 .whitelist-desc {
-  margin-bottom: 0.5rem;
+  margin: 0;
   font-size: 0.75rem;
   color: #8B7AAB;
   line-height: 1.5;
@@ -153,15 +170,6 @@ async function resetWhitelistDefaults() {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.6;
-}
-
-.rule-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 0.0625rem solid #F5F3FF;
 }
 
 .platform-hint {

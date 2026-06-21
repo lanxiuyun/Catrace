@@ -69,7 +69,7 @@ function initSortable() {
     ghostClass: 'dragging',
     dragClass: 'drag-over',
     fallbackClass: 'sortable-fallback',
-    handle: '.group',
+    handle: '.drag-handle',
     filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .n-base-selection, .n-base-select-menu, .link-item, .fs-btn, .water-test-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
@@ -101,14 +101,26 @@ onMounted(async () => {
     <h1 class="title">{{ t('settings.title') }}</h1>
 
     <div class="settings-grid">
-      <KeepAlive>
-        <component
-          :is="cardComponents[key]"
-          v-for="key in groupOrder"
-          :key="key"
-          :data-group-key="key"
-        />
-      </KeepAlive>
+      <div
+        v-for="key in groupOrder"
+        :key="key"
+        class="settings-card-wrapper"
+        :data-group-key="key"
+      >
+        <KeepAlive>
+          <component :is="cardComponents[key]" />
+        </KeepAlive>
+        <div class="drag-handle" aria-label="拖动排序">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="5" r="2" />
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="19" cy="5" r="2" />
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -138,22 +150,54 @@ onMounted(async () => {
   border-radius: 0.875rem;
   padding: 1rem 1.25rem;
   box-sizing: border-box;
-  cursor: grab;
+  height: 100%;
   transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
-:deep(.group):active {
+.settings-card-wrapper {
+  position: relative;
+}
+
+.settings-card-wrapper :deep(.group-label) {
+  padding-right: 2rem;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 0.375rem;
+  color: #C4B5FD;
+  cursor: grab;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  z-index: 10;
+}
+
+.drag-handle:hover {
+  color: #7C3AED;
+  background: #F5F3FF;
+}
+
+.drag-handle:active {
   cursor: grabbing;
 }
 
-:deep(.group.dragging) {
+.settings-card-wrapper.dragging {
   opacity: 0.35;
-  background: #F5F3FF;
-  border-style: dashed;
   pointer-events: none;
 }
 
-:deep(.group.drag-over) {
+.settings-card-wrapper.dragging :deep(.group) {
+  background: #F5F3FF;
+  border-style: dashed;
+}
+
+.settings-card-wrapper.drag-over {
   opacity: 0.95;
   transform: scale(1.02) rotate(1deg);
   box-shadow: 0 0.75rem 2rem rgba(124, 58, 237, 0.2);
