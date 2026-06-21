@@ -157,6 +157,10 @@ async fn do_report_app_start(
 /// 在异步运行时中上报应用启动事件。
 /// 该函数不阻塞启动流程，失败仅打印日志。
 pub fn spawn_report_app_start(app_handle: tauri::AppHandle, db: Db) {
+    if cfg!(debug_assertions) {
+        println!("[toolsetlink-report] dev mode, skip app_start report");
+        return;
+    }
     tauri::async_runtime::spawn(async move {
         if let Err(e) = do_report_app_start(&app_handle, &db).await {
             eprintln!("[toolsetlink-report] failed to report app_start: {}", e);
