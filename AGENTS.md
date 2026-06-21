@@ -95,9 +95,9 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 每分钟00秒结算一次：该分钟内活动次数 ≥ 3 → 标记为**活跃**；否则标记为**休息**。
    - 键鼠监听是独立的实时线程，持续累积活动次数，每分钟00秒读取并归零。
    - **媒体计入活跃**：若键鼠活动不足，但检测到正在进行屏幕消费（如看视频、听音乐、看直播），该分钟仍视为**活跃**。
-     - **Windows**：使用 WASAPI 枚举系统音频输出会话，直接检查每个音频输出进程的进程名是否在「媒体排除白名单」内；任一非白名单进程正在发声即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。对受保护进程（如 `audiodg.exe`）若句柄方式无法获取名称，会回退到 Toolhelp32 进程快照读取进程名。
+     - **Windows**：使用 WASAPI 枚举系统音频输出会话，直接检查每个音频输出进程的进程名是否在「排除列表」内；任一非排除列表中的进程正在发声即算活跃。无音频输出时直接视为不活跃（接受静音看视频被误判为不活跃）。对受保护进程（如 `audiodg.exe`）若句柄方式无法获取名称，会回退到 Toolhelp32 进程快照读取进程名。
      - **macOS / Linux**：暂未实现系统音频捕获，媒体计入活跃功能在该平台不可用（`is_media_active` 恒返回 `false`）。后续将通过跨平台音频 API 统一实现。
-     - **白名单可配置（Windows 专属）**：用户可在 Settings 页的「媒体计入活跃」Card 中以纯文本形式自定义排除白名单，每行一个进程名（不区分大小写），首次使用自动填充默认系统进程列表。
+     - **排除列表可配置（Windows 专属）**：用户可在 Settings 页的「视频与音乐」Card 中以纯文本形式自定义排除列表，每行一个进程名（不区分大小写），首次使用自动填充默认系统进程列表。开关关闭时不显示该列表。
 3. **Block 切分与提醒**（`db.rs` + `lib.rs` + `reminder.rs` + `utils/timeBlocks.ts`）
    - 从首个有记录的时间点开始，向后以 `window_minutes` 为单元切分 block：
      - 若在窗口内遇到连续 `break_minutes` 休息 → 切为**休息 block**（到连续休息结束）。
@@ -183,8 +183,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | `water_reminder_enabled` | 开启喝水提醒 | true |
 | `water_interval_minutes` | 喝水间隔（多久未喝水则提醒，分钟） | 60 |
 | `silent_start` | 开机自启时不显示主窗口 | false |
-| `video_active_enabled` | 媒体计入活跃总开关（底层 key 保留为 `video_active_enabled` 以兼容旧设置；开启后播放音乐/视频等声音时也算活跃） | true |
-| `media_whitelist` | 媒体排除白名单（JSON 字符串数组，Windows 下用于排除系统提示音、会议软件等；音频输出进程名在白名单内时不视为活跃） | 默认系统进程列表 |
+| `video_active_enabled` | 视频/音乐计入活跃总开关（底层 key 保留为 `video_active_enabled` 以兼容旧设置；开启后播放声音即视为活跃） | true |
+| `media_whitelist` | 排除列表（JSON 字符串数组，Windows 下用于排除系统提示音、会议软件等；音频输出进程名在排除列表内时不视为活跃） | 默认系统进程列表 |
 | `locale` | 界面语言（zh-CN / en-US） | 自动检测系统语言，回退 zh-CN |
 | `reminder_mode` | 提醒模式（toast / popup / fullscreen） | toast |
 | `fullscreen_bg_image` | 全屏背景图（data URL 或文件路径） | bundled catrace.png |
@@ -222,7 +222,7 @@ src-tauri/src/
 │                     · 系统托盘
 ├── reminder.rs     -- 提醒状态机 ReminderState + 单元测试
 ├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
-├── media_audio.rs  -- Windows WASAPI 音频会话检测 + 排除白名单 + 单元测试
+├── media_audio.rs  -- Windows WASAPI 音频会话检测 + 排除列表 + 单元测试
 ├── db.rs           -- rusqlite 读写封装 + block/喝水记录 + 单元测试
 ├── water.rs        -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
 └── report.rs       -- UpgradeLink 事件上报（app_start 等）
@@ -251,7 +251,7 @@ src/
 │   │   ├── SettingRow.vue        -- 通用设置行（标题/描述 + 控制插槽）
 │   │   ├── SliderControl.vue     -- 滑块 + 数值显示组合
 │   │   ├── ReminderSettingsCard.vue      -- 提醒偏好卡片
-│   │   ├── MediaSettingsCard.vue         -- 媒体计入活跃卡片（Windows：开关 + 排除白名单；macOS / Linux 仅显示开关，功能待实现）
+│   │   ├── MediaSettingsCard.vue         -- 视频与音乐卡片（Windows：开关 + 排除列表，开关关闭时隐藏列表；macOS / Linux 仅显示开关占位）
 │   │   ├── SystemSettingsCard.vue        -- 系统卡片（语言/自启/更新）
 │   │   ├── NotificationSettingsCard.vue  -- 提醒设置卡片（模式/全屏背景/文案/测试）
 │   │   ├── LinksSettingsCard.vue         -- 相关链接卡片
@@ -411,11 +411,11 @@ CREATE TABLE settings (
 | 42 | Dashboard 统计隐藏开关，避免他人看到休息时长                                  | ✅ |
 | 43 | 喝水提醒：独立状态机 + Dashboard 小组件 + Toast 卡片 + 设置页开关/间隔/测试          | ✅ |
 | 44 | Dashboard 喝水统计按 `water_reminder_enabled` 开关显示/隐藏                            | ✅ |
-| 45 | 媒体计入活跃重构：Windows 使用 WASAPI 音频检测 + 音频输出进程白名单；macOS / Linux 暂不支持 | ✅ |
+| 45 | 媒体计入活跃重构：Windows 使用 WASAPI 音频检测 + 音频输出进程排除列表；macOS / Linux 暂不支持 | ✅ |
 | 46 | Settings 页间距收紧并统一使用 rem 单位 | ✅ |
 | 47 | Settings 页卡片支持拖拽排序并持久化 | ✅ |
-| 48 | 媒体设置从独立 Tab 抽离为 Settings 的 MediaSettingsCard，开关与白名单集中管理 | ✅ |
-| 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 音频输出进程白名单 | ✅ |
+| 48 | 媒体设置从独立 Tab 抽离为 Settings 的 MediaSettingsCard，开关与排除列表集中管理 | ✅ |
+| 49 | 移除 GSMTCSM 系统媒体会话检测与调试卡片，Windows 媒体判定完全基于 WASAPI + 音频输出进程排除列表 | ✅ |
 | 50 | 移除正则规则匹配降级逻辑：`video_rules.rs` 删除、`regex` 依赖移除、i18n 与 UI 清理 | ✅ |
 
 ---
@@ -514,10 +514,10 @@ cd src-tauri && cargo test
   **媒体音频检测（`media_audio.rs`，4 个）**
   | 测试名 | 说明 |
   |---|---|
-  | `test_is_any_session_active_respects_whitelist` | 非白名单音频会话使 media_audio 判定为活跃 |
-  | `test_is_any_session_active_all_whitelisted` | 全部在白名单内时判定为不活跃 |
+  | `test_is_any_session_active_respects_whitelist` | 非排除列表中的音频会话使 media_audio 判定为活跃 |
+  | `test_is_any_session_active_all_whitelisted` | 全部在排除列表内时判定为不活跃 |
   | `test_is_any_session_active_no_sound` | 无音频输出时判定为不活跃 |
-  | `test_parse_whitelist_text_ignores_comments_and_empty` | 白名单文本解析忽略注释与空行 |
+  | `test_parse_whitelist_text_ignores_comments_and_empty` | 排除列表文本解析忽略注释与空行 |
 
 - **前端**：目前无自动化测试，依赖手动验证（`pnpm tauri dev` 观察界面）。
 
