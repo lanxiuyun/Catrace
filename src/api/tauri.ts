@@ -130,12 +130,23 @@ export interface MediaSessionInfo {
   playback_type: string
 }
 
-export interface VideoDebugInfo {
+export interface AudioSessionInfo {
+  pid: number
+  process_name: string
+  peak: number
+  whitelisted: boolean
+}
+
+export interface MediaDebugInfo {
   gsmtcsm_available: boolean
   gsmtcsm_session_count: number
   gsmtcsm_sessions: MediaSessionInfo[]
   gsmtcsm_has_playing: boolean
   gsmtcsm_error: string | null
+
+  audio_sessions: AudioSessionInfo[]
+  audio_active: boolean
+  audio_error: string | null
 
   focus_window_title: string
   focus_app_name: string
@@ -148,31 +159,39 @@ export interface VideoDebugInfo {
   mouse_keyboard_count: number
 }
 
-
-
-/** 获取视频检测调试信息 */
-export async function getVideoDebugInfo(): Promise<VideoDebugInfo> {
-  return invoke('get_video_debug_info')
+/** 获取媒体检测调试信息 */
+export async function getMediaDebugInfo(): Promise<MediaDebugInfo> {
+  return invoke('get_media_debug_info')
 }
 
-/** 获取「视频计入活跃」开关 */
-export async function getVideoActiveEnabled(): Promise<boolean> {
-  return invoke('get_video_active_enabled')
+/** 获取「媒体计入活跃」开关 */
+export async function getMediaActiveEnabled(): Promise<boolean> {
+  return invoke('get_media_active_enabled')
 }
 
-/** 设置「视频计入活跃」开关 */
-export async function setVideoActiveEnabled(enabled: boolean): Promise<void> {
-  return invoke('set_video_active_enabled', { enabled })
+/** 设置「媒体计入活跃」开关 */
+export async function setMediaActiveEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_media_active_enabled', { enabled })
 }
 
-/** 获取视频活跃规则文本（一行一个规则） */
-export async function getVideoActiveRulesText(): Promise<string> {
-  return invoke('get_video_active_rules_text')
+/** 获取媒体排除白名单文本（一行一个进程名） */
+export async function getMediaWhitelistText(): Promise<string> {
+  return invoke('get_media_whitelist_text')
 }
 
-/** 设置视频活跃规则文本（一行一个规则） */
-export async function setVideoActiveRulesText(text: string): Promise<void> {
-  return invoke('set_video_active_rules_text', { text })
+/** 设置媒体排除白名单文本（一行一个进程名） */
+export async function setMediaWhitelistText(text: string): Promise<void> {
+  return invoke('set_media_whitelist_text', { text })
+}
+
+/** 获取媒体降级规则文本（一行一个正则） */
+export async function getMediaFallbackRulesText(): Promise<string> {
+  return invoke('get_media_fallback_rules_text')
+}
+
+/** 设置媒体降级规则文本（一行一个正则） */
+export async function setMediaFallbackRulesText(text: string): Promise<void> {
+  return invoke('set_media_fallback_rules_text', { text })
 }
 
 /** 获取 Toast 调试模式开关 */

@@ -5,7 +5,7 @@ import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import Sortable from 'sortablejs'
 import ReminderSettingsCard from '../components/settings/ReminderSettingsCard.vue'
-import VideoSettingsCard from '../components/settings/VideoSettingsCard.vue'
+import MediaSettingsCard from '../components/settings/MediaSettingsCard.vue'
 import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
 import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
@@ -14,14 +14,14 @@ import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
 const { t } = useI18n()
 const message = useMessage()
 
-const GROUP_KEYS = ['reminder', 'video', 'system', 'notification', 'links', 'water'] as const
+const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water'] as const
 type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'video', 'system', 'notification', 'links', 'water']
+const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'system', 'notification', 'links', 'water']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
 const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
   reminder: ReminderSettingsCard,
-  video: VideoSettingsCard,
+  media: MediaSettingsCard,
   system: SystemSettingsCard,
   notification: NotificationSettingsCard,
   links: LinksSettingsCard,
