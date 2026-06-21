@@ -1,66 +1,33 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSwitch, useMessage } from 'naive-ui'
 import { getWaterSettings, setWaterSettings, testWaterNotification } from '../../api/tauri'
+import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from './SettingRow.vue'
 import SliderControl from './SliderControl.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const waterEnabled = ref(true)
-const waterInterval = ref(60)
-const savedInterval = ref(60)
-const loading = ref(false)
-const isReady = ref(false)
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-onMounted(async () => {
-  try {
-    const ws = await getWaterSettings()
-    waterEnabled.value = ws.enabled
-    waterInterval.value = Number(ws.interval_minutes) || 60
-    savedInterval.value = waterInterval.value
-    isReady.value = true
-  } catch (e) {
-    console.error('Failed to load water settings', e)
-  }
-})
-
-async function toggleWaterEnabled(val: boolean) {
-  loading.value = true
-  try {
-    await setWaterSettings(val, waterInterval.value)
-    waterEnabled.value = val
-    message.success(t('settings.messages.saved'))
-  } catch (e) {
-    message.error(t('settings.messages.saveFailed'))
-    waterEnabled.value = !val
-  } finally {
-    loading.value = false
-  }
+interface WaterSettings {
+  enabled: boolean
+  interval_minutes: number
 }
 
-watch(
-  () => waterInterval.value,
-  async () => {
-    if (!isReady.value || waterInterval.value === savedInterval.value) return
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(async () => {
-      loading.value = true
-      try {
-        await setWaterSettings(waterEnabled.value, waterInterval.value)
-        savedInterval.value = waterInterval.value
-        message.success(t('settings.messages.saved'))
-      } catch (e) {
-        message.error(t('settings.messages.saveFailed'))
-      } finally {
-        loading.value = false
-      }
-    }, 500)
-  }
-)
+const { value: settings, loading } = useAutoSavedSetting<WaterSettings>({
+  initialValue: { enabled: true, interval_minutes: 60 },
+  load: async () => {
+    const ws = await getWaterSettings()
+    return {
+      enabled: ws.enabled,
+      interval_minutes: Number(ws.interval_minutes) || 60,
+    }
+  },
+  save: (v) => setWaterSettings(v.enabled, v.interval_minutes),
+  debounce: 500,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
 
 async function notifyWater() {
   try {
@@ -73,28 +40,28 @@ async function notifyWater() {
 </script>
 
 <template>
-  <div class="group water-group water-group">
+  <div class="group water-group">
     <div class="group-label">{{ t('settings.groups.water') }}</div>
 
     <setting-row :title="t('settings.reminder.waterTitle')" :desc="t('settings.reminder.waterDesc')">
       <n-switch
-        :value="waterEnabled"
+        :value="settings.enabled"
         :loading="loading"
-        @update:value="toggleWaterEnabled"
+        @update:value="settings.enabled = $event"
       />
     </setting-row>
 
-    <template v-if="waterEnabled">
+    <template v-if="settings.enabled">
       <div class="divider" />
 
       <setting-row :title="t('settings.reminder.waterIntervalTitle')" :desc="t('settings.reminder.waterIntervalDesc')">
-        <slider-control v-model:model-value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" :suffix="' ' + t('common.minutes')" />
+        <slider-control v-model:model-value="settings.interval_minutes" :min="5" :max="180" :step="5" :disabled="!settings.enabled" :suffix="' ' + t('common.minutes')" />
       </setting-row>
 
       <div class="divider" />
 
       <setting-row :title="t('settings.reminder.waterTest')">
-        <button class="water-test-btn" :disabled="!waterEnabled" @click="notifyWater">
+        <button class="water-test-btn" :disabled="!settings.enabled" @click="notifyWater">
           {{ t('settings.reminder.waterTest') }}
         </button>
       </setting-row>
@@ -103,36 +70,36 @@ async function notifyWater() {
 </template>
 
 <style scoped>
-.water-group.water-group {
+.water-group.group {
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
   border-color: #bfdbfe;
 }
 
-.water-group.water-group :deep(.group-label) {
+.water-group :deep(.group-label) {
   color: #2563eb;
 }
 
-.water-group.water-group :deep(.divider) {
+.water-group :deep(.divider) {
   background: #dbeafe;
 }
 
-.water-group.water-group :deep(.setting-value) {
+.water-group :deep(.setting-value) {
   color: #2563eb;
 }
 
-.water-group.water-group :deep(.n-switch--active) {
+.water-group :deep(.n-switch--active) {
   --n-rail-color-active: #3b82f6 !important;
 }
 
-.water-group.water-group :deep(.n-switch.n-switch--active .n-switch__rail) {
+.water-group :deep(.n-switch.n-switch--active .n-switch__rail) {
   background-color: #3b82f6 !important;
 }
 
-.water-group.water-group :deep(.n-slider-rail__fill) {
+.water-group :deep(.n-slider-rail__fill) {
   background-color: #3b82f6 !important;
 }
 
-.water-group.water-group :deep(.n-slider-handle) {
+.water-group :deep(.n-slider-handle) {
   background-color: #3b82f6 !important;
   box-shadow: 0 0 0 0.125rem rgba(59, 130, 246, 0.3) !important;
 }

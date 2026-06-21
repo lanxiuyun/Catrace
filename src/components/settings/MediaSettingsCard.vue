@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSwitch, NButton, NInput, NAlert, useMessage } from 'naive-ui'
 import {
@@ -9,6 +9,7 @@ import {
   setMediaWhitelistText,
   getPlatform,
 } from '../../api/tauri'
+import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from './SettingRow.vue'
 
 const { t } = useI18n()
@@ -16,75 +17,40 @@ const message = useMessage()
 
 const platform = ref('windows')
 const isWindows = computed(() => platform.value === 'windows')
-const enabled = ref(true)
-const whitelistText = ref('')
-const savedWhitelist = ref('')
-const loading = ref({ enabled: false, whitelist: false })
 const saving = ref(false)
-const isReady = ref(false)
-let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(async () => {
-  loading.value.whitelist = true
   try {
-    const [whitelist, e, p] = await Promise.all([
-      getMediaWhitelistText(),
-      getMediaActiveEnabled(),
-      getPlatform(),
-    ])
-    whitelistText.value = whitelist
-    savedWhitelist.value = whitelist
-    enabled.value = e
-    platform.value = p
-    isReady.value = true
+    platform.value = await getPlatform()
   } catch (err) {
     console.error(err)
-    message.error(t('mediaWhitelist.loadFailed'))
-  } finally {
-    loading.value.whitelist = false
   }
 })
 
-watch(whitelistText, async () => {
-  if (!isReady.value) return
-  if (whitelistText.value === savedWhitelist.value) return
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => {
-    try {
-      await setMediaWhitelistText(whitelistText.value)
-      savedWhitelist.value = whitelistText.value
-      message.success(t('mediaWhitelist.saveSuccess'))
-    } catch (err) {
-      console.error(err)
-      message.error(t('mediaWhitelist.saveFailed'))
-    }
-  }, 500)
+const { value: enabled, loading: enabledLoading } = useAutoSavedSetting<boolean>({
+  initialValue: true,
+  load: getMediaActiveEnabled,
+  save: setMediaActiveEnabled,
+  debounce: 0,
+  onSuccess: (val) => message.success(val ? t('settings.messages.mediaActiveOn') : t('settings.messages.mediaActiveOff')),
+  onError: () => message.error(t('settings.messages.setFailed')),
 })
 
-async function toggleEnabled(val: boolean) {
-  loading.value.enabled = true
-  try {
-    await setMediaActiveEnabled(val)
-    enabled.value = val
-    message.success(val ? t('settings.messages.mediaActiveOn') : t('settings.messages.mediaActiveOff'))
-  } catch (err) {
-    console.error(err)
-    message.error(t('settings.messages.setFailed'))
-    enabled.value = !val
-  } finally {
-    loading.value.enabled = false
-  }
-}
+const { value: whitelistText, loading: whitelistLoading, refresh: refreshWhitelist } = useAutoSavedSetting<string>({
+  initialValue: '',
+  load: getMediaWhitelistText,
+  save: setMediaWhitelistText,
+  debounce: 500,
+  onSuccess: () => message.success(t('mediaWhitelist.saveSuccess')),
+  onError: () => message.error(t('mediaWhitelist.saveFailed')),
+})
 
 async function resetWhitelistDefaults() {
   if (!window.confirm(t('mediaWhitelist.confirmReset'))) return
   saving.value = true
-  if (saveTimer) clearTimeout(saveTimer)
   try {
     await setMediaWhitelistText('')
-    const defaultText = await getMediaWhitelistText()
-    whitelistText.value = defaultText
-    savedWhitelist.value = defaultText
+    await refreshWhitelist()
     message.success(t('mediaWhitelist.saveSuccess'))
   } catch (err) {
     console.error(err)
@@ -102,8 +68,8 @@ async function resetWhitelistDefaults() {
     <setting-row :title="t('settings.media.enabledTitle')" :desc="t('settings.media.enabledDesc')">
       <n-switch
         :value="enabled"
-        :loading="loading.enabled"
-        @update:value="toggleEnabled"
+        :loading="enabledLoading"
+        @update:value="enabled = $event"
       />
     </setting-row>
 
@@ -125,7 +91,7 @@ async function resetWhitelistDefaults() {
         type="textarea"
         :placeholder="t('mediaWhitelist.placeholder')"
         :rows="6"
-        :disabled="loading.whitelist"
+        :disabled="whitelistLoading"
         class="rules-textarea"
       />
     </template>

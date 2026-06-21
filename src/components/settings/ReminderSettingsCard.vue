@@ -1,59 +1,29 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
-import { getConfig, setConfig } from '../../api/tauri'
+import { getConfig, setConfig, type AppConfig } from '../../api/tauri'
+import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from './SettingRow.vue'
 import SliderControl from './SliderControl.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const config = ref({ window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 })
-const savedConfig = ref({ ...config.value })
-const loading = ref(false)
-const isReady = ref(false)
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-onMounted(async () => {
-  try {
+const { value: config } = useAutoSavedSetting<AppConfig>({
+  initialValue: { window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 },
+  load: async () => {
     const c = await getConfig()
-    config.value = {
+    return {
       window_minutes: Number(c.window_minutes),
       break_minutes: Number(c.break_minutes),
       snooze_interval_minutes: Number(c.snooze_interval_minutes) || 3,
     }
-    savedConfig.value = { ...config.value }
-    isReady.value = true
-  } catch (e) {
-    console.error('Failed to load reminder settings', e)
-  }
+  },
+  save: setConfig,
+  debounce: 500,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
 })
-
-watch(
-  () => ({ window_minutes: config.value.window_minutes, break_minutes: config.value.break_minutes, snooze_interval_minutes: config.value.snooze_interval_minutes }),
-  async () => {
-    if (!isReady.value) return
-    if (config.value.window_minutes === savedConfig.value.window_minutes &&
-        config.value.break_minutes === savedConfig.value.break_minutes &&
-        config.value.snooze_interval_minutes === savedConfig.value.snooze_interval_minutes) {
-      return
-    }
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(async () => {
-      loading.value = true
-      try {
-        await setConfig(config.value)
-        savedConfig.value = { ...config.value }
-        message.success(t('settings.messages.saved'))
-      } catch (e) {
-        message.error(t('settings.messages.saveFailed'))
-      } finally {
-        loading.value = false
-      }
-    }, 500)
-  }
-)
 </script>
 
 <template>

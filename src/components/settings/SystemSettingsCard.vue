@@ -7,6 +7,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import i18n from '../../i18n'
+import { detectDefaultLocale, type SupportedLocale } from '../../utils/locale'
 import { getSilentStart, setSilentStart, getLocale, setLocale } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
@@ -31,11 +32,6 @@ const localeOptions = [
   { label: 'English', value: 'en-US' },
 ]
 
-function detectDefaultLocale(): string {
-  const lang = navigator.language || 'zh-CN'
-  if (lang.startsWith('en')) return 'en-US'
-  return 'zh-CN'
-}
 
 onMounted(async () => {
   try {
@@ -53,11 +49,11 @@ onMounted(async () => {
       const detected = detectDefaultLocale()
       localeVal.value = detected
       await setLocale(detected)
-      i18n.global.locale.value = detected as 'zh-CN' | 'en-US'
+      i18n.global.locale.value = detected
       // 首次自动检测默认语言，静默保存，不弹「已保存」提示
     } else {
       localeVal.value = loc
-      i18n.global.locale.value = loc as 'zh-CN' | 'en-US'
+      i18n.global.locale.value = loc as SupportedLocale
     }
 
     isReady.value = true

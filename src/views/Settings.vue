@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
+
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
@@ -68,9 +69,8 @@ function initSortable() {
     animation: 200,
     ghostClass: 'dragging',
     dragClass: 'drag-over',
-    fallbackClass: 'sortable-fallback',
     handle: '.drag-handle',
-    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .n-base-selection, .n-base-select-menu, .link-item, .fs-btn, .water-test-btn, input, textarea, select, button, a',
+    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, .water-test-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
       const keys = Array.from(grid.children)
@@ -79,11 +79,6 @@ function initSortable() {
       if (keys.length === GROUP_KEYS.length) {
         groupOrder.value = keys
         saveGroupOrder()
-        nextTick(() => {
-          sortable?.destroy()
-          sortable = null
-          initSortable()
-        })
       }
     },
   })

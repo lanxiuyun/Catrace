@@ -13,13 +13,9 @@ withDefaults(defineProps<{
   suffix: '',
 })
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'update:modelValue', value: number): void
 }>()
-
-function onUpdate(value: number) {
-  emit('update:modelValue', value)
-}
 </script>
 
 <template>
@@ -30,7 +26,7 @@ function onUpdate(value: number) {
       :max="max"
       :step="step"
       :disabled="disabled"
-      @update:value="onUpdate"
+      @update:value="$emit('update:modelValue', $event)"
     />
     <span class="setting-value">{{ modelValue }}{{ suffix }}</span>
   </div>

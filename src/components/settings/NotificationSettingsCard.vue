@@ -1,26 +1,64 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSelect, NInput, NButton, useMessage } from 'naive-ui'
-import { getReminderMode, setReminderMode, getReminderText, setReminderText, getFullscreenSettings, setFullscreenSettings, testNotification } from '../../api/tauri'
+import {
+  getReminderMode,
+  setReminderMode,
+  getReminderText,
+  setReminderText,
+  getFullscreenSettings,
+  setFullscreenSettings,
+  testNotification,
+} from '../../api/tauri'
+import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from './SettingRow.vue'
 import SliderControl from './SliderControl.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const reminderMode = ref('toast')
-const savedReminderMode = ref('toast')
-const customBody = ref('')
-const savedCustomBody = ref('')
-const fullscreenBg = ref('')
-const fullscreenOpacity = ref(80)
-const fullscreenFitMode = ref('contain')
-const savedFullscreen = ref({ bg: '', opacity: 80, fitMode: 'contain' })
-const loading = ref({ reminderMode: false, reminderText: false, fullscreen: false })
-const isReady = ref(false)
-let textSaveTimer: ReturnType<typeof setTimeout> | null = null
-let fullscreenSaveTimer: ReturnType<typeof setTimeout> | null = null
+interface FullscreenSettings {
+  bg: string
+  opacity: number
+  fitMode: string
+}
+
+const { value: reminderMode, loading: reminderModeLoading } = useAutoSavedSetting<string>({
+  initialValue: 'toast',
+  load: getReminderMode,
+  save: setReminderMode,
+  debounce: 0,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
+
+const { value: customBody } = useAutoSavedSetting<string>({
+  initialValue: '',
+  load: async () => {
+    const rt = await getReminderText()
+    return rt.body || ''
+  },
+  save: (v) => setReminderText('', v),
+  debounce: 500,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
+
+const { value: fullscreen } = useAutoSavedSetting<FullscreenSettings>({
+  initialValue: { bg: '', opacity: 80, fitMode: 'contain' },
+  load: async () => {
+    const fs = await getFullscreenSettings()
+    return {
+      bg: fs.bg_image || '',
+      opacity: Number(fs.opacity) || 80,
+      fitMode: fs.fit_mode || 'contain',
+    }
+  },
+  save: (v) => setFullscreenSettings(v.bg, v.opacity, v.fitMode, ''),
+  debounce: 500,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
 
 const reminderModeOptions = [
   { label: t('settings.reminder.modeToast'), value: 'toast' },
@@ -34,101 +72,19 @@ const fullscreenFitOptions = [
   { label: () => t('settings.reminder.fitFill'), value: 'fill' },
 ]
 
-onMounted(async () => {
-  try {
-    const [rm, rt, fs] = await Promise.all([
-      getReminderMode(),
-      getReminderText(),
-      getFullscreenSettings(),
-    ])
-    reminderMode.value = rm || 'toast'
-    savedReminderMode.value = reminderMode.value
-    customBody.value = rt.body || ''
-    savedCustomBody.value = customBody.value
-    fullscreenBg.value = fs.bg_image || ''
-    fullscreenOpacity.value = Number(fs.opacity) || 80
-    fullscreenFitMode.value = fs.fit_mode || 'contain'
-    savedFullscreen.value = { bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }
-    isReady.value = true
-  } catch (e) {
-    console.error('Failed to load notification settings', e)
-  }
-})
-
-watch(reminderMode, async (newVal, oldVal) => {
-  if (!isReady.value || newVal === savedReminderMode.value) return
-  loading.value.reminderMode = true
-  try {
-    await setReminderMode(newVal)
-    savedReminderMode.value = newVal
-    message.success(t('settings.messages.saved'))
-  } catch (e) {
-    message.error(t('settings.messages.saveFailed'))
-    reminderMode.value = oldVal
-  } finally {
-    loading.value.reminderMode = false
-  }
-})
-
-watch(
-  () => customBody.value,
-  async () => {
-    if (!isReady.value || customBody.value === savedCustomBody.value) return
-    if (textSaveTimer) clearTimeout(textSaveTimer)
-    textSaveTimer = setTimeout(async () => {
-      loading.value.reminderText = true
-      try {
-        await setReminderText('', customBody.value)
-        savedCustomBody.value = customBody.value
-        message.success(t('settings.messages.saved'))
-      } catch (e) {
-        message.error(t('settings.messages.saveFailed'))
-      } finally {
-        loading.value.reminderText = false
-      }
-    }, 500)
-  }
-)
-
-watch(
-  () => ({ bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }),
-  async () => {
-    if (!isReady.value) return
-    if (fullscreenBg.value === savedFullscreen.value.bg &&
-        fullscreenOpacity.value === savedFullscreen.value.opacity &&
-        fullscreenFitMode.value === savedFullscreen.value.fitMode) {
-      return
-    }
-    if (fullscreenSaveTimer) clearTimeout(fullscreenSaveTimer)
-    fullscreenSaveTimer = setTimeout(async () => {
-      loading.value.fullscreen = true
-      try {
-        await setFullscreenSettings(fullscreenBg.value, fullscreenOpacity.value, fullscreenFitMode.value, '')
-        savedFullscreen.value = { bg: fullscreenBg.value, opacity: fullscreenOpacity.value, fitMode: fullscreenFitMode.value }
-        message.success(t('settings.messages.saved'))
-      } catch (e) {
-        console.error('[Fullscreen] Save FAILED:', e)
-        message.error(t('settings.messages.saveFailed'))
-      } finally {
-        loading.value.fullscreen = false
-      }
-    }, 500)
-  }
-)
-
 function handleBgFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = () => {
-    fullscreenBg.value = reader.result as string
+    fullscreen.value.bg = reader.result as string
   }
   reader.readAsDataURL(file)
 }
 
 function clearBg() {
-  fullscreenBg.value = ''
+  fullscreen.value.bg = ''
 }
 
 async function notify() {
@@ -149,7 +105,7 @@ async function notify() {
       <n-select
         v-model:value="reminderMode"
         :options="reminderModeOptions"
-        :loading="loading.reminderMode"
+        :loading="reminderModeLoading"
         size="small"
         style="width: 10rem;"
       />
@@ -158,8 +114,8 @@ async function notify() {
     <transition name="fade-slide">
       <div v-if="reminderMode === 'fullscreen'" class="fullscreen-section">
         <div class="fs-bg-upload">
-          <div v-if="fullscreenBg" class="fs-bg-preview">
-            <img :src="fullscreenBg" alt="bg" />
+          <div v-if="fullscreen.bg" class="fs-bg-preview">
+            <img :src="fullscreen.bg" alt="bg" />
             <div class="fs-bg-actions">
               <label class="fs-btn fs-btn-secondary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -181,11 +137,11 @@ async function notify() {
         </div>
 
         <setting-row :title="t('settings.reminder.fullscreenOpacityTitle')" :desc="t('settings.reminder.fullscreenOpacityDesc')">
-          <slider-control v-model:model-value="fullscreenOpacity" :min="0" :max="100" :step="5" suffix="%" />
+          <slider-control v-model:model-value="fullscreen.opacity" :min="0" :max="100" :step="5" suffix="%" />
         </setting-row>
 
         <setting-row :title="t('settings.reminder.fullscreenFitModeTitle')" :desc="t('settings.reminder.fullscreenFitModeDesc')">
-          <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 8.75rem;" />
+          <n-select v-model:value="fullscreen.fitMode" :options="fullscreenFitOptions" style="width: 8.75rem;" />
         </setting-row>
       </div>
     </transition>
