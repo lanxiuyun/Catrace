@@ -515,3 +515,4 @@ cd src-tauri && cargo test
 6. **UI 主题**：见上文「UI 主题」一节；改 Dashboard 样式时同步检查 `theme.ts`、`App.vue`、`TimelineWindows.vue`。
 7. **布局滚动**：不要在页面级容器使用 `min-height: 100vh`（会与 padding 叠加导致多余滚动条）；滚动交给 `App.vue` 的 `n-layout-content`。
 8. **🔴 跨平台强约束**：修改 Rust 后端时，**任何平台相关代码必须通过条件编译隔离**，并为不支持的平台留降级路径。禁止在公共逻辑中硬编码 Windows 专属 API 调用。优先选用跨平台 crate；若必须使用平台专属 crate，需在 `Cargo.toml` 中按 `target.'cfg(...)'.dependencies` 声明，并在代码中用 `#[cfg(...)]` 包裹。
+9. **🔴 不要自动启动 dev server**：前端改动完成后，先运行静态检查（`pnpm vue-tsc --noEmit`、`pnpm build`、`cd src-tauri && cargo check`）。**禁止调用 `pnpm dev` 或 `pnpm tauri dev` 启动服务器**；如需可视化验证，应连接用户已启动的服务器（如 `pnpm tauri dev` 或 `pnpm dev`），使用 Playwright 截图，由用户自己决定是否启动服务。
