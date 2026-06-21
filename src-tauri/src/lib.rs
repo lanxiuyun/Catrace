@@ -47,36 +47,14 @@ struct MediaDebugInfo {
 
 // ---------- Windows 媒体检测 ----------
 
-/// Windows：以音频输出为前提，再结合当前焦点窗口是否在白名单。
+/// Windows：枚举有音频输出的进程，若任一进程不在白名单内，则视为媒体活跃。
 /// - 无音频输出 → 不活跃（接受静音看视频被误判为不活跃）。
-/// - 有音频输出 → 检查当前焦点窗口进程名是否在白名单；
-///   在白名单内 → 不活跃，不在白名单内 → 活跃。
+/// - 有音频输出 → 检查每个音频输出进程自身是否在白名单；
+///   任一非白名单进程 → 活跃，全部白名单 → 不活跃。
 /// - 音频检测失败 → 不活跃。
 #[cfg(windows)]
 fn is_media_active(whitelist: &[String]) -> bool {
-    let audio_sessions = match media_audio::list_audio_sessions() {
-        Ok(sessions) => sessions,
-        Err(_) => return false,
-    };
-
-    // 无音频输出 → 不进入媒体活跃判定
-    if audio_sessions.is_empty() {
-        return false;
-    }
-
-    // 有音频输出，检查当前焦点窗口是否在白名单
-    let focus_process_name = match get_active_window() {
-        Ok(win) => std::path::Path::new(&win.process_path)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string(),
-        Err(_) => return false,
-    };
-
-    !whitelist
-        .iter()
-        .any(|w| w.eq_ignore_ascii_case(&focus_process_name))
+    media_audio::is_media_audio_active(whitelist)
 }
 
 /// 非 Windows：目前尚未实现系统级音频检测，媒体计入活跃暂不可用。
@@ -168,9 +146,7 @@ async fn get_media_debug_info(
     let (audio_sessions, audio_active, audio_error) = match media_audio::list_audio_sessions() {
         Ok(mut sessions) => {
             for session in &mut sessions {
-                session.whitelisted = whitelist_clone
-                    .iter()
-                    .any(|w| w.eq_ignore_ascii_case(&session.process_name));
+                session.whitelisted = media_audio::is_session_whitelisted(session, &whitelist_clone);
             }
             let active = media_audio::is_media_audio_active(&whitelist_clone);
             (sessions, active, None)
@@ -178,7 +154,7 @@ async fn get_media_debug_info(
         Err(e) => (Vec::new(), false, Some(e)),
     };
 
-    // 获取当前焦点窗口信息
+    // 获取当前焦点窗口信息（仅用于展示，不再参与媒体活跃判定）
     let (focus_title, focus_app, focus_path) = match get_active_window() {
         Ok(win) => {
             let title = win.title;
@@ -193,25 +169,7 @@ async fn get_media_debug_info(
         ),
     };
 
-    let focus_process_name = std::path::Path::new(&focus_path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_string();
-
-    let media_active = if cfg!(windows) {
-        // 无音频输出 → 不进入媒体活跃判定
-        if audio_sessions.is_empty() {
-            false
-        } else {
-            // 有音频输出，焦点窗口在白名单 → 不活跃，否则活跃
-            !whitelist_clone
-                .iter()
-                .any(|w| w.eq_ignore_ascii_case(&focus_process_name))
-        }
-    } else {
-        false
-    };
+    let media_active = is_media_active(&whitelist_clone);
 
     Ok(MediaDebugInfo {
         audio_sessions,

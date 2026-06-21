@@ -141,6 +141,7 @@ onDeactivated(() => {
             <thead>
               <tr>
                 <th>{{ t('debug.processName') }}</th>
+                <th>{{ t('debug.audioProcessPath') }}</th>
                 <th>PID</th>
                 <th>{{ t('debug.peak') }}</th>
                 <th>{{ t('debug.whitelisted') }}</th>
@@ -149,6 +150,7 @@ onDeactivated(() => {
             <tbody>
               <tr v-for="(s, i) in data.audio_sessions" :key="i">
                 <td>{{ s.process_name }}</td>
+                <td class="path-cell" :title="s.process_path">{{ s.process_path || '-' }}</td>
                 <td>{{ s.pid }}</td>
                 <td>{{ s.peak.toFixed(4) }}</td>
                 <td>
@@ -209,6 +211,15 @@ onDeactivated(() => {
 }
 
 .debug-switch-label {
+  font-size: 0.8125rem;
+  color: #6b5b8a;
+}
+
+.path-cell {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.8125rem;
   color: #6b5b8a;
 }

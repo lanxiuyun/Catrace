@@ -4,6 +4,7 @@ use crate::db::Db;
 pub struct AudioSessionInfo {
     pub pid: u32,
     pub process_name: String,
+    pub process_path: String,
     pub peak: f32,
     #[serde(default)]
     pub whitelisted: bool,
@@ -14,17 +15,24 @@ mod imp {
     use super::*;
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
-    use windows::core::Interface;
+    use windows::core::{Interface, PWSTR};
     use windows::Win32::Media::Audio::{
         eConsole, eRender, IAudioSessionControl, IAudioSessionControl2, IAudioSessionManager2,
         IMMDeviceEnumerator, MMDeviceEnumerator,
     };
     use windows::Win32::Media::Audio::Endpoints::IAudioMeterInformation;
+    use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED,
     };
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
     use windows::Win32::System::ProcessStatus::GetModuleBaseNameW;
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
 
     pub fn list_audio_sessions() -> Result<Vec<AudioSessionInfo>, String> {
         unsafe {
@@ -82,11 +90,14 @@ mod imp {
                 };
 
                 if peak > 0.0 {
-                    let process_name =
-                        get_process_name_by_pid(pid).unwrap_or_else(|| format!("<pid {}>", pid));
+                    let (process_name, process_path) =
+                        get_process_info_by_pid(pid).unwrap_or_else(|| {
+                            (format!("<pid {}>", pid), String::new())
+                        });
                     result.push(AudioSessionInfo {
                         pid,
                         process_name,
+                        process_path,
                         peak,
                         whitelisted: false,
                     });
@@ -97,17 +108,79 @@ mod imp {
         }
     }
 
-    fn get_process_name_by_pid(pid: u32) -> Option<String> {
+    fn get_process_info_by_pid(pid: u32) -> Option<(String, String)> {
+        // 首选：用进程句柄拿名字和完整路径
+        if let Some((name, path)) = get_process_info_by_handle(pid) {
+            if !name.is_empty() {
+                return Some((name, path));
+            }
+        }
+
+        // 兜底：Toolhelp32 快照，对受保护进程（如 audiodg）通常仍能拿到进程名
+        let name = get_process_name_by_pid_toolhelp(pid)?;
+        Some((name, String::new()))
+    }
+
+    fn get_process_info_by_handle(pid: u32) -> Option<(String, String)> {
         unsafe {
             let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            let name = get_process_name_from_handle(handle).unwrap_or_default();
+            let path = get_process_path_from_handle(handle).unwrap_or_default();
+            Some((name, path))
+        }
+    }
+
+    fn get_process_name_by_pid_toolhelp(pid: u32) -> Option<String> {
+        unsafe {
+            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?;
+            let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+            if Process32FirstW(snapshot, &mut entry).is_ok() {
+                loop {
+                    if entry.th32ProcessID == pid {
+                        let len = entry
+                            .szExeFile
+                            .iter()
+                            .position(|&c| c == 0)
+                            .unwrap_or(entry.szExeFile.len());
+                        return Some(
+                            OsString::from_wide(&entry.szExeFile[..len])
+                                .to_string_lossy()
+                                .to_string(),
+                        );
+                    }
+                    if Process32NextW(snapshot, &mut entry).is_err() {
+                        break;
+                    }
+                }
+            }
+            None
+        }
+    }
+
+    fn get_process_name_from_handle(handle: HANDLE) -> Option<String> {
+        unsafe {
             let mut buf = [0u16; 512];
             let len = GetModuleBaseNameW(handle, None, &mut buf);
-            // CloseHandle is not strictly required for a pseudo-handle? No, OpenProcess returns real handle.
-            // windows crate handle has Drop which calls CloseHandle.
             if len == 0 {
                 return None;
             }
             let os_string = OsString::from_wide(&buf[..len as usize]);
+            Some(os_string.to_string_lossy().to_string())
+        }
+    }
+
+    fn get_process_path_from_handle(handle: HANDLE) -> Option<String> {
+        unsafe {
+            let mut buf = [0u16; 1024];
+            let mut size = buf.len() as u32;
+            let path_ptr = PWSTR::from_raw(buf.as_mut_ptr());
+            QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, path_ptr, &mut size).ok()?;
+            if size == 0 {
+                return None;
+            }
+            let os_string = OsString::from_wide(&buf[..size as usize]);
             Some(os_string.to_string_lossy().to_string())
         }
     }
@@ -150,13 +223,62 @@ pub fn list_audio_sessions() -> Result<Vec<AudioSessionInfo>, String> {
     }
 }
 
-fn is_any_session_active(sessions: &[AudioSessionInfo], whitelist: &[String]) -> bool {
-    sessions.iter().any(|session| {
-        session.peak > 0.0
-            && !whitelist
-                .iter()
-                .any(|w| w.eq_ignore_ascii_case(&session.process_name))
+fn is_path_match(path_lower: &str, item_lower: &str) -> bool {
+    if path_lower == item_lower {
+        return true;
+    }
+    if path_lower.ends_with(item_lower) {
+        return true;
+    }
+    if path_lower.starts_with(item_lower) {
+        let rest = &path_lower[item_lower.len()..];
+        // 白名单项是目录前缀：路径接下来是反斜杠，或白名单项本身以反斜杠结尾
+        if rest.starts_with('\\') || item_lower.ends_with('\\') || rest.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn is_session_whitelisted(session: &AudioSessionInfo, whitelist: &[String]) -> bool {
+    if session.process_name.is_empty() && session.process_path.is_empty() {
+        return false;
+    }
+
+    whitelist.iter().any(|w| {
+        let w = w.trim();
+        if w.is_empty() {
+            return false;
+        }
+
+        // 1) 进程名精确匹配（不区分大小写）
+        if session.process_name.eq_ignore_ascii_case(w) {
+            return true;
+        }
+
+        // 2) 进程路径匹配：完整路径相等、以白名单项结尾，或是白名单项所在目录
+        if !session.process_path.is_empty() {
+            let path_lower = session.process_path.to_lowercase();
+            let item_lower = w.to_lowercase();
+            if is_path_match(&path_lower, &item_lower) {
+                return true;
+            }
+
+            // 允许用户用正斜杠写路径
+            let item_normalized = item_lower.replace('/', "\\");
+            if item_normalized != item_lower && is_path_match(&path_lower, &item_normalized) {
+                return true;
+            }
+        }
+
+        false
     })
+}
+
+fn is_any_session_active(sessions: &[AudioSessionInfo], whitelist: &[String]) -> bool {
+    sessions
+        .iter()
+        .any(|session| session.peak > 0.0 && !is_session_whitelisted(session, whitelist))
 }
 
 pub fn is_media_audio_active(whitelist: &[String]) -> bool {
@@ -234,12 +356,14 @@ mod tests {
             AudioSessionInfo {
                 pid: 1,
                 process_name: "chrome.exe".to_string(),
+                process_path: r"C:\Program Files\Google\Chrome\chrome.exe".to_string(),
                 peak: 0.5,
                 whitelisted: false,
             },
             AudioSessionInfo {
                 pid: 2,
                 process_name: "Svchost.exe".to_string(),
+                process_path: r"C:\Windows\System32\svchost.exe".to_string(),
                 peak: 0.1,
                 whitelisted: false,
             },
@@ -253,6 +377,7 @@ mod tests {
         let sessions = vec![AudioSessionInfo {
             pid: 2,
             process_name: "svchost.exe".to_string(),
+            process_path: r"C:\Windows\System32\svchost.exe".to_string(),
             peak: 0.1,
             whitelisted: false,
         }];
@@ -261,10 +386,25 @@ mod tests {
     }
 
     #[test]
+    fn test_is_any_session_active_whitelisted_by_path() {
+        let sessions = vec![AudioSessionInfo {
+            pid: 1,
+            process_name: "chrome.exe".to_string(),
+            process_path: r"C:\Program Files\Google\Chrome\chrome.exe".to_string(),
+            peak: 0.5,
+            whitelisted: false,
+        }];
+        // 用完整路径或路径后缀都能命中白名单
+        let whitelist = vec![r"C:\Program Files\Google\Chrome".to_string()];
+        assert!(!is_any_session_active(&sessions, &whitelist));
+    }
+
+    #[test]
     fn test_is_any_session_active_no_sound() {
         let sessions = vec![AudioSessionInfo {
             pid: 1,
             process_name: "chrome.exe".to_string(),
+            process_path: r"C:\Program Files\Google\Chrome\chrome.exe".to_string(),
             peak: 0.0,
             whitelisted: false,
         }];
