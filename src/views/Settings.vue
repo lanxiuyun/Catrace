@@ -93,6 +93,14 @@ async function saveGroupOrder() {
   }
 }
 
+function groupClass(key: GroupKey) {
+  return {
+    [`group-${key}`]: true,
+    'links-group': key === 'links',
+    'water-group': key === 'water',
+  }
+}
+
 function initSortable() {
   const grid = document.querySelector('.settings-grid')
   if (!grid || sortable) return
@@ -101,6 +109,7 @@ function initSortable() {
     animation: 200,
     ghostClass: 'dragging',
     dragClass: 'drag-over',
+    fallbackClass: 'sortable-fallback',
     handle: '.group',
     filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .n-base-selection, .n-base-select-menu, .link-item, .fs-btn, .water-test-btn, .video-rules-link, input, textarea, select, button, a',
     preventOnFilter: false,
@@ -111,6 +120,12 @@ function initSortable() {
       if (keys.length === GROUP_KEYS.length) {
         groupOrder.value = keys
         saveGroupOrder()
+        // Vue 会按新顺序重排 DOM，销毁并重建 Sortable 避免内部状态与 DOM 错位
+        nextTick(() => {
+          sortable?.destroy()
+          sortable = null
+          initSortable()
+        })
       }
     },
   })
@@ -469,356 +484,344 @@ async function handleInstallUpdate() {
     <h1 class="title">{{ t('settings.title') }}</h1>
 
     <div class="settings-grid">
-      <!-- 提醒偏好 -->
       <div
-        class="group group-reminder"
-        :style="{ order: groupOrder.indexOf('reminder') + 1 }"
-        data-group-key="reminder"
+        v-for="key in groupOrder"
+        :key="key"
+        class="group"
+        :class="groupClass(key)"
+        :data-group-key="key"
       >
-        <div class="group-label">{{ t('settings.groups.reminder') }}</div>
+        <!-- 提醒偏好 -->
+        <template v-if="key === 'reminder'">
+          <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.windowTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.windowDesc') }}</div>
-          </div>
-          <div class="setting-control slider-control">
-            <n-slider v-model:value="config.window_minutes" :min="10" :max="120" :step="5" />
-            <span class="setting-value">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
-          </div>
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.breakTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.breakDesc') }}</div>
-          </div>
-          <div class="setting-control slider-control">
-            <n-slider v-model:value="config.break_minutes" :min="1" :max="30" :step="1" />
-            <span class="setting-value">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
-          </div>
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.snoozeIntervalTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.snoozeIntervalDesc') }}</div>
-          </div>
-          <div class="setting-control slider-control">
-            <n-slider v-model:value="config.snooze_interval_minutes" :min="1" :max="10" :step="1" />
-            <span class="setting-value">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
-          </div>
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
-            <div class="setting-desc">
-              {{ t('settings.reminder.videoActiveDesc') }}
-              <a class="video-rules-link" @click="router.push('/video-rules')">
-                {{ t('videoRules.title') }} →
-              </a>
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.windowTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.windowDesc') }}</div>
+            </div>
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="config.window_minutes" :min="10" :max="120" :step="5" />
+              <span class="setting-value">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
             </div>
           </div>
-          <n-switch
-            :value="videoActiveEnabled"
-            :loading="loading.videoActive"
-            @update:value="toggleVideoActive"
-          />
-        </div>
-      </div>
 
-      <!-- 系统 -->
-      <div
-        class="group group-system"
-        :style="{ order: groupOrder.indexOf('system') + 1 }"
-        data-group-key="system"
-      >
-        <div class="group-label">{{ t('settings.groups.system') }}</div>
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.language.title') }}</div>
-            <div class="setting-desc">{{ t('settings.language.desc') }}</div>
-          </div>
-          <n-select
-            v-model:value="localeVal"
-            :options="localeOptions"
-            :loading="loading.locale"
-            size="small"
-            style="width: 10rem;"
-          />
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.startup.autostartTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.startup.autostartDesc') }}</div>
-          </div>
-          <n-switch
-            :value="autostart"
-            :loading="loading.autostart"
-            @update:value="toggleAutostart"
-          />
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.startup.silentStartTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.startup.silentStartDesc') }}</div>
-          </div>
-          <n-switch
-            :value="silentStart"
-            :loading="loading.silent"
-            :disabled="!autostart"
-            @update:value="toggleSilentStart"
-          />
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.update.softwareVersion') }}</div>
-            <div class="setting-desc">{{ appVersion || '...' }}</div>
-          </div>
-          <div class="setting-control">
-            <n-button
-              :loading="updateLoading"
-              :disabled="updateInstalling"
-              @click="handleCheckUpdate"
-            >{{ t('settings.update.checkUpdate') }}</n-button>
-          </div>
-        </div>
-
-        <template v-if="updateInfo?.available">
           <div class="divider" />
-          <div class="update-banner">
-            <div class="update-banner-title">
-              {{ t('settings.update.newVersion', { version: updateInfo.version }) }}
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.breakTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.breakDesc') }}</div>
             </div>
-            <div v-if="updateInfo.body" class="update-banner-body">
-              {{ updateInfo.body }}
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="config.break_minutes" :min="1" :max="30" :step="1" />
+              <span class="setting-value">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
             </div>
-            <n-button
-              type="primary"
-              :loading="updateInstalling && downloadProgress === 0"
-              :disabled="updateInstalling"
-              @click="handleInstallUpdate"
-            >{{ updateInstalling ? t('settings.update.downloading') : t('settings.update.updateNow') }}</n-button>
-            <div v-if="updateInstalling" class="download-progress">
-              <n-progress
-                type="line"
-                :percentage="downloadProgress"
-                :height="8"
-                :show-indicator="false"
-                color="#7C3AED"
-                rail-color="#EBE6F2"
-              />
-              <div class="download-progress-text">
-                {{ downloadProgress }}%
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.snoozeIntervalTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.snoozeIntervalDesc') }}</div>
+            </div>
+            <div class="setting-control slider-control">
+              <n-slider v-model:value="config.snooze_interval_minutes" :min="1" :max="10" :step="1" />
+              <span class="setting-value">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
+            </div>
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.videoActiveTitle') }}</div>
+              <div class="setting-desc">
+                {{ t('settings.reminder.videoActiveDesc') }}
+                <a class="video-rules-link" @click="router.push('/video-rules')">
+                  {{ t('videoRules.title') }} →
+                </a>
               </div>
+            </div>
+            <n-switch
+              :value="videoActiveEnabled"
+              :loading="loading.videoActive"
+              @update:value="toggleVideoActive"
+            />
+          </div>
+        </template>
+
+        <!-- 系统 -->
+        <template v-if="key === 'system'">
+          <div class="group-label">{{ t('settings.groups.system') }}</div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.language.title') }}</div>
+              <div class="setting-desc">{{ t('settings.language.desc') }}</div>
+            </div>
+            <n-select
+              v-model:value="localeVal"
+              :options="localeOptions"
+              :loading="loading.locale"
+              size="small"
+              style="width: 10rem;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.startup.autostartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.autostartDesc') }}</div>
+            </div>
+            <n-switch
+              :value="autostart"
+              :loading="loading.autostart"
+              @update:value="toggleAutostart"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.startup.silentStartTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.startup.silentStartDesc') }}</div>
+            </div>
+            <n-switch
+              :value="silentStart"
+              :loading="loading.silent"
+              :disabled="!autostart"
+              @update:value="toggleSilentStart"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.update.softwareVersion') }}</div>
+              <div class="setting-desc">{{ appVersion || '...' }}</div>
+            </div>
+            <div class="setting-control">
+              <n-button
+                :loading="updateLoading"
+                :disabled="updateInstalling"
+                @click="handleCheckUpdate"
+              >{{ t('settings.update.checkUpdate') }}</n-button>
+            </div>
+          </div>
+
+          <template v-if="updateInfo?.available">
+            <div class="divider" />
+            <div class="update-banner">
+              <div class="update-banner-title">
+                {{ t('settings.update.newVersion', { version: updateInfo.version }) }}
+              </div>
+              <div v-if="updateInfo.body" class="update-banner-body">
+                {{ updateInfo.body }}
+              </div>
+              <n-button
+                type="primary"
+                :loading="updateInstalling && downloadProgress === 0"
+                :disabled="updateInstalling"
+                @click="handleInstallUpdate"
+              >{{ updateInstalling ? t('settings.update.downloading') : t('settings.update.updateNow') }}</n-button>
+              <div v-if="updateInstalling" class="download-progress">
+                <n-progress
+                  type="line"
+                  :percentage="downloadProgress"
+                  :height="8"
+                  :show-indicator="false"
+                  color="#7C3AED"
+                  rail-color="#EBE6F2"
+                />
+                <div class="download-progress-text">
+                  {{ downloadProgress }}%
+                </div>
+              </div>
+            </div>
+          </template>
+        </template>
+
+        <!-- 提醒设置 -->
+        <template v-if="key === 'notification'">
+          <div class="group-label">{{ t('settings.groups.notification') }}</div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.modeTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.modeDesc') }}</div>
+            </div>
+            <n-select
+              v-model:value="reminderMode"
+              :options="reminderModeOptions"
+              :loading="loading.reminderMode"
+              size="small"
+              style="width: 10rem;"
+            />
+          </div>
+
+          <transition name="fade-slide">
+            <div v-if="reminderMode === 'fullscreen'" class="fullscreen-section">
+
+              <div class="fs-bg-upload">
+                <div v-if="fullscreenBg" class="fs-bg-preview">
+                  <img :src="fullscreenBg" alt="bg" />
+                  <div class="fs-bg-actions">
+                    <label class="fs-btn fs-btn-secondary">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      {{ t('settings.reminder.changeBg') }}
+                      <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
+                    </label>
+                    <button class="fs-btn fs-btn-danger" @click="clearBg">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      {{ t('settings.reminder.clearBg') }}
+                    </button>
+                  </div>
+                </div>
+                <label v-else class="fs-bg-empty">
+                  <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C4B5FD" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                  <span class="fs-empty-text">{{ t('settings.reminder.fullscreenBgTitle') }}</span>
+                  <span class="fs-empty-hint">{{ t('settings.reminder.fullscreenBgDesc') }}</span>
+                </label>
+              </div>
+
+              <div class="setting-row" style="padding-top: 0.25rem;">
+                <div class="setting-meta">
+                  <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
+                  <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
+                </div>
+                <div class="setting-control slider-control">
+                  <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
+                  <span class="setting-value">{{ fullscreenOpacity }}%</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-meta">
+                  <div class="setting-title">{{ t('settings.reminder.fullscreenFitModeTitle') }}</div>
+                  <div class="setting-desc">{{ t('settings.reminder.fullscreenFitModeDesc') }}</div>
+                </div>
+                <div class="setting-control">
+                  <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 8.75rem;" />
+                </div>
+              </div>
+            </div>
+          </transition>
+
+          <div class="divider" />
+
+          <div class="setting-row" style="align-items: flex-start;">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.customBody') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.customBodyDesc') }}</div>
+            </div>
+            <n-input
+              v-model:value="customBody"
+              :placeholder="t('settings.reminder.customBody')"
+              type="textarea"
+              :rows="2"
+              size="small"
+              style="width: 13.75rem;"
+            />
+          </div>
+
+          <div class="divider" />
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.testNotifyTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.testNotifyDesc') }}</div>
+            </div>
+            <n-button @click="notify">{{ t('settings.reminder.testNotifyBtn') }}</n-button>
+          </div>
+        </template>
+
+        <!-- 相关链接 -->
+        <template v-if="key === 'links'">
+          <div class="group-label">{{ t('settings.groups.links') }}</div>
+          <div class="link-list">
+            <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace')">
+              <div class="link-icon" style="background:#F3F4F6;color:#24292F;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              </div>
+              <div class="link-body">
+                <div class="link-title">{{ t('settings.links.githubTitle') }}</div>
+                <div class="link-desc">{{ t('settings.links.githubDesc') }}</div>
+              </div>
+              <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+
+            <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace/releases')">
+              <div class="link-icon" style="background:#EFF6FF;color:#3B82F6;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <div class="link-body">
+                <div class="link-title">{{ t('settings.links.changelogTitle') }}</div>
+                <div class="link-desc">{{ t('settings.links.changelogDesc') }}</div>
+              </div>
+              <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+
+            <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace/issues')">
+              <div class="link-icon" style="background:#FFFBEB;color:#F59E0B;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div class="link-body">
+                <div class="link-title">{{ t('settings.links.issuesTitle') }}</div>
+                <div class="link-desc">{{ t('settings.links.issuesDesc') }}</div>
+              </div>
+              <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
         </template>
-      </div>
 
-      <!-- 提醒设置 -->
-      <div
-        class="group group-notification"
-        :style="{ order: groupOrder.indexOf('notification') + 1 }"
-        data-group-key="notification"
-      >
-        <div class="group-label">{{ t('settings.groups.notification') }}</div>
+        <!-- 喝水提醒 -->
+        <template v-if="key === 'water'">
+          <div class="group-label">{{ t('settings.groups.water') }}</div>
 
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.modeTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.modeDesc') }}</div>
+          <div class="setting-row">
+            <div class="setting-meta">
+              <div class="setting-title">{{ t('settings.reminder.waterTitle') }}</div>
+              <div class="setting-desc">{{ t('settings.reminder.waterDesc') }}</div>
+            </div>
+            <n-switch
+              :value="waterEnabled"
+              :loading="loading.water"
+              @update:value="toggleWaterEnabled"
+            />
           </div>
-          <n-select
-            v-model:value="reminderMode"
-            :options="reminderModeOptions"
-            :loading="loading.reminderMode"
-            size="small"
-            style="width: 10rem;"
-          />
-        </div>
 
-        <transition name="fade-slide">
-          <div v-if="reminderMode === 'fullscreen'" class="fullscreen-section">
-
-            <div class="fs-bg-upload">
-              <div v-if="fullscreenBg" class="fs-bg-preview">
-                <img :src="fullscreenBg" alt="bg" />
-                <div class="fs-bg-actions">
-                  <label class="fs-btn fs-btn-secondary">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    {{ t('settings.reminder.changeBg') }}
-                    <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
-                  </label>
-                  <button class="fs-btn fs-btn-danger" @click="clearBg">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    {{ t('settings.reminder.clearBg') }}
-                  </button>
-                </div>
-              </div>
-              <label v-else class="fs-bg-empty">
-                <input type="file" accept="image/*" @change="handleBgFileChange" hidden />
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C4B5FD" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                <span class="fs-empty-text">{{ t('settings.reminder.fullscreenBgTitle') }}</span>
-                <span class="fs-empty-hint">{{ t('settings.reminder.fullscreenBgDesc') }}</span>
-              </label>
-            </div>
-
-            <div class="setting-row" style="padding-top: 0.25rem;">
-              <div class="setting-meta">
-                <div class="setting-title">{{ t('settings.reminder.fullscreenOpacityTitle') }}</div>
-                <div class="setting-desc">{{ t('settings.reminder.fullscreenOpacityDesc') }}</div>
-              </div>
-              <div class="setting-control slider-control">
-                <n-slider v-model:value="fullscreenOpacity" :min="0" :max="100" :step="5" />
-                <span class="setting-value">{{ fullscreenOpacity }}%</span>
-              </div>
-            </div>
+          <template v-if="waterEnabled">
+            <div class="divider" />
 
             <div class="setting-row">
               <div class="setting-meta">
-                <div class="setting-title">{{ t('settings.reminder.fullscreenFitModeTitle') }}</div>
-                <div class="setting-desc">{{ t('settings.reminder.fullscreenFitModeDesc') }}</div>
+                <div class="setting-title">{{ t('settings.reminder.waterIntervalTitle') }}</div>
+                <div class="setting-desc">{{ t('settings.reminder.waterIntervalDesc') }}</div>
               </div>
-              <div class="setting-control">
-                <n-select v-model:value="fullscreenFitMode" :options="fullscreenFitOptions" style="width: 8.75rem;" />
+              <div class="setting-control slider-control">
+                <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
+                <span class="setting-value water-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
               </div>
             </div>
-          </div>
-        </transition>
 
-        <div class="divider" />
+            <div class="divider" />
 
-        <div class="setting-row" style="align-items: flex-start;">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.customBody') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.customBodyDesc') }}</div>
-          </div>
-          <n-input
-            v-model:value="customBody"
-            :placeholder="t('settings.reminder.customBody')"
-            type="textarea"
-            :rows="2"
-            size="small"
-            style="width: 13.75rem;"
-          />
-        </div>
-
-        <div class="divider" />
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.testNotifyTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.testNotifyDesc') }}</div>
-          </div>
-          <n-button @click="notify">{{ t('settings.reminder.testNotifyBtn') }}</n-button>
-        </div>
-      </div>
-
-      <!-- 相关链接 -->
-      <div
-        class="group links-group group-links"
-        :style="{ order: groupOrder.indexOf('links') + 1 }"
-        data-group-key="links"
-      >
-        <div class="group-label">{{ t('settings.groups.links') }}</div>
-        <div class="link-list">
-          <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace')">
-            <div class="link-icon" style="background:#F3F4F6;color:#24292F;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            <div class="setting-row">
+              <div class="setting-meta">
+                <div class="setting-title">{{ t('settings.reminder.waterTest') }}</div>
+              </div>
+              <button class="water-test-btn" :disabled="!waterEnabled" @click="notifyWater">
+                {{ t('settings.reminder.waterTest') }}
+              </button>
             </div>
-            <div class="link-body">
-              <div class="link-title">{{ t('settings.links.githubTitle') }}</div>
-              <div class="link-desc">{{ t('settings.links.githubDesc') }}</div>
-            </div>
-            <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-
-          <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace/releases')">
-            <div class="link-icon" style="background:#EFF6FF;color:#3B82F6;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            </div>
-            <div class="link-body">
-              <div class="link-title">{{ t('settings.links.changelogTitle') }}</div>
-              <div class="link-desc">{{ t('settings.links.changelogDesc') }}</div>
-            </div>
-            <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-
-          <div class="link-item" @click="openUrl('https://github.com/lanxiuyun/Catrace/issues')">
-            <div class="link-icon" style="background:#FFFBEB;color:#F59E0B;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-            <div class="link-body">
-              <div class="link-title">{{ t('settings.links.issuesTitle') }}</div>
-              <div class="link-desc">{{ t('settings.links.issuesDesc') }}</div>
-            </div>
-            <svg class="link-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- 喝水提醒 -->
-      <div
-        class="group water-group group-water"
-        :style="{ order: groupOrder.indexOf('water') + 1 }"
-        data-group-key="water"
-      >
-        <div class="group-label">{{ t('settings.groups.water') }}</div>
-
-        <div class="setting-row">
-          <div class="setting-meta">
-            <div class="setting-title">{{ t('settings.reminder.waterTitle') }}</div>
-            <div class="setting-desc">{{ t('settings.reminder.waterDesc') }}</div>
-          </div>
-          <n-switch
-            :value="waterEnabled"
-            :loading="loading.water"
-            @update:value="toggleWaterEnabled"
-          />
-        </div>
-
-        <template v-if="waterEnabled">
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.waterIntervalTitle') }}</div>
-              <div class="setting-desc">{{ t('settings.reminder.waterIntervalDesc') }}</div>
-            </div>
-            <div class="setting-control slider-control">
-              <n-slider v-model:value="waterInterval" :min="5" :max="180" :step="5" :disabled="!waterEnabled" />
-              <span class="setting-value water-value">{{ waterInterval }} {{ t('common.minutes') }}</span>
-            </div>
-          </div>
-
-          <div class="divider" />
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <div class="setting-title">{{ t('settings.reminder.waterTest') }}</div>
-            </div>
-            <button class="water-test-btn" :disabled="!waterEnabled" @click="notifyWater">
-              {{ t('settings.reminder.waterTest') }}
-            </button>
-          </div>
+          </template>
         </template>
       </div>
     </div>
@@ -853,20 +856,27 @@ async function handleInstallUpdate() {
   padding: 1rem 1.25rem;
   box-sizing: border-box;
   cursor: grab;
-  transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 .group:active {
   cursor: grabbing;
 }
 .group.dragging {
-  opacity: 0.55;
-  transform: scale(0.985);
+  opacity: 0.35;
+  background: #F5F3FF;
+  border-style: dashed;
   pointer-events: none;
 }
 .group.drag-over {
-  border: 0.0625rem dashed #7C3AED;
-  background: #FAF5FF;
+  opacity: 0.95;
+  transform: scale(1.02) rotate(1deg);
+  box-shadow: 0 0.75rem 2rem rgba(124, 58, 237, 0.2);
+  z-index: 1000;
 }
+.group.drag-over {
+  transition: none !important;
+}
+
 .group-label {
   font-size: 0.6875rem;
   font-weight: 600;
