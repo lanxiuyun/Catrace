@@ -2,7 +2,6 @@ export default {
   nav: {
     overview: 'Overview',
     settings: 'Settings',
-    videoRules: 'Video Rules',
     debug: 'Debug',
   },
   dashboard: {
@@ -29,6 +28,7 @@ export default {
     subtitle: 'Customize how Catrace works',
     groups: {
       reminder: 'Reminder Preferences',
+      video: 'Video Rules',
       water: 'Water Reminder',
       notification: 'Reminder Settings',
       update: 'Software Update',
@@ -42,8 +42,6 @@ export default {
       breakDesc: 'How many consecutive rest minutes count as a valid break',
       snoozeIntervalTitle: 'Repeat Reminder Interval',
       snoozeIntervalDesc: 'How often to remind after the active window is reached',
-      videoActiveTitle: 'Video Counts as Active',
-      videoActiveDesc: 'When enabled, watching videos will also trigger reminders',
       testNotifyTitle: 'Test Notification',
       testNotifyDesc: 'Manually send a notification to preview',
       testNotifyBtn: 'Test Notification',
@@ -73,6 +71,10 @@ export default {
       waterIntervalTitle: 'Water Interval',
       waterIntervalDesc: 'How long without drinking before reminding',
       waterTest: 'Test Water Reminder',
+    },
+    video: {
+      enabledTitle: 'Video Counts as Active',
+      enabledDesc: 'When enabled, watching videos will also trigger reminders',
     },
     update: {
       softwareVersion: 'Software Version',

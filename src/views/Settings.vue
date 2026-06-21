@@ -5,6 +5,7 @@ import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import Sortable from 'sortablejs'
 import ReminderSettingsCard from '../components/settings/ReminderSettingsCard.vue'
+import VideoSettingsCard from '../components/settings/VideoSettingsCard.vue'
 import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
 import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
@@ -13,13 +14,14 @@ import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
 const { t } = useI18n()
 const message = useMessage()
 
-const GROUP_KEYS = ['reminder', 'system', 'notification', 'links', 'water'] as const
+const GROUP_KEYS = ['reminder', 'video', 'system', 'notification', 'links', 'water'] as const
 type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'system', 'notification', 'links', 'water']
+const defaultGroupOrder: GroupKey[] = ['reminder', 'video', 'system', 'notification', 'links', 'water']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
 const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
   reminder: ReminderSettingsCard,
+  video: VideoSettingsCard,
   system: SystemSettingsCard,
   notification: NotificationSettingsCard,
   links: LinksSettingsCard,
@@ -68,7 +70,7 @@ function initSortable() {
     dragClass: 'drag-over',
     fallbackClass: 'sortable-fallback',
     handle: '.group',
-    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .n-base-selection, .n-base-select-menu, .link-item, .fs-btn, .water-test-btn, .video-rules-link, input, textarea, select, button, a',
+    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .n-base-selection, .n-base-select-menu, .link-item, .fs-btn, .water-test-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
       const keys = Array.from(grid.children)

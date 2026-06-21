@@ -2,7 +2,6 @@ export default {
   nav: {
     overview: '概览',
     settings: '设置',
-    videoRules: '视频规则',
     debug: '调试',
   },
   dashboard: {
@@ -29,6 +28,7 @@ export default {
     subtitle: '自定义 Catrace 的工作方式',
     groups: {
       reminder: '提醒偏好',
+      video: '视频规则',
       water: '喝水提醒',
       notification: '提醒设置',
       update: '软件更新',
@@ -42,8 +42,6 @@ export default {
       breakDesc: '连续休息多少分钟算一次有效休息',
       snoozeIntervalTitle: '重复提醒间隔',
       snoozeIntervalDesc: '活跃满后每隔多久提醒一次',
-      videoActiveTitle: '视频计入活跃',
-      videoActiveDesc: '开启后，看视频时会提醒',
       testNotifyTitle: '通知测试',
       testNotifyDesc: '手动发送一条通知预览效果',
       testNotifyBtn: '测试通知',
@@ -73,6 +71,10 @@ export default {
       waterIntervalTitle: '喝水间隔',
       waterIntervalDesc: '多久未喝水就弹出提醒',
       waterTest: '测试',
+    },
+    video: {
+      enabledTitle: '视频计入活跃',
+      enabledDesc: '开启后，看视频时会提醒',
     },
     update: {
       softwareVersion: '软件版本',

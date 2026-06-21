@@ -1,31 +1,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import {
-  NSwitch,
-  NButton,
-  NInput,
-  useMessage,
-} from 'naive-ui'
+import { NSwitch, NButton, NInput, useMessage } from 'naive-ui'
 import {
   getVideoActiveRulesText,
   setVideoActiveRulesText,
   getVideoActiveEnabled,
   setVideoActiveEnabled,
-} from '../api/tauri'
+} from '../../api/tauri'
+import SettingRow from './SettingRow.vue'
 
 const { t } = useI18n()
-const router = useRouter()
 const message = useMessage()
 
 const rulesText = ref('')
 const enabled = ref(true)
-const loading = ref(false)
+const loading = ref({ rules: false, enabled: false })
 const saving = ref(false)
 
 onMounted(async () => {
-  loading.value = true
+  loading.value.rules = true
   try {
     const [text, e] = await Promise.all([
       getVideoActiveRulesText(),
@@ -37,18 +31,22 @@ onMounted(async () => {
     console.error(err)
     message.error(t('videoRules.loadFailed'))
   } finally {
-    loading.value = false
+    loading.value.rules = false
   }
 })
 
 async function toggleEnabled(val: boolean) {
+  loading.value.enabled = true
   try {
     await setVideoActiveEnabled(val)
     enabled.value = val
+    message.success(val ? t('settings.messages.videoActiveOn') : t('settings.messages.videoActiveOff'))
   } catch (err) {
     console.error(err)
     message.error(t('settings.messages.setFailed'))
     enabled.value = !val
+  } finally {
+    loading.value.enabled = false
   }
 }
 
@@ -98,130 +96,75 @@ async function resetDefaults() {
     saving.value = false
   }
 }
-
-function goBack() {
-  router.push('/settings')
-}
 </script>
 
 <template>
-  <div class="video-rules">
-    <div class="page-header">
-      <div>
-        <h1 class="title">{{ t('videoRules.title') }}</h1>
-        <p class="subtitle">{{ t('videoRules.subtitle') }}</p>
-      </div>
-      <n-button size="small" @click="goBack">
-        {{ t('nav.settings') }}
-      </n-button>
-    </div>
+  <div class="group video-group">
+    <div class="group-label">{{ t('settings.groups.video') }}</div>
 
-    <div class="group">
-      <div class="group-label">{{ t('settings.groups.reminder') }}</div>
-      <div class="setting-row">
-        <div class="setting-meta">
-          <div class="setting-title">{{ t('videoRules.enabled') }}</div>
-          <div class="setting-desc">{{ t('videoRules.enabledDesc') }}</div>
-        </div>
-        <n-switch :value="enabled" @update:value="toggleEnabled" />
-      </div>
-    </div>
-
-    <div class="group">
-      <div class="group-header">
-        <div class="group-label">{{ t('videoRules.title') }}</div>
-      </div>
-
-      <n-input
-        v-model:value="rulesText"
-        type="textarea"
-        :placeholder="t('videoRules.placeholder')"
-        :rows="14"
-        :disabled="loading"
-        class="rules-textarea"
+    <setting-row :title="t('settings.video.enabledTitle')" :desc="t('settings.video.enabledDesc')">
+      <n-switch
+        :value="enabled"
+        :loading="loading.enabled"
+        @update:value="toggleEnabled"
       />
+    </setting-row>
 
-      <div class="hint">{{ t('videoRules.hint') }}</div>
+    <div class="divider" />
 
-      <div class="rule-actions">
-        <n-button size="small" quaternary @click="resetDefaults">
-          {{ t('videoRules.resetDefault') }}
-        </n-button>
-        <n-button type="primary" size="small" :loading="saving" @click="saveRules">
-          {{ t('videoRules.saveRules') }}
-        </n-button>
+    <div class="section-header">
+      <div class="section-meta">
+        <div class="setting-title">{{ t('videoRules.title') }}</div>
+        <div class="setting-desc">{{ t('videoRules.subtitle') }}</div>
       </div>
+    </div>
+
+    <n-input
+      v-model:value="rulesText"
+      type="textarea"
+      :placeholder="t('videoRules.placeholder')"
+      :rows="10"
+      :disabled="loading.rules"
+      class="rules-textarea"
+    />
+
+    <div class="hint">{{ t('videoRules.hint') }}</div>
+
+    <div class="rule-actions">
+      <n-button size="small" quaternary @click="resetDefaults">
+        {{ t('videoRules.resetDefault') }}
+      </n-button>
+      <n-button type="primary" size="small" :loading="saving" @click="saveRules">
+        {{ t('videoRules.saveRules') }}
+      </n-button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.video-rules {
-  padding: 1.5rem;
-  max-width: 45rem;
+.video-group {
+  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
 }
 
-.page-header {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  margin: 0.75rem 0;
 }
 
-.title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #2E1065;
-  margin: 0 0 0.25rem 0;
-}
-.subtitle {
-  font-size: 0.8125rem;
-  color: #8B7AAB;
-  margin: 0;
-}
-
-.group {
-  background: #fff;
-  border: 0.0625rem solid #EBE6F2;
-  border-radius: 0.875rem;
-  padding: 1.25rem 1.75rem;
-  margin-bottom: 1rem;
-}
-.group-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #8B7AAB;
-  text-transform: uppercase;
-  letter-spacing: 0.0312rem;
-  margin-bottom: 0.25rem;
-}
-.group-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.group-header .group-label {
-  margin-bottom: 0;
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  padding: 0.875rem 0;
-}
-.setting-meta {
+.section-meta {
   flex-shrink: 1;
   min-width: 0;
 }
+
 .setting-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
   margin-bottom: 0.125rem;
 }
+
 .setting-desc {
   font-size: 0.75rem;
   color: #8B7AAB;
