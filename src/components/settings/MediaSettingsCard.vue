@@ -99,23 +99,16 @@ async function resetWhitelistDefaults() {
     <template v-if="isWindows">
       <div class="divider" />
 
-      <div class="section-header">
-        <div class="section-meta">
-          <div class="setting-title">{{ t('mediaWhitelist.title') }}</div>
-          <div class="setting-desc">{{ t('mediaWhitelist.subtitle') }}</div>
-        </div>
-      </div>
+      <div class="whitelist-title">{{ t('mediaWhitelist.title') }}</div>
 
       <n-input
         v-model:value="whitelistText"
         type="textarea"
         :placeholder="t('mediaWhitelist.placeholder')"
-        :rows="8"
+        :rows="6"
         :disabled="loading.whitelist"
         class="rules-textarea"
       />
-
-      <div class="hint">{{ t('mediaWhitelist.hint') }}</div>
 
       <div class="rule-actions">
         <n-button size="small" quaternary @click="resetWhitelistDefaults">
@@ -141,42 +134,17 @@ async function resetWhitelistDefaults() {
   background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin: 0.75rem 0;
-}
-
-.section-meta {
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.setting-title {
+.whitelist-title {
+  margin: 0.75rem 0 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 0.125rem;
-}
-
-.setting-desc {
-  font-size: 0.75rem;
-  color: #8B7AAB;
 }
 
 .rules-textarea :deep(.n-input__textarea-el) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.6;
-}
-
-.hint {
-  margin-top: 0.625rem;
-  font-size: 0.75rem;
-  color: #8B7AAB;
-  line-height: 1.5;
-  white-space: pre-line;
 }
 
 .rule-actions {
