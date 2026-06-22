@@ -46,22 +46,34 @@ body:
     validations:
       required: false
 
+  - type: input
+    id: "version"
+    attributes:
+      label: "🔢 应用版本号"
+      description: |-
+        App Version<br><br>
+        你当前使用的 Catrace 版本号是多少？可以在「设置 → 关于」或系统托盘菜单中查看。<br>
+        What version of Catrace are you using? You can find it in "Settings → About" or the system tray menu.
+      placeholder: "例如：1.2.3 / e.g. 1.2.3"
+    validations:
+      required: true
+
   - type: textarea
     id: "more"
     attributes:
       label: "📌 补充信息"
       description: |-
         Additional Information<br><br>
-        还有其他想告诉我们的吗？例如系统信息、版本号等。<br>
-        Anything else you'd like to tell us? System information, version numbers, etc.
+        还有其他想告诉我们的吗？例如系统信息、日志等。<br>
+        Anything else you'd like to tell us? System information, logs, etc.
       placeholder: |-
         示例：
-        系统：Windows 11
-        版本：23H2
+        系统：Windows 11 23H2
+        日志：...
 
         Example:
-        System: Windows 11
-        Version: 23H2
+        System: Windows 11 23H2
+        Logs: ...
     validations:
       required: false
 
