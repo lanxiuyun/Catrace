@@ -288,15 +288,9 @@ onDeactivated(() => {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
-}
-
-@media (max-width: 60rem) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 30rem) {
@@ -321,7 +315,7 @@ onDeactivated(() => {
   background: #fff;
   border: 0.0625rem solid #ebe6f2;
   border-radius: 0.75rem;
-  padding: 0.5rem 0.625rem;
+  padding: 0.375rem 0.5rem;
   box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04);
 }
 
