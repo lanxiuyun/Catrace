@@ -131,7 +131,7 @@ onUnmounted(() => {
     <div class="water-header">
       <div class="water-brand">
         <div class="water-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"/>
           </svg>
         </div>
@@ -203,7 +203,7 @@ onUnmounted(() => {
           @mouseenter="hoveredIndex = i"
           @mouseleave="hoveredIndex = null"
         >
-          <svg class="drop-icon" width="10" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <svg class="drop-icon" width="8" height="10" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"/>
           </svg>
           <transition name="tooltip">
@@ -232,19 +232,18 @@ onUnmounted(() => {
   background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
   border: 0.0625rem solid #bfdbfe;
   border-radius: 0.875rem;
-  padding: 0.875rem 1rem;
+  padding: 0.625rem 0.875rem;
   box-shadow: 0 0.125rem 0.375rem rgba(37, 99, 235, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.5rem;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .water-widget:hover {
-  transform: translateY(0.0625rem);
   box-shadow: 0 0.25rem 0.75rem rgba(37, 99, 235, 0.1);
 }
 
@@ -261,9 +260,9 @@ onUnmounted(() => {
 }
 
 .water-icon {
-  width: 1.625rem;
-  height: 1.625rem;
-  border-radius: 0.5rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 0.4375rem;
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   color: #2563eb;
   display: flex;
@@ -277,7 +276,7 @@ onUnmounted(() => {
 }
 
 .water-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #2563eb;
   font-weight: 600;
 }
@@ -285,7 +284,7 @@ onUnmounted(() => {
 .water-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .water-btn-wrap {
@@ -296,9 +295,9 @@ onUnmounted(() => {
 }
 
 .water-add {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4375rem;
   border: none;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
@@ -327,9 +326,9 @@ onUnmounted(() => {
 }
 
 .water-remove {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4375rem;
   border: 0.0625rem solid #dbeafe;
   background: #fff;
   color: #60a5fa;
@@ -411,12 +410,12 @@ onUnmounted(() => {
 .water-body {
   display: flex;
   align-items: baseline;
-  gap: 0.375rem;
-  min-height: 2.625rem;
+  gap: 0.25rem;
+  min-height: 2rem;
 }
 
 .water-count {
-  font-size: 2.125rem;
+  font-size: 1.625rem;
   font-weight: 700;
   color: #2563eb;
   line-height: 1;
@@ -429,30 +428,30 @@ onUnmounted(() => {
 }
 
 .water-unit {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #60a5fa;
   font-weight: 500;
 }
 
 .water-divider {
   width: 0.0625rem;
-  height: 0.75rem;
+  height: 0.625rem;
   background: #dbeafe;
   margin: 0 0.125rem;
 }
 
 .water-last {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: #3b82f6;
 }
 
 .water-timeline {
-  margin-top: 0.125rem;
+  margin-top: 0;
 }
 
 .timeline-track {
   position: relative;
-  height: 1.125rem;
+  height: 0.875rem;
   display: flex;
   align-items: center;
 }
@@ -461,7 +460,7 @@ onUnmounted(() => {
   position: absolute;
   left: 0;
   right: 0;
-  height: 0.125rem;
+  height: 0.09375rem;
   background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 50%, #dbeafe 100%);
   border-radius: 0.0625rem;
 }
@@ -565,7 +564,7 @@ onUnmounted(() => {
 .timeline-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.3125rem;
+  margin-top: 0.25rem;
   font-size: 0.625rem;
   color: #93c5fd;
 }
@@ -575,9 +574,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  margin-top: 0.625rem;
-  padding: 0.5rem 0;
-  font-size: 0.6875rem;
+  margin-top: 0.375rem;
+  padding: 0.375rem 0;
+  font-size: 0.625rem;
   color: #93c5fd;
   background: rgba(219, 234, 254, 0.4);
   border-radius: 0.5rem;

@@ -48,9 +48,8 @@ export function useAutoSavedSetting<T>(options: UseAutoSavedSettingOptions<T>): 
       saveTimer = null
     }
     const v = await load()
-    const cloned = deepClone(v)
-    value.value = cloned
-    savedValue.value = cloned
+    value.value = deepClone(v)
+    savedValue.value = deepClone(v)
   }
 
   onMounted(async () => {

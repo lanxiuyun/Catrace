@@ -243,7 +243,7 @@ onDeactivated(() => {
 
 <style scoped>
 .dashboard {
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .header {
@@ -251,7 +251,7 @@ onDeactivated(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.375rem;
+  margin-bottom: 1rem;
 }
 
 .header-main {
@@ -289,8 +289,8 @@ onDeactivated(() => {
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.875rem;
-  margin-bottom: 1.125rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 60rem) {
@@ -308,8 +308,8 @@ onDeactivated(() => {
 .widget-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
-  gap: 0.875rem;
-  margin-bottom: 1.125rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
   align-items: stretch;
 }
 
@@ -321,20 +321,20 @@ onDeactivated(() => {
   background: #fff;
   border: 0.0625rem solid #ebe6f2;
   border-radius: 0.75rem;
-  padding: 0.5625rem 0.625rem;
+  padding: 0.5rem 0.625rem;
   box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04);
 }
 
 .stat-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
 }
 
 .dot {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.4375rem;
+  height: 0.4375rem;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -353,14 +353,14 @@ onDeactivated(() => {
 }
 
 .stat-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: #8b7aab;
   font-weight: 500;
 }
 
 .stat-value {
   margin: 0;
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -368,7 +368,7 @@ onDeactivated(() => {
 }
 
 .stat-unit {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   margin-left: 0.1875rem;
   opacity: 0.55;
