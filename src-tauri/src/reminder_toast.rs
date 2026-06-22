@@ -117,7 +117,7 @@ pub fn create_toast_window(
         let _ = window.eval(&debug_js);
         let _ = window.show();
         let _ = window.set_always_on_top(true);
-        let _ = window.set_focus();
+        // Toast 不应抢夺焦点，避免打断用户输入
         return;
     }
 
@@ -155,7 +155,7 @@ pub fn create_toast_window(
                     debug_mode
                 );
                 let _ = window.eval(&debug_js);
-                let _ = window.set_focus();
+                // 不调用 set_focus()，避免 Toast 弹出时打断用户输入
             }
             Err(e) => {
                 eprintln!("[ToastWindow] build failed: {}", e);
