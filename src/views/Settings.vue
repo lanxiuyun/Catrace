@@ -17,7 +17,7 @@ const message = useMessage()
 
 const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water'] as const
 type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'system', 'notification', 'links', 'water']
+const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'system', 'links']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
 const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
