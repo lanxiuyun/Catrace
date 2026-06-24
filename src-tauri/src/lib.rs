@@ -90,6 +90,37 @@ pub struct ReminderWindowData {
 
 pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
+/// Debug 页通知循环测试状态
+pub struct NotificationTestState {
+    running: AtomicBool,
+}
+
+impl NotificationTestState {
+    pub fn new() -> Self {
+        Self {
+            running: AtomicBool::new(false),
+        }
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
+    pub fn start(&self) {
+        self.running.store(true, Ordering::SeqCst);
+    }
+
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
+    }
+}
+
+impl Default for NotificationTestState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ---------- i18n helpers ----------
 
 fn notify_title(locale: &str) -> &'static str {
@@ -635,6 +666,60 @@ fn test_notification(
     );
 }
 
+#[tauri::command]
+fn start_notification_test(
+    interval_seconds: u64,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<Arc<Mutex<ReminderState>>>,
+    db: tauri::State<db::Db>,
+    store: tauri::State<ReminderWindowStore>,
+    fullscreen_active: tauri::State<Arc<AtomicBool>>,
+    test_state: tauri::State<Arc<NotificationTestState>>,
+) -> Result<(), String> {
+    if interval_seconds == 0 {
+        return Err("interval must be greater than 0".to_string());
+    }
+    if test_state.is_running() {
+        return Ok(());
+    }
+    test_state.start();
+
+    let app_handle = app_handle.clone();
+    let state = state.inner().clone();
+    let db = db.inner().clone();
+    let store = store.inner().clone();
+    let fullscreen_active = fullscreen_active.inner().clone();
+    let test_state = test_state.inner().clone();
+
+    tauri::async_runtime::spawn(async move {
+        let mut interval = interval(Duration::from_secs(interval_seconds));
+        loop {
+            interval.tick().await;
+            if !test_state.is_running() {
+                break;
+            }
+            let locale = db.get_setting("locale", "zh-CN");
+            show_notification(
+                &app_handle,
+                0,
+                test_notify_msg(&locale),
+                state.clone(),
+                &locale,
+                &db,
+                &store,
+                fullscreen_active.clone(),
+            );
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_notification_test(test_state: tauri::State<Arc<NotificationTestState>>) {
+    test_state.stop();
+}
+
 // ------------------------------------------------------------------
 // 通知：统一入口（支持 toast / popup / fullscreen）
 // ------------------------------------------------------------------
@@ -744,7 +829,7 @@ fn create_popup_window(
             }
         }
         let _ = window.show();
-        let _ = window.set_focus();
+        // 弹窗提醒也不抢夺焦点，避免打断用户输入
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(300)).await;
             let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';");
@@ -985,6 +1070,7 @@ pub fn run() {
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
+            app.manage(Arc::new(NotificationTestState::new()));
 
             // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
             thread::spawn(move || {
@@ -1198,6 +1284,8 @@ pub fn run() {
             get_today_records,
             get_app_stats,
             test_notification,
+            start_notification_test,
+            stop_notification_test,
             water::test_water_notification,
             get_media_debug_info,
             get_reminder_mode,

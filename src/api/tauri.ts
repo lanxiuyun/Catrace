@@ -81,6 +81,16 @@ export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
 
+/** 开始循环测试通知，每隔 intervalSeconds 秒触发一次 */
+export async function startNotificationTest(intervalSeconds: number): Promise<void> {
+  return invoke('start_notification_test', { intervalSeconds })
+}
+
+/** 停止循环测试通知 */
+export async function stopNotificationTest(): Promise<void> {
+  return invoke('stop_notification_test')
+}
+
 /** 发送一条测试喝水提醒 */
 export async function testWaterNotification(): Promise<void> {
   return invoke('test_water_notification')

@@ -135,6 +135,13 @@ export default {
   debug: {
     title: '媒体检测调试',
     refresh: '手动刷新',
+    notificationTest: {
+      title: '通知测试',
+      interval: '触发间隔',
+      start: '开始循环',
+      stop: '停止循环',
+      seconds: '秒',
+    },
     finalResult: '最终判定',
     mediaActive: 'media_active',
     mediaActiveTrue: 'true（媒体活跃）',
