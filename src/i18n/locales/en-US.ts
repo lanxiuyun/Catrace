@@ -83,6 +83,9 @@ export default {
       newVersion: 'New version {version} found',
       downloading: 'Downloading...',
       updateNow: 'Update Now',
+      toastPrompt: 'Click View Details to see the changelog and update now.',
+      viewDetails: 'View Details',
+      hideDetails: 'Hide Details',
     },
     startup: {
       autostartTitle: 'Auto-start on Boot',
