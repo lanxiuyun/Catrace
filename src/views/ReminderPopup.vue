@@ -7,6 +7,8 @@ import {
   getReminderData,
   snoozeReminder,
   skipReminder,
+  setWindowActiveMode,
+  closeReminderWindow,
 } from '../api/tauri'
 
 useI18n()
@@ -21,6 +23,7 @@ let resizeObserver: ResizeObserver | null = null
 
 const POPUP_WIDTH = 440
 const POPUP_MIN_HEIGHT = 300
+const WINDOW_LABEL = 'reminder-popup'
 
 onMounted(async () => {
   try {
@@ -41,6 +44,7 @@ onMounted(async () => {
     })
     resizeObserver.observe(cardRef.value)
   }
+
 })
 
 onUnmounted(() => {
@@ -79,7 +83,7 @@ async function adjustWindowSize() {
 }
 
 async function handleClose() {
-  await getCurrentWebviewWindow().close()
+  await closeReminderWindow(WINDOW_LABEL)
 }
 
 async function handleSnooze(minutes: number) {
@@ -94,6 +98,15 @@ async function handleSnooze(minutes: number) {
 async function handleCustomSnooze() {
   const minutes = Math.max(1, Math.round(customMinutes.value))
   await handleSnooze(minutes)
+}
+
+async function toggleCustomInput() {
+  showCustomInput.value = !showCustomInput.value
+  try {
+    await setWindowActiveMode(WINDOW_LABEL, showCustomInput.value)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleSkip() {
@@ -134,7 +147,7 @@ async function handleSkip() {
         <button
           class="pill"
           :class="{ 'pill-active': showCustomInput }"
-          @click="showCustomInput = !showCustomInput"
+          @click="toggleCustomInput"
         >
           自定义
         </button>

@@ -261,3 +261,22 @@ export async function getReminderData(label: string): Promise<{
 export async function closeReminderWindow(label: string): Promise<void> {
   return invoke('close_reminder_window', { label })
 }
+
+// ------------------------------------------------------------------
+// 窗口管理（无焦点提醒窗口）
+// ------------------------------------------------------------------
+
+/** 显示窗口；noActivate=true 时不抢夺焦点（仅提醒窗口生效） */
+export async function showWindow(label: string, noActivate: boolean, pinned: boolean): Promise<void> {
+  return invoke('plugin:catrace-window|show_window', { label, noActivate, pinned })
+}
+
+/** 隐藏窗口 */
+export async function hideWindow(label: string): Promise<void> {
+  return invoke('plugin:catrace-window|hide_window', { label })
+}
+
+/** 动态切换窗口激活模式；active=true 恢复可聚焦 */
+export async function setWindowActiveMode(label: string, active: boolean): Promise<void> {
+  return invoke('plugin:catrace-window|set_window_active_mode', { label, active })
+}

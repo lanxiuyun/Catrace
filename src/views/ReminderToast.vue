@@ -97,6 +97,7 @@ onMounted(async () => {
   } catch {
     // ignore
   }
+
 })
 
 onUnmounted(() => {

@@ -4,6 +4,7 @@ mod reminder;
 mod reminder_toast;
 mod report;
 mod water;
+mod window_manager;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -637,9 +638,14 @@ fn close_reminder_window(
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window(&label) {
-        window.close().map_err(|e| e.to_string())?;
+        // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
+        if label == window_manager::TOAST_WINDOW_LABEL || label == window_manager::POPUP_WINDOW_LABEL {
+            window_manager::hide_window_internal(&app_handle, &window);
+        } else {
+            window.close().map_err(|e| e.to_string())?;
+        }
     }
-    if label == "reminder-fullscreen" {
+    if label == window_manager::FULLSCREEN_WINDOW_LABEL {
         fullscreen_active.store(false, Ordering::SeqCst);
     }
     Ok(())
@@ -794,7 +800,7 @@ fn create_popup_window(
     _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
 ) {
-    let label = "reminder-popup";
+    let label = window_manager::POPUP_WINDOW_LABEL;
 
     let data = ReminderWindowData {
         kind: "rest".to_string(),
@@ -811,39 +817,38 @@ fn create_popup_window(
 
     let app = app_handle.clone();
 
-    // 如果窗口已存在，复用它而不是关闭重建
-    if let Some(window) = app_handle.get_webview_window(label) {
-        let _ = window.hide();
-        if let Some(main) = app_handle.get_webview_window("main") {
-            if let (Ok(pos), Ok(size), Ok(sf)) = (
-                main.outer_position(),
-                main.outer_size(),
-                main.scale_factor(),
-            ) {
+    // 计算弹窗位置：以主窗口为中心
+    let position_popup = |window: &tauri::WebviewWindow| {
+        if let Some(main) = window.app_handle().get_webview_window("main") {
+            if let (Ok(pos), Ok(size), Ok(sf)) =
+                (main.outer_position(), main.outer_size(), main.scale_factor())
+            {
                 let pw = 440.0;
                 let ph = 300.0;
                 let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                 let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                let _ =
-                    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
         }
-        let _ = window.show();
-        // 弹窗提醒也不抢夺焦点，避免打断用户输入
+    };
+
+    // 复用已有窗口
+    if let Some(window) = app_handle.get_webview_window(label) {
+        let _ = window.hide();
+        position_popup(&window);
+        window_manager::show_reminder_no_activate(app_handle, &window);
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(300)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';");
         });
         return;
     }
 
-    let _url = tauri::WebviewUrl::App("index.html".into());
-
     tauri::async_runtime::spawn(async move {
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             label,
-            tauri::WebviewUrl::App("index.html?reminder=popup".into()),
+            tauri::WebviewUrl::App("index.html#/reminder-popup".into()),
         )
         .title("Catrace")
         .inner_size(440.0, 300.0)
@@ -855,24 +860,8 @@ fn create_popup_window(
 
         match builder.build() {
             Ok(window) => {
-                if let Some(main) = app.get_webview_window("main") {
-                    if let (Ok(pos), Ok(size), Ok(sf)) = (
-                        main.outer_position(),
-                        main.outer_size(),
-                        main.scale_factor(),
-                    ) {
-                        let pw = 440.0;
-                        let ph = 300.0;
-                        let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
-                        let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                        let _ =
-                            window.set_position(tauri::Position::Logical(tauri::LogicalPosition {
-                                x,
-                                y,
-                            }));
-                    }
-                }
-                let _ = window.show();
+                position_popup(&window);
+                window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {
@@ -1018,6 +1007,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(window_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -1071,6 +1061,9 @@ pub fn run() {
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
             app.manage(Arc::new(NotificationTestState::new()));
+
+            // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
+            reminder_toast::prepare_toast_window(app.app_handle());
 
             // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
             thread::spawn(move || {
