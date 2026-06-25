@@ -151,7 +151,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
    - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
    - 通知按 `kind` 区分主题：**休息提醒**保持紫色主题；**喝水提醒**采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）。
-   - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口根节点会显示半透明黄色背景，便于排查布局/点击问题；切换后 Rust 侧会实时同步状态到已存在的 Toast 窗口，前端监听 `catrace-toast-debug-change` 事件即时响应。
+   - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口根节点会显示半透明黄色背景，便于排查布局/点击问题；切换后 Rust 侧通过 Tauri 事件 `catrace-toast-debug-changed` 广播状态，Toast 窗口前端监听并即时响应。
    - **Windows 下不抢夺焦点**：通过 `window_manager` 设置 `WS_EX_NOACTIVATE` 并使用 `SW_SHOWNOACTIVATE` 显示，文件重命名、输入框编辑时弹出通知不会打断当前输入状态。
 
 5.1. **无焦点提醒窗口管理**（`window_manager/`）

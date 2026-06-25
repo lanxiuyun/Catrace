@@ -3,8 +3,10 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
+import { listen } from '@tauri-apps/api/event'
 import {
   getReminderData,
+  getToastDebugMode,
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
@@ -39,10 +41,7 @@ const stackRef = ref<HTMLElement | null>(null)
 const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
-
-const updateDebugFromWindow = () => {
-  showDebug.value = (window as any).__CATRACE_TOAST_DEBUG__ === true
-}
+let unlistenDebug: (() => void) | null = null
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -64,8 +63,17 @@ const debugInfo = ref({
 })
 
 onMounted(async () => {
-  updateDebugFromWindow()
-  window.addEventListener('catrace-toast-debug-change', updateDebugFromWindow)
+  // 读取初始调试模式状态
+  try {
+    showDebug.value = await getToastDebugMode()
+  } catch {
+    // ignore
+  }
+
+  // 监听 Tauri 事件，实时同步调试模式状态
+  unlistenDebug = await listen<boolean>('catrace-toast-debug-changed', (event) => {
+    showDebug.value = event.payload
+  })
 
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
@@ -107,7 +115,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   delete (window as any).addToastNotification
-  window.removeEventListener('catrace-toast-debug-change', updateDebugFromWindow)
+  unlistenDebug?.()
+  unlistenDebug = null
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
   resizeObserver = null

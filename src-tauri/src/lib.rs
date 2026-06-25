@@ -22,7 +22,7 @@ use std::fs;
 use std::path::Path;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
@@ -273,16 +273,9 @@ fn set_toast_debug_mode(
     db.set_setting("toast_debug_mode", &enabled.to_string())
         .map_err(|e| e.to_string())?;
 
-    // 如果 Toast 窗口已存在，实时把调试状态同步到前端，让背景立即变化
-    if let Some(window) = app.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-        let js = format!(
-            "window.__CATRACE_TOAST_DEBUG__ = {}; if (window.dispatchEvent) {{ window.dispatchEvent(new Event('catrace-toast-debug-change')); }}",
-            enabled
-        );
-        let _ = window.eval(&js);
-    }
-
-    Ok(())
+    // 通过 Tauri 事件广播状态变更，Toast 窗口前端监听并实时更新背景
+    app.emit("catrace-toast-debug-changed", enabled)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -71,7 +71,7 @@ import ReminderFullscreen from '../views/ReminderFullscreen.vue'
 - **尺寸自适应**：`ReminderToast.vue` 通过 ResizeObserver 监听内容高度，调用 `adjustWindowSize()` 让 Rust 窗口匹配高度（最大 600px）。
 - **右下角定位**：Rust 读取当前工作区，将窗口放在包含鼠标光标的显示器右下角。
 - **FLIP 动画**：关闭卡片时记录旧位置，更新数据后让下方卡片平滑上移。
-- **调试模式**：`toast_debug_mode` 开启时，`ReminderToast.vue` 通过 `.debug-bg` 给窗口根节点加上半透明黄色背景，便于确认窗口范围。切换开关后 Rust 侧会立即通过 `window.eval` 更新 `window.__CATRACE_TOAST_DEBUG__` 并触发 `catrace-toast-debug-change` 事件，前端实时响应，无需重新创建窗口。Rust 侧 WebviewWindow 的 `background_color` 始终透明，调试背景完全由前端 CSS 控制。
+- **调试模式**：`toast_debug_mode` 开启时，`ReminderToast.vue` 通过 `.debug-bg` 给窗口根节点加上半透明黄色背景，便于确认窗口范围。切换开关后 Rust 侧通过 Tauri 事件 `catrace-toast-debug-changed` 广播状态变更，Toast 窗口前端用 `listen` 监听并实时更新背景，无需重新创建窗口。Rust 侧 WebviewWindow 的 `background_color` 始终透明，调试背景完全由前端 CSS 控制。
 
 ### 4.2 休息 vs 喝水卡片
 
