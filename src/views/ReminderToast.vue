@@ -40,6 +40,10 @@ const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 
+const updateDebugFromWindow = () => {
+  showDebug.value = (window as any).__CATRACE_TOAST_DEBUG__ === true
+}
+
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
 const CARD_HEIGHT = 180
@@ -60,7 +64,8 @@ const debugInfo = ref({
 })
 
 onMounted(async () => {
-  showDebug.value = (window as any).__CATRACE_TOAST_DEBUG__ === true
+  updateDebugFromWindow()
+  window.addEventListener('catrace-toast-debug-change', updateDebugFromWindow)
 
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
@@ -97,10 +102,12 @@ onMounted(async () => {
   } catch {
     // ignore
   }
+
 })
 
 onUnmounted(() => {
   delete (window as any).addToastNotification
+  window.removeEventListener('catrace-toast-debug-change', updateDebugFromWindow)
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
   resizeObserver = null
@@ -494,7 +501,7 @@ async function handleWaterSkip(item: ToastItem) {
 }
 
 .toast-root.debug-bg {
-  background: rgba(255, 0, 0, 0.5);
+  background: rgba(255, 220, 0, 0.45);
 }
 
 .toast-card {

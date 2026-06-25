@@ -3,12 +3,22 @@ use std::time::Duration;
 
 use tauri::Manager;
 
-use crate::{db, ActivityState, ReminderWindowData, ReminderWindowStore};
+use crate::{db, window_manager, ActivityState, ReminderWindowData, ReminderWindowStore};
 
-const TOAST_WINDOW_LABEL: &str = "reminder-toast";
+const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
 // 与前端单条通知窗口高度保持一致：卡片 180px + 上下 padding 各 20px
 const TOAST_WINDOW_MIN_HEIGHT: f64 = 220.0;
+
+/// 生成同步 Toast 调试模式状态到前端的 JS 代码。
+/// 触发 `catrace-toast-debug-change` 事件，ReminderToast.vue 监听并更新背景。
+fn build_debug_sync_js(debug_mode: bool) -> String {
+    format!(
+        "window.__CATRACE_TOAST_DEBUG__ = {}; if (window.dispatchEvent) {{ window.dispatchEvent(new Event('catrace-toast-debug-change')); }}",
+        debug_mode
+    )
+}
+
 
 /// 计算并设置 toast 窗口为右下角初始尺寸。
 /// 窗口宽度固定 360px，高度固定为单条通知高度，贴靠屏幕右下角。
@@ -61,9 +71,43 @@ fn position_toast_window(
         .map_err(|e| e.to_string())
 }
 
+/// 在应用启动时预创建 Toast 窗口（隐藏），避免通知到达时才动态创建导致抢焦点。
+pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
+    if app_handle.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+        return;
+    }
+
+    let app = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        // 调试背景由前端 CSS 控制，这里始终使用透明背景
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        if let Err(e) = builder.build() {
+            eprintln!("[ToastWindow] prepare failed: {}", e);
+        }
+    });
+}
+
 /// 创建或复用 toast 通知窗口。
-/// - 窗口不存在时创建右下角透明窗口，并通过 store 传递第一条通知。
-/// - 窗口已存在时，直接调用前端全局函数 `window.addToastNotification` 追加通知。
+/// - 窗口已存在时直接复用（优先）。
+/// - 窗口不存在时兜底创建。
 /// - 根据 `toast_debug_mode` 设置决定是否使用半透明红色背景。
 pub fn create_toast_window(
     app_handle: &tauri::AppHandle,
@@ -111,17 +155,15 @@ pub fn create_toast_window(
         let _ = window.eval(&js);
         // 确保前端路由到 /reminder-toast，并同步调试模式状态
         let debug_js = format!(
-            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
-            debug_mode
+            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
+            build_debug_sync_js(debug_mode)
         );
         let _ = window.eval(&debug_js);
-        let _ = window.show();
-        let _ = window.set_always_on_top(true);
-        // Toast 不应抢夺焦点，避免打断用户输入
+        window_manager::show_reminder_no_activate(app_handle, &window);
         return;
     }
 
-    // 窗口不存在：创建新窗口
+    // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
     tauri::async_runtime::spawn(async move {
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
@@ -133,11 +175,11 @@ pub fn create_toast_window(
         .decorations(false)
         .always_on_top(true)
         .transparent(true)
-        .background_color(if debug_mode {
-            tauri::window::Color(255, 0, 0, 128)
-        } else {
-            tauri::window::Color(0, 0, 0, 0)
-        })
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        // 调试背景由前端 CSS 控制，这里始终使用透明背景
+        .background_color(tauri::window::Color(0, 0, 0, 0))
         .shadow(false)
         .visible(false)
         .skip_taskbar(true)
@@ -146,16 +188,14 @@ pub fn create_toast_window(
         match builder.build() {
             Ok(window) => {
                 let _ = position_toast_window(&window, &app);
-                let _ = window.show();
-                let _ = window.set_always_on_top(true);
+                window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let debug_js = format!(
-                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
-                    debug_mode
+                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
+                    build_debug_sync_js(debug_mode)
                 );
                 let _ = window.eval(&debug_js);
-                // 不调用 set_focus()，避免 Toast 弹出时打断用户输入
             }
             Err(e) => {
                 eprintln!("[ToastWindow] build failed: {}", e);

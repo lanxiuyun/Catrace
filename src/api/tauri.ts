@@ -81,6 +81,16 @@ export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
 
+/** 开始循环测试通知，每隔 intervalSeconds 秒触发一次 */
+export async function startNotificationTest(intervalSeconds: number): Promise<void> {
+  return invoke('start_notification_test', { intervalSeconds })
+}
+
+/** 停止循环测试通知 */
+export async function stopNotificationTest(): Promise<void> {
+  return invoke('stop_notification_test')
+}
+
 /** 发送一条测试喝水提醒 */
 export async function testWaterNotification(): Promise<void> {
   return invoke('test_water_notification')
@@ -250,4 +260,23 @@ export async function getReminderData(label: string): Promise<{
 
 export async function closeReminderWindow(label: string): Promise<void> {
   return invoke('close_reminder_window', { label })
+}
+
+// ------------------------------------------------------------------
+// 窗口管理（无焦点提醒窗口）
+// ------------------------------------------------------------------
+
+/** 显示窗口；noActivate=true 时不抢夺焦点（仅提醒窗口生效） */
+export async function showWindow(label: string, noActivate: boolean, pinned: boolean): Promise<void> {
+  return invoke('plugin:catrace-window|show_window', { label, noActivate, pinned })
+}
+
+/** 隐藏窗口 */
+export async function hideWindow(label: string): Promise<void> {
+  return invoke('plugin:catrace-window|hide_window', { label })
+}
+
+/** 动态切换窗口激活模式；active=true 恢复可聚焦 */
+export async function setWindowActiveMode(label: string, active: boolean): Promise<void> {
+  return invoke('plugin:catrace-window|set_window_active_mode', { label, active })
 }

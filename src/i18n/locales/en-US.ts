@@ -135,6 +135,13 @@ export default {
   debug: {
     title: 'Media Detection Debug',
     refresh: 'Refresh',
+    notificationTest: {
+      title: 'Notification Test',
+      interval: 'Trigger Interval',
+      start: 'Start Loop',
+      stop: 'Stop Loop',
+      seconds: 'sec',
+    },
     finalResult: 'Final Result',
     mediaActive: 'media_active',
     mediaActiveTrue: 'true (media active)',

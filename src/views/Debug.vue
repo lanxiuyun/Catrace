@@ -13,8 +13,16 @@ import {
   NText,
   NAlert,
   NSwitch,
+  NInputNumber,
 } from 'naive-ui'
-import { getMediaDebugInfo, type MediaDebugInfo, getToastDebugMode, setToastDebugMode } from '../api/tauri'
+import {
+  getMediaDebugInfo,
+  type MediaDebugInfo,
+  getToastDebugMode,
+  setToastDebugMode,
+  startNotificationTest,
+  stopNotificationTest,
+} from '../api/tauri'
 
 const { t } = useI18n()
 
@@ -22,6 +30,8 @@ const data = ref<MediaDebugInfo | null>(null)
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const toastDebugMode = ref(false)
+const testRunning = ref(false)
+const testInterval = ref(15)
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -37,6 +47,24 @@ async function toggleToastDebugMode(value: boolean) {
   try {
     await setToastDebugMode(value)
     toastDebugMode.value = value
+  } catch (e: any) {
+    console.error(e)
+  }
+}
+
+async function startTest() {
+  try {
+    await startNotificationTest(testInterval.value)
+    testRunning.value = true
+  } catch (e: any) {
+    console.error(e)
+  }
+}
+
+async function stopTest() {
+  try {
+    await stopNotificationTest()
+    testRunning.value = false
   } catch (e: any) {
     console.error(e)
   }
@@ -72,6 +100,7 @@ onActivated(() => {
 onDeactivated(() => {
   mounted = false
   if (timer) clearTimeout(timer)
+  stopTest()
 })
 </script>
 
@@ -92,6 +121,34 @@ onDeactivated(() => {
       <n-alert v-if="errorMsg" type="error" :show-icon="true">
         {{ errorMsg }}
       </n-alert>
+
+      <n-card :title="t('debug.notificationTest.title')" size="small">
+        <n-space align="center" :size="16">
+          <n-space align="center" :size="8">
+            <span class="debug-switch-label">{{ t('debug.notificationTest.interval') }}</span>
+            <n-input-number
+              v-model:value="testInterval"
+              :min="1"
+              :disabled="testRunning"
+              style="width: 7rem"
+            >
+              <template #suffix>{{ t('debug.notificationTest.seconds') }}</template>
+            </n-input-number>
+          </n-space>
+          <n-button
+            v-if="!testRunning"
+            size="small"
+            type="primary"
+            @click="startTest"
+          >{{ t('debug.notificationTest.start') }}</n-button>
+          <n-button
+            v-else
+            size="small"
+            type="error"
+            @click="stopTest"
+          >{{ t('debug.notificationTest.stop') }}</n-button>
+        </n-space>
+      </n-card>
 
       <template v-if="data">
       <!-- 最终判定 -->
