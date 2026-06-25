@@ -73,3 +73,24 @@ Windows 上当前策略改为：
 ### 当前状态
 
 已落地。Windows 上排除列表可在 Settings 页的「视频与音乐」卡片中编辑（开关开启时显示）；macOS / Linux 仅显示开关占位，规则匹配已完全移除。
+
+---
+
+## 已解决：Toast / Popup 无焦点窗口重构
+
+### 最终方案
+
+新增 `src-tauri/src/window_manager/` 模块，统一接管提醒窗口的显示策略：
+
+- **Windows**：设置 `WS_EX_NOACTIVATE` 扩展样式，使用 `SW_SHOWNOACTIVATE` 显示，并通过 `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE \| ...)` 置顶。
+- **macOS / Linux**：回退到普通显示（后续可接入 `NSPanel` 等原生面板方案）。
+- **应用范围**：仅 `reminder-toast` 与 `reminder-popup` 使用无焦点显示；`reminder-fullscreen` 与主窗口保持原有强制聚焦/正常显示逻辑。
+- **窗口复用**：Toast/Popup 关闭时调用 `window_manager::hide_window_internal` 隐藏而非销毁。
+
+### 去掉的能力
+
+最初实现时曾同步引入 `WH_MOUSE_LL`（点击外部隐藏）和 `WH_KEYBOARD_LL`（`Escape` 隐藏）。经确认 Catrace 的 Toast 自带 8 秒自动消失与按钮关闭，Popup 也有明确关闭按钮，这两个全局输入钩子并非必需，因此未保留。
+
+### 当前状态
+
+已落地。Windows 下文件重命名、输入框编辑时弹出 Toast/Popup 不会打断当前焦点。

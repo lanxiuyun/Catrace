@@ -60,6 +60,11 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 │   │   ├── lib.rs              # 全部业务逻辑（采样、结算、通知、命令）
 │   │   ├── reminder.rs         # 提醒状态机 ReminderState + 单元测试
 │   │   ├── reminder_toast.rs   # Toast 窗口位置计算与尺寸调整
+│   │   ├── window_manager/     # 无焦点提醒窗口管理（Windows WS_EX_NOACTIVATE）
+│   │   │   ├── mod.rs          # 插件入口与命令封装
+│   │   │   ├── shared.rs       # 窗口常量与通用辅助函数
+│   │   │   ├── windows.rs      # Windows 无焦点实现
+│   │   │   └── macos.rs        # macOS 回退实现
 │   │   ├── db.rs               # rusqlite 读写封装 + block/喝水记录
 │   │   ├── water.rs            # 喝水提醒状态机 WaterReminderState + 单元测试
 │   │   └── report.rs           # UpgradeLink 事件上报（app_start 等）
@@ -141,12 +146,20 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 喝水提醒 Toast 采用与 `WaterWidget` 统一的蓝色主题，与休息提醒的紫色主题区分。
    - `WaterReminderState` 管理 snooze / last_reminder_sent，进程级状态，重启后重置。
 
-5. **Toast 提醒窗口**（`reminder_toast.rs` + `ReminderToast.vue`）
+5. **Toast 提醒窗口**（`reminder_toast.rs` + `window_manager/` + `ReminderToast.vue`）
    - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
    - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
    - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
    - 通知按 `kind` 区分主题：**休息提醒**保持紫色主题；**喝水提醒**采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）。
    - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口显示半透明黄色背景，便于排查布局/点击问题。
+   - **Windows 下不抢夺焦点**：通过 `window_manager` 设置 `WS_EX_NOACTIVATE` 并使用 `SW_SHOWNOACTIVATE` 显示，文件重命名、输入框编辑时弹出通知不会打断当前输入状态。
+
+5.1. **无焦点提醒窗口管理**（`window_manager/`）
+   - **目标平台**：Windows 完整实现；macOS / Linux 暂回退到普通显示（后续可接入 `NSPanel`）。
+   - **核心 Win32 标志**：`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE` + `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE | ...)`。
+   - **应用范围**：仅 `reminder-toast` 与 `reminder-popup` 使用无焦点显示；`reminder-fullscreen` 与主窗口保持原有强制聚焦/正常显示逻辑。
+   - **交互策略**：窗口内部按钮可正常点击响应，但不会激活窗口；Popup 点击「自定义」输入框时临时恢复可聚焦模式以便输入。
+   - **窗口复用**：Toast/Popup 关闭时调用 `window_manager::hide_window_internal` 隐藏而非销毁，避免下次创建时可能出现的焦点抖动。
 
 6. **全屏背景图存储**（`lib.rs`）
    - 前端上传的 data URL 经 base64 解码后保存为磁盘文件（`app_data_dir/bg/fullscreen_bg.{ext}`），DB 只存文件路径，避免 SQLite 存储大 blob。
@@ -212,20 +225,25 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 
 ```
 src-tauri/src/
-├── main.rs         -- Tauri 入口，仅调用 lib::run()
-├── lib.rs          -- 全部业务逻辑：
-│                     · 键盘/鼠标采样线程（实时累积活动次数）
-│                     · 每分钟00秒结算 + 写入 DB
-│                     · 滑动窗口检测 + 通知
-│                     · 喝水提醒触发
-│                     · #[tauri::command] 暴露给前端
-│                     · 系统托盘
-├── reminder.rs     -- 提醒状态机 ReminderState + 单元测试
-├── reminder_toast.rs -- Toast 窗口位置计算与尺寸调整
-├── media_audio.rs  -- Windows WASAPI 音频会话检测 + 排除列表 + 单元测试
-├── db.rs           -- rusqlite 读写封装 + block/喝水记录 + 单元测试
-├── water.rs        -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
-└── report.rs       -- UpgradeLink 事件上报（app_start 等）
+├── main.rs             -- Tauri 入口，仅调用 lib::run()
+├── lib.rs              -- 全部业务逻辑：
+│                         · 键盘/鼠标采样线程（实时累积活动次数）
+│                         · 每分钟00秒结算 + 写入 DB
+│                         · 滑动窗口检测 + 通知
+│                         · 喝水提醒触发
+│                         · #[tauri::command] 暴露给前端
+│                         · 系统托盘
+├── reminder.rs         -- 提醒状态机 ReminderState + 单元测试
+├── reminder_toast.rs   -- Toast 窗口位置计算与尺寸调整
+├── window_manager/     -- 无焦点提醒窗口管理
+│   ├── mod.rs          -- 插件入口与命令封装
+│   ├── shared.rs       -- 窗口常量与通用辅助函数
+│   ├── windows.rs      -- Windows：WS_EX_NOACTIVATE + SW_SHOWNOACTIVATE + HWND_TOPMOST
+│   └── macos.rs        -- macOS：回退到普通显示
+├── media_audio.rs      -- Windows WASAPI 音频会话检测 + 排除列表 + 单元测试
+├── db.rs               -- rusqlite 读写封装 + block/喝水记录 + 单元测试
+├── water.rs            -- 喝水提醒：状态机 + 命令 + 通知 + 结算检查 + 单元测试
+└── report.rs           -- UpgradeLink 事件上报（app_start 等）
 ```
 
 > 原计划拆分为 `input/`、`engine/`、`notify.rs`、`commands.rs` 等模块，实际为了快速落地全部集中在 `lib.rs`。后续如需扩展可再拆分。
@@ -421,6 +439,7 @@ CREATE TABLE settings (
 | 52 | Dashboard `WaterWidget` 上次喝水时间每秒刷新（刚刚 → N 分钟前 → N 小时前） | ✅ |
 | 53 | Settings 页卡片拖拽把手移到右上角，卡片高度撑满 Grid 行 | ✅ |
 | 54 | MediaSettingsCard 排除列表自动保存（500ms 防抖），「重置为默认」改为默认按钮样式并置于标题右侧 | ✅ |
+| 55 | Toast / Popup 窗口重构为无焦点显示：Windows 使用 `WS_EX_NOACTIVATE`，文件重命名/输入时弹出通知不中断当前焦点；macOS / Linux 回退到普通显示 | ✅ |
 
 ---
 

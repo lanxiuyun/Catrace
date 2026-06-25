@@ -38,9 +38,9 @@ pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
 ### 2.2 前端路由切换
 
-**最终方案：URL query 参数 + main.ts 预读**
+**历史方案：URL query 参数 + main.ts 预读**
 
-Rust 侧创建弹窗时传入 query 参数：
+早期 Rust 侧创建弹窗时传入 query 参数：
 
 ```rust
 tauri::WebviewUrl::App("index.html?reminder=popup".into())
@@ -61,6 +61,8 @@ if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
   window.location.hash = routeMap[reminder]
 }
 ```
+
+> **当前方案**：Popup 与 Fullscreen 改为直接使用 hash 路由 `index.html#/reminder-popup`，Toast 仍复用已有窗口并通过 `eval` 切换 hash。`main.ts` 中的 query 参数预读逻辑保留以兼容旧代码路径，但新窗口创建已不再依赖它。
 
 提醒路由不使用懒加载（避免新窗口 chunk 加载失败）：
 
@@ -162,11 +164,13 @@ let builder = tauri::WebviewWindowBuilder::new(&app, label, url)
 
 ### 3.4 Hash 路由无法通过 URL 传递
 
-**现象**：`WebviewUrl::App("index.html#/reminder-popup")` 不会触发 Vue Router 的 hash 路由。
+**现象**：早期发现 `WebviewUrl::App("index.html#/reminder-popup")` 似乎不会触发 Vue Router 的 hash 路由。
 
-**根因**：Tauri 的 `WebviewUrl::App` 只解析路径部分，hash fragment 被丢弃。
+**根因**：Tauri 的 `WebviewUrl::App` 只解析路径部分，hash fragment 会被丢弃。
 
-**解决**：使用 URL query 参数：`WebviewUrl::App("index.html?reminder=popup".into())`，然后在 `main.ts` 中读取并设置 hash。
+**历史解决**：使用 URL query 参数：`WebviewUrl::App("index.html?reminder=popup".into())`，然后在 `main.ts` 中读取并设置 hash。
+
+**当前方案**：Popup / Fullscreen 新窗口直接使用 `index.html#/reminder-popup` 已可正常触发 hash 路由；`main.ts` 中的 query 参数预读逻辑保留以兼容旧代码路径。
 
 ### 3.5 eval 时序与 Dashboard 闪现
 
@@ -368,25 +372,28 @@ fn create_popup_window(
     _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
 ) {
-    let label = "reminder-popup";
+    let label = window_manager::POPUP_WINDOW_LABEL;
 
     let data = ReminderWindowData {
+        kind: "rest".to_string(),
         boundary,
         title: title.to_string(),
         body: body.to_string(),
         break_minutes: 0,
         fullscreen_bg: None,
         fullscreen_opacity: 0,
+        fullscreen_fit_mode: String::new(),
+        fullscreen_element_transforms: String::new(),
     };
     store.lock().unwrap().insert(label.to_string(), data);
 
     let app = app_handle.clone();
 
-    // 复用已有窗口
-    if let Some(window) = app_handle.get_webview_window(label) {
-        let _ = window.hide();
-        if let Some(main) = app_handle.get_webview_window("main") {
-            if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
+    let position_popup = |window: &tauri::WebviewWindow| {
+        if let Some(main) = window.app_handle().get_webview_window("main") {
+            if let (Ok(pos), Ok(size), Ok(sf)) =
+                (main.outer_position(), main.outer_size(), main.scale_factor())
+            {
                 let pw = 440.0;
                 let ph = 300.0;
                 let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
@@ -394,8 +401,17 @@ fn create_popup_window(
                 let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
         }
-        let _ = window.show();
-        let _ = window.set_focus();
+    };
+
+    // 复用已有窗口，无焦点显示
+    if let Some(window) = app_handle.get_webview_window(label) {
+        let _ = window.hide();
+        position_popup(&window);
+        window_manager::show_reminder_no_activate(app_handle, &window);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';");
+        });
         return;
     }
 
@@ -404,7 +420,7 @@ fn create_popup_window(
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             label,
-            tauri::WebviewUrl::App("index.html?reminder=popup".into()),
+            tauri::WebviewUrl::App("index.html#/reminder-popup".into()),
         )
         .title("Catrace")
         .inner_size(440.0, 300.0)
@@ -416,16 +432,8 @@ fn create_popup_window(
 
         match builder.build() {
             Ok(window) => {
-                if let Some(main) = app.get_webview_window("main") {
-                    if let (Ok(pos), Ok(size), Ok(sf)) = (main.outer_position(), main.outer_size(), main.scale_factor()) {
-                        let pw = 440.0;
-                        let ph = 300.0;
-                        let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
-                        let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                        let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
-                    }
-                }
-                let _ = window.show();
+                position_popup(&window);
+                window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {
@@ -437,6 +445,10 @@ fn create_popup_window(
     });
 }
 ```
+
+关键点：
+- 使用 `window_manager::show_reminder_no_activate` 代替 `window.show()`，Windows 下显示时不抢夺焦点。
+- 关闭时调用 `window_manager::hide_window_internal` 隐藏而非 `close()` 销毁，便于复用并减少创建新窗口可能带来的焦点抖动。
 
 ### main.ts 路由预读
 
@@ -456,7 +468,57 @@ if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
 
 ---
 
-## 7. 关键结论
+## 7. 无焦点窗口实现
+
+### 7.1 需求
+
+Toast 通知与 Popup 弹窗在 Windows 上弹出时，不应打断用户当前的输入焦点。典型场景：在资源管理器中对文件按 `F2` 重命名时，Catrace 提醒弹出，文件名编辑框应保持编辑状态。
+
+### 7.2 方案
+
+新增 `src-tauri/src/window_manager/` 模块，集中管理提醒窗口的显示策略：
+
+| 文件 | 作用 |
+|---|---|
+| `mod.rs` | Tauri 插件入口，注册 `show_window` / `hide_window` / `set_window_active_mode` 命令 |
+| `shared.rs` | 窗口常量（`TOAST_WINDOW_LABEL`、`POPUP_WINDOW_LABEL`、`FULLSCREEN_WINDOW_LABEL`）与通用显示/隐藏辅助函数 |
+| `windows.rs` | Windows 实现：设置 `WS_EX_NOACTIVATE`，使用 `SW_SHOWNOACTIVATE` 显示，并通过 `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE \| ...)` 置顶 |
+| `macos.rs` | macOS 回退：普通显示（后续可接入 `NSPanel`） |
+
+### 7.3 行为约束
+
+- 仅 `reminder-toast` 与 `reminder-popup` 使用无焦点显示。
+- `reminder-fullscreen` 与主窗口保持原有强制聚焦/正常显示逻辑。
+- 窗口内部按钮可正常点击响应，但不会激活窗口。
+- Popup 的「自定义」输入框聚焦时，前端调用 `set_window_active_mode(label, true)` 临时恢复可聚焦模式，便于输入分钟数。
+
+### 7.4 关键 Win32 API
+
+```rust
+// 设置 WS_EX_NOACTIVATE
+let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+let new_style = style | WS_EX_NOACTIVATE.0 as isize;
+SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style);
+
+// 使用 SW_SHOWNOACTIVATE 显示
+ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+
+// 置顶但不激活
+SetWindowPos(
+    hwnd,
+    Some(HWND_TOPMOST),
+    0, 0, 0, 0,
+    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
+);
+```
+
+### 7.5 取舍
+
+最初实现时曾同步引入低层鼠标钩子（点击外部隐藏）和键盘钩子（`Escape` 隐藏）。实际 Catrace 的 Toast 自带 8 秒自动消失与按钮关闭，Popup 也有明确关闭按钮，因此这两个钩子并非必需，且会增加全局输入钩子的维护成本。最终只保留「不夺焦」核心能力，去掉了钩子。
+
+---
+
+## 8. 关键结论
 
 | 问题 | 结论 |
 |------|------|
@@ -472,12 +534,14 @@ if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
 | DevTools | 弹窗中无法打开，用日志和截图调试 |
 | Toast 高度自适应 | ResizeObserver + `adjustWindowSize()` 命令，最大高度 600px |
 | Toast 并发关闭 | `item.leaving` 标志位保护，避免 FLIP 动画重复触发 |
+| Windows 不夺焦 | `WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE` + `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE \| ...)`；仅 Toast/Popup 使用，Fullscreen 与主窗口保持原行为 |
+| 全局输入钩子 | 非必需：Toast 自动消失 + 按钮关闭已足够，避免引入 `WH_MOUSE_LL` / `WH_KEYBOARD_LL` 维护成本 |
 
 ---
 
-## 8. 全屏背景图架构
+## 9. 全屏背景图架构
 
-### 8.1 存储方案
+### 9.1 存储方案
 
 全屏背景图采用**文件存储 + DB 路径引用**的方式，避免 SQLite 存储大 blob：
 
@@ -492,27 +556,27 @@ if (reminder === 'toast' || reminder === 'popup' || reminder === 'fullscreen') {
 - `file_path_to_data_url()` — 读取磁盘文件，编码为 data URL
 - `resolve_bg_for_frontend()` — 统一入口，处理空值 / data URL / 文件路径三种情况
 
-### 8.2 默认背景图
+### 9.2 默认背景图
 
 首次启动时，`ensure_default_bg()` 将 bundled `src-tauri/assets/catrace.png` 复制到 `app_data_dir/bg/fullscreen_bg.png`。如果资源文件不存在，返回 `Err` 并清空 DB 设置，避免存储无效路径。
 
-### 8.3 全屏窗口渲染
+### 9.3 全屏窗口渲染
 
 ReminderFullscreen.vue 使用双层背景：
 - **底层** `.fullscreen-bg`：`filter: blur(40px) saturate(1.2)` + `transform: scale(1.05)`，模糊放大铺满
 - **上层** `.fullscreen-sharp`：原始图片居中 contain，清晰显示
 
-### 8.4 CSS 透明穿透
+### 9.4 CSS 透明穿透
 
 进入全屏提醒路由时，`App.vue` 通过 `watch(isReminderRoute)` 切换 `html` 元素的 `reminder-transparent` class，将 `html/body/#app` 背景设为 `transparent !important`，让全屏背景图穿透显示。
 
-### 8.5 元素变换保护
+### 9.5 元素变换保护
 
 `set_fullscreen_settings` 在 `element_transforms` 为空字符串时保留已有值，避免 Settings.vue 调整背景/透明度/填充模式时覆盖用户在 ReminderFullscreen.vue 中调整的元素位置、缩放和旋转。
 
 ---
 
-## 9. 全屏提醒元素独立编辑
+## 10. 全屏提醒元素独立编辑
 
 ### 9.1 功能概述
 
@@ -570,12 +634,17 @@ interface ElementTransforms {
 
 ---
 
-## 10. 相关文件
+## 11. 相关文件
 
 - `src-tauri/src/lib.rs` - `create_toast_window`, `create_popup_window`, `create_fullscreen_window`, `show_notification`, `set_fullscreen_settings`
 - `src-tauri/src/reminder_toast.rs` - Toast 窗口尺寸与位置计算
+- `src-tauri/src/window_manager/` - 无焦点提醒窗口管理
+  - `mod.rs` - 插件入口与命令封装
+  - `shared.rs` - 窗口常量与通用辅助函数
+  - `windows.rs` - Windows `WS_EX_NOACTIVATE` 实现
+  - `macos.rs` - macOS 回退实现
 - `src-tauri/capabilities/default.json` - 权限配置
-- `src/main.ts` - query 参数预读路由
+- `src/main.ts` - query 参数预读路由（历史兼容）
 - `src/App.vue` - 条件渲染提醒组件 vs 主布局
 - `src/router/index.ts` - 提醒路由（非懒加载）
 - `src/views/ReminderToast.vue` - Toast 堆叠卡片 UI
