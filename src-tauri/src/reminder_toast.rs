@@ -10,6 +10,16 @@ const TOAST_WINDOW_WIDTH: f64 = 360.0;
 // 与前端单条通知窗口高度保持一致：卡片 180px + 上下 padding 各 20px
 const TOAST_WINDOW_MIN_HEIGHT: f64 = 220.0;
 
+/// 生成同步 Toast 调试模式状态到前端的 JS 代码。
+/// 触发 `catrace-toast-debug-change` 事件，ReminderToast.vue 监听并更新背景。
+fn build_debug_sync_js(debug_mode: bool) -> String {
+    format!(
+        "window.__CATRACE_TOAST_DEBUG__ = {}; if (window.dispatchEvent) {{ window.dispatchEvent(new Event('catrace-toast-debug-change')); }}",
+        debug_mode
+    )
+}
+
+
 /// 计算并设置 toast 窗口为右下角初始尺寸。
 /// 窗口宽度固定 360px，高度固定为单条通知高度，贴靠屏幕右下角。
 /// 优先将窗口放到包含鼠标光标的显示器上，否则使用主显示器。
@@ -67,11 +77,6 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
         return;
     }
 
-    let debug_mode = {
-        let db = app_handle.state::<db::Db>();
-        db.get_setting("toast_debug_mode", "false") == "true"
-    };
-
     let app = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         let builder = tauri::WebviewWindowBuilder::new(
@@ -87,11 +92,8 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
         .accept_first_mouse(true)
         .visible_on_all_workspaces(true)
         .maximizable(false)
-        .background_color(if debug_mode {
-            tauri::window::Color(255, 0, 0, 128)
-        } else {
-            tauri::window::Color(0, 0, 0, 0)
-        })
+        // 调试背景由前端 CSS 控制，这里始终使用透明背景
+        .background_color(tauri::window::Color(0, 0, 0, 0))
         .shadow(false)
         .visible(false)
         .skip_taskbar(true)
@@ -153,8 +155,8 @@ pub fn create_toast_window(
         let _ = window.eval(&js);
         // 确保前端路由到 /reminder-toast，并同步调试模式状态
         let debug_js = format!(
-            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
-            debug_mode
+            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
+            build_debug_sync_js(debug_mode)
         );
         let _ = window.eval(&debug_js);
         window_manager::show_reminder_no_activate(app_handle, &window);
@@ -176,11 +178,8 @@ pub fn create_toast_window(
         .accept_first_mouse(true)
         .visible_on_all_workspaces(true)
         .maximizable(false)
-        .background_color(if debug_mode {
-            tauri::window::Color(255, 0, 0, 128)
-        } else {
-            tauri::window::Color(0, 0, 0, 0)
-        })
+        // 调试背景由前端 CSS 控制，这里始终使用透明背景
+        .background_color(tauri::window::Color(0, 0, 0, 0))
         .shadow(false)
         .visible(false)
         .skip_taskbar(true)
@@ -193,8 +192,8 @@ pub fn create_toast_window(
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let debug_js = format!(
-                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.__CATRACE_TOAST_DEBUG__ = {}; window.location.hash = '#/reminder-toast';",
-                    debug_mode
+                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
+                    build_debug_sync_js(debug_mode)
                 );
                 let _ = window.eval(&debug_js);
             }

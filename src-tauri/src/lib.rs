@@ -265,9 +265,24 @@ fn get_toast_debug_mode(db: tauri::State<db::Db>) -> bool {
 
 /** 设置 Toast 调试模式开关状态。 */
 #[tauri::command]
-fn set_toast_debug_mode(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+fn set_toast_debug_mode(
+    enabled: bool,
+    db: tauri::State<db::Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     db.set_setting("toast_debug_mode", &enabled.to_string())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // 如果 Toast 窗口已存在，实时把调试状态同步到前端，让背景立即变化
+    if let Some(window) = app.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
+        let js = format!(
+            "window.__CATRACE_TOAST_DEBUG__ = {}; if (window.dispatchEvent) {{ window.dispatchEvent(new Event('catrace-toast-debug-change')); }}",
+            enabled
+        );
+        let _ = window.eval(&js);
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
