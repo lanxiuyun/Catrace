@@ -3,22 +3,12 @@ use std::time::Duration;
 
 use tauri::Manager;
 
-use crate::{db, window_manager, ActivityState, ReminderWindowData, ReminderWindowStore};
+use crate::{window_manager, ActivityState, ReminderWindowData, ReminderWindowStore};
 
 const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
 // 与前端单条通知窗口高度保持一致：卡片 180px + 上下 padding 各 20px
 const TOAST_WINDOW_MIN_HEIGHT: f64 = 220.0;
-
-/// 生成同步 Toast 调试模式状态到前端的 JS 代码。
-/// 触发 `catrace-toast-debug-change` 事件，ReminderToast.vue 监听并更新背景。
-fn build_debug_sync_js(debug_mode: bool) -> String {
-    format!(
-        "window.__CATRACE_TOAST_DEBUG__ = {}; if (window.dispatchEvent) {{ window.dispatchEvent(new Event('catrace-toast-debug-change')); }}",
-        debug_mode
-    )
-}
-
 
 /// 计算并设置 toast 窗口为右下角初始尺寸。
 /// 窗口宽度固定 360px，高度固定为单条通知高度，贴靠屏幕右下角。
@@ -108,7 +98,7 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
 /// 创建或复用 toast 通知窗口。
 /// - 窗口已存在时直接复用（优先）。
 /// - 窗口不存在时兜底创建。
-/// - 根据 `toast_debug_mode` 设置决定是否使用半透明红色背景。
+/// - 调试背景由前端 CSS 控制，Rust 侧窗口背景始终透明。
 pub fn create_toast_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
@@ -117,11 +107,6 @@ pub fn create_toast_window(
     kind: &str,
     store: &ReminderWindowStore,
 ) {
-    let debug_mode = {
-        let db = app_handle.state::<db::Db>();
-        db.get_setting("toast_debug_mode", "false") == "true"
-    };
-
     let data = ReminderWindowData {
         kind: kind.to_string(),
         boundary,
@@ -153,12 +138,9 @@ pub fn create_toast_window(
             payload
         );
         let _ = window.eval(&js);
-        // 确保前端路由到 /reminder-toast，并同步调试模式状态
-        let debug_js = format!(
-            "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
-            build_debug_sync_js(debug_mode)
-        );
-        let _ = window.eval(&debug_js);
+        // 确保前端路由到 /reminder-toast
+        let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+        let _ = window.eval(route_js);
         window_manager::show_reminder_no_activate(app_handle, &window);
         return;
     }
@@ -191,11 +173,8 @@ pub fn create_toast_window(
                 window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                let debug_js = format!(
-                    "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast'; {}",
-                    build_debug_sync_js(debug_mode)
-                );
-                let _ = window.eval(&debug_js);
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
             }
             Err(e) => {
                 eprintln!("[ToastWindow] build failed: {}", e);
