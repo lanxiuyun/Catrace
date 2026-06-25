@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
 import { listen } from '@tauri-apps/api/event'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
 import {
   getReminderData,
   getToastDebugMode,
@@ -15,9 +17,9 @@ import {
   skipWaterReminder,
 } from '../api/tauri'
 
-useI18n()
+const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water'
+type ToastKind = 'rest' | 'water' | 'update'
 
 interface ToastItem {
   id: number
@@ -31,6 +33,13 @@ interface ToastItem {
   closeTimer: ReturnType<typeof setTimeout> | null
   lastStartAt: number
   leaving?: boolean
+  version?: string
+  updateBody?: string
+  showUpdateBody?: boolean
+  updateInstalling?: boolean
+  downloadProgress?: number
+  downloadTotal?: number
+  downloadReceived?: number
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -78,11 +87,20 @@ onMounted(async () => {
   // 暴露全局函数给 Rust 端 eval 调用
   ;(window as any).addToastNotification = (payload: {
     kind?: ToastKind
-    boundary: number
-    title: string
-    body: string
+    boundary?: number
+    title?: string
+    body?: string
+    version?: string
+    updateBody?: string
   }) => {
-    addNotification({ kind: payload.kind || 'rest', ...payload })
+    addNotification({
+      kind: payload.kind || 'rest',
+      boundary: payload.boundary ?? 0,
+      title: payload.title || '',
+      body: payload.body || '',
+      version: payload.version,
+      updateBody: payload.updateBody,
+    })
   }
 
   // 监听内容高度变化，自动调整窗口尺寸
@@ -110,7 +128,6 @@ onMounted(async () => {
   } catch {
     // ignore
   }
-
 })
 
 onUnmounted(() => {
@@ -180,24 +197,39 @@ async function adjustWindowSize() {
   }
 }
 
-async function addNotification(payload: { kind: ToastKind; boundary: number; title: string; body: string }) {
+async function addNotification(payload: {
+  kind: ToastKind
+  boundary?: number
+  title?: string
+  body?: string
+  version?: string
+  updateBody?: string
+}) {
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
   }
 
   const id = ++idCounter
+  const isUpdate = payload.kind === 'update'
   const item: ToastItem = {
     id,
     kind: payload.kind,
-    title: payload.title,
-    body: payload.body,
-    boundary: payload.boundary,
+    title: payload.title || '',
+    body: payload.body || '',
+    boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: AUTO_HIDE_MS,
+    remainingMs: isUpdate ? 0 : AUTO_HIDE_MS,
     closeTimer: null,
     lastStartAt: 0,
+    version: payload.version || '',
+    updateBody: payload.updateBody || '',
+    showUpdateBody: false,
+    updateInstalling: false,
+    downloadProgress: 0,
+    downloadTotal: 0,
+    downloadReceived: 0,
   }
 
   // 新通知加到底部（数组末尾）
@@ -211,7 +243,9 @@ async function addNotification(payload: { kind: ToastKind; boundary: number; tit
     }
   })
 
-  startTimer(item)
+  if (!isUpdate) {
+    startTimer(item)
+  }
   await adjustWindowSize()
 }
 
@@ -241,7 +275,7 @@ function handleMouseLeave(item: ToastItem) {
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
-  } else {
+  } else if (item.kind !== 'update') {
     removeNotification(item.id, true)
   }
 }
@@ -411,6 +445,49 @@ async function handleWaterSkip(item: ToastItem) {
   }
   removeNotification(item.id, true)
 }
+
+function toggleUpdateDetails(item: ToastItem) {
+  item.showUpdateBody = !item.showUpdateBody
+  nextTick(() => adjustWindowSize())
+}
+
+async function handleUpdateInstall(item: ToastItem) {
+  if (item.updateInstalling) return
+  item.updateInstalling = true
+  try {
+    const update = await check({
+      headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
+    })
+    if (!update) {
+      item.body = t('settings.messages.noUpdateFound')
+      return
+    }
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case 'Started':
+          item.downloadTotal = event.data.contentLength || 0
+          break
+        case 'Progress':
+          item.downloadReceived = (item.downloadReceived || 0) + event.data.chunkLength
+          if ((item.downloadTotal || 0) > 0) {
+            item.downloadProgress = Math.round(
+              ((item.downloadReceived || 0) / (item.downloadTotal || 1)) * 100
+            )
+          }
+          break
+        case 'Finished':
+          item.downloadProgress = 100
+          break
+      }
+    })
+    await relaunch()
+  } catch (e) {
+    console.error(e)
+    item.body = t('settings.messages.updateFailed')
+  } finally {
+    item.updateInstalling = false
+  }
+}
 </script>
 
 <template>
@@ -421,7 +498,11 @@ async function handleWaterSkip(item: ToastItem) {
         :key="item.id"
         :ref="(el) => setCardRef(el, item.id)"
         class="toast-card"
-        :class="{ visible: item.visible, 'toast-card-water': item.kind === 'water' }"
+        :class="{
+          visible: item.visible,
+          'toast-card-water': item.kind === 'water',
+          'toast-card-update': item.kind === 'update',
+        }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
@@ -429,23 +510,62 @@ async function handleWaterSkip(item: ToastItem) {
         <div class="header">
           <div class="header-left">
             <div class="pulse-dot" />
-            <h2 class="title">{{ item.title }}</h2>
+            <h2 v-if="item.kind === 'update'" class="title">
+              {{ $t('settings.update.newVersion', { version: item.version }) }}
+            </h2>
+            <h2 v-else class="title">{{ item.title }}</h2>
           </div>
-          <button class="close-btn" @click="removeNotification(item.id, true)" aria-label="关闭">
+          <button
+            v-if="!(item.kind === 'update' && item.updateInstalling)"
+            class="close-btn"
+            @click="removeNotification(item.id, true)"
+            aria-label="关闭"
+          >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
           </button>
         </div>
 
-        <!-- Progress bar -->
-        <div class="progress-bar" :class="{ paused: item.isHovered }" />
+        <!-- Progress bar (auto-hide timer, not shown for update cards) -->
+        <div v-if="item.kind !== 'update'" class="progress-bar" :class="{ paused: item.isHovered }" />
 
         <!-- Body -->
-        <p class="body-text">{{ item.body }}</p>
+        <p v-if="item.kind !== 'update'" class="body-text">{{ item.body }}</p>
+
+        <!-- Update changelog -->
+        <div
+          v-if="item.kind === 'update' && item.showUpdateBody && item.updateBody"
+          class="update-body"
+        >
+          {{ item.updateBody }}
+        </div>
+
+        <!-- Update download progress -->
+        <div v-if="item.kind === 'update' && item.updateInstalling" class="update-progress">
+          <div class="update-progress-track">
+            <div
+              class="update-progress-fill"
+              :style="{ width: `${item.downloadProgress}%` }"
+            />
+          </div>
+          <div class="update-progress-text">{{ item.downloadProgress }}%</div>
+        </div>
 
         <!-- Actions -->
-        <div v-if="item.kind === 'rest'" class="actions">
+        <div v-if="item.kind === 'update'" class="actions">
+          <button class="btn btn-secondary" @click="toggleUpdateDetails(item)">
+            {{ item.showUpdateBody ? $t('settings.update.hideDetails') : $t('settings.update.viewDetails') }}
+          </button>
+          <button
+            class="btn btn-primary"
+            :disabled="item.updateInstalling"
+            @click="handleUpdateInstall(item)"
+          >
+            {{ item.updateInstalling ? $t('settings.update.downloading') : $t('settings.update.updateNow') }}
+          </button>
+        </div>
+        <div v-else-if="item.kind === 'rest'" class="actions">
           <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
             {{ $t('reminder.snooze5') }}
           </button>
@@ -573,6 +693,95 @@ async function handleWaterSkip(item: ToastItem) {
 }
 .toast-card-water .btn-primary:hover {
   background: #1D4ED8;
+}
+
+/* Update reminder theming — matches reference image orange accent */
+.toast-card-update .pulse-dot {
+  background: #F59E0B;
+}
+
+.toast-card-update .title {
+  color: #92400E;
+}
+
+.toast-card-update .close-btn:hover {
+  background: #FFFBEB;
+  color: #D97706;
+}
+
+.toast-card-update .body-text {
+  color: #B45309;
+}
+
+.toast-card-update {
+  min-height: auto;
+}
+
+.toast-card-update .btn-secondary {
+  background: #FFFBEB;
+  color: #D97706;
+  border: 0.0625rem solid #FCD34D;
+}
+.toast-card-update .btn-secondary:hover {
+  background: #FEF3C7;
+}
+
+.toast-card-update .btn-primary {
+  background: #F59E0B;
+}
+.toast-card-update .btn-primary:hover {
+  background: #D97706;
+}
+
+.toast-card-update .btn-primary:disabled {
+  background: #FCD34D;
+  cursor: not-allowed;
+}
+
+.update-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #78350F;
+  background: #FFFBEB;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  margin: 0 0 0.875rem 0;
+}
+
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+}
+
+.update-progress-track {
+  flex: 1;
+  height: 0.375rem;
+  background: #F3F4F6;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F59E0B, #FBBF24);
+  border-radius: 0.25rem;
+  transition: width 0.2s ease;
+}
+
+.update-progress-text {
+  font-size: 0.75rem;
+  color: #92400E;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5em;
+  text-align: right;
 }
 
 .debug-panel {
@@ -723,6 +932,11 @@ async function handleWaterSkip(item: ToastItem) {
 }
 .btn-primary:hover {
   background: #6D28D9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .btn-water {
