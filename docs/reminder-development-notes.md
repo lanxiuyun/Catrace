@@ -20,7 +20,7 @@ Rust 侧用 `Arc<Mutex<HashMap<String, ReminderWindowData>>>` 存储提醒数据
 
 ```rust
 pub struct ReminderWindowData {
-    pub kind: String,                       // "rest" | "water"
+    pub kind: String,                       // "rest" | "water" | "update"
     pub boundary: i64,
     pub title: String,
     pub body: String,
@@ -73,10 +73,11 @@ import ReminderFullscreen from '../views/ReminderFullscreen.vue'
 - **FLIP 动画**：关闭卡片时记录旧位置，更新数据后让下方卡片平滑上移。
 - **调试模式**：`toast_debug_mode` 开启时，`ReminderToast.vue` 通过 `.debug-bg` 给窗口根节点加上半透明黄色背景，便于确认窗口范围。切换开关后 Rust 侧通过 Tauri 事件 `catrace-toast-debug-changed` 广播状态变更，Toast 窗口前端用 `listen` 监听并实时更新背景，无需重新创建窗口。Rust 侧 WebviewWindow 的 `background_color` 始终透明，调试背景完全由前端 CSS 控制。
 
-### 4.2 休息 vs 喝水卡片
+### 4.2 休息 vs 喝水 vs 更新卡片
 
 - `kind: 'rest'`：紫色主题，按钮为「5 分钟后提醒」「10 分钟后提醒」「跳过本次」。
 - `kind: 'water'`：蓝色主题，按钮为「已喝水」「5 分钟后提醒」「跳过本次」。
+- `kind: 'update'`：橙色主题，标题为「发现新版本 {version}」，按钮为「查看详情」「立即更新」。点击「查看详情」展开/收起更新日志；点击「立即更新」下载并安装，完成后自动重启。更新卡片不会自动关闭。
 
 ---
 
