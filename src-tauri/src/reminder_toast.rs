@@ -89,8 +89,14 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
         .skip_taskbar(true)
         .resizable(false);
 
-        if let Err(e) = builder.build() {
-            eprintln!("[ToastWindow] prepare failed: {}", e);
+        match builder.build() {
+            Ok(window) => {
+                // Windows 上 .visible(false) 偶尔不会立即生效，创建后再显式 hide 一次作为防御
+                let _ = window.hide();
+            }
+            Err(e) => {
+                eprintln!("[ToastWindow] prepare failed: {}", e);
+            }
         }
     });
 }
