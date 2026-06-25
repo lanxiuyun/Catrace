@@ -23,8 +23,12 @@ use std::path::Path;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
+use tauri_plugin_updater::UpdaterExt;
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
+
+// 启动时自动检查更新，整个生命周期只执行一次
+static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
 
 // ------------------------------------------------------------------
 // 媒体计入活跃检测
@@ -957,6 +961,25 @@ fn create_fullscreen_window(
 }
 
 // ------------------------------------------------------------------
+// 自动更新检查
+// ------------------------------------------------------------------
+
+async fn check_update_and_notify(
+    app_handle: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let updater = app_handle
+        .updater_builder()
+        .header("X-AccessKey", "9SzxzOb3pQgkOB-LU-QU1Q")?
+        .build()?;
+    if let Some(update) = updater.check().await? {
+        let version = update.version.clone();
+        let changelog = update.body.clone().unwrap_or_default();
+        reminder_toast::create_update_toast_window(app_handle, &version, &changelog);
+    }
+    Ok(())
+}
+
+// ------------------------------------------------------------------
 // 主入口
 // ------------------------------------------------------------------
 
@@ -1072,6 +1095,18 @@ pub fn run() {
 
             // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
             reminder_toast::prepare_toast_window(app.app_handle());
+
+            // 启动后异步检查更新，若存在新版本则弹出更新 Toast
+            let update_app_handle = app.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if UPDATE_CHECK_DONE.swap(true, Ordering::SeqCst) {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                if let Err(e) = check_update_and_notify(&update_app_handle).await {
+                    eprintln!("[update] auto check failed: {}", e);
+                }
+            });
 
             // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
             thread::spawn(move || {

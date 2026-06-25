@@ -188,3 +188,69 @@ pub fn create_toast_window(
         }
     });
 }
+
+/// 弹出「发现新版本」更新通知 Toast。
+/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=update 的通知。
+pub fn create_update_toast_window(
+    app_handle: &tauri::AppHandle,
+    version: &str,
+    changelog: &str,
+) {
+    let app = app_handle.clone();
+    let payload = serde_json::json!({
+        "kind": "update",
+        "version": version,
+        "updateBody": changelog,
+    });
+    let js = format!(
+        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+        payload
+    );
+
+    // 窗口已存在：直接调用前端全局函数追加通知
+    if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
+        let _ = window.eval(&js);
+        let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+        let _ = window.eval(route_js);
+        window_manager::show_reminder_no_activate(app_handle, &window);
+        return;
+    }
+
+    // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
+    tauri::async_runtime::spawn(async move {
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        // 调试背景由前端 CSS 控制，这里始终使用透明背景
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                let _ = position_toast_window(&window, &app);
+                window_manager::show_reminder_no_activate(&app, &window);
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
+                let _ = window.eval(&js);
+            }
+            Err(e) => {
+                eprintln!("[ToastWindow] build failed: {}", e);
+            }
+        }
+    });
+}
