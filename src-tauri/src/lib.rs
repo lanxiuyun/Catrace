@@ -682,6 +682,28 @@ fn test_notification(
         &store,
         fullscreen_active.inner().clone(),
     );
+
+    // 仅在 Toast 模式下追加一张绿色休息计时测试卡片
+    let reminder_mode = db.get_setting("reminder_mode", "toast");
+    if reminder_mode == "toast" {
+        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
+        let now_ts = chrono::Local::now().timestamp();
+        let rest_start_ts = (now_ts / 60) * 60;
+        if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
+            let _ = app_handle.emit_to(
+                window_manager::TOAST_WINDOW_LABEL,
+                "catrace-rest-timer",
+                serde_json::json!({
+                    "break_minutes": break_m,
+                    "rest_start_ts": rest_start_ts,
+                    "rest_streak": 3,
+                    "remaining_minutes": (break_m - 3).max(0),
+                    "is_complete": false,
+                }),
+            );
+            let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+        }
+    }
 }
 
 #[tauri::command]
@@ -1190,7 +1212,7 @@ pub fn run() {
                     //    · skip_until_boundary：用户点了「跳过本次」
                     //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
                     if active {
-                        // 休息被打断，结束休息倒计时
+                        // 休息被打断，结束休息计时
                         let should_end_break_timer = {
                             let mut r = reminder_state_for_settle.lock().unwrap();
                             if r.break_timer_active {
@@ -1204,7 +1226,7 @@ pub fn run() {
                             if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
                                 let _ = app_handle.emit_to(
                                     window_manager::TOAST_WINDOW_LABEL,
-                                    "catrace-rest-ended",
+                                    "catrace-rest-timer-ended",
                                     serde_json::json!({}),
                                 );
                                 let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
@@ -1262,7 +1284,7 @@ pub fn run() {
                                 if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
                                     let _ = app_handle.emit_to(
                                         window_manager::TOAST_WINDOW_LABEL,
-                                        "catrace-rest-countdown",
+                                        "catrace-rest-timer",
                                         serde_json::json!({
                                             "break_minutes": break_m,
                                             "rest_start_ts": rest_start_ts,
