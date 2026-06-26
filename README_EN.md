@@ -35,7 +35,7 @@ Then it follows a simple set of rules:
 
 When it's time, Catrace reminds you to take a break using your chosen method. Three reminder modes are available:
 
-- **Notification Reminder** — Floating notification cards stack in the bottom-right corner; each card has three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time". Hovering a card pauses its countdown timer. On Windows, the notification window does not steal the current input focus, so renaming files or typing in another app is not interrupted
+- **Notification Reminder** — Floating notification cards stack in the bottom-right corner; each card has three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time". Hovering a card pauses its countdown timer. When you start resting, an additional green liquid-ball timer appears: the liquid level rises with your rest progress and has a flowing wave animation, showing how long you've rested and whether you've reached the valid rest threshold. On Windows, the notification window does not steal the current input focus, so renaming files or typing in another app is not interrupted
 - **Popup** — An in-app popup with a countdown timer that auto-closes when done. On Windows, it also avoids stealing focus from the foreground window
 - **Fullscreen** — A full-screen overlay that forces you to stop and rest, with customizable background image and overlay opacity
 

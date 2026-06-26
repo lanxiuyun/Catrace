@@ -16,10 +16,11 @@ import {
   snoozeWaterReminder,
   skipWaterReminder,
 } from '../api/tauri'
+import RestTimerBall from '../components/RestTimerBall.vue'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'update' | 'rest-countdown'
+type ToastKind = 'rest' | 'water' | 'update' | 'rest-timer'
 
 interface ToastItem {
   id: number
@@ -40,7 +41,7 @@ interface ToastItem {
   downloadProgress?: number
   downloadTotal?: number
   downloadReceived?: number
-  // rest countdown fields
+  // rest timer fields
   breakMinutes?: number
   restStartTs?: number
   restStreak?: number
@@ -57,8 +58,8 @@ const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
-let unlistenRestCountdown: (() => void) | null = null
-let unlistenRestEnded: (() => void) | null = null
+let unlistenRestTimer: (() => void) | null = null
+let unlistenRestTimerEnded: (() => void) | null = null
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -92,19 +93,19 @@ onMounted(async () => {
     showDebug.value = event.payload
   })
 
-  // 监听休息倒计时事件
-  unlistenRestCountdown = await listen<{
+  // 监听休息计时事件
+  unlistenRestTimer = await listen<{
     break_minutes: number
     rest_start_ts: number
     rest_streak: number
     remaining_minutes: number
     is_complete: boolean
-  }>('catrace-rest-countdown', (event) => {
-    updateRestCountdown(event.payload)
+  }>('catrace-rest-timer', (event) => {
+    updateRestTimer(event.payload)
   })
 
-  unlistenRestEnded = await listen('catrace-rest-ended', () => {
-    scheduleRemoveRestCountdown()
+  unlistenRestTimerEnded = await listen('catrace-rest-timer-ended', () => {
+    scheduleRemoveRestTimer()
   })
 
   // 暴露全局函数给 Rust 端 eval 调用
@@ -157,10 +158,10 @@ onUnmounted(() => {
   delete (window as any).addToastNotification
   unlistenDebug?.()
   unlistenDebug = null
-  unlistenRestCountdown?.()
-  unlistenRestCountdown = null
-  unlistenRestEnded?.()
-  unlistenRestEnded = null
+  unlistenRestTimer?.()
+  unlistenRestTimer = null
+  unlistenRestTimerEnded?.()
+  unlistenRestTimerEnded = null
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
   resizeObserver = null
@@ -224,7 +225,7 @@ async function adjustWindowSize() {
   }
 }
 
-function updateRestCountdown(payload: {
+function updateRestTimer(payload: {
   break_minutes: number
   rest_start_ts: number
   rest_streak: number
@@ -232,18 +233,18 @@ function updateRestCountdown(payload: {
   is_complete: boolean
 }) {
   // 取消已有的延迟关闭定时器（如果用户在延迟期间恢复休息）
-  const existing = notifications.value.find((n) => n.kind === 'rest-countdown')
+  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
   if (existing?.endTimer) {
     clearTimeout(existing.endTimer)
     existing.endTimer = null
   }
 
   const title = payload.is_complete
-    ? t('reminder.restCountdownDone')
-    : t('reminder.restCountdownTitle')
+    ? t('reminder.restTimerDone')
+    : t('reminder.restTimerTitle')
   const body = payload.is_complete
-    ? t('reminder.restCountdownDoneBody', { n: payload.rest_streak })
-    : t('reminder.restCountdownBody', {
+    ? t('reminder.restTimerDoneBody', { n: payload.rest_streak })
+    : t('reminder.restTimerBody', {
         n: payload.rest_streak,
         m: payload.remaining_minutes,
       })
@@ -259,7 +260,7 @@ function updateRestCountdown(payload: {
     const id = ++idCounter
     const item: ToastItem = {
       id,
-      kind: 'rest-countdown',
+      kind: 'rest-timer',
       title,
       body,
       boundary: 0,
@@ -285,8 +286,8 @@ function updateRestCountdown(payload: {
   adjustWindowSize()
 }
 
-function scheduleRemoveRestCountdown() {
-  const existing = notifications.value.find((n) => n.kind === 'rest-countdown')
+function scheduleRemoveRestTimer() {
+  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
   if (!existing) return
 
   if (existing.endTimer) {
@@ -294,7 +295,7 @@ function scheduleRemoveRestCountdown() {
   }
 
   existing.endTimer = setTimeout(() => {
-    const item = notifications.value.find((n) => n.kind === 'rest-countdown')
+    const item = notifications.value.find((n) => n.kind === 'rest-timer')
     if (item) {
       removeNotification(item.id, true)
     }
@@ -371,11 +372,14 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
+  // 休息计时卡片不依赖 hover 控制生命周期
+  if (item.kind === 'rest-timer') return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
+  if (item.kind === 'rest-timer') return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -610,7 +614,7 @@ async function handleUpdateInstall(item: ToastItem) {
           visible: item.visible,
           'toast-card-water': item.kind === 'water',
           'toast-card-update': item.kind === 'update',
-          'toast-card-rest-countdown': item.kind === 'rest-countdown',
+          'toast-card-rest-timer': item.kind === 'rest-timer',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -636,19 +640,16 @@ async function handleUpdateInstall(item: ToastItem) {
           </button>
         </div>
 
-        <!-- Progress bar (auto-hide timer, not shown for update / rest-countdown cards) -->
-        <div v-if="item.kind !== 'update' && item.kind !== 'rest-countdown'" class="progress-bar" :class="{ paused: item.isHovered }" />
+        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer cards) -->
+        <div v-if="item.kind !== 'update' && item.kind !== 'rest-timer'" class="progress-bar" :class="{ paused: item.isHovered }" />
 
-        <!-- Rest countdown progress bar -->
-        <div v-if="item.kind === 'rest-countdown'" class="rest-progress">
-          <div class="rest-progress-track">
-            <div
-              class="rest-progress-fill"
-              :style="{ width: `${Math.min(100, ((item.restStreak || 0) / (item.breakMinutes || 1)) * 100)}%` }"
+        <!-- Rest timer liquid ball -->
+        <div v-if="item.kind === 'rest-timer'" class="rest-timer-visual">
+          <div class="liquid-ball">
+            <RestTimerBall
+              :rest-streak="item.restStreak || 0"
+              :break-minutes="item.breakMinutes || 1"
             />
-          </div>
-          <div class="rest-progress-text">
-            {{ item.restStreak || 0 }} / {{ item.breakMinutes || 1 }} {{ $t('common.minutes') }}
           </div>
         </div>
 
@@ -698,8 +699,8 @@ async function handleUpdateInstall(item: ToastItem) {
             {{ $t('reminder.skip') }}
           </button>
         </div>
-        <div v-else-if="item.kind === 'rest-countdown'" class="actions">
-          <span class="rest-hint">{{ $t('reminder.restCountdownHint', { n: item.breakMinutes || 1 }) }}</span>
+        <div v-else-if="item.kind === 'rest-timer'" class="actions">
+          <span class="rest-hint">{{ $t('reminder.restTimerHint', { n: item.breakMinutes || 1 }) }}</span>
         </div>
         <div v-else class="actions">
           <button class="btn btn-water" @click="handleDrinkWater(item)">
@@ -820,56 +821,57 @@ async function handleUpdateInstall(item: ToastItem) {
   background: #1D4ED8;
 }
 
-/* Rest countdown theming — matches Dashboard rest color */
-.toast-card-rest-countdown {
-  border-left: 0.25rem solid #059669;
-}
-
-.toast-card-rest-countdown .pulse-dot {
+/* Rest timer theming — calm wellness style */
+.toast-card-rest-timer .pulse-dot {
   background: #059669;
 }
 
-.toast-card-rest-countdown .title {
+.toast-card-rest-timer .title {
   color: #065F46;
 }
 
-.toast-card-rest-countdown .close-btn:hover {
+.toast-card-rest-timer .close-btn:hover {
   background: #ECFDF5;
   color: #059669;
 }
 
-.toast-card-rest-countdown .body-text {
+.toast-card-rest-timer .body-text {
+  text-align: center;
   color: #047857;
+  margin-bottom: 0.5rem;
 }
 
-.rest-progress {
+.rest-timer-visual {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 0.625rem;
-  margin: 0.625rem 0 0.75rem;
+  margin: 0.625rem 0 0.875rem;
 }
 
-.rest-progress-track {
-  flex: 1;
-  height: 0.375rem;
-  background: #E5F4EF;
-  border-radius: 0.25rem;
+.liquid-ball {
+  width: 7rem;
+  height: 7rem;
+  border-radius: 50%;
+  position: relative;
   overflow: hidden;
+  flex-shrink: 0;
+  animation: rest-ball-float 4s ease-in-out infinite;
+  box-shadow: 0 0.25rem 0.75rem rgba(5, 150, 105, 0.22);
 }
 
-.rest-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #059669, #34D399);
-  border-radius: 0.25rem;
-  transition: width 0.3s ease;
+@keyframes rest-ball-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.375rem);
+  }
 }
 
-.rest-progress-text {
-  font-size: 0.75rem;
-  color: #065F46;
-  font-variant-numeric: tabular-nums;
-  min-width: 3.5em;
-  text-align: right;
+@media (prefers-reduced-motion: reduce) {
+  .liquid-ball {
+    animation: none;
+  }
 }
 
 .rest-hint {
