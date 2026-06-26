@@ -1190,6 +1190,27 @@ pub fn run() {
                     //    · skip_until_boundary：用户点了「跳过本次」
                     //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
                     if active {
+                        // 休息被打断，结束休息倒计时
+                        let should_end_break_timer = {
+                            let mut r = reminder_state_for_settle.lock().unwrap();
+                            if r.break_timer_active {
+                                r.break_timer_active = false;
+                                true
+                            } else {
+                                false
+                            }
+                        };
+                        if should_end_break_timer {
+                            if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
+                                let _ = app_handle.emit_to(
+                                    window_manager::TOAST_WINDOW_LABEL,
+                                    "catrace-rest-ended",
+                                    serde_json::json!({}),
+                                );
+                                let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+                            }
+                        }
+
                         match db_clone.check_should_notify(window, break_m) {
                             Ok((should_notify, boundary)) => {
                                 let r = reminder_state_for_settle.lock().unwrap();
@@ -1220,6 +1241,7 @@ pub fn run() {
                                                 Instant::now()
                                                     + Duration::from_secs((interval_m * 60) as u64),
                                             );
+                                            rs.break_timer_active = true;
                                         }
                                     }
                                 }
@@ -1230,6 +1252,29 @@ pub fn run() {
                         // 当前分钟在休息 → 清除 snooze，不提醒
                         let mut r = reminder_state_for_settle.lock().unwrap();
                         r.snooze_until = None;
+
+                        // 如果正在等待有效休息，推送倒计时状态到 Toast 窗口
+                        if r.break_timer_active {
+                            drop(r);
+                            if let Ok((rest_streak, rest_start_ts)) = db_clone.get_current_rest_streak() {
+                                let remaining = (break_m - rest_streak as i64).max(0);
+                                let is_complete = rest_streak as i64 >= break_m;
+                                if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
+                                    let _ = app_handle.emit_to(
+                                        window_manager::TOAST_WINDOW_LABEL,
+                                        "catrace-rest-countdown",
+                                        serde_json::json!({
+                                            "break_minutes": break_m,
+                                            "rest_start_ts": rest_start_ts,
+                                            "rest_streak": rest_streak,
+                                            "remaining_minutes": remaining,
+                                            "is_complete": is_complete,
+                                        }),
+                                    );
+                                    let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+                                }
+                            }
+                        }
                     }
 
                     // 喝水提醒逻辑（仅在当前分钟活跃时检查）

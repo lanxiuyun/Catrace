@@ -229,6 +229,28 @@ impl Db {
         Ok(result)
     }
 
+    /// 获取今天从最新记录开始向前的连续休息分钟数，以及这段休息的起始时间戳。
+    /// 若最新记录为活跃或没有记录，返回 (0, 0)。
+    pub fn get_current_rest_streak(&self) -> Result<(usize, i64)> {
+        let records = self.get_today_minutes()?;
+        if records.is_empty() {
+            return Ok((0, 0));
+        }
+
+        let mut streak = 0usize;
+        let mut rest_start_ts = 0i64;
+        for (ts, active) in records.iter().rev() {
+            if !active {
+                streak += 1;
+                rest_start_ts = *ts;
+            } else {
+                break;
+            }
+        }
+
+        Ok((streak, rest_start_ts))
+    }
+
     /// 检查是否应该提醒
     /// 返回 (should_notify, boundary_timestamp)
     /// boundary_timestamp 保留用于定位触发提醒的 block 边界（lib.rs 已不再做重）
@@ -413,6 +435,42 @@ mod tests {
         let (should2, boundary2) = db.check_should_notify(45, 5).unwrap();
         assert!(should2);
         assert_eq!(boundary2, Some(base + 44 * 60));
+    }
+
+    #[test]
+    fn test_get_current_rest_streak_basic() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+
+        // 无记录
+        assert_eq!(db.get_current_rest_streak().unwrap(), (0, 0));
+
+        // 活跃 3 分钟
+        for i in 0..3 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        assert_eq!(db.get_current_rest_streak().unwrap(), (0, 0));
+
+        // 再休息 2 分钟
+        db.insert_record(base + 3 * 60, false, "test.exe").unwrap();
+        db.insert_record(base + 4 * 60, false, "test.exe").unwrap();
+        assert_eq!(
+            db.get_current_rest_streak().unwrap(),
+            (2, base + 3 * 60)
+        );
+
+        // 再活跃 1 分钟，连续休息被打断
+        db.insert_record(base + 5 * 60, true, "test.exe").unwrap();
+        assert_eq!(db.get_current_rest_streak().unwrap(), (0, 0));
+
+        // 再休息 5 分钟
+        for i in 6..11 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        assert_eq!(
+            db.get_current_rest_streak().unwrap(),
+            (5, base + 6 * 60)
+        );
     }
 
     // 场景4完整版：活跃 45min → 休息，前 4min 休息时 should_notify 仍为 true，第 5min 停
