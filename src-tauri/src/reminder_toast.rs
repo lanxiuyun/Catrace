@@ -131,8 +131,9 @@ pub fn create_toast_window(
 
     let app = app_handle.clone();
 
-    // 窗口已存在：直接调用前端全局函数追加通知
+    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
+        let _ = position_toast_window(&window, app_handle);
         let payload = serde_json::json!({
             "kind": data.kind,
             "boundary": data.boundary,
@@ -207,8 +208,9 @@ pub fn create_update_toast_window(
         payload
     );
 
-    // 窗口已存在：直接调用前端全局函数追加通知
+    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
+        let _ = position_toast_window(&window, app_handle);
         let _ = window.eval(&js);
         let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
         let _ = window.eval(route_js);

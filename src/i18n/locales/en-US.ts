@@ -193,7 +193,6 @@ export default {
     restTimerBody: 'Rested for {n} minutes, {m} minutes to go',
     restTimerDone: 'Break Complete',
     restTimerDoneBody: 'Rested for {n} minutes',
-    restTimerHint: '{n} minutes counts as a valid break',
     editMode: 'Edit Mode',
     lock: 'Lock',
     unlock: 'Unlock',

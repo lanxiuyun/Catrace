@@ -193,7 +193,6 @@ export default {
     restTimerBody: '已连续休息 {n} 分钟，还需 {m} 分钟',
     restTimerDone: '休息已完成',
     restTimerDoneBody: '已连续休息 {n} 分钟',
-    restTimerHint: '满 {n} 分钟视为有效休息',
     editMode: '编辑模式',
     lock: '锁定',
     unlock: '解锁',
