@@ -745,9 +745,7 @@ async function handleUpdateInstall(item: ToastItem) {
             {{ $t('reminder.skip') }}
           </button>
         </div>
-        <div v-else-if="item.kind === 'rest-timer'" class="actions">
-          <span class="rest-hint">{{ $t('reminder.restTimerHint', { n: item.breakMinutes || 1 }) }}</span>
-        </div>
+        <div v-else-if="item.kind === 'rest-timer'" class="actions"></div>
         <div v-else class="actions">
           <button class="btn btn-water" @click="handleDrinkWater(item)">
             {{ $t('water.drank') }}
@@ -918,13 +916,6 @@ async function handleUpdateInstall(item: ToastItem) {
   .liquid-ball {
     animation: none;
   }
-}
-
-.rest-hint {
-  font-size: 0.75rem;
-  color: #6B7280;
-  text-align: center;
-  width: 100%;
 }
 
 /* Update reminder theming — matches reference image orange accent */
