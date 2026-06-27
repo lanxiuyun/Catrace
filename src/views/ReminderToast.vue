@@ -15,6 +15,7 @@ import {
   recordWater,
   snoozeWaterReminder,
   skipWaterReminder,
+  getActivitySnapshot,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 
@@ -60,6 +61,11 @@ let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
 let unlistenRestTimerEnded: (() => void) | null = null
+
+// 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
+let restPollTimer: ReturnType<typeof setInterval> | null = null
+let restPollBaseline = 0
+const REST_POLL_MS = 2000
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -162,6 +168,7 @@ onUnmounted(() => {
   unlistenRestTimer = null
   unlistenRestTimerEnded?.()
   unlistenRestTimerEnded = null
+  stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
   resizeObserver = null
@@ -283,7 +290,50 @@ function updateRestTimer(payload: {
     })
   }
 
+  // 用户仍在休息：重启每 2 秒活跃轮询，并刷新基线
+  startRestPoll()
+
   adjustWindowSize()
+}
+
+/** 启动休息计时卡片的活跃轮询：先取一次快照作基线，之后每 2 秒比对 */
+async function startRestPoll() {
+  stopRestPoll()
+  try {
+    const snap = await getActivitySnapshot()
+    restPollBaseline = snap.count
+  } catch {
+    restPollBaseline = 0
+  }
+  restPollTimer = setInterval(pollActivity, REST_POLL_MS)
+}
+
+function stopRestPoll() {
+  if (restPollTimer) {
+    clearInterval(restPollTimer)
+    restPollTimer = null
+  }
+}
+
+async function pollActivity() {
+  // 卡片已不在则停轮询
+  if (!notifications.value.some((n) => n.kind === 'rest-timer')) {
+    stopRestPoll()
+    return
+  }
+  let snap
+  try {
+    snap = await getActivitySnapshot()
+  } catch {
+    return
+  }
+  // count 跨分钟会被后端清零；count 减少时只更新基线，不判活跃
+  const keyMouseActive = snap.count > restPollBaseline
+  restPollBaseline = snap.count
+  if (keyMouseActive || snap.media_active) {
+    stopRestPoll()
+    scheduleRemoveRestTimer()
+  }
 }
 
 function scheduleRemoveRestTimer() {
@@ -299,7 +349,7 @@ function scheduleRemoveRestTimer() {
     if (item) {
       removeNotification(item.id, true)
     }
-  }, 4000)
+  }, 5000)
 }
 
 async function addNotification(payload: {
@@ -412,6 +462,9 @@ function removeNotification(id: number, animate: boolean) {
   if (item.endTimer) {
     clearTimeout(item.endTimer)
     item.endTimer = null
+  }
+  if (item.kind === 'rest-timer') {
+    stopRestPoll()
   }
 
   // 不带动画：直接移除并刷新窗口

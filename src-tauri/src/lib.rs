@@ -75,6 +75,33 @@ pub struct ActivityState {
     pub key_debounce: Option<Instant>,
 }
 
+/// 轻量活跃快照，供休息计时卡片每 2 秒轮询使用。
+/// 只读键鼠累计计数与媒体活跃，避免 get_media_debug_info 的会话枚举开销。
+#[derive(serde::Serialize)]
+struct ActivitySnapshot {
+    count: u32,
+    media_active: bool,
+}
+
+#[tauri::command]
+async fn get_activity_snapshot(
+    activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
+    db: tauri::State<'_, db::Db>,
+    whitelist: tauri::State<'_, Arc<Mutex<Vec<String>>>>,
+) -> Result<ActivitySnapshot, String> {
+    let count = activity.lock().unwrap().count;
+    let media_active = if db.get_setting("video_active_enabled", "true") == "true" {
+        let wl = whitelist.lock().unwrap().clone();
+        is_media_active(&wl)
+    } else {
+        false
+    };
+    Ok(ActivitySnapshot {
+        count,
+        media_active,
+    })
+}
+
 use reminder::ReminderState;
 use water::WaterReminderState;
 
@@ -1391,6 +1418,7 @@ pub fn run() {
             stop_notification_test,
             water::test_water_notification,
             get_media_debug_info,
+            get_activity_snapshot,
             get_reminder_mode,
             set_reminder_mode,
             get_reminder_text,
