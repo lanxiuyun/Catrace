@@ -72,14 +72,14 @@ import ReminderFullscreen from '../views/ReminderFullscreen.vue'
 - **右下角定位**：Rust 读取当前工作区，将窗口放在包含鼠标光标的显示器右下角。
 - **FLIP 动画**：关闭卡片时记录旧位置，更新数据后让下方卡片平滑上移。
 - **调试模式**：`toast_debug_mode` 开启时，`ReminderToast.vue` 通过 `.debug-bg` 给窗口根节点加上半透明黄色背景，便于确认窗口范围。切换开关后 Rust 侧通过 Tauri 事件 `catrace-toast-debug-changed` 广播状态变更，Toast 窗口前端用 `listen` 监听并实时更新背景，无需重新创建窗口。Rust 侧 WebviewWindow 的 `background_color` 始终透明，调试背景完全由前端 CSS 控制。
-- **休息计时卡片**：当活跃 block 已触发提醒、用户进入休息时，Rust 后端每分钟推送 `catrace-rest-timer` 事件，前端渲染绿色液体球计时器：球内液面高度随 `rest_streak / break_minutes` 上升，表面带有两层反向旋转的波浪与上升气泡动画，球心显示已连续休息分钟数。满 `break_minutes` 后继续累计；恢复活跃后延迟 4 秒自动移除。
+- **休息计时卡片**：当活跃 block 已触发提醒、用户进入休息时，Rust 后端每分钟推送 `catrace-rest-timer` 事件，前端渲染绿色液体球计时器：球内液面高度随 `rest_streak / break_minutes` 上升，表面带有两层反向旋转的波浪与上升气泡动画，球心显示已连续休息分钟数。满 `break_minutes` 后继续累计。**活跃检测下沉到前端**：卡片可见期间，前端每 2 秒调用轻量命令 `get_activity_snapshot`（返回 `{count, media_active}`，复用键鼠累计计数与 `is_media_active`，不枚举音频会话），一旦键鼠计数增长或媒体活跃即判定恢复活跃，延迟 **5 秒** 自动移除（不再等待每分钟结算的 `catrace-rest-timer-ended` 兜底事件）。
 
 ### 4.2 卡片类型
 
 - `kind: 'rest'`：紫色主题，按钮为「5 分钟后提醒」「10 分钟后提醒」「跳过本次」。
 - `kind: 'water'`：蓝色主题，按钮为「已喝水」「5 分钟后提醒」「跳过本次」。
 - `kind: 'update'`：橙色主题，标题为「发现新版本 {version}」，按钮为「查看详情」「立即更新」。点击「查看详情」展开/收起更新日志；点击「立即更新」下载并安装，完成后自动重启。更新卡片不会自动关闭。
-- `kind: 'rest-timer'`：绿色主题，以一个带液体流动与气泡动画的球体呈现休息进度，球心显示已连续休息分钟数，正文显示「已连续休息 N 分钟，还需 M 分钟」。不自动关闭，满 `break_minutes` 后标题变为「休息已完成」并继续累计休息时长；恢复活跃后延迟 4 秒移除。该类型不由 `addToastNotification` 直接添加，而是通过 `catrace-rest-timer` 事件驱动。
+- `kind: 'rest-timer'`：绿色主题，以一个带液体流动与气泡动画的球体呈现休息进度，球心显示已连续休息分钟数，正文显示「已连续休息 N 分钟，还需 M 分钟」。不自动关闭，满 `break_minutes` 后标题变为「休息已完成」并继续累计休息时长；前端每 2 秒轮询 `get_activity_snapshot`，检测到恢复活跃后延迟 5 秒移除。该类型不由 `addToastNotification` 直接添加，而是通过 `catrace-rest-timer` 事件驱动。
 
 ---
 
