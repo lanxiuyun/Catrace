@@ -1239,25 +1239,10 @@ pub fn run() {
                     //    · skip_until_boundary：用户点了「跳过本次」
                     //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
                     if active {
-                        // 休息被打断，结束休息计时
-                        let should_end_break_timer = {
+                        // 休息被打断，结束休息计时（前端 poll 已自行隐藏卡片，此处只清状态）
+                        {
                             let mut r = reminder_state_for_settle.lock().unwrap();
-                            if r.break_timer_active {
-                                r.break_timer_active = false;
-                                true
-                            } else {
-                                false
-                            }
-                        };
-                        if should_end_break_timer {
-                            if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-                                let _ = app_handle.emit_to(
-                                    window_manager::TOAST_WINDOW_LABEL,
-                                    "catrace-rest-timer-ended",
-                                    serde_json::json!({}),
-                                );
-                                let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
-                            }
+                            r.break_timer_active = false;
                         }
 
                         match db_clone.check_should_notify(window, break_m) {

@@ -60,7 +60,6 @@ let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
-let unlistenRestTimerEnded: (() => void) | null = null
 
 // 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
 let restPollTimer: ReturnType<typeof setInterval> | null = null
@@ -108,10 +107,6 @@ onMounted(async () => {
     is_complete: boolean
   }>('catrace-rest-timer', (event) => {
     updateRestTimer(event.payload)
-  })
-
-  unlistenRestTimerEnded = await listen('catrace-rest-timer-ended', () => {
-    scheduleRemoveRestTimer()
   })
 
   // 暴露全局函数给 Rust 端 eval 调用
@@ -166,8 +161,6 @@ onUnmounted(() => {
   unlistenDebug = null
   unlistenRestTimer?.()
   unlistenRestTimer = null
-  unlistenRestTimerEnded?.()
-  unlistenRestTimerEnded = null
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
