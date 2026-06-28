@@ -230,19 +230,37 @@ impl Db {
     }
 
     /// 获取今天从最新记录开始向前的连续休息分钟数，以及这段休息的起始时间戳。
+    /// 只以真实数据库记录为准，不填充应用未运行期间的缺失分钟。
     /// 若最新记录为活跃或没有记录，返回 (0, 0)。
     pub fn get_current_rest_streak(&self) -> Result<(usize, i64)> {
-        let records = self.get_today_minutes()?;
-        if records.is_empty() {
-            return Ok((0, 0));
-        }
+        let conn = self.conn.lock().unwrap();
+        let start_of_day = start_of_day_ts();
+
+        // 查询今天所有真实记录，按时间升序
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, is_active FROM records WHERE timestamp >= ?1 ORDER BY timestamp DESC",
+        )?;
+        let mut rows = stmt.query([start_of_day])?;
 
         let mut streak = 0usize;
         let mut rest_start_ts = 0i64;
-        for (ts, active) in records.iter().rev() {
+        let mut last_ts: Option<i64> = None;
+
+        while let Some(row) = rows.next()? {
+            let ts: i64 = row.get(0)?;
+            let active: bool = row.get::<_, i32>(1)? == 1;
+
+            // 若相邻真实记录之间存在时间跳跃，说明应用未运行，停止计数
+            if let Some(last) = last_ts {
+                if last - ts > 60 {
+                    break;
+                }
+            }
+
             if !active {
                 streak += 1;
-                rest_start_ts = *ts;
+                rest_start_ts = ts;
+                last_ts = Some(ts);
             } else {
                 break;
             }
@@ -454,10 +472,7 @@ mod tests {
         // 再休息 2 分钟
         db.insert_record(base + 3 * 60, false, "test.exe").unwrap();
         db.insert_record(base + 4 * 60, false, "test.exe").unwrap();
-        assert_eq!(
-            db.get_current_rest_streak().unwrap(),
-            (2, base + 3 * 60)
-        );
+        assert_eq!(db.get_current_rest_streak().unwrap(), (2, base + 3 * 60));
 
         // 再活跃 1 分钟，连续休息被打断
         db.insert_record(base + 5 * 60, true, "test.exe").unwrap();
@@ -467,10 +482,12 @@ mod tests {
         for i in 6..11 {
             db.insert_record(base + i * 60, false, "test.exe").unwrap();
         }
-        assert_eq!(
-            db.get_current_rest_streak().unwrap(),
-            (5, base + 6 * 60)
-        );
+        assert_eq!(db.get_current_rest_streak().unwrap(), (5, base + 6 * 60));
+
+        // 模拟应用重新打开：插入一段活跃记录，但中间存在 10 分钟空缺。
+        // 连续休息计数不应跨跃这段空缺。
+        db.insert_record(base + 20 * 60, false, "test.exe").unwrap();
+        assert_eq!(db.get_current_rest_streak().unwrap(), (1, base + 20 * 60));
     }
 
     // 场景4完整版：活跃 45min → 休息，前 4min 休息时 should_notify 仍为 true，第 5min 停

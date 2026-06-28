@@ -73,6 +73,10 @@ pub struct ActivityState {
     pub count: u32,
     pub last_cursor: (i32, i32),
     pub key_debounce: Option<Instant>,
+    /// 最近一次分钟结算时的媒体活跃结果，供 get_activity_snapshot 复用
+    pub media_active_snapshot: bool,
+    /// 最近一次分钟结算时的全屏状态快照
+    pub fullscreen_snapshot: bool,
 }
 
 /// 轻量活跃快照，供休息计时卡片每 2 秒轮询使用。
@@ -81,24 +85,20 @@ pub struct ActivityState {
 struct ActivitySnapshot {
     count: u32,
     media_active: bool,
+    fullscreen_active: bool,
 }
 
 #[tauri::command]
 async fn get_activity_snapshot(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
-    db: tauri::State<'_, db::Db>,
-    whitelist: tauri::State<'_, Arc<Mutex<Vec<String>>>>,
 ) -> Result<ActivitySnapshot, String> {
-    let count = activity.lock().unwrap().count;
-    let media_active = if db.get_setting("video_active_enabled", "true") == "true" {
-        let wl = whitelist.lock().unwrap().clone();
-        is_media_active(&wl)
-    } else {
-        false
-    };
+    let s = activity.lock().unwrap();
     Ok(ActivitySnapshot {
-        count,
-        media_active,
+        count: s.count,
+        // 复用最近一次分钟结算的媒体/全屏快照，避免每次轮询都枚举音频会话
+        media_active: s.media_active_snapshot,
+        // 全屏期间前端不应把键鼠活动视为恢复活跃
+        fullscreen_active: s.fullscreen_snapshot,
     })
 }
 
@@ -349,6 +349,7 @@ fn skip_reminder(
     let mut s = state.lock().unwrap();
     s.skip_until_boundary = Some(boundary);
     s.snooze_until = None;
+    s.break_timer_active = false;
     // 用户操作后恢复正常活动追踪
     fullscreen_active.store(false, Ordering::SeqCst);
 }
@@ -361,8 +362,18 @@ fn snooze_reminder(
 ) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
+    s.break_timer_active = false;
     // 用户操作后恢复正常活动追踪
     fullscreen_active.store(false, Ordering::SeqCst);
+}
+
+#[tauri::command]
+fn dismiss_rest_timer(
+    state: tauri::State<Arc<Mutex<ReminderState>>>,
+) -> Result<(), String> {
+    let mut s = state.lock().unwrap();
+    s.break_timer_active = false;
+    Ok(())
 }
 
 #[tauri::command]
@@ -699,6 +710,33 @@ fn test_notification(
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) {
     let locale = db.get_setting("locale", "zh-CN");
+
+    // 仅在 Toast 模式下追加一张绿色休息计时测试卡片
+    let reminder_mode = db.get_setting("reminder_mode", "toast");
+    if reminder_mode == "toast" {
+        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
+        let now_ts = chrono::Local::now().timestamp();
+        let rest_start_ts = (now_ts / 60) * 60;
+        // 使用与实际逻辑一致的 rest_streak，避免 rest_streak > break_m 时 is_complete 与进度球矛盾
+        let rest_streak: i64 = std::cmp::min(3, break_m);
+        let remaining_minutes = (break_m - rest_streak).max(0);
+        let is_complete = rest_streak >= break_m;
+        if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
+            let _ = app_handle.emit_to(
+                window_manager::TOAST_WINDOW_LABEL,
+                "catrace-rest-timer",
+                serde_json::json!({
+                    "break_minutes": break_m,
+                    "rest_start_ts": rest_start_ts,
+                    "rest_streak": rest_streak,
+                    "remaining_minutes": remaining_minutes,
+                    "is_complete": is_complete,
+                }),
+            );
+            let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+        }
+    }
+
     show_notification(
         &app_handle,
         0,
@@ -709,28 +747,6 @@ fn test_notification(
         &store,
         fullscreen_active.inner().clone(),
     );
-
-    // 仅在 Toast 模式下追加一张绿色休息计时测试卡片
-    let reminder_mode = db.get_setting("reminder_mode", "toast");
-    if reminder_mode == "toast" {
-        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-        let now_ts = chrono::Local::now().timestamp();
-        let rest_start_ts = (now_ts / 60) * 60;
-        if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-            let _ = app_handle.emit_to(
-                window_manager::TOAST_WINDOW_LABEL,
-                "catrace-rest-timer",
-                serde_json::json!({
-                    "break_minutes": break_m,
-                    "rest_start_ts": rest_start_ts,
-                    "rest_streak": 3,
-                    "remaining_minutes": (break_m - 3).max(0),
-                    "is_complete": false,
-                }),
-            );
-            let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
-        }
-    }
 }
 
 #[tauri::command]
@@ -1217,6 +1233,9 @@ pub fn run() {
                     } else {
                         s.count >= 3 || media_active
                     };
+                    // 保存快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
+                    s.media_active_snapshot = media_active;
+                    s.fullscreen_snapshot = is_fullscreen;
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         eprintln!("Failed to write to database: {}", e);
                     }
@@ -1249,12 +1268,13 @@ pub fn run() {
 
                         match db_clone.check_should_notify(window, break_m) {
                             Ok((should_notify, boundary)) => {
-                                let r = reminder_state_for_settle.lock().unwrap();
+                                let mut r = reminder_state_for_settle.lock().unwrap();
 
                                 if should_notify {
                                     if let Some(b) = boundary {
                                         if r.is_skipped(b) || r.is_snoozed() {
-                                            // 被用户操作过滤，不提醒
+                                            // 被用户操作过滤，不提醒，也不进入休息计时等待
+                                            r.break_timer_active = false;
                                         } else {
                                             drop(r);
                                             show_notification(
@@ -1404,6 +1424,7 @@ pub fn run() {
             water::test_water_notification,
             get_media_debug_info,
             get_activity_snapshot,
+            dismiss_rest_timer,
             get_reminder_mode,
             set_reminder_mode,
             get_reminder_text,

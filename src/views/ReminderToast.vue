@@ -16,6 +16,7 @@ import {
   snoozeWaterReminder,
   skipWaterReminder,
   getActivitySnapshot,
+  dismissRestTimer,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 
@@ -65,6 +66,8 @@ let unlistenRestTimer: (() => void) | null = null
 let restPollTimer: ReturnType<typeof setInterval> | null = null
 let restPollBaseline = 0
 const REST_POLL_MS = 2000
+// 文档声明恢复活跃后延迟 4 秒移除
+const REST_TIMER_REMOVE_DELAY_MS = 4000
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -294,6 +297,9 @@ async function startRestPoll() {
   stopRestPoll()
   try {
     const snap = await getActivitySnapshot()
+    // 使用当前 count 与媒体/全屏状态建立基线。
+    // 注意：count 会在后端每分钟结算时被清零，因此 polling 只把「清零后 count
+    // 重新增长」或「媒体变为活跃」或「全屏结束」视为恢复活跃。
     restPollBaseline = snap.count
   } catch {
     restPollBaseline = 0
@@ -320,6 +326,13 @@ async function pollActivity() {
   } catch {
     return
   }
+
+  // 全屏提醒期间：后端把该分钟视为休息，前端也不应把键鼠/媒体活动判断为恢复活跃
+  if (snap.fullscreen_active) {
+    restPollBaseline = snap.count
+    return
+  }
+
   // count 跨分钟会被后端清零；count 减少时只更新基线，不判活跃
   const keyMouseActive = snap.count > restPollBaseline
   restPollBaseline = snap.count
@@ -342,7 +355,7 @@ function scheduleRemoveRestTimer() {
     if (item) {
       removeNotification(item.id, true)
     }
-  }, 5000)
+  }, REST_TIMER_REMOVE_DELAY_MS)
 }
 
 async function addNotification(payload: {
@@ -609,6 +622,18 @@ function toggleUpdateDetails(item: ToastItem) {
   nextTick(() => adjustWindowSize())
 }
 
+async function handleClose(item: ToastItem) {
+  // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
+  if (item.kind === 'rest-timer') {
+    try {
+      await dismissRestTimer()
+    } catch {
+      // ignore
+    }
+  }
+  removeNotification(item.id, true)
+}
+
 async function handleUpdateInstall(item: ToastItem) {
   if (item.updateInstalling) return
   item.updateInstalling = true
@@ -677,7 +702,7 @@ async function handleUpdateInstall(item: ToastItem) {
           <button
             v-if="!(item.kind === 'update' && item.updateInstalling)"
             class="close-btn"
-            @click="removeNotification(item.id, true)"
+            @click="handleClose(item)"
             aria-label="关闭"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
