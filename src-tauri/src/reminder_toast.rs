@@ -131,9 +131,8 @@ pub fn create_toast_window(
 
     let app = app_handle.clone();
 
-    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
+    // 窗口已存在：追加通知，并在主线程调度中重新定位/显示窗口
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
-        let _ = position_toast_window(&window, app_handle);
         let payload = serde_json::json!({
             "kind": data.kind,
             "boundary": data.boundary,
@@ -148,7 +147,13 @@ pub fn create_toast_window(
         // 确保前端路由到 /reminder-toast
         let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
         let _ = window.eval(route_js);
-        window_manager::show_reminder_no_activate(app_handle, &window);
+
+        let app = app_handle.clone();
+        let window = window.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = position_toast_window(&window, &app);
+            window_manager::show_reminder_no_activate(&app, &window);
+        });
         return;
     }
 
@@ -208,13 +213,18 @@ pub fn create_update_toast_window(
         payload
     );
 
-    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
+    // 窗口已存在：追加通知，并在主线程调度中重新定位/显示窗口
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
-        let _ = position_toast_window(&window, app_handle);
         let _ = window.eval(&js);
         let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
         let _ = window.eval(route_js);
-        window_manager::show_reminder_no_activate(app_handle, &window);
+
+        let app = app_handle.clone();
+        let window = window.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = position_toast_window(&window, &app);
+            window_manager::show_reminder_no_activate(&app, &window);
+        });
         return;
     }
 
