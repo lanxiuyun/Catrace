@@ -7,6 +7,8 @@ pub struct ReminderState {
     pub snooze_until: Option<Instant>,
     /// 跳过本次提醒直到该 block boundary（时间戳）
     pub skip_until_boundary: Option<i64>,
+    /// 活跃 block 已触发提醒，正在等待用户完成有效休息
+    pub break_timer_active: bool,
 }
 
 impl ReminderState {

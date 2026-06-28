@@ -116,6 +116,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - 通知**不去做重**：只要条件满足，每分钟结算都会弹，直到用户连续休息够 `break_minutes`。
    - **休息即静音**：只要当前分钟在休息（无论是否达到 `break_minutes`），立即不提醒；恢复活跃后重新判断。
    - **自动间隔提醒**：通知触发后自动设置 `snooze_interval_minutes`（默认3分钟）的 snooze，到期后再次提醒。用户手动选择 5/10 分钟会覆盖自动间隔。
+   - **休息计时（Toast 模式）**：当活跃 block 已触发提醒、用户随后进入休息时，Toast 窗口会追加一个绿色液体球计时器，球内液体高度随休息进度上升，并带有波浪流动与气泡动画；球心显示已连续休息分钟数。满 `break_minutes` 后卡片保持显示并继续累计休息时长；若恢复活跃，卡片停留几秒后自动消失。Popup / Fullscreen 模式下不显示该计时器。
    - **Toast 提醒窗口**：采用独立透明 WebviewWindow + Vue 卡片实现，替代原 Windows 原生 Toast。支持多条通知堆叠显示，右下角依次排列，倒计时进度条，hover 暂停，离开恢复；每个卡片都有「5分钟后提醒」「10分钟后提醒」「跳过本次」按钮，点击后直接更新 `ReminderState`，无需打开主窗口。
 
 **提醒场景示例（`window=45, break=5, snooze_interval=3`）**
@@ -133,8 +134,10 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
 | 活跃 40min → 休息 5min → 再活跃中 | 0:00~0:39 活跃 → 0:40~0:44 休息 → 0:45~0:47 活跃（未满窗口） | ❌ 不提醒 |
 | 全天休息 | 一直在休息 | ❌ 不提醒 |
 | 用户点击「5分钟后提醒」 | 0:45 弹 → 用户点击 5min → **0:50 弹**（覆盖自动 3min 间隔） | ✅ 用户选择优先 |
+| 活跃 45min → 开始休息（Toast 模式） | 0:00~0:44 活跃 → **0:45 弹** → 0:45 起休息 → Toast 显示绿色液体球计时器，球内液面随休息进度上升 → 累计到 5 分钟后显示「休息已完成」 | ✅ 休息期间可视化计时 |
 
 > 规律：活跃 block 完成后，**下一个活跃分钟**会弹；之后按 `snooze_interval_minutes` 间隔重复提醒。用户手动选择 5/10 分钟会覆盖自动间隔。但只要**当前分钟在休息**，立即停止提醒并清除 snooze；恢复活跃后重新判断。
+> Toast 模式下，休息期间还会显示绿色液体球计时器，帮助用户直观知道已连续休息多久、是否已达到 `break_minutes`。
 
 4. **喝水提醒**（`water.rs` + `lib.rs` + `WaterWidget.vue`）
    - `water.rs` 集中管理喝水提醒：状态机 `WaterReminderState`、Tauri 命令、Toast 通知、每分钟结算检查。
@@ -150,7 +153,7 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。
    - Rust 侧创建独立无边框 WebviewWindow，透明背景，定位到工作区右下角；窗口复用，多次提醒时通过 `addToastNotification` 往已有窗口追加卡片。
    - 前端 `ReminderToast.vue` 维护一个通知卡片列表，新卡片从右侧滑入；关闭时通过 FLIP 动画让下方卡片平滑补上。
    - 每张卡片 8 秒自动消失，鼠标 hover 暂停计时，离开时继续；支持「5分钟后提醒」「10分钟后提醒」「跳过本次」。
-   - 通知按 `kind` 区分主题：**休息提醒**保持紫色主题；**喝水提醒**采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）。
+   - 通知按 `kind` 区分主题：**休息提醒**保持紫色主题；**喝水提醒**采用与 Dashboard `WaterWidget` 统一的蓝色主题（圆点、进度条、标题、按钮均为蓝色系）；**休息计时**采用与 Dashboard 休息统计一致的绿色主题，以一个带液体流动与气泡动画的球体呈现休息进度，卡片不自动关闭，满 `break_minutes` 后继续累计休息时长。
    - 调试开关 `toast_debug_mode` 可在 Debug 页开启，此时 Toast 窗口根节点会显示半透明黄色背景，便于排查布局/点击问题；切换后 Rust 侧通过 Tauri 事件 `catrace-toast-debug-changed` 广播状态，Toast 窗口前端监听并即时响应。
    - **Windows 下不抢夺焦点**：通过 `window_manager` 设置 `WS_EX_NOACTIVATE` 并使用 `SW_SHOWNOACTIVATE` 显示，文件重命名、输入框编辑时弹出通知不会打断当前输入状态。
 
@@ -451,6 +454,7 @@ CREATE TABLE settings (
 | 54 | MediaSettingsCard 排除列表自动保存（500ms 防抖），「重置为默认」改为默认按钮样式并置于标题右侧 | ✅ |
 | 55 | Toast / Popup 窗口重构为无焦点显示：Windows 使用 `WS_EX_NOACTIVATE`，文件重命名/输入时弹出通知不中断当前焦点；macOS / Linux 回退到普通显示 | ✅ |
 | 56 | 启动时自动检查更新并弹出更新 Toast：标题显示新版本号，支持查看详情与立即更新 | ✅ |
+| 57 | Toast 模式休息计时：活跃 block 触发提醒后，用户进入休息时显示绿色液体球计时器（含波浪流动与气泡动画）；满 `break_minutes` 后继续累计，恢复活跃后延迟消失；设置页「测试通知」在 Toast 模式下同时显示普通提醒 + 休息计时 | ✅ |
 
 ---
 
@@ -493,7 +497,7 @@ cd src-tauri && cargo test
 
 ## 测试策略
 
-- **Rust**：共 30 个单元测试，分布在 `db.rs`（15 个）、`reminder.rs`（4 个）、`report.rs`（4 个）、`water.rs`（3 个）和 `media_audio.rs`（4 个）：
+- **Rust**：共 31 个单元测试，分布在 `db.rs`（16 个）、`reminder.rs`（4 个）、`report.rs`（4 个）、`water.rs`（3 个）和 `media_audio.rs`（4 个）：
 
   **Block 切分（`db.rs`，3 个）**
   | 测试名 | 说明 |
@@ -516,6 +520,11 @@ cd src-tauri && cargo test
   | `test_notify_after_rest_then_active` | 场景 5 | 活跃 40min → 休息 5min → 再活跃 45min → should_notify=true |
   | `test_notify_full_cycle_active_rest_active` | 场景 5 完整 | 活跃 45min → 休息 5min → 再活跃 45min，验证完整周期 |
   | `test_notify_no_duplicate_boundary` | 场景 1 | 同一数据多次调用，boundary 稳定 |
+
+  **连续休息时长（`db.rs`，1 个）**
+  | 测试名 | 说明 |
+  |---|---|
+  | `test_get_current_rest_streak_basic` | 无记录、纯活跃、末尾连续休息、休息被打断、再休息等场景下的连续休息时长计算 |
 
   **喝水记录（`db.rs`，1 个）**
   | 测试名 | 说明 |

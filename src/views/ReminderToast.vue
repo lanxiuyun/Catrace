@@ -15,11 +15,13 @@ import {
   recordWater,
   snoozeWaterReminder,
   skipWaterReminder,
+  getActivitySnapshot,
 } from '../api/tauri'
+import RestTimerBall from '../components/RestTimerBall.vue'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'update'
+type ToastKind = 'rest' | 'water' | 'update' | 'rest-timer'
 
 interface ToastItem {
   id: number
@@ -40,6 +42,12 @@ interface ToastItem {
   downloadProgress?: number
   downloadTotal?: number
   downloadReceived?: number
+  // rest timer fields
+  breakMinutes?: number
+  restStartTs?: number
+  restStreak?: number
+  isComplete?: boolean
+  endTimer?: ReturnType<typeof setTimeout> | null
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -51,6 +59,12 @@ const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
+let unlistenRestTimer: (() => void) | null = null
+
+// 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
+let restPollTimer: ReturnType<typeof setInterval> | null = null
+let restPollBaseline = 0
+const REST_POLL_MS = 2000
 
 const AUTO_HIDE_MS = 8000
 const MAX_NOTIFICATIONS = 5
@@ -82,6 +96,17 @@ onMounted(async () => {
   // 监听 Tauri 事件，实时同步调试模式状态
   unlistenDebug = await listen<boolean>('catrace-toast-debug-changed', (event) => {
     showDebug.value = event.payload
+  })
+
+  // 监听休息计时事件
+  unlistenRestTimer = await listen<{
+    break_minutes: number
+    rest_start_ts: number
+    rest_streak: number
+    remaining_minutes: number
+    is_complete: boolean
+  }>('catrace-rest-timer', (event) => {
+    updateRestTimer(event.payload)
   })
 
   // 暴露全局函数给 Rust 端 eval 调用
@@ -134,6 +159,9 @@ onUnmounted(() => {
   delete (window as any).addToastNotification
   unlistenDebug?.()
   unlistenDebug = null
+  unlistenRestTimer?.()
+  unlistenRestTimer = null
+  stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
   resizeObserver = null
@@ -195,6 +223,126 @@ async function adjustWindowSize() {
   } catch (e: any) {
     debugInfo.value.error = String(e?.message ?? e)
   }
+}
+
+function updateRestTimer(payload: {
+  break_minutes: number
+  rest_start_ts: number
+  rest_streak: number
+  remaining_minutes: number
+  is_complete: boolean
+}) {
+  // 取消已有的延迟关闭定时器（如果用户在延迟期间恢复休息）
+  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
+  if (existing?.endTimer) {
+    clearTimeout(existing.endTimer)
+    existing.endTimer = null
+  }
+
+  const title = payload.is_complete
+    ? t('reminder.restTimerDone')
+    : t('reminder.restTimerTitle')
+  const body = payload.is_complete
+    ? t('reminder.restTimerDoneBody', { n: payload.rest_streak })
+    : t('reminder.restTimerBody', {
+        n: payload.rest_streak,
+        m: payload.remaining_minutes,
+      })
+
+  if (existing) {
+    existing.title = title
+    existing.body = body
+    existing.restStreak = payload.rest_streak
+    existing.breakMinutes = payload.break_minutes
+    existing.isComplete = payload.is_complete
+    existing.visible = true
+  } else {
+    const id = ++idCounter
+    const item: ToastItem = {
+      id,
+      kind: 'rest-timer',
+      title,
+      body,
+      boundary: 0,
+      visible: false,
+      isHovered: false,
+      remainingMs: 0,
+      closeTimer: null,
+      lastStartAt: 0,
+      breakMinutes: payload.break_minutes,
+      restStartTs: payload.rest_start_ts,
+      restStreak: payload.rest_streak,
+      isComplete: payload.is_complete,
+    }
+    notifications.value.push(item)
+    requestAnimationFrame(() => {
+      const found = notifications.value.find((n) => n.id === id)
+      if (found) {
+        found.visible = true
+      }
+    })
+  }
+
+  // 用户仍在休息：重启每 2 秒活跃轮询，并刷新基线
+  startRestPoll()
+
+  adjustWindowSize()
+}
+
+/** 启动休息计时卡片的活跃轮询：先取一次快照作基线，之后每 2 秒比对 */
+async function startRestPoll() {
+  stopRestPoll()
+  try {
+    const snap = await getActivitySnapshot()
+    restPollBaseline = snap.count
+  } catch {
+    restPollBaseline = 0
+  }
+  restPollTimer = setInterval(pollActivity, REST_POLL_MS)
+}
+
+function stopRestPoll() {
+  if (restPollTimer) {
+    clearInterval(restPollTimer)
+    restPollTimer = null
+  }
+}
+
+async function pollActivity() {
+  // 卡片已不在则停轮询
+  if (!notifications.value.some((n) => n.kind === 'rest-timer')) {
+    stopRestPoll()
+    return
+  }
+  let snap
+  try {
+    snap = await getActivitySnapshot()
+  } catch {
+    return
+  }
+  // count 跨分钟会被后端清零；count 减少时只更新基线，不判活跃
+  const keyMouseActive = snap.count > restPollBaseline
+  restPollBaseline = snap.count
+  if (keyMouseActive || snap.media_active) {
+    stopRestPoll()
+    scheduleRemoveRestTimer()
+  }
+}
+
+function scheduleRemoveRestTimer() {
+  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
+  if (!existing) return
+
+  if (existing.endTimer) {
+    clearTimeout(existing.endTimer)
+  }
+
+  existing.endTimer = setTimeout(() => {
+    const item = notifications.value.find((n) => n.kind === 'rest-timer')
+    if (item) {
+      removeNotification(item.id, true)
+    }
+  }, 5000)
 }
 
 async function addNotification(payload: {
@@ -267,11 +415,14 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
+  // 休息计时卡片不依赖 hover 控制生命周期
+  if (item.kind === 'rest-timer') return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
+  if (item.kind === 'rest-timer') return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -301,6 +452,13 @@ function removeNotification(id: number, animate: boolean) {
   if (item.leaving) return
 
   stopTimer(item)
+  if (item.endTimer) {
+    clearTimeout(item.endTimer)
+    item.endTimer = null
+  }
+  if (item.kind === 'rest-timer') {
+    stopRestPoll()
+  }
 
   // 不带动画：直接移除并刷新窗口
   if (!animate) {
@@ -502,6 +660,7 @@ async function handleUpdateInstall(item: ToastItem) {
           visible: item.visible,
           'toast-card-water': item.kind === 'water',
           'toast-card-update': item.kind === 'update',
+          'toast-card-rest-timer': item.kind === 'rest-timer',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -527,8 +686,18 @@ async function handleUpdateInstall(item: ToastItem) {
           </button>
         </div>
 
-        <!-- Progress bar (auto-hide timer, not shown for update cards) -->
-        <div v-if="item.kind !== 'update'" class="progress-bar" :class="{ paused: item.isHovered }" />
+        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer cards) -->
+        <div v-if="item.kind !== 'update' && item.kind !== 'rest-timer'" class="progress-bar" :class="{ paused: item.isHovered }" />
+
+        <!-- Rest timer liquid ball -->
+        <div v-if="item.kind === 'rest-timer'" class="rest-timer-visual">
+          <div class="liquid-ball">
+            <RestTimerBall
+              :rest-streak="item.restStreak || 0"
+              :break-minutes="item.breakMinutes || 1"
+            />
+          </div>
+        </div>
 
         <!-- Body -->
         <p v-if="item.kind !== 'update'" class="body-text">{{ item.body }}</p>
@@ -576,6 +745,7 @@ async function handleUpdateInstall(item: ToastItem) {
             {{ $t('reminder.skip') }}
           </button>
         </div>
+        <div v-else-if="item.kind === 'rest-timer'" class="actions"></div>
         <div v-else class="actions">
           <button class="btn btn-water" @click="handleDrinkWater(item)">
             {{ $t('water.drank') }}
@@ -693,6 +863,59 @@ async function handleUpdateInstall(item: ToastItem) {
 }
 .toast-card-water .btn-primary:hover {
   background: #1D4ED8;
+}
+
+/* Rest timer theming — calm wellness style */
+.toast-card-rest-timer .pulse-dot {
+  background: #059669;
+}
+
+.toast-card-rest-timer .title {
+  color: #065F46;
+}
+
+.toast-card-rest-timer .close-btn:hover {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.toast-card-rest-timer .body-text {
+  text-align: center;
+  color: #047857;
+  margin-bottom: 0.5rem;
+}
+
+.rest-timer-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0.625rem 0 0.875rem;
+}
+
+.liquid-ball {
+  width: 7rem;
+  height: 7rem;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  animation: rest-ball-float 4s ease-in-out infinite;
+  box-shadow: 0 0.25rem 0.75rem rgba(5, 150, 105, 0.22);
+}
+
+@keyframes rest-ball-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.375rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-ball {
+    animation: none;
+  }
 }
 
 /* Update reminder theming — matches reference image orange accent */
