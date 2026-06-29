@@ -1226,21 +1226,24 @@ pub fn run() {
                     };
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
-                    let mut s = settle_state.lock().unwrap();
-                    // 全屏提醒期间：鼠标键盘不计活跃，视为休息
-                    let active = if is_fullscreen {
-                        false
-                    } else {
-                        s.count >= 3 || media_active
+                    // 先短暂取出并清零键鼠计数，同时保存媒体/全屏快照，
+                    // 后续写 DB、提醒、Toast 都不再持有 ActivityState 锁。
+                    // 避免 Toast 定位读取同一个锁导致死锁。
+                    let count = {
+                        let mut s = settle_state.lock().unwrap();
+                        let count = s.count;
+                        s.count = 0;
+                        // 保存快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
+                        s.media_active_snapshot = media_active;
+                        s.fullscreen_snapshot = is_fullscreen;
+                        count
                     };
-                    // 保存快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
-                    s.media_active_snapshot = media_active;
-                    s.fullscreen_snapshot = is_fullscreen;
+
+                    // 全屏提醒期间：鼠标键盘不计活跃，视为休息
+                    let active = if is_fullscreen { false } else { count >= 3 || media_active };
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         eprintln!("Failed to write to database: {}", e);
                     }
-                    s.count = 0;
-                    drop(s);
 
                     // 读取配置
                     let window: i64 = db_clone
