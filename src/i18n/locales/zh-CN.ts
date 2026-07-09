@@ -100,6 +100,7 @@ export default {
       changelogDesc: '查看版本更新记录',
       issuesTitle: '问题反馈',
       issuesDesc: '报告 Bug 或建议新功能',
+      logsDesc: '打开日志目录，方便反馈问题',
     },
     language: {
       title: '语言',
@@ -165,6 +166,13 @@ export default {
     windowTitle: '窗口标题',
     appName: '应用名',
     processPath: '进程路径',
+    logTab: '运行日志',
+    logEmpty: '暂无日志，等待后端推送…',
+    logClear: '清空',
+    logFilterError: '错误',
+    logFilterWarn: '警告',
+    logFilterInfo: '信息',
+    openLogsDir: '日志目录',
   },
   timeline: {
     active: '活跃',

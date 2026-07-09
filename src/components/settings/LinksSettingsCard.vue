@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { openLogsDir } from '../../api/tauri'
+import { useMessage } from 'naive-ui'
 
 const { t } = useI18n()
+const message = useMessage()
 
 interface LinkItem {
-  url: string
+  url?: string
   title: string
   desc: string
   icon: string
   iconStyle: string
+  onClick?: () => void
 }
 
 const links: LinkItem[] = [
@@ -34,7 +38,28 @@ const links: LinkItem[] = [
     icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
     iconStyle: 'background:#FFFBEB;color:#F59E0B;',
   },
+  {
+    title: t('debug.openLogsDir'),
+    desc: t('settings.links.logsDesc'),
+    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+    iconStyle: 'background:#F5F3FF;color:#7C3AED;',
+    onClick: async () => {
+      try {
+        await openLogsDir()
+      } catch (e: any) {
+        message.error(e?.message || String(e))
+      }
+    },
+  },
 ]
+
+function handleClick(link: LinkItem) {
+  if (link.onClick) {
+    link.onClick()
+  } else if (link.url) {
+    openUrl(link.url)
+  }
+}
 </script>
 
 <template>
@@ -43,9 +68,9 @@ const links: LinkItem[] = [
     <div class="link-list">
       <div
         v-for="link in links"
-        :key="link.url"
+        :key="link.title"
         class="link-item"
-        @click="openUrl(link.url)"
+        @click="handleClick(link)"
       >
         <div class="link-icon" :style="link.iconStyle">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

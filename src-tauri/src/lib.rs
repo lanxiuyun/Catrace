@@ -1,4 +1,5 @@
 mod db;
+mod log;
 mod media_audio;
 mod reminder;
 mod reminder_toast;
@@ -286,6 +287,33 @@ fn set_media_whitelist_text(
     Ok(())
 }
 
+/** 打开日志目录，方便用户打包日志文件反馈问题。 */
+#[tauri::command]
+fn open_logs_dir() -> Result<(), String> {
+    if let Some(dir) = log::logs_dir() {
+        tauri_plugin_opener::open_path(dir, None::<&str>)
+            .map_err(|e| format!("Failed to open logs dir: {}", e))?;
+    }
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct FrontendLogPayload {
+    level: String,
+    message: String,
+}
+
+/** 接收前端 console 日志并写入同一日志文件。 */
+#[tauri::command]
+fn log_frontend(payload: FrontendLogPayload) {
+    let level = payload.level.as_str();
+    match level {
+        "error" => log_error!("frontend", "{}", payload.message),
+        "warn" => log_warn!("frontend", "{}", payload.message),
+        _ => log_info!("frontend", "{}", payload.message),
+    }
+}
+
 /** 获取 Toast 调试模式开关状态（默认 false）。 */
 #[tauri::command]
 fn get_toast_debug_mode(db: tauri::State<db::Db>) -> bool {
@@ -551,11 +579,7 @@ fn remove_bg_image_from_disk(app_data_dir: &Path) {
                 let path = entry.path();
                 if path.is_file() {
                     if let Err(e) = fs::remove_file(&path) {
-                        eprintln!(
-                            "[remove_bg_image_from_disk] failed to delete {}: {}",
-                            path.display(),
-                            e
-                        );
+                        log_error!("bg", "failed to delete {}: {}", path.display(), e);
                     }
                 }
             }
@@ -567,7 +591,7 @@ fn remove_bg_image_from_disk(app_data_dir: &Path) {
 fn file_path_to_data_url(file_path: &str) -> Option<String> {
     let path = Path::new(file_path);
     if !path.exists() {
-        eprintln!("[file_path_to_data_url] file does NOT exist: {}", file_path);
+        log_warn!("bg", "file does NOT exist: {}", file_path);
         return None;
     }
     let bytes = fs::read(path).ok()?;
@@ -636,10 +660,7 @@ fn set_fullscreen_settings(
                     .map_err(|e| e.to_string())?;
             }
             Err(e) => {
-                eprintln!(
-                    "[set_fullscreen_settings] ensure_default_bg failed: {}, clearing setting",
-                    e
-                );
+                log_error!("bg", "ensure_default_bg failed: {}, clearing setting", e);
                 db.set_setting("fullscreen_bg_image", "")
                     .map_err(|e| e.to_string())?;
             }
@@ -940,11 +961,11 @@ fn create_popup_window(
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {
-                    eprintln!("[PopupWindow] eval failed: {}", e);
+                    log_error!("popup-win", "eval failed: {}", e);
                 }
             }
             Err(e) => {
-                eprintln!("[PopupWindow] build failed: {}", e);
+                log_error!("popup-win", "build failed: {}", e);
             }
         }
     });
@@ -1013,11 +1034,11 @@ fn create_fullscreen_window(
             Ok(window) => {
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'fullscreen'; window.location.hash = '#/reminder-fullscreen';") {
-                    eprintln!("[FullscreenWindow] eval failed: {}", e);
+                    log_error!("fullscreen-win", "eval failed: {}", e);
                 }
             }
             Err(e) => {
-                eprintln!("[FullscreenWindow] build failed: {}", e);
+                log_error!("fullscreen-win", "build failed: {}", e);
             }
         }
     });
@@ -1103,9 +1124,12 @@ pub fn run() {
             let mouse_state = state.clone();
             let settle_state = state.clone();
 
-            // 初始化数据库
+            // 初始化统一日志系统（写入本地文件）
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
+            log::init(&app_data_dir);
+
+            // 初始化数据库
             let db_path = app_data_dir.join("catrace.db");
             let db = db::Db::new(&db_path).expect("Failed to initialize database");
 
@@ -1121,7 +1145,7 @@ pub fn run() {
                         Ok(default_path) => {
                             let _ = db.set_setting("fullscreen_bg_image", &default_path);
                         }
-                        Err(e) => eprintln!("[startup] ensure_default_bg failed: {}", e),
+                        Err(e) => log_error!("startup", "ensure_default_bg failed: {}", e),
                     }
                 }
             }
@@ -1149,7 +1173,7 @@ pub fn run() {
                 }
                 tokio::time::sleep(Duration::from_secs(3)).await;
                 if let Err(e) = check_update_and_notify(&update_app_handle).await {
-                    eprintln!("[update] auto check failed: {}", e);
+                    log_info!("update", "auto update check failed: {}", e);
                 }
             });
 
@@ -1221,8 +1245,10 @@ pub fn run() {
 
                     // 全屏提醒期间：鼠标键盘不计活跃，视为休息
                     let active = if is_fullscreen { false } else { count >= 3 || media_active };
+                    log_info!("settle", "ts={} count={} media={} fscreen={} active={}",
+                        timestamp, count, media_active, is_fullscreen, active);
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
-                        eprintln!("Failed to write to database: {}", e);
+                        log_error!("db", "Failed to write to database: {}", e);
                     }
 
                     // 读取配置
@@ -1285,7 +1311,7 @@ pub fn run() {
                                     }
                                 }
                             }
-                            Err(e) => eprintln!("Notification check failed: {}", e),
+                            Err(e) => log_error!("notify", "Notification check failed: {}", e),
                         }
                     } else {
                         // 当前分钟在休息 → 清除 snooze，不提醒
@@ -1396,6 +1422,8 @@ pub fn run() {
             set_media_whitelist_text,
             get_toast_debug_mode,
             set_toast_debug_mode,
+            open_logs_dir,
+            log_frontend,
             show_main_window,
             hide_main_window,
             get_today_stats,

@@ -100,6 +100,7 @@ export default {
       changelogDesc: 'View version update history',
       issuesTitle: 'Issue Feedback',
       issuesDesc: 'Report bugs or suggest new features',
+      logsDesc: 'Open logs folder for bug reports',
     },
     language: {
       title: 'Language',
@@ -165,6 +166,13 @@ export default {
     windowTitle: 'Window Title',
     appName: 'App Name',
     processPath: 'Process Path',
+    logTab: 'Runtime Log',
+    logEmpty: 'No logs yet, waiting for backend...',
+    logClear: 'Clear',
+    logFilterError: 'Error',
+    logFilterWarn: 'Warn',
+    logFilterInfo: 'Info',
+    openLogsDir: 'Logs Folder',
   },
   timeline: {
     active: 'Active',

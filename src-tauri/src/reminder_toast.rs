@@ -4,6 +4,7 @@ use std::time::Duration;
 use tauri::Manager;
 
 use crate::{window_manager, ReminderWindowData, ReminderWindowStore};
+use crate::log_error;
 
 const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
@@ -96,7 +97,7 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
                 let _ = window.hide();
             }
             Err(e) => {
-                eprintln!("[ToastWindow] prepare failed: {}", e);
+                log_error!("toast-win", "prepare failed: {}", e);
             }
         }
     });
@@ -190,7 +191,7 @@ pub fn create_toast_window(
                 let _ = window.eval(route_js);
             }
             Err(e) => {
-                eprintln!("[ToastWindow] build failed: {}", e);
+                log_error!("toast-win", "build failed: {}", e);
             }
         }
     });
@@ -262,7 +263,7 @@ pub fn create_update_toast_window(
                 let _ = window.eval(&js);
             }
             Err(e) => {
-                eprintln!("[ToastWindow] build failed: {}", e);
+                log_error!("toast-win", "build failed: {}", e);
             }
         }
     });

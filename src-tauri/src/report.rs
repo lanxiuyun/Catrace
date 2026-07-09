@@ -1,3 +1,5 @@
+use crate::log_info;
+use crate::log_error;
 use crate::db::Db;
 use chrono::SecondsFormat;
 use std::sync::OnceLock;
@@ -141,15 +143,9 @@ async fn do_report_app_start(
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
     if status.is_success() {
-        println!(
-            "[toolsetlink-report] app_start reported successfully: {}",
-            text
-        );
+        log_info!("report", "app_start reported successfully: {}", text);
     } else {
-        eprintln!(
-            "[toolsetlink-report] app_start report failed ({}): {}",
-            status, text
-        );
+        log_error!("report", "app_start report failed ({}): {}", status, text);
     }
     Ok(())
 }
@@ -158,12 +154,12 @@ async fn do_report_app_start(
 /// 该函数不阻塞启动流程，失败仅打印日志。
 pub fn spawn_report_app_start(app_handle: tauri::AppHandle, db: Db) {
     if cfg!(debug_assertions) {
-        println!("[toolsetlink-report] dev mode, skip app_start report");
+        log_info!("report", "dev mode, skip app_start report");
         return;
     }
     tauri::async_runtime::spawn(async move {
         if let Err(e) = do_report_app_start(&app_handle, &db).await {
-            eprintln!("[toolsetlink-report] failed to report app_start: {}", e);
+            log_error!("report", "failed to report app_start: {}", e);
         }
     });
 }

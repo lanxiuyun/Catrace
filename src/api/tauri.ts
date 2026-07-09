@@ -76,6 +76,16 @@ export async function getAppStats(): Promise<[string, number][]> {
   return invoke('get_app_stats')
 }
 
+/** 打开日志目录 */
+export async function openLogsDir(): Promise<void> {
+  return invoke('open_logs_dir')
+}
+
+/** 前端日志写入后端统一日志文件 */
+export async function logFrontend(level: 'info' | 'warn' | 'error', message: string): Promise<void> {
+  return invoke('log_frontend', { payload: { level, message } })
+}
+
 /** 发送一条测试 Toast 通知 */
 export async function testNotification(): Promise<void> {
   return invoke('test_notification')

@@ -72,6 +72,11 @@ features:
       - .agent/features/input-monitoring/README.md
     related:
       - platform-input
+  logging:
+    docs:
+      - .agent/features/logging/README.md
+    related:
+      - settings
 
 architecture:
   project-structure:
@@ -113,8 +118,9 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 devlog:
+  - .agent/devlog/2026-07-09-logging.md
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
   phase: 稳定运行
-  next: 无
+  next: 评估是否为日志增加单个文件大小限制

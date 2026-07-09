@@ -128,6 +128,17 @@ async function loadData() {
       map.set(ts, active);
     }
     records.value = map;
+
+    // macOS 诊断日志：排查每分钟活跃/休息记录异常
+    const activeCount = raw.filter(([, a]) => a).length;
+    const restCount = raw.filter(([, a]) => !a).length;
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    console.log(
+      `[${timeStr}] [dashboard] records=${raw.length} active=${activeCount} rest=${restCount} ` +
+      `stats_active=${stats.value.active_minutes} stats_rest=${stats.value.rest_minutes} ` +
+      `cfg_window=${config.value.window_minutes} cfg_break=${config.value.break_minutes}`,
+    );
   } catch (e) {
     console.error("Failed to load data", e);
   }

@@ -108,13 +108,13 @@ onDeactivated(() => {
   <div class="debug-page">
     <div class="page-header">
       <h2>{{ t('debug.title') }}</h2>
-      <n-space align="center" :size="16">
+      <div class="header-actions">
         <n-space align="center" :size="8">
           <span class="debug-switch-label">Toast 调试背景</span>
           <n-switch :value="toastDebugMode" @update:value="toggleToastDebugMode" />
         </n-space>
         <n-button size="small" :loading="loading" @click="refresh(true)">{{ t('debug.refresh') }}</n-button>
-      </n-space>
+      </div>
     </div>
 
     <n-space vertical :size="16">
@@ -238,7 +238,7 @@ onDeactivated(() => {
 
 <style scoped>
 .debug-page {
-  padding: 1.5rem;
+  padding: 1.25rem;
   max-width: 56.25rem;
 }
 
@@ -255,6 +255,17 @@ onDeactivated(() => {
   color: #2e1065;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.debug-switch-label {
+  font-size: 0.8125rem;
+  color: #6b5b8a;
+}
+
 .result-item {
   text-align: center;
 }
@@ -263,10 +274,5 @@ onDeactivated(() => {
   font-size: 0.75rem;
   color: #8b7aab;
   margin-bottom: 0.375rem;
-}
-
-.debug-switch-label {
-  font-size: 0.8125rem;
-  color: #6b5b8a;
 }
 </style>
