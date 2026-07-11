@@ -16,6 +16,7 @@
     "core:window:allow-inner-size",
     "core:window:allow-set-position",
     "core:window:allow-set-size",
-    "core:window:allow-scale-factor"
+    "core:window:allow-scale-factor",
+    "core:window:allow-current-monitor"
   ]
 }

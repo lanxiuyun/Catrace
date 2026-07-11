@@ -13,6 +13,7 @@
 - `src/components/settings/NotificationSettingsCard.vue` — 模式/全屏背景/文案/测试
 - `src/components/settings/LinksSettingsCard.vue` — 相关链接
 - `src/components/settings/WaterSettingsCard.vue` — 喝水提醒
+- `src/components/settings/EyeSettingsCard.vue` — 护眼提醒（绿色主题，与喝水蓝色区分）
 
 ## 卡片规范
 

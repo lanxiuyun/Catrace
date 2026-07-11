@@ -11,13 +11,14 @@ import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
 import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
 import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
+import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water'] as const
+const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water', 'eye'] as const
 type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'system', 'links']
+const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'eye', 'system', 'links']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
 const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
@@ -27,6 +28,7 @@ const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
   notification: NotificationSettingsCard,
   links: LinksSettingsCard,
   water: WaterSettingsCard,
+  eye: EyeSettingsCard,
 }
 
 let settingsStore: Store | null = null
@@ -70,7 +72,7 @@ function initSortable() {
     ghostClass: 'dragging',
     dragClass: 'drag-over',
     handle: '.drag-handle',
-    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, .water-test-btn, input, textarea, select, button, a',
+    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, .water-test-btn, .eye-test-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
       const keys = Array.from(grid.children)

@@ -146,9 +146,8 @@ pub fn test_water_notification(
 // ---------- 结算时检查 ----------
 
 /// 在每分钟结算时检查是否需要弹出喝水提醒。
-/// 仅在当前分钟活跃时检查；休息时不会打扰。
+/// 调用方保证当前分钟处于活跃状态（休息时不会调用）。
 pub fn check_and_notify(
-    active: bool,
     db: &db::Db,
     water_state: &Arc<Mutex<WaterReminderState>>,
     app_handle: &tauri::AppHandle,
@@ -156,7 +155,7 @@ pub fn check_and_notify(
     store: &ReminderWindowStore,
 ) {
     let water_enabled = db.get_setting("water_reminder_enabled", "true") == "true";
-    if !active || !water_enabled {
+    if !water_enabled {
         return;
     }
 

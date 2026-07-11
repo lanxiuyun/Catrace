@@ -36,7 +36,9 @@ tauri::WebviewUrl::App("index.html#/reminder-popup".into())
 
 - **复用**：同一 `reminder-toast` 标签窗口复用，新通知通过事件追加卡片
 - **尺寸自适应**：ResizeObserver 监听内容高度 → `adjustWindowSize()` 匹配窗口
-- **定位**：读取工作区，放在包含鼠标光标的显示器右下角
+- **定位**：读取工作区，放在包含鼠标光标的显示器右下角；窗口高度不超过工作区高度
+- **并发安全**：`reminder_toast.rs` 使用全局 `tokio::sync::Mutex` 串行化所有创建/显示/eval 操作，防止快速连续触发崩溃
+- **去重**：同一类非持久提醒（eye/water）只保留一个，避免重复堆叠
 - **调试**：`toast_debug_mode` 开启时前端 CSS 加半透明黄色背景，Rust 侧 `background_color` 始终透明
 - **休息计时**：Rust 每分钟推送 `catrace-rest-timer` 事件，前端渲染绿色液体球
 

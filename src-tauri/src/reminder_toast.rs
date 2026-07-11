@@ -1,5 +1,6 @@
 use device_query::DeviceQuery;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 use tauri::Manager;
 
@@ -10,6 +11,10 @@ const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
 // 与前端单条通知窗口高度保持一致：卡片 180px + 上下 padding 各 20px
 const TOAST_WINDOW_MIN_HEIGHT: f64 = 220.0;
+
+/// 全局异步锁，串行化所有 Toast 窗口的创建/显示/追加操作。
+/// 防止快速连续触发时并发操作 WebviewWindow 导致崩溃。
+static TOAST_MUTEX: Mutex<()> = Mutex::const_new(());
 
 /// 计算并设置 toast 窗口为右下角初始尺寸。
 /// 窗口宽度固定 360px，高度固定为单条通知高度，贴靠屏幕右下角。
@@ -132,20 +137,19 @@ pub fn create_toast_window(
         .insert(TOAST_WINDOW_LABEL.to_string(), data.clone());
 
     let app = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
+        let _guard = TOAST_MUTEX.lock().await;
 
-    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
-    if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
-        let payload = serde_json::json!({
-            "kind": data.kind,
-            "boundary": data.boundary,
-            "title": data.title,
-            "body": data.body,
-        });
-        let app = app_handle.clone();
-        // position_toast_window / eval / show_reminder_no_activate 都涉及 WebviewWindow 操作，
-        // 在 Windows 上部分 API 要求主线程；通过 async_runtime 确保它们跑在主线程。
-        tauri::async_runtime::spawn(async move {
-            let _ = position_toast_window(&window, &app);
+        // 窗口已存在：前端会在 adjustWindowSize 里自己贴到当前显示器右下角，
+        // Rust 端只需追加通知并显示，避免两边 reposition 打架。
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let payload = serde_json::json!({
+                "kind": data.kind,
+                "boundary": data.boundary,
+                "title": data.title,
+                "body": data.body,
+            });
             let js = format!(
                 "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
                 payload
@@ -155,12 +159,15 @@ pub fn create_toast_window(
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
             let _ = window.eval(route_js);
             window_manager::show_reminder_no_activate(&app, &window);
-        });
-        return;
-    }
+            return;
+        }
 
-    // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
-    tauri::async_runtime::spawn(async move {
+        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
+        // 加锁期间二次检查，避免重复创建窗口
+        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            return;
+        }
+
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             TOAST_WINDOW_LABEL,
@@ -215,23 +222,25 @@ pub fn create_update_toast_window(
         payload
     );
 
-    // 窗口已存在：先重新定位到正确显示器的右下角，再追加通知
-    if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
-        let app = app_handle.clone();
-        let js_payload = js.clone();
-        // WebviewWindow 操作需要跑在主线程，避免调用方不在主线程时崩溃。
-        tauri::async_runtime::spawn(async move {
-            let _ = position_toast_window(&window, &app);
-            let _ = window.eval(&js_payload);
+    tauri::async_runtime::spawn(async move {
+        // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
+        let _guard = TOAST_MUTEX.lock().await;
+
+        // 窗口已存在：前端会自己定位，Rust 端只追加通知并显示
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let _ = window.eval(&js);
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
             let _ = window.eval(route_js);
             window_manager::show_reminder_no_activate(&app, &window);
-        });
-        return;
-    }
+            return;
+        }
 
-    // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
-    tauri::async_runtime::spawn(async move {
+        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
+        // 加锁期间二次检查，避免重复创建窗口
+        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            return;
+        }
+
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             TOAST_WINDOW_LABEL,

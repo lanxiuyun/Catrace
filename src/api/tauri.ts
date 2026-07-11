@@ -106,6 +106,34 @@ export async function testWaterNotification(): Promise<void> {
   return invoke('test_water_notification')
 }
 
+export interface EyeSettings {
+  enabled: boolean
+  interval_minutes: number
+}
+
+export async function getEyeSettings(): Promise<EyeSettings> {
+  return invoke('get_eye_settings')
+}
+
+export async function setEyeSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
+  return invoke('set_eye_settings', { enabled, intervalMinutes })
+}
+
+/** 发送一条测试护眼提醒 */
+export async function testEyeNotification(): Promise<void> {
+  return invoke('test_eye_notification')
+}
+
+/** 推迟护眼提醒 N 分钟 */
+export async function snoozeEyeReminder(minutes: number): Promise<void> {
+  return invoke('snooze_eye_reminder', { minutes })
+}
+
+/** 跳过本次护眼提醒 */
+export async function skipEyeReminder(): Promise<void> {
+  return invoke('skip_eye_reminder')
+}
+
 export interface WaterSettings {
   enabled: boolean
   interval_minutes: number

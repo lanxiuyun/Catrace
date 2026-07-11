@@ -229,6 +229,50 @@ impl Db {
         Ok(result)
     }
 
+    /// 获取今天最近一次「真正休息」结束的时间戳。
+    /// 「真正休息」定义为连续不活跃分钟数 >= break_minutes，且相邻记录间隔不超过 60 秒。
+    /// 若今天没有真正休息，返回 None。
+    pub fn get_last_real_rest_ts(&self, break_minutes: i64) -> Result<Option<i64>> {
+        let conn = self.conn.lock().unwrap();
+        let start_of_day = start_of_day_ts();
+
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, is_active FROM records WHERE timestamp >= ?1 ORDER BY timestamp DESC",
+        )?;
+        let mut rows = stmt.query([start_of_day])?;
+
+        let mut streak = 0usize;
+        let mut last_rest_ts: Option<i64> = None;
+        let mut prev_ts: Option<i64> = None;
+
+        while let Some(row) = rows.next()? {
+            let ts: i64 = row.get(0)?;
+            let active: bool = row.get::<_, i32>(1)? == 1;
+
+            if let Some(prev) = prev_ts {
+                if prev - ts > 60 {
+                    break;
+                }
+            }
+
+            if !active {
+                if streak == 0 {
+                    last_rest_ts = Some(ts);
+                }
+                streak += 1;
+                if streak >= break_minutes as usize {
+                    return Ok(last_rest_ts);
+                }
+            } else {
+                streak = 0;
+                last_rest_ts = None;
+            }
+            prev_ts = Some(ts);
+        }
+
+        Ok(None)
+    }
+
     /// 获取今天从最新记录开始向前的连续休息分钟数，以及这段休息的起始时间戳。
     /// 只以真实数据库记录为准，不填充应用未运行期间的缺失分钟。
     /// 若最新记录为活跃或没有记录，返回 (0, 0)。
@@ -719,6 +763,48 @@ mod tests {
         assert_eq!(blocks[0].start, 0);
         assert_eq!(blocks[0].end, 20);
         assert_eq!(current, 20);
+    }
+
+    #[test]
+    fn test_get_last_real_rest_ts() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+
+        // 无记录
+        assert_eq!(db.get_last_real_rest_ts(5).unwrap(), None);
+
+        // 休息 3 分钟，不够 5
+        for i in 0..3 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        assert_eq!(db.get_last_real_rest_ts(5).unwrap(), None);
+
+        // 继续休息到 5
+        for i in 3..5 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        // 最近一次真正休息的结束时间为 base + 4*60
+        assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 4 * 60));
+
+        // 之后活跃，再休息 6 分钟
+        for i in 5..10 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        for i in 10..16 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 15 * 60));
+
+        // 间隔空缺不应跨越
+        for i in 16..20 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        // 与之前休息间隔为 5 分钟
+        for i in 25..30 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        // 本次只休息 5 分钟，结束于 base + 29*60
+        assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 29 * 60));
     }
 
     #[test]

@@ -13,13 +13,16 @@ features:
     related:
       - reminder
       - toast-window
+      - eye-reminder
   toast-window:
     docs:
       - .agent/features/toast-window/README.md
       - .agent/features/toast-window/development-notes.md
+      - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
     related:
       - reminder
       - water-reminder
+      - eye-reminder
       - fullscreen-reminder
       - platform-input
   fullscreen-reminder:
@@ -77,6 +80,14 @@ features:
       - .agent/features/logging/README.md
     related:
       - settings
+  eye-reminder:
+    docs:
+      - .agent/features/eye-reminder/README.md
+    related:
+      - reminder
+      - water-reminder
+      - toast-window
+      - i18n
 
 architecture:
   project-structure:
@@ -117,10 +128,17 @@ decisions:
   - .agent/decisions/popup-removal-pending.md
   - .agent/decisions/window-focus-refactor.md
 
+bugs:
+  - .agent/bugs/2026-07-10-toast-concurrent-crash.md
+  - .agent/bugs/2026-07-10-toast-stacking-display.md
+
 devlog:
+  - .agent/devlog/2026-07-11-eye-toast-snooze-skip-buttons.md
+  - .agent/devlog/2026-07-10-eye-reminder-rest-reset.md
+  - .agent/devlog/2026-07-10-eye-reminder.md
   - .agent/devlog/2026-07-09-logging.md
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: 稳定运行
-  next: 评估是否为日志增加单个文件大小限制
+  phase: 护眼 Toast 卡片增加「稍后5分钟 / 跳过本次」按钮，状态机新增 snooze
+  next: 按需拆分喝水/休息/更新等其余 Toast 卡片类型

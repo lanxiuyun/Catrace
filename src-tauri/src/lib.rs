@@ -1,4 +1,5 @@
 mod db;
+mod eye;
 mod log;
 mod media_audio;
 mod reminder;
@@ -101,6 +102,7 @@ async fn get_activity_snapshot(
     })
 }
 
+use eye::EyeReminderState;
 use reminder::ReminderState;
 use water::WaterReminderState;
 
@@ -1100,6 +1102,8 @@ pub fn run() {
 
     let reminder_state_clone = reminder_state.clone();
     let water_state_clone = water_state.clone();
+    let eye_state = Arc::new(Mutex::new(EyeReminderState::default()));
+    let eye_state_clone = eye_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
@@ -1157,6 +1161,7 @@ pub fn run() {
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
             app.manage(water_state_clone.clone());
+            app.manage(eye_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
@@ -1197,6 +1202,7 @@ pub fn run() {
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
             let water_state_for_settle = water_state_clone.clone();
+            let eye_state_for_settle = eye_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
@@ -1343,14 +1349,25 @@ pub fn run() {
                     }
 
                     // 喝水提醒逻辑（仅在当前分钟活跃时检查）
-                    water::check_and_notify(
-                        active,
-                        &db_clone,
-                        &water_state_for_settle,
-                        &app_handle,
-                        &locale,
-                        &store_for_settle,
-                    );
+                    if active {
+                        water::check_and_notify(
+                            &db_clone,
+                            &water_state_for_settle,
+                            &app_handle,
+                            &locale,
+                            &store_for_settle,
+                        );
+
+                        // 护眼提醒逻辑（仅在当前分钟活跃时检查）
+                        eye::check_and_notify(
+                            break_m,
+                            &db_clone,
+                            &eye_state_for_settle,
+                            &app_handle,
+                            &locale,
+                            &store_for_settle,
+                        );
+                    }
                 }
             });
 
@@ -1433,6 +1450,11 @@ pub fn run() {
             start_notification_test,
             stop_notification_test,
             water::test_water_notification,
+            eye::get_eye_settings,
+            eye::set_eye_settings,
+            eye::test_eye_notification,
+            eye::snooze_eye_reminder,
+            eye::skip_eye_reminder,
             get_media_debug_info,
             get_activity_snapshot,
             dismiss_rest_timer,
