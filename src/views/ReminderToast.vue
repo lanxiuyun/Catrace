@@ -683,7 +683,7 @@ async function handleUpdateInstall(item: ToastItem) {
   if (item.updateInstalling) return
   item.updateInstalling = true
   try {
-    const update = await check()
+    const update = await check({ timeout: 10000 })
     if (!update) {
       item.body = t('settings.messages.noUpdateFound')
       return

@@ -114,7 +114,7 @@ async function changeLocale(val: string) {
 async function handleCheckUpdate() {
   updateLoading.value = true
   try {
-    const update = await check()
+    const update = await check({ timeout: 10000 })
     if (update) {
       updateInfo.value = { available: true, version: update.version, body: update.body || '' }
       message.info(t('settings.update.newVersion', { version: update.version }))
@@ -136,7 +136,7 @@ async function handleInstallUpdate() {
   downloadTotal.value = 0
   downloadReceived.value = 0
   try {
-    const update = await check()
+    const update = await check({ timeout: 10000 })
     if (!update) {
       message.warning(t('settings.messages.noUpdateFound'))
       return

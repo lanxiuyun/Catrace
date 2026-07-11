@@ -1053,7 +1053,10 @@ fn create_fullscreen_window(
 async fn check_update_and_notify(
     app_handle: &tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let updater = app_handle.updater_builder().build()?;
+    let updater = app_handle
+        .updater_builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
     if let Some(update) = updater.check().await? {
         let version = update.version.clone();
         let changelog = update.body.clone().unwrap_or_default();
