@@ -127,6 +127,6 @@ jobs:
               "app_type": "tauri",
               "request": {
                 "app_key": "${{ secrets.UPGRADE_LINK_APP_KEY }}",
-                "latest_json_url": "https://github.com/lanxiuyunO/Catrace/releases/download/v${{ needs.get-version.outputs.appVersion }}/latest.json"
+                "latest_json_url": "https://github.com/lanxiuyun/Catrace/releases/download/v${{ needs.get-version.outputs.appVersion }}/latest.json"
               }
             }

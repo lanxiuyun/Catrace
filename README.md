@@ -2,7 +2,7 @@
 
 [English](README_EN.md) | 中文
 
-🏠 官网主页：https://lanxiuyunO.github.io/Catrace
+🏠 官网主页：https://lanxiuyun.github.io/Catrace
 
 一个帮你平衡工作与休息的小工具。
 

@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-🏠 Homepage: https://lanxiuyunO.github.io/Catrace
+🏠 Homepage: https://lanxiuyun.github.io/Catrace
 
 A small tool that helps you balance work and rest.
 
