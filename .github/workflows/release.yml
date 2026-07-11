@@ -106,3 +106,35 @@ jobs:
           prerelease: false
           generateReleaseNotes: false
           args: ${{ matrix.args }}
+
+  # 将 latest.json 里的 GitHub 直链改写为 ghproxy 代理，方便国内用户下载
+  rewrite-latest-json:
+    needs:
+      - get-version
+      - publish-tauri
+    if: ${{ !cancelled() && needs.get-version.result == 'success' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest.json from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "v${{ needs.get-version.outputs.appVersion }}" \
+            --pattern "latest.json" \
+            --dir . \
+            --clobber
+
+      - name: Rewrite URLs to use ghproxy
+        run: |
+          # 把 https://github.com/... 替换为 https://ghproxy.net/https://github.com/...
+          sed -i 's|"url": "https://github.com/|"url": "https://ghproxy.net/https://github.com/|g' latest.json
+          echo "--- rewritten latest.json ---"
+          cat latest.json
+
+      - name: Upload rewritten latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.get-version.outputs.appVersion }}" latest.json --clobber
