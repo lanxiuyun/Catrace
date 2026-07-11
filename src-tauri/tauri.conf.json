@@ -42,11 +42,9 @@
   },
   "plugins": {
     "updater": {
-      "dangerousInsecureTransportProtocol": true,
-      "dangerousAcceptInvalidCerts": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVENTUzREIxOTNGQjRERTMKUldUalRmdVRzVDFWN2ZNUHExUys5dHZ4RDZlWVpvdmVySExOUEF3Um9QaDdxc1JCODEvMGM5VmkK",
       "endpoints": [
-        "https://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=61JFztFHDmB_pGMdySezXg&versionName={{current_version}}&appointVersionName=&devModelKey=&devKey=&target={{target}}&arch={{arch}}"
+        "https://github.com/lanxiuyun/Catrace/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

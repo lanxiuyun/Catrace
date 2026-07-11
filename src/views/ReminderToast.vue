@@ -683,9 +683,7 @@ async function handleUpdateInstall(item: ToastItem) {
   if (item.updateInstalling) return
   item.updateInstalling = true
   try {
-    const update = await check({
-      headers: { 'X-AccessKey': '9SzxzOb3pQgkOB-LU-QU1Q' },
-    })
+    const update = await check()
     if (!update) {
       item.body = t('settings.messages.noUpdateFound')
       return
