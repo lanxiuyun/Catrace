@@ -130,35 +130,35 @@ async function uninstall(agent: string) {
       <n-switch :value="enabled" :loading="enabledLoading" @update:value="toggleEnabled" />
     </setting-row>
 
-    <div class="divider" />
-
-    <div class="agents-header">
-      <div class="events-title">{{ t('settings.agent.hookTitle') }}</div>
-      <div class="events-desc">{{ t('settings.agent.hookDesc') }}</div>
-    </div>
-
-    <div v-for="agent in agents" :key="agent" class="event-row">
-      <div class="agent-label">
-        <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
-        <n-tag v-if="installedMap[agent]" type="success" size="small">
-          {{ t('settings.agent.installed') }}
-        </n-tag>
-        <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
-      </div>
-      <n-button
-        v-if="!installedMap[agent]"
-        size="small"
-        :loading="busyMap[agent]"
-        @click="install(agent)"
-      >
-        {{ t('settings.agent.installBtn') }}
-      </n-button>
-      <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
-        {{ t('settings.agent.uninstallBtn') }}
-      </n-button>
-    </div>
-
     <template v-if="enabled">
+      <div class="divider" />
+
+      <div class="agents-header">
+        <div class="events-title">{{ t('settings.agent.hookTitle') }}</div>
+        <div class="events-desc">{{ t('settings.agent.hookDesc') }}</div>
+      </div>
+
+      <div v-for="agent in agents" :key="agent" class="event-row">
+        <div class="agent-label">
+          <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
+          <n-tag v-if="installedMap[agent]" type="success" size="small">
+            {{ t('settings.agent.installed') }}
+          </n-tag>
+          <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
+        </div>
+        <n-button
+          v-if="!installedMap[agent]"
+          size="small"
+          :loading="busyMap[agent]"
+          @click="install(agent)"
+        >
+          {{ t('settings.agent.installBtn') }}
+        </n-button>
+        <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
+          {{ t('settings.agent.uninstallBtn') }}
+        </n-button>
+      </div>
+
       <div class="divider" />
 
       <div class="events-header">
