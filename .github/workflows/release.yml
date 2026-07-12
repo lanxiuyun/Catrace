@@ -117,6 +117,8 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download latest.json from release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
