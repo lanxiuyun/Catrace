@@ -10,7 +10,7 @@
 - sticky 行为：不去重（后端）、不自动消失、无进度条、hover 不干预、只能手动关；多个 sticky 事件合并进同一张卡片（「N 个会话在等你」）
 - 安装器按 agent 分发：Codex（hooks.json + config.toml feature key）、Gemini（settings.json 带 name entry）、Kimi（双代 TOML [[hooks]] 块）
 - hook 脚本事件别名映射（BeforeAgent→UserPromptSubmit 等），并改名 .cjs 修复仓库内 ESM 误识别
-- 设置页 agent 列表循环渲染
+- 设置页 agent 列表循环渲染；总开关关闭时隐藏安装列表和事件策略（单个 `v-if="enabled"` 包住两块）
 
 ## 遗留
 

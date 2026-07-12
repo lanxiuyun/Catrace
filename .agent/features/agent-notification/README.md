@@ -17,7 +17,7 @@ agent 触发 hook → 释放到 app_data_dir/hooks/catrace-agent-hook.cjs 的 No
 - `src-tauri/resources/catrace-agent-hook.cjs` — hook 脚本（`include_bytes!` 内嵌，安装时释放到 app_data_dir）；**必须 .cjs**：仓库根 package.json 带 `type:module`，.js 会被 Node 当 ESM 导致 require 崩溃
 - `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window(event, state, mode)`
 - `src/views/ReminderToast.vue` — agent 卡片渲染、sticky 常驻、多卡合并
-- `src/components/settings/AgentSettingsCard.vue` — 设置页：全局开关、agent 安装列表、事件策略
+- `src/components/settings/AgentSettingsCard.vue` — 设置页：全局开关、agent 安装列表、事件策略；开关关闭时安装列表和事件策略整段隐藏（单个 `v-if="enabled"` 包住）
 - `src/api/tauri.ts` — 前端 invoke 封装
 
 ## 子文档
