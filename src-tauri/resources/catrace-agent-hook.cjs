@@ -10,6 +10,15 @@ const CATRACE_PORT = 23456;
 const STDIN_READ_TIMEOUT_MS = 2000;
 const POST_TIMEOUT_MS = 500;
 
+// 各 agent 事件名归一化到 Claude Code 语义（未列出的事件直接忽略）
+const EVENT_ALIASES = {
+  // Gemini CLI
+  BeforeAgent: "UserPromptSubmit",
+  AfterAgent: "Stop",
+  // Kimi（旧 CLI 无 StopFailure，用工具失败兜底）
+  PostToolUseFailure: "StopFailure",
+};
+
 // 未映射的事件（PreToolUse 等高频事件）直接忽略
 const EVENT_TO_STATE = {
   SessionStart: "idle",
@@ -47,8 +56,9 @@ async function main() {
   }
 
   // Claude Code 不会把事件名放在 argv，而是放在 stdin JSON 的 hook_event_name 里；
-  // argv[2] 仅作为手动调试时的兜底
-  const event = process.argv[2] || payload.hook_event_name;
+  // argv[2] 仅作为手动调试时的兜底。Gemini/Kimi 事件名先归一化。
+  const rawEvent = process.argv[2] || payload.hook_event_name;
+  const event = EVENT_ALIASES[rawEvent] || rawEvent;
   const state = EVENT_TO_STATE[event];
   if (!state) process.exit(0);
 
