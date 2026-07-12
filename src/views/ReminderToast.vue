@@ -26,7 +26,7 @@ import EyeToastCard from '../components/EyeToastCard.vue'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer'
+type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent'
 
 interface ToastItem {
   id: number
@@ -48,6 +48,9 @@ interface ToastItem {
   downloadProgress?: number
   downloadTotal?: number
   downloadReceived?: number
+  // agent fields
+  event?: string
+  agentState?: string
   // rest timer fields
   breakMinutes?: number
   restStartTs?: number
@@ -126,6 +129,8 @@ onMounted(async () => {
     body?: string
     version?: string
     updateBody?: string
+    event?: string
+    agentState?: string
   }) => {
     addNotification({
       kind: payload.kind || 'rest',
@@ -134,6 +139,8 @@ onMounted(async () => {
       body: payload.body || '',
       version: payload.version,
       updateBody: payload.updateBody,
+      event: payload.event,
+      agentState: payload.agentState,
     })
   }
 
@@ -380,6 +387,8 @@ async function addNotification(payload: {
   body?: string
   version?: string
   updateBody?: string
+  event?: string
+  agentState?: string
 }) {
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
@@ -389,11 +398,12 @@ async function addNotification(payload: {
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
   const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
+  const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
     id,
     kind: payload.kind,
-    title: payload.title || '',
-    body: payload.body || '',
+    title: isAgent ? getAgentTitle(payload.event) : payload.title || '',
+    body: isAgent ? getAgentBody(payload.event) : payload.body || '',
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
@@ -407,6 +417,8 @@ async function addNotification(payload: {
     downloadProgress: 0,
     downloadTotal: 0,
     downloadReceived: 0,
+    event: payload.event,
+    agentState: payload.agentState,
     totalMs: autoHideMs,
   }
 
@@ -667,6 +679,28 @@ function toggleUpdateDetails(item: ToastItem) {
   nextTick(() => adjustWindowSize())
 }
 
+function getAgentTitle(event?: string): string {
+  const keyMap: Record<string, string> = {
+    SessionStart: 'agent.titleIdle',
+    UserPromptSubmit: 'agent.titleThinking',
+    Stop: 'agent.titleAttention',
+    StopFailure: 'agent.titleError',
+    Notification: 'agent.titleNotification',
+  }
+  return t(keyMap[event || ''] || 'agent.titleDefault')
+}
+
+function getAgentBody(event?: string): string {
+  const keyMap: Record<string, string> = {
+    SessionStart: 'agent.bodyIdle',
+    UserPromptSubmit: 'agent.bodyThinking',
+    Stop: 'agent.bodyAttention',
+    StopFailure: 'agent.bodyError',
+    Notification: 'agent.bodyNotification',
+  }
+  return t(keyMap[event || ''] || 'agent.bodyDefault')
+}
+
 async function handleClose(item: ToastItem) {
   // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
   if (item.kind === 'rest-timer') {
@@ -730,6 +764,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-eye': item.kind === 'eye',
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
+          'toast-card-agent': item.kind === 'agent',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -1019,6 +1054,28 @@ async function handleUpdateInstall(item: ToastItem) {
   .liquid-ball {
     animation: none;
   }
+}
+
+/* Agent notification theming — cyan accent */
+.toast-card-agent .pulse-dot {
+  background: #06B6D4;
+}
+
+.toast-card-agent .progress-bar {
+  background: linear-gradient(90deg, #0891B2, #22D3EE);
+}
+
+.toast-card-agent .title {
+  color: #155E75;
+}
+
+.toast-card-agent .close-btn:hover {
+  background: #ECFEFF;
+  color: #0891B2;
+}
+
+.toast-card-agent .body-text {
+  color: #0E7490;
 }
 
 /* Update reminder theming — matches reference image orange accent */

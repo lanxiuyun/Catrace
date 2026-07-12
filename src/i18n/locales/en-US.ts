@@ -35,6 +35,7 @@ export default {
       update: 'Software Update',
       system: 'System',
       links: 'Related Links',
+      agent: 'Agent Notifications',
     },
     reminder: {
       windowTitle: 'Active Duration',
@@ -111,6 +112,20 @@ export default {
     language: {
       title: 'Language',
       desc: 'Choose the display language',
+    },
+    agent: {
+      enabledTitle: 'Agent Status Notifications',
+      enabledDesc: 'Show a toast when an AI assistant (e.g. Claude Code) changes state',
+      hookTitle: 'Claude Code Integration',
+      hookDesc: 'Write hooks into ~/.claude/settings.json so Claude Code pushes status to Catrace',
+      installBtn: 'Install Hooks',
+      uninstallBtn: 'Uninstall Hooks',
+      installed: 'Installed',
+      notInstalled: 'Not installed',
+      installSuccess: 'Hooks installed',
+      installFailed: 'Install failed',
+      uninstallSuccess: 'Hooks uninstalled',
+      uninstallFailed: 'Uninstall failed',
     },
     messages: {
       saved: 'Saved',
@@ -230,5 +245,19 @@ export default {
     at: '{time}',
     times: 'drinks',
     now: 'now',
+  },
+  agent: {
+    titleIdle: 'AI Assistant Ready',
+    titleThinking: 'AI Assistant Working',
+    titleAttention: 'AI Assistant Finished',
+    titleError: 'AI Assistant Error',
+    titleNotification: 'AI Assistant Notification',
+    titleDefault: 'AI Assistant',
+    bodyIdle: 'Claude Code session started',
+    bodyThinking: 'Claude Code is working on your request',
+    bodyAttention: 'Claude Code finished this turn',
+    bodyError: 'Claude Code stopped with an error, check the terminal',
+    bodyNotification: 'Claude Code sent a notification',
+    bodyDefault: 'Claude Code status updated',
   },
 }

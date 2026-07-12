@@ -204,6 +204,74 @@ pub fn create_toast_window(
     });
 }
 
+/// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
+/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=agent 的通知。
+pub fn create_agent_toast_window(app_handle: &tauri::AppHandle, event: &str, state: &str) {
+    let app = app_handle.clone();
+    let payload = serde_json::json!({
+        "kind": "agent",
+        "event": event,
+        "agentState": state,
+    });
+    let js = format!(
+        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+        payload
+    );
+
+    tauri::async_runtime::spawn(async move {
+        // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
+        let _guard = TOAST_MUTEX.lock().await;
+
+        // 窗口已存在：前端会自己定位，Rust 端只追加通知并显示
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let _ = window.eval(&js);
+            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+            let _ = window.eval(route_js);
+            window_manager::show_reminder_no_activate(&app, &window);
+            return;
+        }
+
+        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
+        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            return;
+        }
+
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                let _ = position_toast_window(&window, &app);
+                window_manager::show_reminder_no_activate(&app, &window);
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
+                let _ = window.eval(&js);
+            }
+            Err(e) => {
+                log_error!("toast-win", "build failed: {}", e);
+            }
+        }
+    });
+}
+
 /// 弹出「发现新版本」更新通知 Toast。
 /// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=update 的通知。
 pub fn create_update_toast_window(

@@ -334,3 +334,30 @@ export async function hideWindow(label: string): Promise<void> {
 export async function setWindowActiveMode(label: string, active: boolean): Promise<void> {
   return invoke('plugin:catrace-window|set_window_active_mode', { label, active })
 }
+
+// ---------- Agent 通知 ----------
+
+/** 获取 agent 通知开关 */
+export async function getAgentNotificationEnabled(): Promise<boolean> {
+  return invoke('get_agent_notification_enabled')
+}
+
+/** 设置 agent 通知开关 */
+export async function setAgentNotificationEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_agent_notification_enabled', { enabled })
+}
+
+/** 一键安装 Claude Code hook 到 ~/.claude/settings.json */
+export async function installAgentHooks(): Promise<{ installed_events: string[] }> {
+  return invoke('install_agent_hooks')
+}
+
+/** 卸载 Claude Code hook */
+export async function uninstallAgentHooks(): Promise<{ removed: number }> {
+  return invoke('uninstall_agent_hooks')
+}
+
+/** 检测 hook 是否已安装 */
+export async function isAgentHookInstalled(): Promise<boolean> {
+  return invoke('is_agent_hook_installed')
+}

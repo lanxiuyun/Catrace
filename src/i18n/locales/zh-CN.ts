@@ -35,6 +35,7 @@ export default {
       update: '软件更新',
       system: '系统',
       links: '相关链接',
+      agent: 'Agent 通知',
     },
     reminder: {
       windowTitle: '连续活跃时长',
@@ -111,6 +112,20 @@ export default {
     language: {
       title: '语言',
       desc: '选择界面显示语言',
+    },
+    agent: {
+      enabledTitle: 'Agent 状态通知',
+      enabledDesc: 'AI 助手（如 Claude Code）状态变化时弹出通知卡片',
+      hookTitle: 'Claude Code 联动',
+      hookDesc: '一键写入 ~/.claude/settings.json，让 Claude Code 把状态推送到 Catrace',
+      installBtn: '安装 Hook',
+      uninstallBtn: '卸载 Hook',
+      installed: '已安装',
+      notInstalled: '未安装',
+      installSuccess: 'Hook 已安装',
+      installFailed: '安装失败',
+      uninstallSuccess: 'Hook 已卸载',
+      uninstallFailed: '卸载失败',
     },
     messages: {
       saved: '已保存',
@@ -230,5 +245,19 @@ export default {
     at: '{time}',
     times: '次',
     now: '现在',
+  },
+  agent: {
+    titleIdle: 'AI 助手已就绪',
+    titleThinking: 'AI 助手工作中',
+    titleAttention: 'AI 助手完成了任务',
+    titleError: 'AI 助手遇到错误',
+    titleNotification: 'AI 助手通知',
+    titleDefault: 'AI 助手',
+    bodyIdle: 'Claude Code 会话已开始',
+    bodyThinking: 'Claude Code 正在处理你的请求',
+    bodyAttention: 'Claude Code 已完成本轮任务',
+    bodyError: 'Claude Code 执行中断，请查看终端',
+    bodyNotification: 'Claude Code 发来一条通知',
+    bodyDefault: 'Claude Code 状态已更新',
   },
 }

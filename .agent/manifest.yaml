@@ -122,6 +122,8 @@ reference:
   - .agent/reference/test-strategy.md
   - .agent/reference/config-reference.md
   - .agent/reference/version-management.md
+  - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
+  - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
   - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md

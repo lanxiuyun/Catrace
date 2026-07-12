@@ -1,3 +1,4 @@
+mod agent_hook;
 mod db;
 mod eye;
 mod log;
@@ -1170,6 +1171,9 @@ pub fn run() {
             // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
             reminder_toast::prepare_toast_window(app.app_handle());
 
+            // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
+            agent_hook::start_server(app.app_handle().clone(), db.clone());
+
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1475,6 +1479,11 @@ pub fn run() {
             water::delete_last_water,
             water::snooze_water_reminder,
             water::skip_water_reminder,
+            agent_hook::get_agent_notification_enabled,
+            agent_hook::set_agent_notification_enabled,
+            agent_hook::install_agent_hooks,
+            agent_hook::uninstall_agent_hooks,
+            agent_hook::is_agent_hook_installed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
