@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NTag, useMessage } from 'naive-ui'
+import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, useMessage } from 'naive-ui'
 import {
   getAgentNotificationEnabled,
   setAgentNotificationEnabled,
   installAgentHooks,
   uninstallAgentHooks,
   isAgentHookInstalled,
+  getAgentEventModes,
+  setAgentEventMode,
+  type AgentEventMode,
+  type AgentEventModeEntry,
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
@@ -19,6 +23,16 @@ const enabledLoading = ref(false)
 const installed = ref(false)
 const installing = ref(false)
 const uninstalling = ref(false)
+const eventModes = ref<AgentEventModeEntry[]>([])
+const modeLoading = ref<Record<string, boolean>>({})
+
+const eventNameKeys: Record<string, string> = {
+  SessionStart: 'settings.agent.eventSessionStart',
+  UserPromptSubmit: 'settings.agent.eventUserPromptSubmit',
+  Stop: 'settings.agent.eventStop',
+  StopFailure: 'settings.agent.eventStopFailure',
+  Notification: 'settings.agent.eventNotification',
+}
 
 onMounted(async () => {
   try {
@@ -28,6 +42,11 @@ onMounted(async () => {
   }
   try {
     installed.value = await isAgentHookInstalled()
+  } catch {
+    // ignore
+  }
+  try {
+    eventModes.value = await getAgentEventModes()
   } catch {
     // ignore
   }
@@ -43,6 +62,22 @@ async function toggleEnabled(val: boolean) {
     message.error(t('settings.messages.saveFailed'))
   } finally {
     enabledLoading.value = false
+  }
+}
+
+async function changeMode(event: string, mode: AgentEventMode) {
+  modeLoading.value[event] = true
+  const prev = eventModes.value.find((e) => e.event === event)?.mode
+  try {
+    await setAgentEventMode(event, mode)
+    const entry = eventModes.value.find((e) => e.event === event)
+    if (entry) entry.mode = mode
+  } catch {
+    message.error(t('settings.messages.saveFailed'))
+    const entry = eventModes.value.find((e) => e.event === event)
+    if (entry && prev) entry.mode = prev
+  } finally {
+    modeLoading.value[event] = false
   }
 }
 
@@ -95,6 +130,29 @@ async function uninstall() {
         </n-button>
       </div>
     </setting-row>
+
+    <template v-if="enabled">
+      <div class="divider" />
+
+      <div class="events-header">
+        <div class="events-title">{{ t('settings.agent.eventsTitle') }}</div>
+        <div class="events-desc">{{ t('settings.agent.eventsDesc') }}</div>
+      </div>
+
+      <div v-for="entry in eventModes" :key="entry.event" class="event-row">
+        <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
+        <n-radio-group
+          :value="entry.mode"
+          size="small"
+          :disabled="modeLoading[entry.event]"
+          @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
+        >
+          <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
+          <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
+          <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
+        </n-radio-group>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -103,5 +161,34 @@ async function uninstall() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.events-header {
+  padding: 0.5rem 0 0.25rem;
+}
+
+.events-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.events-desc {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 0.125rem;
+  line-height: 1.4;
+}
+
+.event-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+}
+
+.event-name {
+  font-size: 0.8125rem;
+  color: #555;
 }
 </style>

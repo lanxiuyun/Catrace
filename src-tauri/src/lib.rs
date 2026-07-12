@@ -1481,6 +1481,8 @@ pub fn run() {
             water::skip_water_reminder,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
+            agent_hook::get_agent_event_modes,
+            agent_hook::set_agent_event_mode,
             agent_hook::install_agent_hooks,
             agent_hook::uninstall_agent_hooks,
             agent_hook::is_agent_hook_installed,

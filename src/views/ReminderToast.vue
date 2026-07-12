@@ -51,6 +51,8 @@ interface ToastItem {
   // agent fields
   event?: string
   agentState?: string
+  sticky?: boolean
+  pendingEvents?: string[]
   // rest timer fields
   breakMinutes?: number
   restStartTs?: number
@@ -131,6 +133,7 @@ onMounted(async () => {
     updateBody?: string
     event?: string
     agentState?: string
+    mode?: string
   }) => {
     addNotification({
       kind: payload.kind || 'rest',
@@ -141,6 +144,7 @@ onMounted(async () => {
       updateBody: payload.updateBody,
       event: payload.event,
       agentState: payload.agentState,
+      mode: payload.mode,
     })
   }
 
@@ -389,7 +393,21 @@ async function addNotification(payload: {
   updateBody?: string
   event?: string
   agentState?: string
+  mode?: string
 }) {
+  // sticky 型 agent 通知合并进同一张卡片：新事件追加到 pendingEvents，
+  // 标题显示「N 个会话在等你」，避免多 agent 同时等待时糊屏。
+  if (payload.kind === 'agent' && payload.mode === 'sticky') {
+    const existing = notifications.value.find((n) => n.kind === 'agent' && n.sticky)
+    if (existing) {
+      if (payload.event && !existing.pendingEvents?.includes(payload.event)) {
+        existing.pendingEvents = [...(existing.pendingEvents ?? []), payload.event]
+      }
+      refreshAgentStickyCard(existing)
+      return
+    }
+  }
+
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
   while (notifications.value.length >= MAX_NOTIFICATIONS) {
     removeNotification(notifications.value[0].id, false)
@@ -397,6 +415,7 @@ async function addNotification(payload: {
 
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
+  const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
@@ -407,7 +426,7 @@ async function addNotification(payload: {
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: isUpdate ? 0 : autoHideMs,
+    remainingMs: isUpdate || isAgentSticky ? 0 : autoHideMs,
     closeTimer: null,
     lastStartAt: 0,
     version: payload.version || '',
@@ -419,6 +438,8 @@ async function addNotification(payload: {
     downloadReceived: 0,
     event: payload.event,
     agentState: payload.agentState,
+    sticky: isAgentSticky,
+    pendingEvents: isAgentSticky && payload.event ? [payload.event] : undefined,
     totalMs: autoHideMs,
   }
 
@@ -433,11 +454,23 @@ async function addNotification(payload: {
     }
   })
 
-  if (!isUpdate) {
+  if (!isUpdate && !isAgentSticky) {
     startTimer(item)
   }
   await adjustWindowSize()
   scrollStackToBottom()
+}
+
+function refreshAgentStickyCard(item: ToastItem) {
+  const count = item.pendingEvents?.length ?? 1
+  if (count > 1) {
+    item.title = t('agent.titlePending', { n: count })
+    item.body = t('agent.bodyPending', { n: count })
+  } else {
+    const event = item.pendingEvents?.[0] ?? item.event
+    item.title = getAgentTitle(event)
+    item.body = getAgentBody(event)
+  }
 }
 
 function scrollStackToBottom() {
@@ -465,14 +498,14 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
-  // 护眼提醒 hover 不暂停倒计时；休息计时卡片不依赖 hover 控制生命周期
-  if (item.kind === 'eye' || item.kind === 'rest-timer') return
+  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky 卡片不依赖 hover 控制生命周期
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.sticky) return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'eye' || item.kind === 'rest-timer') return
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -802,9 +835,9 @@ async function handleUpdateInstall(item: ToastItem) {
           </button>
         </div>
 
-        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer cards) -->
+        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / sticky cards) -->
         <div
-          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer'"
+          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && !item.sticky"
           class="progress-bar"
           :class="{ paused: item.isHovered }"
         />

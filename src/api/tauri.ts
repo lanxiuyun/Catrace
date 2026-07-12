@@ -361,3 +361,20 @@ export async function uninstallAgentHooks(): Promise<{ removed: number }> {
 export async function isAgentHookInstalled(): Promise<boolean> {
   return invoke('is_agent_hook_installed')
 }
+
+export type AgentEventMode = 'off' | 'auto' | 'sticky'
+
+export interface AgentEventModeEntry {
+  event: string
+  mode: AgentEventMode
+}
+
+/** 获取每个 hook 事件的显示策略 */
+export async function getAgentEventModes(): Promise<AgentEventModeEntry[]> {
+  return invoke('get_agent_event_modes')
+}
+
+/** 设置单个事件的显示策略：off=不通知 / auto=自动消失 / sticky=常驻 */
+export async function setAgentEventMode(event: string, mode: AgentEventMode): Promise<void> {
+  return invoke('set_agent_event_mode', { event, mode })
+}

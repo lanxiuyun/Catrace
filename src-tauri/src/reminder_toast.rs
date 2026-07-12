@@ -205,13 +205,15 @@ pub fn create_toast_window(
 }
 
 /// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
+/// mode: "auto" = 到时自动消失；"sticky" = 常驻直到用户手动关闭。
 /// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=agent 的通知。
-pub fn create_agent_toast_window(app_handle: &tauri::AppHandle, event: &str, state: &str) {
+pub fn create_agent_toast_window(app_handle: &tauri::AppHandle, event: &str, state: &str, mode: &str) {
     let app = app_handle.clone();
     let payload = serde_json::json!({
         "kind": "agent",
         "event": event,
         "agentState": state,
+        "mode": mode,
     });
     let js = format!(
         "if (window.addToastNotification) {{ window.addToastNotification({}); }}",

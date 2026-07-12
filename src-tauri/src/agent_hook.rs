@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
 use crate::db::Db;
@@ -15,22 +15,42 @@ use crate::{log_error, log_info};
 
 /// 固定监听端口，避开 clawd-on-desk 的 23333-23337。
 const AGENT_HOOK_PORT: u16 = 23456;
-/// 仅这些事件弹 Toast；PreToolUse/PostToolUse 等高频事件直接忽略。
-const ALLOWED_EVENTS: &[&str] = &[
+/// 所有可订阅的 hook 事件；每个事件的显示策略由用户配置。
+const KNOWN_EVENTS: &[&str] = &[
     "SessionStart",
     "UserPromptSubmit",
     "Stop",
     "StopFailure",
     "Notification",
 ];
-/// 同会话同事件的去重窗口，防止连续触发刷屏。
+/// 同会话同事件的去重窗口（仅 auto 模式生效），防止连续触发刷屏。
 const DEDUP_TTL: Duration = Duration::from_secs(8);
 const ENABLED_SETTING_KEY: &str = "agent_notification_enabled";
+const EVENT_MODES_SETTING_KEY: &str = "agent_event_modes";
 const HOOK_SCRIPT_MARKER: &str = "catrace-agent-hook";
 
 static SERVER_STARTED: AtomicBool = AtomicBool::new(false);
 static SERVER_ENABLED: AtomicBool = AtomicBool::new(true);
+static EVENT_MODES: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 static DEDUP_CACHE: Mutex<Option<HashMap<(String, String), Instant>>> = Mutex::new(None);
+
+/// 事件显示策略：off=不通知 / auto=弹出后自动消失 / sticky=常驻直到用户关闭。
+fn default_event_mode(event: &str) -> &'static str {
+    match event {
+        "Stop" | "StopFailure" | "Notification" => "sticky",
+        _ => "off",
+    }
+}
+
+fn event_mode(event: &str) -> String {
+    let guard = EVENT_MODES.lock().unwrap();
+    if let Some(map) = guard.as_ref() {
+        if let Some(m) = map.get(event) {
+            return m.clone();
+        }
+    }
+    default_event_mode(event).to_string()
+}
 
 #[derive(Debug, Clone, Deserialize)]
 struct AgentHookPayload {
@@ -51,6 +71,10 @@ pub fn start_server(app: tauri::AppHandle, db: Db) {
         return;
     }
     SERVER_ENABLED.store(db.get_setting(ENABLED_SETTING_KEY, "true") == "true", Ordering::SeqCst);
+    let stored = db.get_setting(EVENT_MODES_SETTING_KEY, "");
+    let parsed: HashMap<String, String> =
+        serde_json::from_str(&stored).unwrap_or_default();
+    *EVENT_MODES.lock().unwrap() = Some(parsed);
 
     thread::spawn(move || {
         let addr = format!("127.0.0.1:{}", AGENT_HOOK_PORT);
@@ -92,28 +116,33 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
     // 立即响应，不阻塞 agent 的 hook 执行
     let _ = request.respond(tiny_http::Response::empty(200));
 
-    if !SERVER_ENABLED.load(Ordering::SeqCst) || !should_show_toast(&payload) {
+    if !SERVER_ENABLED.load(Ordering::SeqCst) {
+        return;
+    }
+    let mode = event_mode(&payload.event);
+    if mode == "off" {
+        return;
+    }
+    // sticky 事件是「召唤用户回来」型，不去重——每次都要让用户看到；
+    // auto 事件走 8 秒去重，防止刷屏。
+    if mode != "sticky" && is_duplicate(&payload) {
         return;
     }
 
-    crate::reminder_toast::create_agent_toast_window(app, &payload.event, &payload.state);
+    crate::reminder_toast::create_agent_toast_window(app, &payload.event, &payload.state, &mode);
 }
 
-fn should_show_toast(payload: &AgentHookPayload) -> bool {
-    if !ALLOWED_EVENTS.contains(&payload.event.as_str()) {
-        return false;
-    }
-
+fn is_duplicate(payload: &AgentHookPayload) -> bool {
     let key = (payload.session_id.clone(), payload.event.clone());
     let now = Instant::now();
     let mut guard = DEDUP_CACHE.lock().unwrap();
     let cache = guard.get_or_insert_with(HashMap::new);
     cache.retain(|_, t| now.duration_since(*t) < DEDUP_TTL);
     if cache.contains_key(&key) {
-        return false;
+        return true;
     }
     cache.insert(key, now);
-    true
+    false
 }
 
 // ------------------------------------------------------------------
@@ -134,6 +163,47 @@ pub fn set_agent_notification_enabled(
         .map_err(|e| e.to_string())?;
     SERVER_ENABLED.store(enabled, Ordering::SeqCst);
     Ok(())
+}
+
+// ------------------------------------------------------------------
+// 每事件显示策略命令
+// ------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentEventMode {
+    pub event: String,
+    pub mode: String,
+}
+
+#[tauri::command]
+pub fn get_agent_event_modes() -> Vec<AgentEventMode> {
+    KNOWN_EVENTS
+        .iter()
+        .map(|e| AgentEventMode {
+            event: e.to_string(),
+            mode: event_mode(e),
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn set_agent_event_mode(
+    db: tauri::State<'_, Db>,
+    event: String,
+    mode: String,
+) -> Result<(), String> {
+    if !KNOWN_EVENTS.contains(&event.as_str()) {
+        return Err(format!("未知事件: {}", event));
+    }
+    if !["off", "auto", "sticky"].contains(&mode.as_str()) {
+        return Err(format!("未知模式: {}", mode));
+    }
+    let mut guard = EVENT_MODES.lock().unwrap();
+    let map = guard.get_or_insert_with(HashMap::new);
+    map.insert(event, mode);
+    let serialized = serde_json::to_string(map).map_err(|e| e.to_string())?;
+    db.set_setting(EVENT_MODES_SETTING_KEY, &serialized)
+        .map_err(|e| e.to_string())
 }
 
 // ------------------------------------------------------------------
@@ -208,7 +278,7 @@ pub fn install_agent_hooks(app: tauri::AppHandle) -> Result<serde_json::Value, S
     let command = build_hook_command(&script_path);
     let mut installed_events = Vec::new();
 
-    for event in ALLOWED_EVENTS {
+    for event in KNOWN_EVENTS {
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
