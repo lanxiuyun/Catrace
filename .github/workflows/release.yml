@@ -108,31 +108,18 @@ jobs:
           args: ${{ matrix.args }}
 
   # 将 latest.json 里的 GitHub 直链改写为 ghproxy 代理，方便国内用户下载
-  # 独立于 publish-tauri：某个平台构建失败时可单独重跑此 job
+  # 必须等 publish-tauri 全部平台完成：各 matrix job 会陆续覆盖 latest.json，
+  # 提前改写会被后续平台覆盖掉
   rewrite-latest-json:
-    needs: get-version
+    needs:
+      - get-version
+      - publish-tauri
     if: ${{ !cancelled() && needs.get-version.result == 'success' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Wait for latest.json to exist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="v${{ needs.get-version.outputs.appVersion }}"
-          for i in $(seq 1 60); do
-            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q '^latest\.json$'; then
-              echo "latest.json found"
-              exit 0
-            fi
-            echo "Waiting for latest.json... ($i/60)"
-            sleep 10
-          done
-          echo "Timeout: latest.json not found after 10 minutes"
-          exit 1
 
       - name: Download latest.json from release
         env:
