@@ -89,6 +89,15 @@ features:
       - water-reminder
       - toast-window
       - i18n
+  agent-notification:
+    docs:
+      - .agent/features/agent-notification/README.md
+      - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
+      - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
+    related:
+      - toast-window
+      - settings
+      - i18n
 
 architecture:
   project-structure:
@@ -137,6 +146,7 @@ bugs:
   - .agent/bugs/2026-07-10-toast-stacking-display.md
 
 devlog:
+  - .agent/devlog/2026-07-12-agent-notification-event-policy-and-codex-gemini-kimi-support.md
   - .agent/devlog/2026-07-12-updater-migrated-from-upgradelink-to-github-release-plus-ghproxy.md
   - .agent/devlog/2026-07-11-toast-卡片缩小到原生尺寸-和阴影修复.md
   - .agent/devlog/2026-07-11-eye-toast-snooze-skip-buttons.md
@@ -146,5 +156,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: 更新通道迁移完成（GitHub Release + ghproxy 镜像），v26.7.15 latest.json 已手动修复上传
-  next: 下次发版验证 rewrite-latest-json 全流程；按需推进 agent 通知、项目重构（见 .agent/todo.md）
+  phase: agent 通知支持 Claude Code/Desktop/Codex/Gemini/Kimi，事件三态策略已落地
+  next: 实测 Codex/Gemini/Kimi hook 触发（Codex Windows 命令格式可能需要 PowerShell & 分支）；发版前升版本号 26.7.16；按需评估 OpenCode 系插件派接入
