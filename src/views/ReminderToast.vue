@@ -969,7 +969,6 @@ async function handleUpdateInstall(item: ToastItem) {
 
 .toast-card {
   width: 100%;
-  min-height: 8rem;
   max-height: 37.5rem;
   background: #ffffff;
   border-radius: 0.5rem;
