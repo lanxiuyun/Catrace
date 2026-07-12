@@ -1055,7 +1055,7 @@ async fn check_update_and_notify(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let updater = app_handle
         .updater_builder()
-        .header("X-AccessKey", "9SzxzOb3pQgkOB-LU-QU1Q")?
+        .timeout(std::time::Duration::from_secs(10))
         .build()?;
     if let Some(update) = updater.check().await? {
         let version = update.version.clone();

@@ -107,7 +107,10 @@ jobs:
           generateReleaseNotes: false
           args: ${{ matrix.args }}
 
-  upgradeLink-upload:
+  # 将 latest.json 里的 GitHub 直链改写为 ghproxy 代理，方便国内用户下载
+  # 必须等 publish-tauri 全部平台完成：各 matrix job 会陆续覆盖 latest.json，
+  # 提前改写会被后续平台覆盖掉
+  rewrite-latest-json:
     needs:
       - get-version
       - publish-tauri
@@ -115,18 +118,27 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send a request to UpgradeLink
-        uses: toolsetlink/upgradelink-action@3.0.2
-        with:
-          access_key: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
-          access_secret: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
-          config: |
-            {
-              "app_type": "tauri",
-              "request": {
-                "app_key": "${{ secrets.UPGRADE_LINK_APP_KEY }}",
-                "latest_json_url": "https://github.com/lanxiuyun/Catrace/releases/download/v${{ needs.get-version.outputs.appVersion }}/latest.json"
-              }
-            }
+      - uses: actions/checkout@v4
+
+      - name: Download latest.json from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "v${{ needs.get-version.outputs.appVersion }}" \
+            --pattern "latest.json" \
+            --dir . \
+            --clobber
+
+      - name: Rewrite URLs to use ghproxy
+        run: |
+          # 把 https://github.com/... 替换为 https://ghproxy.net/https://github.com/...
+          sed -i 's|"url": "https://github.com/|"url": "https://ghproxy.net/https://github.com/|g' latest.json
+          echo "--- rewritten latest.json ---"
+          cat latest.json
+
+      - name: Upload rewritten latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.get-version.outputs.appVersion }}" latest.json --clobber

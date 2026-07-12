@@ -2,20 +2,10 @@
 
 ## 涉及文件
 
-- `src-tauri/src/report.rs` — 上报逻辑
+- `src-tauri/src/report.rs` — 上报接口（空实现）
 
-## 行为
+## 现状
 
-应用启动时（setup 阶段）异步上报 `app_start` 到 `https://api.upgrade.toolsetlink.com/v1/app/report`。
+原上报目标 toolsetlink 已停服，业务代码已清空，仅保留 `spawn_report_app_start(app_handle, db)` 空接口供 `lib.rs` setup 阶段调用，启动时打一条 "report service not configured" 日志。dev 模式下跳过。
 
-请求头：`X-Timestamp` / `X-Nonce` / `X-AccessKey` / `X-Signature`。
-
-签名规则：`MD5(body=${body}&nonce=${X-Nonce}&secretKey=${SecretKey}&timestamp=${X-Timestamp}&url=/v1/app/report)`。
-
-上报内容：`versionCode`（`major*10000+minor*100+patch`）、`target`（macos→darwin 映射）、`arch`、`devKey`（`dev_${UUID}`，首次生成后持久化）。
-
-上报失败不影响主流程。
-
-## 测试
-
-4 个测试：versionCode / target 映射 / 签名格式 / 签名规则一致性。
+后续接入新上报服务时在 `report.rs` 内填充实现即可，调用方不用改。
