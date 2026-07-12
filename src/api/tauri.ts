@@ -347,19 +347,24 @@ export async function setAgentNotificationEnabled(enabled: boolean): Promise<voi
   return invoke('set_agent_notification_enabled', { enabled })
 }
 
-/** 一键安装 Claude Code hook 到 ~/.claude/settings.json */
-export async function installAgentHooks(): Promise<{ installed_events: string[] }> {
-  return invoke('install_agent_hooks')
+/** 获取支持的 agent 列表 */
+export async function getSupportedAgents(): Promise<string[]> {
+  return invoke('get_supported_agents')
 }
 
-/** 卸载 Claude Code hook */
-export async function uninstallAgentHooks(): Promise<{ removed: number }> {
-  return invoke('uninstall_agent_hooks')
+/** 一键安装 agent hook（agent: claude / codex / gemini / kimi） */
+export async function installAgentHooks(agent: string): Promise<{ installed_events?: string[]; installed_targets?: string[] }> {
+  return invoke('install_agent_hooks', { agent })
+}
+
+/** 卸载 agent hook */
+export async function uninstallAgentHooks(agent: string): Promise<{ removed: number }> {
+  return invoke('uninstall_agent_hooks', { agent })
 }
 
 /** 检测 hook 是否已安装 */
-export async function isAgentHookInstalled(): Promise<boolean> {
-  return invoke('is_agent_hook_installed')
+export async function isAgentHookInstalled(agent: string): Promise<boolean> {
+  return invoke('is_agent_hook_installed', { agent })
 }
 
 export type AgentEventMode = 'off' | 'auto' | 'sticky'

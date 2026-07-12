@@ -10,6 +10,7 @@ import {
   isAgentHookInstalled,
   getAgentEventModes,
   setAgentEventMode,
+  getSupportedAgents,
   type AgentEventMode,
   type AgentEventModeEntry,
 } from '../../api/tauri'
@@ -20,11 +21,18 @@ const message = useMessage()
 
 const enabled = ref(true)
 const enabledLoading = ref(false)
-const installed = ref(false)
-const installing = ref(false)
-const uninstalling = ref(false)
+const agents = ref<string[]>([])
+const installedMap = ref<Record<string, boolean>>({})
+const busyMap = ref<Record<string, boolean>>({})
 const eventModes = ref<AgentEventModeEntry[]>([])
 const modeLoading = ref<Record<string, boolean>>({})
+
+const agentNameKeys: Record<string, string> = {
+  claude: 'settings.agent.nameClaude',
+  codex: 'settings.agent.nameCodex',
+  gemini: 'settings.agent.nameGemini',
+  kimi: 'settings.agent.nameKimi',
+}
 
 const eventNameKeys: Record<string, string> = {
   SessionStart: 'settings.agent.eventSessionStart',
@@ -41,7 +49,13 @@ onMounted(async () => {
     // ignore
   }
   try {
-    installed.value = await isAgentHookInstalled()
+    agents.value = await getSupportedAgents()
+    const results = await Promise.all(
+      agents.value.map((a) => isAgentHookInstalled(a).catch(() => false))
+    )
+    agents.value.forEach((a, i) => {
+      installedMap.value[a] = results[i]
+    })
   } catch {
     // ignore
   }
@@ -81,29 +95,29 @@ async function changeMode(event: string, mode: AgentEventMode) {
   }
 }
 
-async function install() {
-  installing.value = true
+async function install(agent: string) {
+  busyMap.value[agent] = true
   try {
-    await installAgentHooks()
-    installed.value = true
+    await installAgentHooks(agent)
+    installedMap.value[agent] = true
     message.success(t('settings.agent.installSuccess'))
-  } catch {
-    message.error(t('settings.agent.installFailed'))
+  } catch (e) {
+    message.error(`${t('settings.agent.installFailed')}: ${e}`)
   } finally {
-    installing.value = false
+    busyMap.value[agent] = false
   }
 }
 
-async function uninstall() {
-  uninstalling.value = true
+async function uninstall(agent: string) {
+  busyMap.value[agent] = true
   try {
-    await uninstallAgentHooks()
-    installed.value = false
+    await uninstallAgentHooks(agent)
+    installedMap.value[agent] = false
     message.success(t('settings.agent.uninstallSuccess'))
   } catch {
     message.error(t('settings.agent.uninstallFailed'))
   } finally {
-    uninstalling.value = false
+    busyMap.value[agent] = false
   }
 }
 </script>
@@ -118,18 +132,31 @@ async function uninstall() {
 
     <div class="divider" />
 
-    <setting-row :title="t('settings.agent.hookTitle')" :desc="t('settings.agent.hookDesc')">
-      <div class="hook-actions">
-        <n-tag v-if="installed" type="success" size="small">{{ t('settings.agent.installed') }}</n-tag>
+    <div class="agents-header">
+      <div class="events-title">{{ t('settings.agent.hookTitle') }}</div>
+      <div class="events-desc">{{ t('settings.agent.hookDesc') }}</div>
+    </div>
+
+    <div v-for="agent in agents" :key="agent" class="event-row">
+      <div class="agent-label">
+        <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
+        <n-tag v-if="installedMap[agent]" type="success" size="small">
+          {{ t('settings.agent.installed') }}
+        </n-tag>
         <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
-        <n-button v-if="!installed" size="small" :loading="installing" @click="install">
-          {{ t('settings.agent.installBtn') }}
-        </n-button>
-        <n-button v-else size="small" :loading="uninstalling" @click="uninstall">
-          {{ t('settings.agent.uninstallBtn') }}
-        </n-button>
       </div>
-    </setting-row>
+      <n-button
+        v-if="!installedMap[agent]"
+        size="small"
+        :loading="busyMap[agent]"
+        @click="install(agent)"
+      >
+        {{ t('settings.agent.installBtn') }}
+      </n-button>
+      <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
+        {{ t('settings.agent.uninstallBtn') }}
+      </n-button>
+    </div>
 
     <template v-if="enabled">
       <div class="divider" />
@@ -157,10 +184,8 @@ async function uninstall() {
 </template>
 
 <style scoped>
-.hook-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.agents-header {
+  padding: 0.5rem 0 0.25rem;
 }
 
 .events-header {
@@ -190,5 +215,11 @@ async function uninstall() {
 .event-name {
   font-size: 0.8125rem;
   color: #555;
+}
+
+.agent-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 </style>
