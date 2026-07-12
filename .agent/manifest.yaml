@@ -130,10 +130,12 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
   - .agent/bugs/2026-07-10-toast-stacking-display.md
 
 devlog:
+  - .agent/devlog/2026-07-12-updater-migrated-from-upgradelink-to-github-release-plus-ghproxy.md
   - .agent/devlog/2026-07-11-toast-卡片缩小到原生尺寸-和阴影修复.md
   - .agent/devlog/2026-07-11-eye-toast-snooze-skip-buttons.md
   - .agent/devlog/2026-07-10-eye-reminder-rest-reset.md
@@ -142,5 +144,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: Toast 卡片缩小到原生尺寸 + 阴影四边出血修复完成
-  next: 用户本地 dev 确认观感后提交；按需拆分喝水/休息/更新等其余 Toast 卡片类型
+  phase: 更新通道迁移完成（GitHub Release + ghproxy 镜像），v26.7.15 latest.json 已手动修复上传
+  next: 下次发版验证 rewrite-latest-json 全流程；按需推进 agent 通知、项目重构（见 .agent/todo.md）
