@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, useMessage } from 'naive-ui'
+import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, NInput, useMessage } from 'naive-ui'
 import {
   getAgentNotificationEnabled,
   setAgentNotificationEnabled,
@@ -11,8 +11,11 @@ import {
   getAgentEventModes,
   setAgentEventMode,
   getSupportedAgents,
+  getAgentSoundSettings,
+  setAgentSoundSettings,
   type AgentEventMode,
   type AgentEventModeEntry,
+  type AgentSoundMode,
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
@@ -26,6 +29,10 @@ const installedMap = ref<Record<string, boolean>>({})
 const busyMap = ref<Record<string, boolean>>({})
 const eventModes = ref<AgentEventModeEntry[]>([])
 const modeLoading = ref<Record<string, boolean>>({})
+
+const soundMode = ref<AgentSoundMode>('builtin')
+const soundPath = ref('')
+const soundLoading = ref(false)
 
 const agentNameKeys: Record<string, string> = {
   claude: 'settings.agent.nameClaude',
@@ -61,6 +68,13 @@ onMounted(async () => {
   }
   try {
     eventModes.value = await getAgentEventModes()
+  } catch {
+    // ignore
+  }
+  try {
+    const s = await getAgentSoundSettings()
+    soundMode.value = s.mode
+    soundPath.value = s.custom_path
   } catch {
     // ignore
   }
@@ -118,6 +132,18 @@ async function uninstall(agent: string) {
     message.error(t('settings.agent.uninstallFailed'))
   } finally {
     busyMap.value[agent] = false
+  }
+}
+
+async function saveSound() {
+  soundLoading.value = true
+  try {
+    await setAgentSoundSettings(soundMode.value, soundPath.value)
+    message.success(t('settings.messages.saved'))
+  } catch {
+    message.error(t('settings.messages.saveFailed'))
+  } finally {
+    soundLoading.value = false
   }
 }
 </script>
@@ -178,6 +204,37 @@ async function uninstall(agent: string) {
           <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
           <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
         </n-radio-group>
+      </div>
+      <div class="divider" />
+
+      <div class="events-header">
+        <div class="events-title">{{ t('settings.agent.soundTitle') }}</div>
+        <div class="events-desc">{{ t('settings.agent.soundDesc') }}</div>
+      </div>
+
+      <div class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
+        <n-radio-group
+          :value="soundMode"
+          size="small"
+          :disabled="soundLoading"
+          @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
+        >
+          <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
+          <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
+          <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
+        </n-radio-group>
+      </div>
+
+      <div v-if="soundMode === 'custom'" class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
+        <n-input
+          v-model:value="soundPath"
+          size="small"
+          style="max-width: 14rem"
+          :placeholder="t('settings.agent.soundPathPlaceholder')"
+          @blur="saveSound"
+        />
       </div>
     </template>
   </div>
