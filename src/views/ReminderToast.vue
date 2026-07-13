@@ -20,9 +20,11 @@ import {
   skipEyeReminder,
   getActivitySnapshot,
   dismissRestTimer,
+  getAgentSoundDataUrl,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
+import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
 
 const { t } = useI18n()
 
@@ -52,7 +54,7 @@ interface ToastItem {
   event?: string
   agentState?: string
   sticky?: boolean
-  pendingEvents?: string[]
+  agentEntries?: AgentEntry[]
   // rest timer fields
   breakMinutes?: number
   restStartTs?: number
@@ -71,6 +73,29 @@ let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
+
+// Agent 通知提示音：首次加载时缓存 data URL
+let agentSoundDataUrl: string | null | undefined = undefined
+
+async function loadAgentSound() {
+  if (agentSoundDataUrl !== undefined) return
+  try {
+    agentSoundDataUrl = await getAgentSoundDataUrl()
+  } catch {
+    agentSoundDataUrl = null
+  }
+}
+
+function playAgentSound() {
+  if (!agentSoundDataUrl) return
+  try {
+    const audio = new Audio(agentSoundDataUrl)
+    audio.volume = 0.5
+    audio.play().catch(() => {})
+  } catch {
+    // ignore
+  }
+}
 
 // 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
 let restPollTimer: ReturnType<typeof setInterval> | null = null
@@ -100,6 +125,8 @@ const debugInfo = ref({
 })
 
 onMounted(async () => {
+  loadAgentSound()
+
   // 读取初始调试模式状态
   try {
     showDebug.value = await getToastDebugMode()
@@ -134,6 +161,10 @@ onMounted(async () => {
     event?: string
     agentState?: string
     mode?: string
+    sessionId?: string
+    cwd?: string
+    prompt?: string
+    summary?: string
   }) => {
     addNotification({
       kind: payload.kind || 'rest',
@@ -145,6 +176,10 @@ onMounted(async () => {
       event: payload.event,
       agentState: payload.agentState,
       mode: payload.mode,
+      sessionId: payload.sessionId,
+      cwd: payload.cwd,
+      prompt: payload.prompt,
+      summary: payload.summary,
     })
   }
 
@@ -394,18 +429,36 @@ async function addNotification(payload: {
   event?: string
   agentState?: string
   mode?: string
+  sessionId?: string
+  cwd?: string
+  prompt?: string
+  summary?: string
 }) {
-  // sticky 型 agent 通知合并进同一张卡片：新事件追加到 pendingEvents，
-  // 标题显示「N 个会话在等你」，避免多 agent 同时等待时糊屏。
+  // sticky 型 agent 通知合并进同一张卡片：同 session 的新事件刷新条目，
+  // 不同 session 追加为新条目，避免多 agent 同时等待时糊屏。
   if (payload.kind === 'agent' && payload.mode === 'sticky') {
+    playAgentSound()
     const existing = notifications.value.find((n) => n.kind === 'agent' && n.sticky)
     if (existing) {
-      if (payload.event && !existing.pendingEvents?.includes(payload.event)) {
-        existing.pendingEvents = [...(existing.pendingEvents ?? []), payload.event]
+      const entry: AgentEntry = {
+        event: payload.event || '',
+        sessionId: payload.sessionId,
+        cwd: payload.cwd,
+        prompt: payload.prompt,
+        summary: payload.summary,
       }
-      refreshAgentStickyCard(existing)
+      const idx = existing.agentEntries?.findIndex(
+        (e) => e.sessionId && e.sessionId === entry.sessionId
+      ) ?? -1
+      if (idx >= 0 && existing.agentEntries) {
+        existing.agentEntries[idx] = entry
+      } else {
+        existing.agentEntries = [...(existing.agentEntries ?? []), entry]
+      }
       return
     }
+  } else if (payload.kind === 'agent') {
+    playAgentSound()
   }
 
   // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
@@ -421,8 +474,8 @@ async function addNotification(payload: {
   const item: ToastItem = {
     id,
     kind: payload.kind,
-    title: isAgent ? getAgentTitle(payload.event) : payload.title || '',
-    body: isAgent ? getAgentBody(payload.event) : payload.body || '',
+    title: payload.title || '',
+    body: payload.body || '',
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
@@ -439,7 +492,15 @@ async function addNotification(payload: {
     event: payload.event,
     agentState: payload.agentState,
     sticky: isAgentSticky,
-    pendingEvents: isAgentSticky && payload.event ? [payload.event] : undefined,
+    agentEntries: isAgent
+      ? [{
+          event: payload.event || '',
+          sessionId: payload.sessionId,
+          cwd: payload.cwd,
+          prompt: payload.prompt,
+          summary: payload.summary,
+        }]
+      : undefined,
     totalMs: autoHideMs,
   }
 
@@ -459,18 +520,6 @@ async function addNotification(payload: {
   }
   await adjustWindowSize()
   scrollStackToBottom()
-}
-
-function refreshAgentStickyCard(item: ToastItem) {
-  const count = item.pendingEvents?.length ?? 1
-  if (count > 1) {
-    item.title = t('agent.titlePending', { n: count })
-    item.body = t('agent.bodyPending', { n: count })
-  } else {
-    const event = item.pendingEvents?.[0] ?? item.event
-    item.title = getAgentTitle(event)
-    item.body = getAgentBody(event)
-  }
 }
 
 function scrollStackToBottom() {
@@ -712,28 +761,6 @@ function toggleUpdateDetails(item: ToastItem) {
   nextTick(() => adjustWindowSize())
 }
 
-function getAgentTitle(event?: string): string {
-  const keyMap: Record<string, string> = {
-    SessionStart: 'agent.titleIdle',
-    UserPromptSubmit: 'agent.titleThinking',
-    Stop: 'agent.titleAttention',
-    StopFailure: 'agent.titleError',
-    Notification: 'agent.titleNotification',
-  }
-  return t(keyMap[event || ''] || 'agent.titleDefault')
-}
-
-function getAgentBody(event?: string): string {
-  const keyMap: Record<string, string> = {
-    SessionStart: 'agent.bodyIdle',
-    UserPromptSubmit: 'agent.bodyThinking',
-    Stop: 'agent.bodyAttention',
-    StopFailure: 'agent.bodyError',
-    Notification: 'agent.bodyNotification',
-  }
-  return t(keyMap[event || ''] || 'agent.bodyDefault')
-}
-
 async function handleClose(item: ToastItem) {
   // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
   if (item.kind === 'rest-timer') {
@@ -814,8 +841,19 @@ async function handleUpdateInstall(item: ToastItem) {
           @skip="handleEyeSkip(item)"
         />
 
+        <AgentToastCard
+          v-else-if="item.kind === 'agent' && item.agentEntries"
+          :entries="item.agentEntries"
+          :sticky="!!item.sticky"
+          :remaining-ms="item.remainingMs"
+          :last-start-at="item.lastStartAt"
+          :total-ms="item.totalMs"
+          @close="handleClose(item)"
+          @dismiss-all="handleClose(item)"
+        />
+
         <!-- Header -->
-        <div v-if="item.kind !== 'eye'" class="header">
+        <div v-if="item.kind !== 'eye' && item.kind !== 'agent'" class="header">
           <div class="header-left">
             <div class="pulse-dot" />
             <h2 v-if="item.kind === 'update'" class="title">
@@ -835,9 +873,9 @@ async function handleUpdateInstall(item: ToastItem) {
           </button>
         </div>
 
-        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / sticky cards) -->
+        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / agent / sticky cards) -->
         <div
-          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && !item.sticky"
+          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && !item.sticky"
           class="progress-bar"
           :class="{ paused: item.isHovered }"
         />
@@ -853,7 +891,7 @@ async function handleUpdateInstall(item: ToastItem) {
         </div>
 
         <!-- Body -->
-        <p v-if="item.kind !== 'update' && item.kind !== 'eye'" class="body-text">{{ item.body }}</p>
+        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent'" class="body-text">{{ item.body }}</p>
 
         <!-- Update changelog -->
         <div
