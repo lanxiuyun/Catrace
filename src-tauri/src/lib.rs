@@ -1487,6 +1487,10 @@ pub fn run() {
             agent_hook::install_agent_hooks,
             agent_hook::uninstall_agent_hooks,
             agent_hook::is_agent_hook_installed,
+            agent_hook::open_agent_session,
+            agent_hook::get_agent_sound_settings,
+            agent_hook::set_agent_sound_settings,
+            agent_hook::get_agent_sound_data_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

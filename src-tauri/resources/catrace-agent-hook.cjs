@@ -66,6 +66,9 @@ async function main() {
     event,
     state,
     session_id: payload.session_id || "unknown",
+    cwd: payload.cwd || "",
+    transcript_path: payload.transcript_path || "",
+    prompt: payload.prompt || "",
   });
 
   const req = http.request(

@@ -59,6 +59,61 @@ struct AgentHookPayload {
     state: String,
     #[serde(default)]
     session_id: String,
+    #[serde(default)]
+    cwd: String,
+    #[serde(default)]
+    transcript_path: String,
+    #[serde(default)]
+    prompt: String,
+}
+
+/// 从 transcript（JSONL）里找最后一条 assistant 文本消息，截断成摘要。
+/// 读不到或没有文本时返回 None，前端降级为默认文案。
+fn summarize_transcript(path: &str) -> Option<String> {
+    if path.is_empty() {
+        return None;
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    // 从后往前找 assistant 消息，避免整文件解析
+    for line in text.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if v.get("type").and_then(|t| t.as_str()) != Some("assistant") {
+            continue;
+        }
+        let content = v.pointer("/message/content")?;
+        let snippet = match content {
+            serde_json::Value::Array(arr) => arr.iter().find_map(|c| {
+                if c.get("type").and_then(|t| t.as_str()) == Some("text") {
+                    c.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                } else {
+                    None
+                }
+            })?,
+            serde_json::Value::String(s) => s.clone(),
+            _ => continue,
+        };
+        // 取首行并截断，避免摘要里塞多行 markdown
+        let first_line = snippet.lines().next().unwrap_or("").trim();
+        if first_line.is_empty() {
+            continue;
+        }
+        return Some(truncate_chars(first_line, 80));
+    }
+    None
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let truncated: String = s.chars().take(max).collect();
+    format!("{}…", truncated)
 }
 
 // ------------------------------------------------------------------
@@ -129,7 +184,17 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         return;
     }
 
-    crate::reminder_toast::create_agent_toast_window(app, &payload.event, &payload.state, &mode);
+    let summary = summarize_transcript(&payload.transcript_path);
+    crate::reminder_toast::create_agent_toast_window(
+        app,
+        &payload.event,
+        &payload.state,
+        &mode,
+        &payload.session_id,
+        &payload.cwd,
+        &payload.prompt,
+        summary.as_deref(),
+    );
 }
 
 fn is_duplicate(payload: &AgentHookPayload) -> bool {
@@ -204,6 +269,142 @@ pub fn set_agent_event_mode(
     let serialized = serde_json::to_string(map).map_err(|e| e.to_string())?;
     db.set_setting(EVENT_MODES_SETTING_KEY, &serialized)
         .map_err(|e| e.to_string())
+}
+
+// ------------------------------------------------------------------
+// 提示音：内置音释放 + 自定义文件读取
+// ------------------------------------------------------------------
+
+/// 提示音设置 key（存 SQLite，前端用 Store 同步一份用于自定义路径）
+const SOUND_MODE_SETTING_KEY: &str = "agent_sound_mode"; // builtin | custom | muted
+const SOUND_PATH_SETTING_KEY: &str = "agent_sound_path";
+
+#[derive(Debug, Serialize)]
+pub struct AgentSoundSettings {
+    pub mode: String,
+    pub custom_path: String,
+}
+
+#[tauri::command]
+pub fn get_agent_sound_settings(db: tauri::State<'_, Db>) -> AgentSoundSettings {
+    AgentSoundSettings {
+        mode: db.get_setting(SOUND_MODE_SETTING_KEY, "builtin"),
+        custom_path: db.get_setting(SOUND_PATH_SETTING_KEY, ""),
+    }
+}
+
+#[tauri::command]
+pub fn set_agent_sound_settings(
+    db: tauri::State<'_, Db>,
+    mode: String,
+    custom_path: String,
+) -> Result<(), String> {
+    if !["builtin", "custom", "muted"].contains(&mode.as_str()) {
+        return Err(format!("未知提示音模式: {}", mode));
+    }
+    db.set_setting(SOUND_MODE_SETTING_KEY, &mode)
+        .map_err(|e| e.to_string())?;
+    db.set_setting(SOUND_PATH_SETTING_KEY, &custom_path)
+        .map_err(|e| e.to_string())
+}
+
+/// 返回提示音的 data URL。
+/// mode=builtin 时把内置 mp3 释放到 app_data_dir/sounds/ 后读回；
+/// mode=custom 时读用户选择的本地文件；muted 或读失败返回 None。
+#[tauri::command]
+pub fn get_agent_sound_data_url(app: tauri::AppHandle) -> Option<String> {
+    let db = app.state::<Db>();
+    let mode = db.get_setting(SOUND_MODE_SETTING_KEY, "builtin");
+    if mode == "muted" {
+        return None;
+    }
+
+    let bytes: Vec<u8> = if mode == "custom" {
+        let path = db.get_setting(SOUND_PATH_SETTING_KEY, "");
+        if path.is_empty() {
+            return None;
+        }
+        std::fs::read(&path).ok()?
+    } else {
+        // builtin：释放内置资源（wav 格式，HTML Audio 原生支持）
+        let app_data_dir = app.path().app_data_dir().ok()?;
+        let sounds_dir = app_data_dir.join("sounds");
+        std::fs::create_dir_all(&sounds_dir).ok()?;
+        let dest = sounds_dir.join("agent-notify.wav");
+        if !dest.exists() {
+            std::fs::write(&dest, include_bytes!("../resources/agent-notify.wav")).ok()?;
+        }
+        std::fs::read(&dest).ok()?
+    };
+
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    // 自定义文件可能是 mp3 也可能是 wav，统一用 mpeg MIME（Audio 宽容处理）
+    let mime = if mode == "custom" {
+        let path = db.get_setting(SOUND_PATH_SETTING_KEY, "");
+        if path.to_lowercase().ends_with(".mp3") {
+            "audio/mpeg"
+        } else if path.to_lowercase().ends_with(".ogg") {
+            "audio/ogg"
+        } else {
+            "audio/wav"
+        }
+    } else {
+        "audio/wav"
+    };
+    Some(format!("data:{};base64,{}", mime, b64))
+}
+
+// ------------------------------------------------------------------
+// 前往会话：在 cwd 下新开终端恢复 Claude Code 会话
+// ------------------------------------------------------------------
+
+/// 在用户指定的 cwd 下新开一个终端窗口，执行 `claude -r <session_id>`。
+/// 目前仅恢复 Claude Code 会话；其他 agent 暂无 resume 机制。
+#[tauri::command]
+pub fn open_agent_session(cwd: String, session_id: String) -> Result<(), String> {
+    if session_id.trim().is_empty() || session_id == "unknown" {
+        return Err("无效的会话 ID".to_string());
+    }
+    let dir = if cwd.trim().is_empty() {
+        dirs::home_dir().ok_or("home dir not found")?
+    } else {
+        std::path::PathBuf::from(&cwd)
+    };
+    if !dir.exists() {
+        return Err(format!("目录不存在: {}", dir.display()));
+    }
+    open_terminal_resume(&dir, &session_id)
+}
+
+#[cfg(windows)]
+fn open_terminal_resume(dir: &std::path::Path, session_id: &str) -> Result<(), String> {
+    // cmd /k 保持窗口；命令里的参数全部来自内部，无用户注入风险
+    std::process::Command::new("cmd")
+        .args(["/c", "start", "cmd", "/k", "claude", "-r", session_id])
+        .current_dir(dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("无法打开终端: {}", e))
+}
+
+#[cfg(target_os = "macos")]
+fn open_terminal_resume(dir: &std::path::Path, session_id: &str) -> Result<(), String> {
+    let script = format!(
+        "tell application \"Terminal\" to do script \"cd {} && claude -r {}\"",
+        dir.display(),
+        session_id
+    );
+    std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("无法打开终端: {}", e))
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn open_terminal_resume(_dir: &std::path::Path, _session_id: &str) -> Result<(), String> {
+    Err("当前平台暂不支持前往会话".to_string())
 }
 
 // ------------------------------------------------------------------

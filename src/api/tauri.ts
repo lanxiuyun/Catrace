@@ -383,3 +383,28 @@ export async function getAgentEventModes(): Promise<AgentEventModeEntry[]> {
 export async function setAgentEventMode(event: string, mode: AgentEventMode): Promise<void> {
   return invoke('set_agent_event_mode', { event, mode })
 }
+
+/** 在 cwd 下新开终端，恢复 Claude Code 会话 */
+export async function openAgentSession(cwd: string, sessionId: string): Promise<void> {
+  return invoke('open_agent_session', { cwd, sessionId })
+}
+
+export type AgentSoundMode = 'builtin' | 'custom' | 'muted'
+
+export interface AgentSoundSettings {
+  mode: AgentSoundMode
+  custom_path: string
+}
+
+export async function getAgentSoundSettings(): Promise<AgentSoundSettings> {
+  return invoke('get_agent_sound_settings')
+}
+
+export async function setAgentSoundSettings(mode: AgentSoundMode, customPath: string): Promise<void> {
+  return invoke('set_agent_sound_settings', { mode, customPath })
+}
+
+/** 返回提示音 data URL；muted 或读不到时返回 null */
+export async function getAgentSoundDataUrl(): Promise<string | null> {
+  return invoke('get_agent_sound_data_url')
+}

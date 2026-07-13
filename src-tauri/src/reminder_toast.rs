@@ -206,14 +206,28 @@ pub fn create_toast_window(
 
 /// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
 /// mode: "auto" = 到时自动消失；"sticky" = 常驻直到用户手动关闭。
+/// summary: 从 transcript 提取的任务摘要，可能为 None（前端降级为默认文案）。
 /// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=agent 的通知。
-pub fn create_agent_toast_window(app_handle: &tauri::AppHandle, event: &str, state: &str, mode: &str) {
+pub fn create_agent_toast_window(
+    app_handle: &tauri::AppHandle,
+    event: &str,
+    state: &str,
+    mode: &str,
+    session_id: &str,
+    cwd: &str,
+    prompt: &str,
+    summary: Option<&str>,
+) {
     let app = app_handle.clone();
     let payload = serde_json::json!({
         "kind": "agent",
         "event": event,
         "agentState": state,
         "mode": mode,
+        "sessionId": session_id,
+        "cwd": cwd,
+        "prompt": prompt,
+        "summary": summary,
     });
     let js = format!(
         "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
