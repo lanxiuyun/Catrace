@@ -492,12 +492,13 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.7.11"
+version = "26.7.15"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
  "chrono",
  "device_query",
+ "macos-accessibility-client",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",

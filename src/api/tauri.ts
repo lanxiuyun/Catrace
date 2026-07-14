@@ -217,6 +217,16 @@ export async function getPlatform(): Promise<string> {
   return invoke('get_platform')
 }
 
+/** 获取 macOS 辅助功能权限状态（非 macOS 恒为 true） */
+export async function getAccessibilityPermissionStatus(): Promise<boolean> {
+  return invoke('get_accessibility_permission_status')
+}
+
+/** 请求 macOS 辅助功能权限（非 macOS 恒为 true） */
+export async function requestAccessibilityPermission(): Promise<boolean> {
+  return invoke('request_accessibility_permission')
+}
+
 /** 获取「媒体计入活跃」开关 */
 export async function getMediaActiveEnabled(): Promise<boolean> {
   return invoke('get_media_active_enabled')

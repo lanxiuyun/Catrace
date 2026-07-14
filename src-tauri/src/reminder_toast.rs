@@ -4,8 +4,10 @@ use tokio::sync::Mutex;
 
 use tauri::Manager;
 
-use crate::{window_manager, ReminderWindowData, ReminderWindowStore};
-use crate::log_error;
+use crate::{
+    accessibility_permission_granted, log_error, window_manager, ReminderWindowData,
+    ReminderWindowStore,
+};
 
 const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 const TOAST_WINDOW_WIDTH: f64 = 360.0;
@@ -28,26 +30,30 @@ fn position_toast_window(
         return Err("No monitors available".to_string());
     }
 
-    // 实时获取当前鼠标坐标，避免读取 ActivityState 锁造成死锁风险
-    let (mouse_x, mouse_y) = {
-        let device_state = device_query::DeviceState::new();
-        let mouse = device_state.get_mouse();
-        mouse.coords
-    };
+    let monitor = if accessibility_permission_granted() {
+        // 实时获取当前鼠标坐标，避免读取 ActivityState 锁造成死锁风险
+        let (mouse_x, mouse_y) = {
+            let device_state = device_query::DeviceState::new();
+            let mouse = device_state.get_mouse();
+            mouse.coords
+        };
 
-    let monitor = monitors
-        .iter()
-        .find(|m| {
-            let pos = m.position();
-            let size = m.size();
-            let sf = m.scale_factor();
-            let left = (pos.x as f64 / sf) as i32;
-            let top = (pos.y as f64 / sf) as i32;
-            let right = left + (size.width as f64 / sf) as i32;
-            let bottom = top + (size.height as f64 / sf) as i32;
-            mouse_x >= left && mouse_x < right && mouse_y >= top && mouse_y < bottom
-        })
-        .unwrap_or_else(|| monitors.first().unwrap());
+        monitors
+            .iter()
+            .find(|m| {
+                let pos = m.position();
+                let size = m.size();
+                let sf = m.scale_factor();
+                let left = (pos.x as f64 / sf) as i32;
+                let top = (pos.y as f64 / sf) as i32;
+                let right = left + (size.width as f64 / sf) as i32;
+                let bottom = top + (size.height as f64 / sf) as i32;
+                mouse_x >= left && mouse_x < right && mouse_y >= top && mouse_y < bottom
+            })
+            .unwrap_or_else(|| monitors.first().unwrap())
+    } else {
+        monitors.first().unwrap()
+    };
 
     let work_area = monitor.work_area();
     let sf = monitor.scale_factor();

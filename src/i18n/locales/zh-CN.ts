@@ -99,6 +99,13 @@ export default {
       silentStartTitle: '静默启动',
       silentStartDesc: '开机时不显示窗口，只在托盘运行',
     },
+    accessibility: {
+      title: '辅助功能权限',
+      desc: '用于本地判断键盘和鼠标活动，不记录具体按键内容',
+      granted: '已授权',
+      notGranted: '未授权',
+      authorize: '授权',
+    },
     links: {
       githubTitle: 'GitHub',
       githubDesc: '查看源码和提交 Issue',
@@ -129,6 +136,9 @@ export default {
       installSuccess: '更新已安装，即将重启',
       checkFailed: '检查更新失败',
       updateFailed: '更新失败',
+      accessibilityGranted: '辅助功能权限已授权',
+      accessibilityWaiting: '请在系统设置中授权 Catrace，授权后状态会自动刷新',
+      accessibilityFailed: '请求辅助功能权限失败',
     },
   },
   mediaWhitelist: {
