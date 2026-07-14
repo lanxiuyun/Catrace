@@ -20,12 +20,12 @@ features:
       - .agent/features/toast-window/development-notes.md
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
-      - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
     related:
       - reminder
       - water-reminder
       - eye-reminder
       - fullscreen-reminder
+      - window-manager
       - platform-input
   fullscreen-reminder:
     docs:
@@ -98,6 +98,14 @@ architecture:
     related:
       - theme
       - database
+  window-manager:
+    docs:
+      - .agent/features/window-manager/README.md
+      - .agent/architecture/window-manager/README.md
+    related:
+      - toast-window
+      - platform-input
+
   platform-input:
     docs:
       - .agent/architecture/platform-input/README.md
