@@ -16,6 +16,14 @@
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
 - macOS / Linux 回退到普通显示
 
+## Z 序约束（重要）
+
+**窗口已有 `always_on_top(true)` 带的 `WS_EX_TOPMOST`，始终在 topmost 层。不需要额外 `SetWindowPos(HWND_TOPMOST)` 推高 Z 序。**
+
+- 在 `apply_no_activate_style` 中必须带 `SWP_NOZORDER`，否则 `HWND_TOPMOST` 会在每次 Toast 弹出时推高 Z 序 → 全屏独占模式游戏被切出全屏。
+- `show_no_activate` 去掉 `SetWindowPos(HWND_TOPMOST)` 调用，`ShowWindow` + 已有 `WS_EX_TOPMOST` 足够。
+- 只有在 `remove_no_activate`（恢复聚焦样式）时用 `HWND(null)` + `SWP_NOZORDER`，只改样式不动 Z 序。
+
 ## 卡片行为
 
 - 新卡片右侧滑入，关闭时 FLIP 动画让下方卡片上移

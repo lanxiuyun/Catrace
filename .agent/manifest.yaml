@@ -20,6 +20,7 @@ features:
       - .agent/features/toast-window/development-notes.md
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
+      - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
     related:
       - reminder
       - water-reminder
@@ -130,6 +131,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
   - .agent/bugs/2026-07-10-toast-stacking-display.md

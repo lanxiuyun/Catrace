@@ -37,6 +37,7 @@ Toast/Popup 关闭时 `hide_window_internal` 隐藏而非 `close()` 销毁，避
 ## 踩坑记录
 
 - `SetWindowPos` 传 `HWND_TOPMOST` 时不能同时带 `SWP_NOZORDER`，否则置顶被忽略
+- 但去掉 `SWP_NOZORDER` 后 `HWND_TOPMOST` 会在每次 Toast 显示时推高 Z 序 → **全屏独占模式游戏被切出全屏**。窗口已有 `always_on_top(true)` 的 `WS_EX_TOPMOST`，不需要额外 `SetWindowPos(HWND_TOPMOST)`。
 - 插件命令必须带前缀调用：`invoke('plugin:catrace-window|set_window_active_mode', ...)`
 - `WS_EX_NOACTIVATE` 与输入框矛盾：Popup 自定义输入框需临时 `set_window_active_mode(label, true)` 恢复可聚焦
 - HINSTANCE / HMODULE 类型转换通过裸指针 `HINSTANCE(hmodule.0)`
