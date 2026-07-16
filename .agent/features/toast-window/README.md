@@ -15,6 +15,7 @@
 - 定位到工作区右下角，支持多屏
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
 - macOS / Linux 回退到普通显示
+- Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
 ## 卡片行为
 

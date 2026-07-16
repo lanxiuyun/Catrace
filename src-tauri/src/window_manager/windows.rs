@@ -3,7 +3,7 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-    SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, HWND_TOPMOST, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, SWP_NOACTIVATE, SWP_SHOWWINDOW,
 };
 
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
@@ -17,6 +17,8 @@ fn cast_to_wry<R: Runtime>(window: &WebviewWindow<R>) -> &WebviewWindow<tauri::W
 }
 
 /// 设置窗口为无焦点样式（WS_EX_NOACTIVATE）并置顶
+/// 注意带 SWP_NOZORDER，避免 HWND_TOPMOST 生效引起全屏独占模式游戏被切出全屏。
+/// 窗口已在 Tauri builder 设 always_on_top(true) 带有 WS_EX_TOPMOST，始终在 topmost 层。
 fn apply_no_activate_style(hwnd: HWND) {
     unsafe {
         let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
@@ -24,12 +26,12 @@ fn apply_no_activate_style(hwnd: HWND) {
         let _ = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style);
         let _ = SetWindowPos(
             hwnd,
-            Some(HWND_TOPMOST),
+            Some(HWND(std::ptr::null_mut())),
             0,
             0,
             0,
             0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
         );
     }
 }
@@ -52,21 +54,14 @@ fn restore_normal_style(hwnd: HWND) {
     }
 }
 
-/// 使用原生 Win32 无焦点显示窗口，并置顶
+/// 使用原生 Win32 无焦点显示窗口（不触发 Z 序变更）。
+/// 窗口已在 Tauri builder 设 always_on_top(true) 带有 WS_EX_TOPMOST，
+/// 不需要额外 SetWindowPos(HWND_TOPMOST) —— 那会推高 Z 序并导致全屏独占模式游戏被切出全屏。
 fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
     if let Some(hwnd) = window_hwnd(window) {
         unsafe {
             apply_no_activate_style(hwnd);
             let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
-            let _ = SetWindowPos(
-                hwnd,
-                Some(HWND_TOPMOST),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
-            );
         }
     }
     let _ = window.unminimize();

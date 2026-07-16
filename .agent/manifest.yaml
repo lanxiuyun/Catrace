@@ -25,6 +25,7 @@ features:
       - water-reminder
       - eye-reminder
       - fullscreen-reminder
+      - window-manager
       - platform-input
   fullscreen-reminder:
     docs:
@@ -97,6 +98,14 @@ architecture:
     related:
       - theme
       - database
+  window-manager:
+    docs:
+      - .agent/features/window-manager/README.md
+      - .agent/architecture/window-manager/README.md
+    related:
+      - toast-window
+      - platform-input
+
   platform-input:
     docs:
       - .agent/architecture/platform-input/README.md
@@ -130,6 +139,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
   - .agent/bugs/2026-07-10-toast-stacking-display.md
