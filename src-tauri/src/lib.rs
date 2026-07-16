@@ -1223,9 +1223,6 @@ pub fn run() {
                 eprintln!(
                     "[accessibility] permission not granted; waiting to start input sampling"
                 );
-            }
-
-            {
                 let sampling_state = state.clone();
                 let sampling_started = input_sampling_started.clone();
                 thread::spawn(move || loop {

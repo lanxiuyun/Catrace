@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSelect, NSwitch, NButton, NProgress, NTag, useMessage } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
@@ -93,7 +93,7 @@ async function refreshAccessibilityStatus() {
 }
 
 function startAccessibilityPolling() {
-  if (platform.value !== 'macos' || accessibilityPollTimer !== undefined) return
+  if (platform.value !== 'macos' || accessibilityPollTimer !== undefined || accessibilityGranted.value) return
   accessibilityPollTimer = window.setInterval(() => {
     if (!accessibilityGranted.value) {
       void refreshAccessibilityStatus()
@@ -106,6 +106,12 @@ function stopAccessibilityPolling() {
   window.clearInterval(accessibilityPollTimer)
   accessibilityPollTimer = undefined
 }
+
+watch(accessibilityGranted, (granted) => {
+  if (granted) {
+    stopAccessibilityPolling()
+  }
+})
 
 async function handleRequestAccessibility() {
   loading.value.accessibility = true
