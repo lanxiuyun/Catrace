@@ -174,6 +174,16 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
     if !SERVER_ENABLED.load(Ordering::SeqCst) {
         return;
     }
+
+    // 自动销项：用户重新提交 prompt 说明已回到该会话，撤掉对应 sticky 待办。
+    // 即使 UserPromptSubmit 自身 mode=off（默认），也要处理销项。
+    if payload.event == "UserPromptSubmit"
+        && !payload.session_id.is_empty()
+        && payload.session_id != "unknown"
+    {
+        crate::reminder_toast::dismiss_agent_session_toast(app, &payload.session_id);
+    }
+
     let mode = event_mode(&payload.event);
     if mode == "off" {
         return;

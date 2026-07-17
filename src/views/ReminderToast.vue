@@ -183,6 +183,11 @@ onMounted(async () => {
     })
   }
 
+  // 自动销项：用户回到某会话（UserPromptSubmit）时由 Rust eval 调用
+  ;(window as any).dismissAgentSession = (sessionId: string) => {
+    dismissAgentSession(sessionId)
+  }
+
   // 监听内容高度变化，自动调整窗口尺寸
   await nextTick()
   if (stackRef.value) {
@@ -212,6 +217,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   delete (window as any).addToastNotification
+  delete (window as any).dismissAgentSession
   unlistenDebug?.()
   unlistenDebug = null
   unlistenRestTimer?.()
@@ -761,6 +767,29 @@ function toggleUpdateDetails(item: ToastItem) {
   nextTick(() => adjustWindowSize())
 }
 
+/**
+ * 从 sticky agent 待办卡里销掉指定 session。
+ * - 多会话聚合：只移除该条目；条目清空则整卡关闭
+ * - 单条 / auto 卡：session 匹配则整卡关闭
+ * 来源：UserPromptSubmit 自动销项，或用户在聚合列表点「前往」后
+ */
+function dismissAgentSession(sessionId: string) {
+  if (!sessionId || sessionId === 'unknown') return
+  const targets = notifications.value.filter((n) => n.kind === 'agent' && n.agentEntries?.length)
+  for (const item of targets) {
+    const entries = item.agentEntries
+    if (!entries) continue
+    const next = entries.filter((e) => e.sessionId !== sessionId)
+    if (next.length === entries.length) continue
+    if (next.length === 0) {
+      removeNotification(item.id, true)
+    } else {
+      item.agentEntries = next
+      nextTick(() => adjustWindowSize())
+    }
+  }
+}
+
 async function handleClose(item: ToastItem) {
   // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
   if (item.kind === 'rest-timer') {
@@ -850,6 +879,7 @@ async function handleUpdateInstall(item: ToastItem) {
           :total-ms="item.totalMs"
           @close="handleClose(item)"
           @dismiss-all="handleClose(item)"
+          @dismiss-entry="(sid) => dismissAgentSession(sid)"
         />
 
         <!-- Header -->

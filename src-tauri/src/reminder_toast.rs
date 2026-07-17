@@ -210,6 +210,27 @@ pub fn create_toast_window(
     });
 }
 
+/// 自动销项：用户已回到某 agent 会话时，从前端 sticky 待办卡里移除该 session。
+/// 通过 eval 调 `window.dismissAgentSession`；窗口不存在则无需处理。
+pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &str) {
+    if session_id.is_empty() || session_id == "unknown" {
+        return;
+    }
+    let app = app_handle.clone();
+    let payload = serde_json::json!(session_id);
+    let js = format!(
+        "if (window.dismissAgentSession) {{ window.dismissAgentSession({}); }}",
+        payload
+    );
+
+    tauri::async_runtime::spawn(async move {
+        let _guard = TOAST_MUTEX.lock().await;
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let _ = window.eval(&js);
+        }
+    });
+}
+
 /// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
 /// mode: "auto" = 到时自动消失；"sticky" = 常驻直到用户手动关闭。
 /// summary: 从 transcript 提取的任务摘要，可能为 None（前端降级为默认文案）。

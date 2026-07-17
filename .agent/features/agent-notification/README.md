@@ -7,18 +7,20 @@
 ```
 agent 触发 hook → 释放到 app_data_dir/hooks/catrace-agent-hook.cjs 的 Node 脚本
   → 读 stdin JSON（事件名在 hook_event_name，不在 argv！）→ 事件名归一化
-  → POST 127.0.0.1:23456/state → agent_hook.rs 按事件策略过滤/去重
+  → POST 127.0.0.1:23456/state → agent_hook.rs
+      ├─ UserPromptSubmit：按 sessionId 自动销 sticky 待办（即使 mode=off）
+      └─ 事件策略过滤 / auto 去重 / transcript 摘要
   → reminder_toast.rs eval window.addToastNotification({kind:"agent", mode})
 ```
 
 ## 涉及文件
 
-- `src-tauri/src/agent_hook.rs` — HTTP 服务（tiny_http，固定端口 23456）、事件三态策略、去重、四个 agent 的安装/卸载/检测命令；transcript 摘要生成；`open_agent_session` 前往会话；提示音设置/读取
+- `src-tauri/src/agent_hook.rs` — HTTP 服务（tiny_http，固定端口 23456）、事件三态策略、去重、四个 agent 的安装/卸载/检测命令；transcript 摘要生成；`open_agent_session` 前往会话；提示音设置/读取；`UserPromptSubmit` 自动销项
 - `src-tauri/resources/catrace-agent-hook.cjs` — hook 脚本（`include_bytes!` 内嵌，安装时释放到 app_data_dir）；**必须 .cjs**：仓库根 package.json 带 `type:module`，.js 会被 Node 当 ESM 导致 require 崩溃
 - `src-tauri/resources/agent-notify.wav` — 内置提示音（180ms / 880Hz），释放到 app_data_dir/sounds/
-- `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window(event, state, mode, session_id, cwd, prompt, summary)`
-- `src/views/ReminderToast.vue` — 通知栈生命周期；agent 卡片渲染下沉到 AgentToastCard
-- `src/components/AgentToastCard.vue` — agent 卡片：项目名+摘要标题、聚合展开式列表、前往会话、全部已读
+- `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window(...)` / `dismiss_agent_session_toast(session_id)`
+- `src/views/ReminderToast.vue` — 通知栈生命周期；agent 卡片渲染下沉到 AgentToastCard；`window.dismissAgentSession`
+- `src/components/AgentToastCard.vue` — agent 卡片：项目名+摘要标题、聚合展开式列表、前往会话、全部已读；多会话「前往」只销当前条目
 - `src/components/settings/AgentSettingsCard.vue` — 设置页：全局开关、agent 安装列表、事件策略、提示音设置；开关关闭时安装列表和事件策略整段隐藏（单个 `v-if="enabled"` 包住）
 - `src/api/tauri.ts` — 前端 invoke 封装
 

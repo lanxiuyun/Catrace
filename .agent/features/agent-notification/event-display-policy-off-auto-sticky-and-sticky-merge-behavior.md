@@ -34,6 +34,7 @@
 - 只能手动点 × 关闭
 - **合并**：已存在 sticky agent 卡时，新 sticky 事件不新建卡片，而是把事件追加到该卡的 `pendingEvents`；≥2 个时标题变「N 个会话在等你」（i18n `agent.titlePending` / `bodyPending`）
 - 合并只针对 `mode === 'sticky'` 的 agent 卡；auto 卡照常独立入栈
+- **自动销项**：同 session 的 `UserPromptSubmit` 到达时，即使该事件 mode=off，也会从前端 sticky 卡里按 sessionId 移除条目（用户已回到终端对话，待办自然完成）。见 [agent-toast-card-content-interaction-and-component-boundary.md](agent-toast-card-content-interaction-and-component-boundary.md)
 
 ## payload 字段
 

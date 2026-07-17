@@ -24,11 +24,19 @@ hook payload 经脚本透传到后端（`catrace-agent-hook.cjs` → `agent_hook
 |------|------|
 | 点卡片主体（单条） | `open_agent_session(cwd, session_id)`：Windows `cmd /c start cmd /k claude -r <sid>`，macOS osascript Terminal；成功后卡片消失 |
 | 点卡片主体（聚合） | 展开/折叠列表 |
-| 聚合列表每行「前往」 | 同上，单个会话 |
+| 聚合列表每行「前往」 | 同上；成功后**只销该 session 条目**，其余条目保留（`dismissEntry`） |
 | 右上 × | 已读消失 |
 | 聚合卡底部「全部已读」 | 整体消失 |
+| **自动销项** | 同 session 再收到 `UserPromptSubmit`（用户已回到该会话）→ 后端 `dismiss_agent_session_toast` → 前端 `window.dismissAgentSession(sessionId)` 移除该条目；条目清空则整卡关 |
 
 打开终端失败时**保留卡片**让用户重试，不静默吞掉。
+
+## 自动销项细节
+
+- 触发点在 `agent_hook.rs::handle_request`，**先于**事件三态策略判断：即使 `UserPromptSubmit` 默认 `mode=off` 不弹卡，仍会销 sticky 待办。
+- 只匹配 `session_id` 非空且 ≠ `"unknown"`。
+- 前端对所有 `kind=agent` 卡扫描 `agentEntries`，按 sessionId 过滤；空了走 `removeNotification` 带动画。
+- 对应 Rust：`reminder_toast::dismiss_agent_session_toast`（eval `window.dismissAgentSession`）。
 
 ## sticky 合并粒度：按 sessionId
 

@@ -24,9 +24,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'dismissAll'): void
+  /** 仅销掉某一会话条目（多会话聚合卡用）；payload 为 sessionId */
+  (e: 'dismissEntry', sessionId: string): void
 }>()
 
-const expanded = ref(false)
+// 聚合卡默认展开，用户一眼看到全部待办会话
+const expanded = ref(true)
 const navigating = ref<number | null>(null)
 
 const EVENT_TITLE_KEYS: Record<string, string> = {
@@ -77,7 +80,12 @@ async function gotoSession(entry: AgentEntry, index: number) {
   navigating.value = index
   try {
     await openAgentSession(entry.cwd || '', entry.sessionId)
-    emit('close')
+    // 多会话聚合：只销当前条目，其余仍待处理；单条则整卡关闭
+    if (isMulti.value) {
+      emit('dismissEntry', entry.sessionId)
+    } else {
+      emit('close')
+    }
   } catch {
     // ignore：终端打开失败时保留卡片让用户重试
   } finally {
