@@ -1165,26 +1165,26 @@ async function handleUpdateInstall(item: ToastItem) {
   }
 }
 
-/* Agent notification theming — cyan accent */
+/* Agent notification theming — dynamic per event */
 .toast-card-agent .pulse-dot {
-  background: #06B6D4;
+  background: var(--accent);
 }
 
 .toast-card-agent .progress-bar {
-  background: linear-gradient(90deg, #0891B2, #22D3EE);
+  background: linear-gradient(90deg, var(--accent), var(--light-bg));
 }
 
 .toast-card-agent .title {
-  color: #155E75;
+  color: var(--title);
 }
 
 .toast-card-agent .close-btn:hover {
-  background: #ECFEFF;
-  color: #0891B2;
+  background: var(--light-bg);
+  color: var(--accent);
 }
 
 .toast-card-agent .body-text {
-  color: #0E7490;
+  color: var(--body);
 }
 
 /* Update reminder theming — matches reference image orange accent */
