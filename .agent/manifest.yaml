@@ -93,6 +93,7 @@ features:
   agent-notification:
     docs:
       - .agent/features/agent-notification/README.md
+      - .agent/features/agent-notification/roadmap-and-progress.md
       - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
       - .agent/features/agent-notification/agent-toast-card-content-interaction-and-component-boundary.md
       - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
@@ -170,5 +171,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知策略定型 + PermissionRequest 只通知；自动销项/默认展开已落地
-  next: 用户重装 hook 以写入 PermissionRequest；实测权限提醒/自动销项；Windows hook 命令包装；交互小窗后续；发版前升版本号
+  phase: agent 通知 P0–P3 完成；路线图见 features/agent-notification/roadmap-and-progress.md
+  next: P4 Windows hook 安装可靠性 → P5 实测升版 → P6 真审批 Allow/Deny → P7 交互小窗
