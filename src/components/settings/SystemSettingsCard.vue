@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSelect, NSwitch, NButton, NProgress, useMessage } from 'naive-ui'
+import { NSelect, NSwitch, NButton, NProgress, NTag, useMessage } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import i18n from '../../i18n'
 import { detectDefaultLocale, type SupportedLocale } from '../../utils/locale'
-import { getSilentStart, setSilentStart, getLocale, setLocale } from '../../api/tauri'
+import {
+  getAccessibilityPermissionStatus,
+  getLocale,
+  getPlatform,
+  getSilentStart,
+  requestAccessibilityPermission,
+  setLocale,
+  setSilentStart,
+} from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
 const { t } = useI18n()
@@ -18,14 +26,18 @@ const autostart = ref(false)
 const silentStart = ref(false)
 const localeVal = ref('zh-CN')
 const appVersion = ref('')
+const platform = ref('')
+const accessibilityGranted = ref(true)
 const updateInfo = ref<{ available: boolean; version?: string; body?: string } | null>(null)
 const updateLoading = ref(false)
 const updateInstalling = ref(false)
 const downloadProgress = ref(0)
 const downloadTotal = ref(0)
 const downloadReceived = ref(0)
-const loading = ref({ autostart: false, silent: false, locale: false })
+const loading = ref({ autostart: false, silent: false, locale: false, accessibility: false })
 const isReady = ref(false)
+const showAccessibility = computed(() => platform.value === 'macos')
+let accessibilityPollTimer: number | undefined
 
 const localeOptions = [
   { label: '简体中文', value: 'zh-CN' },
@@ -35,15 +47,19 @@ const localeOptions = [
 
 onMounted(async () => {
   try {
-    const [a, s, v, loc] = await Promise.all([
+    const [a, s, v, loc, p, access] = await Promise.all([
       isEnabled(),
       getSilentStart(),
       getVersion(),
       getLocale(),
+      getPlatform(),
+      getAccessibilityPermissionStatus(),
     ])
     autostart.value = a
     silentStart.value = s
     appVersion.value = v
+    platform.value = p
+    accessibilityGranted.value = access
 
     if (!loc) {
       const detected = detectDefaultLocale()
@@ -57,10 +73,63 @@ onMounted(async () => {
     }
 
     isReady.value = true
+    startAccessibilityPolling()
   } catch (e) {
     console.error('Failed to load system settings', e)
   }
 })
+
+onUnmounted(() => {
+  stopAccessibilityPolling()
+})
+
+async function refreshAccessibilityStatus() {
+  if (platform.value !== 'macos') return
+  try {
+    accessibilityGranted.value = await getAccessibilityPermissionStatus()
+  } catch (e) {
+    console.error('Failed to refresh accessibility permission status', e)
+  }
+}
+
+function startAccessibilityPolling() {
+  if (platform.value !== 'macos' || accessibilityPollTimer !== undefined || accessibilityGranted.value) return
+  accessibilityPollTimer = window.setInterval(() => {
+    if (!accessibilityGranted.value) {
+      void refreshAccessibilityStatus()
+    }
+  }, 2000)
+}
+
+function stopAccessibilityPolling() {
+  if (accessibilityPollTimer === undefined) return
+  window.clearInterval(accessibilityPollTimer)
+  accessibilityPollTimer = undefined
+}
+
+watch(accessibilityGranted, (granted) => {
+  if (granted) {
+    stopAccessibilityPolling()
+  }
+})
+
+async function handleRequestAccessibility() {
+  loading.value.accessibility = true
+  try {
+    const granted = await requestAccessibilityPermission()
+    accessibilityGranted.value = granted || (await getAccessibilityPermissionStatus())
+    if (accessibilityGranted.value) {
+      message.success(t('settings.messages.accessibilityGranted'))
+    } else {
+      message.info(t('settings.messages.accessibilityWaiting'))
+    }
+  } catch (e) {
+    message.error(t('settings.messages.accessibilityFailed'))
+    console.error(e)
+  } finally {
+    loading.value.accessibility = false
+  }
+}
 
 async function toggleAutostart(val: boolean) {
   loading.value.autostart = true
@@ -185,6 +254,30 @@ async function handleInstallUpdate() {
 
     <div class="divider" />
 
+    <template v-if="showAccessibility">
+      <setting-row :title="t('settings.accessibility.title')" :desc="t('settings.accessibility.desc')">
+        <div class="permission-actions">
+          <n-tag
+            size="small"
+            :type="accessibilityGranted ? 'success' : 'warning'"
+            round
+          >
+            {{ accessibilityGranted ? t('settings.accessibility.granted') : t('settings.accessibility.notGranted') }}
+          </n-tag>
+          <n-button
+            v-if="!accessibilityGranted"
+            size="small"
+            :loading="loading.accessibility"
+            @click="handleRequestAccessibility"
+          >
+            {{ t('settings.accessibility.authorize') }}
+          </n-button>
+        </div>
+      </setting-row>
+
+      <div class="divider" />
+    </template>
+
     <setting-row :title="t('settings.startup.autostartTitle')" :desc="t('settings.startup.autostartDesc')">
       <n-switch
         :value="autostart"
@@ -287,5 +380,11 @@ async function handleInstallUpdate() {
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
   text-align: right;
+}
+
+.permission-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
 }
 </style>

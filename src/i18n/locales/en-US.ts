@@ -100,6 +100,13 @@ export default {
       silentStartTitle: 'Silent Start',
       silentStartDesc: "Don't show the window on boot, run in tray only",
     },
+    accessibility: {
+      title: 'Accessibility Permission',
+      desc: 'Used locally to detect keyboard and mouse activity without recording key contents',
+      granted: 'Granted',
+      notGranted: 'Not Granted',
+      authorize: 'Authorize',
+    },
     links: {
       githubTitle: 'GitHub',
       githubDesc: 'View source code and submit issues',
@@ -166,6 +173,9 @@ export default {
       installSuccess: 'Update installed, restarting soon',
       checkFailed: 'Failed to check for updates',
       updateFailed: 'Update failed',
+      accessibilityGranted: 'Accessibility permission granted',
+      accessibilityWaiting: 'Grant Catrace in System Settings; the status will refresh automatically',
+      accessibilityFailed: 'Failed to request Accessibility permission',
     },
   },
   mediaWhitelist: {

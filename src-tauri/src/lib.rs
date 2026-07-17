@@ -31,6 +31,81 @@ use tokio::time::interval;
 // 启动时自动检查更新，整个生命周期只执行一次
 static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
 
+#[cfg(target_os = "macos")]
+pub(crate) fn accessibility_permission_granted() -> bool {
+    macos_accessibility_client::accessibility::application_is_trusted()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn accessibility_permission_granted() -> bool {
+    true
+}
+
+#[tauri::command]
+fn get_accessibility_permission_status() -> bool {
+    accessibility_permission_granted()
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn request_accessibility_permission() -> bool {
+    macos_accessibility_client::accessibility::application_is_trusted_with_prompt()
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn request_accessibility_permission() -> bool {
+    true
+}
+
+fn start_input_sampling(state: Arc<Mutex<ActivityState>>, started: Arc<AtomicBool>) {
+    if started.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    // 键盘监听线程：所有平台统一使用 device_query 的事件回调
+    // rdev 在 Windows 上使用 SetWindowsHookEx(WH_KEYBOARD_LL)，其钩子链实现
+    // 有缺陷会导致 Ctrl 修饰键"卡住"——释放 Ctrl 后系统仍认为其按下，
+    // 致使用户滚轮滚动被错误解释为 Ctrl+Wheel 缩放。
+    // 在 macOS 上 rdev 调用 TISGetInputSourceProperty 会在非主线程/某些
+    // 输入法下崩溃（Narsil/rdev #103 #146）。device_query 避免以上问题。
+    {
+        let keyboard_state = state.clone();
+        thread::spawn(move || {
+            let device_state = DeviceState::new();
+            let _guard = device_state.on_key_down(move |_: &Keycode| {
+                let mut s = keyboard_state.lock().unwrap();
+                if s.key_debounce
+                    .map_or(true, |t| t.elapsed() > Duration::from_secs(2))
+                {
+                    s.count += 1;
+                    s.key_debounce = Some(Instant::now());
+                }
+            });
+            loop {
+                thread::sleep(Duration::from_secs(60));
+            }
+        });
+    }
+
+    // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
+    thread::spawn(move || {
+        let device_state = DeviceState::new();
+        loop {
+            thread::sleep(Duration::from_secs(2));
+            let mouse = device_state.get_mouse();
+            let (x, y) = mouse.coords;
+            let mut s = state.lock().unwrap();
+            if (x, y) != s.last_cursor {
+                s.count += 1;
+                s.last_cursor = (x, y);
+            }
+        }
+    });
+
+    eprintln!("[accessibility] input sampling started");
+}
+
 // ------------------------------------------------------------------
 // 媒体计入活跃检测
 // ------------------------------------------------------------------
@@ -1075,31 +1150,7 @@ pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
     let water_state = Arc::new(Mutex::new(WaterReminderState::default()));
-
-    // 键盘监听线程：所有平台统一使用 device_query 的事件回调
-    // rdev 在 Windows 上使用 SetWindowsHookEx(WH_KEYBOARD_LL)，其钩子链实现
-    // 有缺陷会导致 Ctrl 修饰键"卡住"——释放 Ctrl 后系统仍认为其按下，
-    // 致使用户滚轮滚动被错误解释为 Ctrl+Wheel 缩放。
-    // 在 macOS 上 rdev 调用 TISGetInputSourceProperty 会在非主线程/某些
-    // 输入法下崩溃（Narsil/rdev #103 #146）。device_query 避免以上问题。
-    {
-        let keyboard_state = state.clone();
-        thread::spawn(move || {
-            let device_state = DeviceState::new();
-            let _guard = device_state.on_key_down(move |_: &Keycode| {
-                let mut s = keyboard_state.lock().unwrap();
-                if s.key_debounce
-                    .map_or(true, |t| t.elapsed() > Duration::from_secs(2))
-                {
-                    s.count += 1;
-                    s.key_debounce = Some(Instant::now());
-                }
-            });
-            loop {
-                thread::sleep(Duration::from_secs(60));
-            }
-        });
-    }
+    let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
     let water_state_clone = water_state.clone();
@@ -1126,7 +1177,6 @@ pub fn run() {
             }
         }))
         .setup(move |app| {
-            let mouse_state = state.clone();
             let settle_state = state.clone();
 
             // 初始化统一日志系统（写入本地文件）
@@ -1168,6 +1218,26 @@ pub fn run() {
             app.manage(fullscreen_active.clone());
             app.manage(Arc::new(NotificationTestState::new()));
 
+            if accessibility_permission_granted() {
+                start_input_sampling(state.clone(), input_sampling_started.clone());
+            } else {
+                eprintln!(
+                    "[accessibility] permission not granted; waiting to start input sampling"
+                );
+                let sampling_state = state.clone();
+                let sampling_started = input_sampling_started.clone();
+                thread::spawn(move || loop {
+                    if sampling_started.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    if accessibility_permission_granted() {
+                        start_input_sampling(sampling_state.clone(), sampling_started.clone());
+                        break;
+                    }
+                    thread::sleep(Duration::from_secs(3));
+                });
+            }
+
             // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
             reminder_toast::prepare_toast_window(app.app_handle());
 
@@ -1183,21 +1253,6 @@ pub fn run() {
                 tokio::time::sleep(Duration::from_secs(3)).await;
                 if let Err(e) = check_update_and_notify(&update_app_handle).await {
                     log_info!("update", "auto update check failed: {}", e);
-                }
-            });
-
-            // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
-            thread::spawn(move || {
-                let device_state = DeviceState::new();
-                loop {
-                    thread::sleep(Duration::from_secs(2));
-                    let mouse = device_state.get_mouse();
-                    let (x, y) = mouse.coords;
-                    let mut s = mouse_state.lock().unwrap();
-                    if (x, y) != s.last_cursor {
-                        s.count += 1;
-                        s.last_cursor = (x, y);
-                    }
                 }
             });
 
@@ -1437,6 +1492,8 @@ pub fn run() {
             get_locale,
             set_locale,
             get_platform,
+            get_accessibility_permission_status,
+            request_accessibility_permission,
             get_media_active_enabled,
             set_media_active_enabled,
             get_media_whitelist_text,
