@@ -96,6 +96,7 @@ features:
       - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
       - .agent/features/agent-notification/agent-toast-card-content-interaction-and-component-boundary.md
       - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
+      - .agent/features/agent-notification/hook-install-development-guide.md
     related:
       - toast-window
       - settings

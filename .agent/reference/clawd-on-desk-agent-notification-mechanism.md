@@ -39,7 +39,7 @@ hook 脚本（Node.js，读 stdin JSON payload）
 | Agent | 配置文件 |
 |---|---|
 | Claude Code | `~/.claude/settings.json` |
-| Codex CLI | `~/.codex/config.json` |
+| Codex CLI | `~/.codex/hooks.json`（另需 `config.toml` 启用 hooks feature） |
 | Copilot CLI | `~/.copilot/hooks/hooks.json` |
 | Gemini CLI | `~/.gemini/settings.json` |
 | Cursor | `~/.cursor/hooks.json` |
@@ -81,8 +81,8 @@ Catrace 只复刻了最小子集，差异对照：
 |---|---|
 | 端口 23333-23337 漂移 + runtime.json | 固定 23456（单例应用无端口竞争） |
 | /state + /permission 双端点 | 仅 /state，不做阻塞式权限批准 |
-| 8 种 agent 安装器 | 仅 Claude Code |
+| 8+ 种 agent 安装器 | Claude Code / Codex / Gemini / Kimi（命令 hook 派） |
 | 宠物动画 / 气泡 / HUD / Dashboard | 复用现有 Toast 窗口加一种卡片类型 |
-| 全量 payload 字段 | 仅 `event` / `state` / `session_id` |
+| 全量 payload 字段 | `event` / `state` / `session_id` / `cwd` / `transcript_path` / `prompt` |
 
-相关实现见 `src-tauri/src/agent_hook.rs` 与 [toast-window](../features/toast-window/README.md)。
+相关实现见 `src-tauri/src/agent_hook.rs`、[agent-notification](../features/agent-notification/README.md)、改造指南 [hook-install-development-guide.md](../features/agent-notification/hook-install-development-guide.md)。

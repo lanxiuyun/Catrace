@@ -27,3 +27,4 @@ agent 触发 hook → 释放到 app_data_dir/hooks/catrace-agent-hook.cjs 的 No
 - [event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md](event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md) — 三态策略的存储/默认/去重规则，sticky 常驻与多卡合并的前端行为
 - [agent-toast-card-content-interaction-and-component-boundary.md](agent-toast-card-content-interaction-and-component-boundary.md) — 卡片内容来源（transcript 摘要）、交互动作、按 sessionId 合并粒度、与 toast-window 的组件边界、提示音链路
 - [files-to-change-when-adding-a-new-agent-hook-target.md](files-to-change-when-adding-a-new-agent-hook-target.md) — 新增一个 agent 接入要改的所有位置（以 Codex/Gemini/Kimi 为参照）
+- [hook-install-development-guide.md](hook-install-development-guide.md) — **改 hook 安装/脚本前必读**：四 agent 配置规格、平台坑、与 clawd 缺口、安全修改流程
