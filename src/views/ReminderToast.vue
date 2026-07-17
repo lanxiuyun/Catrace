@@ -21,6 +21,7 @@ import {
   getActivitySnapshot,
   dismissRestTimer,
   getAgentSoundDataUrl,
+  getAgentSoundSettings,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
@@ -75,14 +76,21 @@ let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
 let unlistenAgentSound: (() => void) | null = null
 
-// Agent 通知提示音：首次加载时缓存 data URL
+// Agent 通知提示音：首次加载时缓存 data URL 与音量
 let agentSoundDataUrl: string | null | undefined = undefined
+let agentSoundVolume = 1.0
 
 async function loadAgentSound() {
   // 重置缓存并重新读取，用于设置变更后刷新
   agentSoundDataUrl = undefined
   try {
-    agentSoundDataUrl = await getAgentSoundDataUrl()
+    const settings = await getAgentSoundSettings()
+    agentSoundVolume = settings.volume
+    if (settings.mode === 'muted') {
+      agentSoundDataUrl = null
+    } else {
+      agentSoundDataUrl = await getAgentSoundDataUrl()
+    }
   } catch {
     agentSoundDataUrl = null
   }
@@ -92,7 +100,7 @@ function playAgentSound() {
   if (!agentSoundDataUrl) return
   try {
     const audio = new Audio(agentSoundDataUrl)
-    audio.volume = 0.5
+    audio.volume = agentSoundVolume
     audio.play().catch(() => {})
   } catch {
     // ignore

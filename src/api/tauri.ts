@@ -405,14 +405,15 @@ export type AgentSoundMode = 'builtin' | 'custom' | 'muted'
 export interface AgentSoundSettings {
   mode: AgentSoundMode
   custom_path: string
+  volume: number
 }
 
 export async function getAgentSoundSettings(): Promise<AgentSoundSettings> {
   return invoke('get_agent_sound_settings')
 }
 
-export async function setAgentSoundSettings(mode: AgentSoundMode, customPath: string): Promise<void> {
-  return invoke('set_agent_sound_settings', { mode, customPath })
+export async function setAgentSoundSettings(mode: AgentSoundMode, customPath: string, volume: number): Promise<void> {
+  return invoke('set_agent_sound_settings', { mode, customPath, volume })
 }
 
 /** 弹出系统文件选择器，返回单个音频文件路径；取消返回 null */

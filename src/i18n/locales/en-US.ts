@@ -157,6 +157,7 @@ export default {
       soundPath: 'Audio file path',
       soundPathPlaceholder: 'Select or enter a local audio file (wav / mp3 / ogg)',
       soundPickFile: 'Choose file',
+      soundVolume: 'Sound volume',
     },
     messages: {
       saved: 'Saved',

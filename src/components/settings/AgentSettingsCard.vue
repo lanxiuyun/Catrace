@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, NInput, useMessage } from 'naive-ui'
+import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, NInput, NSlider, useMessage } from 'naive-ui'
 import {
   getAgentNotificationEnabled,
   setAgentNotificationEnabled,
@@ -33,7 +33,19 @@ const modeLoading = ref<Record<string, boolean>>({})
 
 const soundMode = ref<AgentSoundMode>('builtin')
 const soundPath = ref('')
+const soundVolume = ref(1.0)
 const soundLoading = ref(false)
+
+let soundVolumeTimer: ReturnType<typeof setTimeout> | null = null
+
+async function saveSoundVolume() {
+  if (soundVolumeTimer) {
+    clearTimeout(soundVolumeTimer)
+  }
+  soundVolumeTimer = setTimeout(() => {
+    saveSound()
+  }, 200)
+}
 
 const agentNameKeys: Record<string, string> = {
   claude: 'settings.agent.nameClaude',
@@ -77,6 +89,7 @@ onMounted(async () => {
     const s = await getAgentSoundSettings()
     soundMode.value = s.mode
     soundPath.value = s.custom_path
+    soundVolume.value = s.volume
   } catch {
     // ignore
   }
@@ -140,7 +153,7 @@ async function uninstall(agent: string) {
 async function saveSound() {
   soundLoading.value = true
   try {
-    await setAgentSoundSettings(soundMode.value, soundPath.value)
+    await setAgentSoundSettings(soundMode.value, soundPath.value, soundVolume.value)
     message.success(t('settings.messages.saved'))
   } catch {
     message.error(t('settings.messages.saveFailed'))
@@ -240,6 +253,22 @@ async function handlePickSoundFile() {
         </n-radio-group>
       </div>
 
+      <div v-if="soundMode !== 'muted'" class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
+        <div class="sound-volume-row">
+          <n-slider
+            v-model:value="soundVolume"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :disabled="soundLoading"
+            style="width: 8rem"
+            @update:value="saveSoundVolume"
+          />
+          <span class="volume-value">{{ Math.round(soundVolume * 100) }}%</span>
+        </div>
+      </div>
+
       <div v-if="soundMode === 'custom'" class="event-row">
         <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
         <div class="sound-path-row">
@@ -304,6 +333,21 @@ async function handlePickSoundFile() {
 
 .sound-path-row .n-input {
   flex: 1;
+}
+
+.sound-volume-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.volume-value {
+  font-size: 0.75rem;
+  color: #666;
+  min-width: 2.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .agent-label {

@@ -304,11 +304,17 @@ pub fn set_agent_event_mode(
 /// 提示音设置 key（存 SQLite，前端用 Store 同步一份用于自定义路径）
 const SOUND_MODE_SETTING_KEY: &str = "agent_sound_mode"; // builtin | custom | muted
 const SOUND_PATH_SETTING_KEY: &str = "agent_sound_path";
+const SOUND_VOLUME_SETTING_KEY: &str = "agent_sound_volume";
 
 #[derive(Debug, Serialize)]
 pub struct AgentSoundSettings {
     pub mode: String,
     pub custom_path: String,
+    pub volume: f32,
+}
+
+fn parse_volume(s: &str) -> f32 {
+    s.parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0)
 }
 
 #[tauri::command]
@@ -316,6 +322,7 @@ pub fn get_agent_sound_settings(db: tauri::State<'_, Db>) -> AgentSoundSettings 
     AgentSoundSettings {
         mode: db.get_setting(SOUND_MODE_SETTING_KEY, "builtin"),
         custom_path: db.get_setting(SOUND_PATH_SETTING_KEY, ""),
+        volume: parse_volume(&db.get_setting(SOUND_VOLUME_SETTING_KEY, "1.0")),
     }
 }
 
@@ -324,14 +331,18 @@ pub fn set_agent_sound_settings(
     db: tauri::State<'_, Db>,
     mode: String,
     custom_path: String,
+    volume: f32,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     if !["builtin", "custom", "muted"].contains(&mode.as_str()) {
         return Err(format!("未知提示音模式: {}", mode));
     }
+    let volume = volume.clamp(0.0, 1.0);
     db.set_setting(SOUND_MODE_SETTING_KEY, &mode)
         .map_err(|e| e.to_string())?;
     db.set_setting(SOUND_PATH_SETTING_KEY, &custom_path)
+        .map_err(|e| e.to_string())?;
+    db.set_setting(SOUND_VOLUME_SETTING_KEY, &volume.to_string())
         .map_err(|e| e.to_string())?;
 
     // 通知所有 Toast 窗口刷新缓存的提示音 data URL

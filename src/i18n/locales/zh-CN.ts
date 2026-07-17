@@ -157,6 +157,7 @@ export default {
       soundPath: '音频文件路径',
       soundPathPlaceholder: '选择或输入本地音频文件（wav / mp3 / ogg）',
       soundPickFile: '选择文件',
+      soundVolume: '提示音音量',
     },
     messages: {
       saved: '已保存',
