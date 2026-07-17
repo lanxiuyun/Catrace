@@ -73,12 +73,14 @@ let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
+let unlistenAgentSound: (() => void) | null = null
 
 // Agent 通知提示音：首次加载时缓存 data URL
 let agentSoundDataUrl: string | null | undefined = undefined
 
 async function loadAgentSound() {
-  if (agentSoundDataUrl !== undefined) return
+  // 重置缓存并重新读取，用于设置变更后刷新
+  agentSoundDataUrl = undefined
   try {
     agentSoundDataUrl = await getAgentSoundDataUrl()
   } catch {
@@ -148,6 +150,11 @@ onMounted(async () => {
     is_complete: boolean
   }>('catrace-rest-timer', (event) => {
     updateRestTimer(event.payload)
+  })
+
+  // 监听提示音设置变更，重新加载 data URL
+  unlistenAgentSound = await listen('catrace-agent-sound-changed', () => {
+    loadAgentSound()
   })
 
   // 暴露全局函数给 Rust 端 eval 调用
@@ -222,6 +229,8 @@ onUnmounted(() => {
   unlistenDebug = null
   unlistenRestTimer?.()
   unlistenRestTimer = null
+  unlistenAgentSound?.()
+  unlistenAgentSound = null
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
