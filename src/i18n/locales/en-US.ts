@@ -155,7 +155,8 @@ export default {
       soundCustom: 'Custom',
       soundMuted: 'Muted',
       soundPath: 'Audio file path',
-      soundPathPlaceholder: 'e.g. C:\\Users\\you\\notify.wav',
+      soundPathPlaceholder: 'Select or enter a local audio file (wav / mp3 / ogg)',
+      soundPickFile: 'Choose file',
     },
     messages: {
       saved: 'Saved',

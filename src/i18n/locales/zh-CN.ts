@@ -155,7 +155,8 @@ export default {
       soundCustom: '自定义',
       soundMuted: '静音',
       soundPath: '音频文件路径',
-      soundPathPlaceholder: '例：C:\\Users\\you\\notify.wav',
+      soundPathPlaceholder: '选择或输入本地音频文件（wav / mp3 / ogg）',
+      soundPickFile: '选择文件',
     },
     messages: {
       saved: '已保存',
