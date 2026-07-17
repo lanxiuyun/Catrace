@@ -170,5 +170,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知自动销项已落地（UserPromptSubmit 撤 sticky；多会话「前往」只销当前条目）
-  next: 实测摘要/前往会话/提示音/自动销项；实测 Codex/Gemini/Kimi hook 触发；Windows hook 命令包装（powershell/commandWindows）；发版前升版本号 26.7.16
+  phase: agent 通知策略定型 + PermissionRequest 只通知；自动销项/默认展开已落地
+  next: 用户重装 hook 以写入 PermissionRequest；实测权限提醒/自动销项；Windows hook 命令包装；交互小窗后续；发版前升版本号

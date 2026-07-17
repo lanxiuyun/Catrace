@@ -13,15 +13,20 @@
 
 ## 默认值（agent_hook.rs `default_event_mode`）
 
+设计原则：**召唤型 sticky、播报型 off**；用户可在设置页逐事件改 off / auto / sticky，不钉死。
+
 | 事件 | 默认 | 性质 |
 |------|------|------|
 | SessionStart | off | 播报 |
-| UserPromptSubmit | off | 播报 |
-| Stop | sticky | 召唤 |
-| StopFailure | sticky | 召唤 |
-| Notification | sticky | 召唤 |
+| UserPromptSubmit | off | 播报（仍参与自动销 sticky） |
+| Stop | sticky | 召唤：完成 / 等你输入 |
+| StopFailure | sticky | 召唤：错误 / 异常 |
+| Notification | sticky | 召唤：助手喊你 |
+| PermissionRequest | sticky | 召唤：等批准工具（**只通知不审批**） |
 
 策略在**归一化后**的事件上生效（Gemini 的 AfterAgent 归一化为 Stop，走 Stop 的策略）。
+
+PermissionRequest 走 `/state` 非阻塞推送；**不**实现 clawd 的阻塞式 `POST /permission`。批准仍在终端完成。
 
 ## 去重规则
 

@@ -9,9 +9,11 @@ agent 触发 hook → 释放到 app_data_dir/hooks/catrace-agent-hook.cjs 的 No
   → 读 stdin JSON（事件名在 hook_event_name，不在 argv！）→ 事件名归一化
   → POST 127.0.0.1:23456/state → agent_hook.rs
       ├─ UserPromptSubmit：按 sessionId 自动销 sticky 待办（即使 mode=off）
-      └─ 事件策略过滤 / auto 去重 / transcript 摘要
+      └─ 事件策略过滤 / auto 去重 / transcript 摘要（PermissionRequest 用 tool_name 兜底）
   → reminder_toast.rs eval window.addToastNotification({kind:"agent", mode})
 ```
+
+默认策略：召唤型（Stop / StopFailure / Notification / PermissionRequest）= sticky；播报型 off。设置页可改。PermissionRequest **只通知不审批**。
 
 ## 涉及文件
 

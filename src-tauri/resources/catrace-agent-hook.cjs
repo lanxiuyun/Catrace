@@ -20,12 +20,14 @@ const EVENT_ALIASES = {
 };
 
 // 未映射的事件（PreToolUse 等高频事件）直接忽略
+// PermissionRequest：只推状态（notify-only），不代替终端审批 UI
 const EVENT_TO_STATE = {
   SessionStart: "idle",
   UserPromptSubmit: "thinking",
   Stop: "attention",
   StopFailure: "error",
   Notification: "notification",
+  PermissionRequest: "permission",
 };
 
 function readStdin(timeoutMs) {
@@ -62,6 +64,13 @@ async function main() {
   const state = EVENT_TO_STATE[event];
   if (!state) process.exit(0);
 
+  const toolName =
+    payload.tool_name ||
+    payload.toolName ||
+    (payload.tool && typeof payload.tool === "object" && payload.tool.name) ||
+    (typeof payload.tool === "string" ? payload.tool : "") ||
+    "";
+
   const body = JSON.stringify({
     event,
     state,
@@ -69,6 +78,7 @@ async function main() {
     cwd: payload.cwd || "",
     transcript_path: payload.transcript_path || "",
     prompt: payload.prompt || "",
+    tool_name: String(toolName || ""),
   });
 
   const req = http.request(

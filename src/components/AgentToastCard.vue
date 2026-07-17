@@ -38,6 +38,7 @@ const EVENT_TITLE_KEYS: Record<string, string> = {
   Stop: 'agent.titleAttention',
   StopFailure: 'agent.titleError',
   Notification: 'agent.titleNotification',
+  PermissionRequest: 'agent.titlePermission',
 }
 
 const EVENT_BODY_KEYS: Record<string, string> = {
@@ -46,6 +47,7 @@ const EVENT_BODY_KEYS: Record<string, string> = {
   Stop: 'agent.bodyAttention',
   StopFailure: 'agent.bodyError',
   Notification: 'agent.bodyNotification',
+  PermissionRequest: 'agent.bodyPermission',
 }
 
 function projectName(cwd?: string): string {

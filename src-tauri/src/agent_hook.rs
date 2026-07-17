@@ -22,6 +22,8 @@ const KNOWN_EVENTS: &[&str] = &[
     "Stop",
     "StopFailure",
     "Notification",
+    // 只通知不审批：弹 sticky 待办，不阻塞 agent 的权限 UI
+    "PermissionRequest",
 ];
 /// 同会话同事件的去重窗口（仅 auto 模式生效），防止连续触发刷屏。
 const DEDUP_TTL: Duration = Duration::from_secs(8);
@@ -37,7 +39,9 @@ static DEDUP_CACHE: Mutex<Option<HashMap<(String, String), Instant>>> = Mutex::n
 /// 事件显示策略：off=不通知 / auto=弹出后自动消失 / sticky=常驻直到用户关闭。
 fn default_event_mode(event: &str) -> &'static str {
     match event {
-        "Stop" | "StopFailure" | "Notification" => "sticky",
+        // 召唤型：完成/出错/喊你/等批准 → 默认常驻；用户可在设置里改 off/auto/sticky
+        "Stop" | "StopFailure" | "Notification" | "PermissionRequest" => "sticky",
+        // 播报型：开会话/思考中 → 默认不弹（UserPromptSubmit 仍参与自动销 sticky）
         _ => "off",
     }
 }
@@ -65,6 +69,9 @@ struct AgentHookPayload {
     transcript_path: String,
     #[serde(default)]
     prompt: String,
+    /// PermissionRequest 等事件带来的工具名，作摘要兜底
+    #[serde(default)]
+    tool_name: String,
 }
 
 /// 从 transcript（JSONL）里找最后一条 assistant 文本消息，截断成摘要。
@@ -194,7 +201,15 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         return;
     }
 
-    let summary = summarize_transcript(&payload.transcript_path);
+    let summary = summarize_transcript(&payload.transcript_path).or_else(|| {
+        if !payload.tool_name.is_empty() {
+            Some(format!("等待批准：{}", payload.tool_name))
+        } else if payload.event == "PermissionRequest" {
+            Some("等待你批准工具调用".to_string())
+        } else {
+            None
+        }
+    });
     crate::reminder_toast::create_agent_toast_window(
         app,
         &payload.event,
@@ -488,9 +503,24 @@ pub fn get_supported_agents() -> Vec<String> {
 /// 各 agent 写入配置的 hook 事件（安装用；通知策略仍按归一化后的事件配置）。
 fn agent_hook_events(agent: &str) -> &'static [&'static str] {
     match agent {
-        "codex" => &["SessionStart", "UserPromptSubmit", "Stop"],
+        // Codex 原生支持 PermissionRequest（command hook，非阻塞通知）
+        "codex" => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "Stop",
+            "PermissionRequest",
+        ],
+        // Gemini 无 PermissionRequest；BeforeTool 是 gating hook，需 stdout 决策，暂不注册
         "gemini" => &["SessionStart", "BeforeAgent", "AfterAgent", "Notification"],
-        "kimi" => &["SessionStart", "UserPromptSubmit", "Stop", "Notification"],
+        // Kimi Code 支持 PermissionRequest；旧 CLI 不认识时会忽略该块或跳过（安装仍幂等）
+        "kimi" => &[
+            "SessionStart",
+            "UserPromptSubmit",
+            "Stop",
+            "Notification",
+            "PermissionRequest",
+        ],
+        // Claude：PermissionRequest 用 command hook 只推状态（async），不替代终端审批 UI
         _ => KNOWN_EVENTS,
     }
 }
