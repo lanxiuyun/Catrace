@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 export interface AppConfig {
   window_minutes: number
@@ -412,6 +413,17 @@ export async function getAgentSoundSettings(): Promise<AgentSoundSettings> {
 
 export async function setAgentSoundSettings(mode: AgentSoundMode, customPath: string): Promise<void> {
   return invoke('set_agent_sound_settings', { mode, customPath })
+}
+
+/** 弹出系统文件选择器，返回单个音频文件路径；取消返回 null */
+export async function pickAgentSoundFile(): Promise<string | null> {
+  return open({
+    multiple: false,
+    directory: false,
+    filters: [
+      { name: 'Audio', extensions: ['wav', 'mp3', 'ogg'] },
+    ],
+  })
 }
 
 /** 返回提示音 data URL；muted 或读不到时返回 null */

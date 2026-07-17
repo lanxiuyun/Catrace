@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 use tauri::Manager;
 
 use crate::db::Db;
@@ -323,6 +324,7 @@ pub fn set_agent_sound_settings(
     db: tauri::State<'_, Db>,
     mode: String,
     custom_path: String,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
     if !["builtin", "custom", "muted"].contains(&mode.as_str()) {
         return Err(format!("未知提示音模式: {}", mode));
@@ -330,7 +332,11 @@ pub fn set_agent_sound_settings(
     db.set_setting(SOUND_MODE_SETTING_KEY, &mode)
         .map_err(|e| e.to_string())?;
     db.set_setting(SOUND_PATH_SETTING_KEY, &custom_path)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // 通知所有 Toast 窗口刷新缓存的提示音 data URL
+    let _ = app.emit("catrace-agent-sound-changed", ());
+    Ok(())
 }
 
 /// 返回提示音的 data URL。

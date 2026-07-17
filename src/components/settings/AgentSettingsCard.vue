@@ -13,6 +13,7 @@ import {
   getSupportedAgents,
   getAgentSoundSettings,
   setAgentSoundSettings,
+  pickAgentSoundFile,
   type AgentEventMode,
   type AgentEventModeEntry,
   type AgentSoundMode,
@@ -147,6 +148,18 @@ async function saveSound() {
     soundLoading.value = false
   }
 }
+
+async function handlePickSoundFile() {
+  try {
+    const path = await pickAgentSoundFile()
+    if (path) {
+      soundPath.value = path
+      await saveSound()
+    }
+  } catch {
+    message.error(t('settings.messages.saveFailed'))
+  }
+}
 </script>
 
 <template>
@@ -229,13 +242,18 @@ async function saveSound() {
 
       <div v-if="soundMode === 'custom'" class="event-row">
         <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
-        <n-input
-          v-model:value="soundPath"
-          size="small"
-          style="max-width: 14rem"
-          :placeholder="t('settings.agent.soundPathPlaceholder')"
-          @blur="saveSound"
-        />
+        <div class="sound-path-row">
+          <n-input
+            v-model:value="soundPath"
+            size="small"
+            style="max-width: 12rem"
+            :placeholder="t('settings.agent.soundPathPlaceholder')"
+            @blur="saveSound"
+          />
+          <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
+            {{ t('settings.agent.soundPickFile') }}
+          </n-button>
+        </div>
       </div>
     </template>
   </div>
@@ -273,6 +291,19 @@ async function saveSound() {
 .event-name {
   font-size: 0.8125rem;
   color: #555;
+}
+
+.sound-path-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 18rem;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.sound-path-row .n-input {
+  flex: 1;
 }
 
 .agent-label {
