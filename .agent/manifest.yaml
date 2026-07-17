@@ -159,6 +159,7 @@ bugs:
   - .agent/bugs/2026-07-10-toast-stacking-display.md
 
 devlog:
+  - .agent/devlog/2026-07-17-p4-hook-install-reliability.md
   - .agent/devlog/2026-07-17-agent-sticky-auto-dismiss-on-user-prompt.md
   - .agent/devlog/2026-07-12-agent-toast-card-summary-goto-session-sound-and-component-extraction.md
   - .agent/devlog/2026-07-12-agent-notification-event-policy-and-codex-gemini-kimi-support.md
@@ -171,5 +172,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知 P0–P3 完成；路线图见 features/agent-notification/roadmap-and-progress.md
-  next: P4 Windows hook 安装可靠性 → P5 实测升版 → P6 真审批 Allow/Deny → P7 交互小窗
+  phase: agent 通知 P0–P4 完成；路线图见 features/agent-notification/roadmap-and-progress.md
+  next: P5 实测升版 → P6 真审批 Allow/Deny → P7 交互小窗

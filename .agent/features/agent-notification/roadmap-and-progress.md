@@ -32,7 +32,7 @@
 | **P1** | 多 agent + 三态策略 | ✅ 完成 | Codex/Gemini/Kimi；off/auto/sticky |
 | **P2** | 会话待办体验 | ✅ 基本完成 | 摘要、前往、提示音、按 session 合并、自动销、默认展开 |
 | **P3** | 权限「只通知」 | ✅ 完成 | PermissionRequest → sticky，不代批 |
-| **P4** | Hook 安装可靠性 | 🔲 未做 | Windows 命令包装、幂等更新 command、node 绝对路径 |
+| **P4** | Hook 安装可靠性 | ✅ 完成 | Windows 命令包装、字段级 sync、node 绝对路径、backup |
 | **P5** | 实测与发版收口 | 🔲 进行中 | 真 Claude/Codex 实测；升版本号 |
 | **P6** | 权限真审批（Allow/Deny） | 📋 已规划未做 | 阻塞 HTTP / 挂起响应；Claude-first |
 | **P7** | 交互小窗 | 📋 已规划未做 | 独立窗口；批 + 停 + 可选对话 |
@@ -83,21 +83,21 @@
 
 ## 3. 待做明细（按推荐顺序）
 
-### P4 — Hook 安装可靠性 🔲（优先，否则真机测不稳）
+### P4 — Hook 安装可靠性 ✅（已完成 2026-07-17）
 
 **问题**：Windows 上 agent 跑 hook 的 shell 与 clawd 不同；Catrace 现写 `node "path"` 可能静默失败。
 
-| 项 | 内容 | 参考 |
+| 项 | 内容 | 状态 |
 |----|------|------|
-| P4.1 | Claude Windows：`shell: powershell` + `& "node" "script"` | clawd `hooks/install.js` |
-| P4.2 | Codex：`command` + `commandWindows` 双字段；`&` 调用符 | clawd `codex-install-utils` |
-| P4.3 | node **绝对路径**解析（PATH 极简）；失败不覆盖已有绝对路径 | 安装指南 §3.1 |
-| P4.4 | WSL：无引号 plain command | 同上 |
-| P4.5 | 安装幂等改为 **字段级 sync**（更新 command/timeout），非 skip-if-present | 脚本路径变更会陈旧 |
-| P4.6 | Codex `ensure_codex_hooks_feature` 按 `[features]` 表解析，避免叠段 | 已知粗糙点 |
-| P4.7 | 写配置前 backup（clawd 有，Catrace 多数路径无） | 可选但推荐 |
+| P4.1 | Claude Windows：`shell: powershell` + `& "node" "script"`（`claude_hook_spec`） | ✅ |
+| P4.2 | Codex：win32 写 `commandWindows`（`&` 调用符）+ `command`（WSL plain）双字段 | ✅ |
+| P4.3 | node **绝对路径**解析（POSIX：`resolve_node_path` 查 PATH + Homebrew/nvm/fnm/volta）；解析失败保留已有绝对路径，不用裸 node 覆盖 | ✅ |
+| P4.4 | WSL：Codex `command` 用无引号 plain 形式，路径 `\`→`/` | ✅ |
+| P4.5 | 安装幂等改为 **字段级 sync**（marker 命中更新 command/timeout/shell/commandWindows），非 skip-if-present | ✅ |
+| P4.6 | Codex `ensure_codex_hooks_feature` 按 `[features]` 表行级解析；迁移 `codex_hooks`→`hooks`，尊重显式 false | ✅ |
+| P4.7 | 写配置前 `backup_file` → `.bak`（Claude/Codex/Gemini/Kimi） | ✅ |
 
-**验收**：干净 Windows 机装 Claude hook → 真会话 Stop 必出卡；重装后 command 路径随 app_data 更新。
+**验收**：干净 Windows 机装 Claude hook → 真会话 Stop 必出卡；重装后 command 路径随 app_data 更新（见 P5 实测）。
 
 ### P5 — 实测与发版收口 🔲
 
@@ -264,8 +264,8 @@ agent hooks (command, async)
 
 ## 8. 当前进度一句话
 
-**P0–P3 已完成**（链路、四 agent、三态、待办体验、Permission 只通知、自动销、默认展开）。  
-**下一步：P4 安装可靠性 → P5 实测发版 → P6 真审批 → P7 交互小窗。**  
+**P0–P4 已完成**（链路、四 agent、三态、待办体验、Permission 只通知、自动销、默认展开、安装可靠性）。  
+**下一步：P5 实测发版 → P6 真审批 → P7 交互小窗。**  
 Allow/Deny 与小窗已写入本路线图，**延期实现，不是砍掉。**
 
 ---

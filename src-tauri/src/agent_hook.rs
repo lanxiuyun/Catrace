@@ -501,8 +501,206 @@ fn entry_contains_catrace_hook(entry: &serde_json::Value) -> bool {
         })
 }
 
-fn build_hook_command(script_path: &std::path::Path) -> String {
-    format!("node \"{}\"", script_path.to_string_lossy())
+/// 找到数组里第一个含 catrace marker 的 entry 的可变引用。
+fn find_catrace_entry_mut(arr: &mut [serde_json::Value]) -> Option<&mut serde_json::Value> {
+    arr.iter_mut().find(|e| entry_contains_catrace_hook(e))
+}
+
+/// 取 entry 里第一个含 marker 的 hook 对象的可变引用（兼容 entry.command 与 entry.hooks[].command）。
+fn catrace_hook_obj_mut(entry: &mut serde_json::Value) -> Option<&mut serde_json::Value> {
+    if entry
+        .get("command")
+        .and_then(|c| c.as_str())
+        .map_or(false, |s| s.contains(HOOK_SCRIPT_MARKER))
+    {
+        return Some(entry);
+    }
+    entry
+        .get_mut("hooks")
+        .and_then(|h| h.as_array_mut())
+        .and_then(|hooks| {
+            hooks.iter_mut().find(|h| {
+                h.get("command")
+                    .and_then(|c| c.as_str())
+                    .map_or(false, |s| s.contains(HOOK_SCRIPT_MARKER))
+            })
+        })
+}
+
+// ------------------------------------------------------------------
+// P4：安装可靠性 —— node 绝对路径、平台命令包装、字段级 sync、备份
+// ------------------------------------------------------------------
+
+/// 解析 node 可执行文件绝对路径。
+/// macOS/Linux 打包环境下 agent 给 hook 的 PATH 极简，裸 `node` 找不到 Homebrew/nvm 的 node，
+/// 必须写绝对路径；Windows 上走 PowerShell `& "node"`，裸 node 已可用，返回 None。
+#[cfg(not(windows))]
+fn resolve_node_path() -> Option<std::path::PathBuf> {
+    // 1. 当前进程的 PATH（GUI 应用常缺 /opt/homebrew/bin 等，故这只是第一候选）
+    if let Some(p) = which_in_path("node") {
+        return Some(p);
+    }
+    // 2. 常见安装位置
+    let mut candidates: Vec<std::path::PathBuf> = vec![
+        "/opt/homebrew/bin/node".into(), // Apple Silicon Homebrew
+        "/usr/local/bin/node".into(),    // Intel Homebrew / 常规
+        "/usr/bin/node".into(),
+    ];
+    if let Ok(home) = std::env::var("HOME") {
+        // nvm 默认
+        candidates.push(std::path::PathBuf::from(format!(
+            "{}/.nvm/current/bin/node",
+            home
+        )));
+        // fnm
+        candidates.push(std::path::PathBuf::from(format!(
+            "{}/.local/share/fnm/aliases/default/bin/node",
+            home
+        )));
+        // volta
+        candidates.push(std::path::PathBuf::from(format!(
+            "{}/.volta/bin/node",
+            home
+        )));
+    }
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// 在 PATH 环境变量里查找可执行文件，返回绝对路径。
+#[cfg(not(windows))]
+fn which_in_path(bin: &str) -> Option<std::path::PathBuf> {
+    let path_var = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path_var) {
+        let cand = dir.join(bin);
+        if cand.is_file() {
+            return Some(cand);
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+#[allow(dead_code)] // Windows 上 PowerShell `& "node"` 已可用，此函数仅为 POSIX 解析绝对路径
+fn resolve_node_path() -> Option<std::path::PathBuf> {
+    None
+}
+
+/// 判断一个 command 字符串里的 node 是否已是绝对路径（用于「别用裸 node 覆盖已有绝对路径」）。
+fn command_uses_absolute_node(command: &str) -> bool {
+    // 提取首个引号包裹或空白分隔的 token 作为解释器路径
+    let token = command
+        .split('"')
+        .nth(1)
+        .map(|s| s.to_string())
+        .or_else(|| command.split_whitespace().next().map(|s| s.to_string()));
+    match token {
+        Some(t) => {
+            let p = std::path::Path::new(t.trim_matches('&').trim());
+            p.is_absolute()
+        }
+        None => false,
+    }
+}
+
+/// Claude Code 的 hook spec。
+/// Windows：Claude 默认用 bash 跑 hook，需显式 `shell: "powershell"` + `& "node" "script"` 调用符。
+/// POSIX/WSL：用 node 绝对路径 + 引号包裹的 shell 形式。
+fn claude_hook_spec(script_path: &std::path::Path) -> serde_json::Value {
+    #[cfg(windows)]
+    {
+        let cmd = format!("& \"node\" \"{}\"", script_path.to_string_lossy());
+        serde_json::json!({
+            "type": "command",
+            "shell": "powershell",
+            "command": cmd,
+            "async": true,
+            "timeout": 5
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        let node = resolve_node_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let cmd = format!("\"{}\" \"{}\"", node, script_path.to_string_lossy());
+        serde_json::json!({
+            "type": "command",
+            "command": cmd,
+            "async": true,
+            "timeout": 5
+        })
+    }
+}
+
+/// Codex 的 hook spec。
+/// Windows 上 Codex 用 PowerShell 执行 command 字符串，裸引号会 exit 1，必须 `&` 调用符；
+/// 共享 CODEX_HOME 时 Windows 走 commandWindows，WSL 走 command（plain，不带引号）。
+fn codex_hook_spec(script_path: &std::path::Path) -> serde_json::Value {
+    #[cfg(windows)]
+    {
+        let ps = format!("& \"node\" \"{}\"", script_path.to_string_lossy());
+        // WSL 走 command：plain 形式（引号会被当成可执行文件名一部分）
+        let wsl = format!("node {}", script_path.to_string_lossy().replace('\\', "/"));
+        serde_json::json!({
+            "type": "command",
+            "command": wsl,
+            "commandWindows": ps,
+            "timeout": 30
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        let node = resolve_node_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let cmd = format!("\"{}\" \"{}\"", node, script_path.to_string_lossy());
+        serde_json::json!({
+            "type": "command",
+            "command": cmd,
+            "timeout": 30
+        })
+    }
+}
+
+/// Gemini 的 hook 命令（entry 带 name 字段）。
+fn gemini_hook_command(script_path: &std::path::Path) -> String {
+    #[cfg(windows)]
+    {
+        format!("& \"node\" \"{}\"", script_path.to_string_lossy())
+    }
+    #[cfg(not(windows))]
+    {
+        let node = resolve_node_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        format!("\"{}\" \"{}\"", node, script_path.to_string_lossy())
+    }
+}
+
+/// Kimi 的 hook 命令（TOML literal string，单引号包裹）。
+fn kimi_hook_command(script_path: &std::path::Path) -> String {
+    #[cfg(windows)]
+    {
+        // Kimi 直接 spawn shell；Windows 用 & 调用符
+        format!("& \"node\" \"{}\"", script_path.to_string_lossy())
+    }
+    #[cfg(not(windows))]
+    {
+        let node = resolve_node_path()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        format!("\"{}\" \"{}\"", node, script_path.to_string_lossy())
+    }
+}
+
+/// 备份配置文件（写前调用一次，失败仅记日志不阻断安装）。
+fn backup_file(path: &std::path::Path) {
+    if path.exists() {
+        let bak = path.with_extension("bak");
+        if let Err(e) = std::fs::copy(path, &bak) {
+            crate::log_error!("agent-hook", "备份 {} 失败: {}", path.display(), e);
+        }
+    }
 }
 
 // ------------------------------------------------------------------
@@ -548,6 +746,7 @@ fn agent_hook_events(agent: &str) -> &'static [&'static str] {
 
 fn install_claude_hooks(script_path: &std::path::Path) -> Result<serde_json::Value, String> {
     let settings_path = claude_settings_path()?;
+    backup_file(&settings_path);
     let mut settings = read_json_settings(&settings_path)?;
 
     let hooks = settings
@@ -557,31 +756,54 @@ fn install_claude_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
         .or_insert_with(|| serde_json::json!({}));
     let hooks_obj = hooks.as_object_mut().ok_or("hooks 字段不是对象")?;
 
-    let command = build_hook_command(script_path);
+    let spec = claude_hook_spec(script_path);
     let mut installed_events = Vec::new();
+    let mut synced_events = Vec::new();
 
     for event in agent_hook_events("claude") {
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
         let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
-        if arr.iter().any(entry_contains_catrace_hook) {
+        // 已装：字段级 sync（更新 command/timeout/shell），而非 skip——脚本路径/node 路径变更后不陈旧
+        if let Some(entry) = find_catrace_entry_mut(arr) {
+            if let Some(hook) = catrace_hook_obj_mut(entry) {
+                let existing = hook
+                    .get("command")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let new_cmd = spec.get("command").and_then(|c| c.as_str()).unwrap_or("");
+                // 解析不到 node 绝对路径时，别用裸 node 覆盖已有的绝对路径
+                let should_update_cmd = !existing.is_empty()
+                    && (command_uses_absolute_node(new_cmd) || !command_uses_absolute_node(&existing));
+                if should_update_cmd {
+                    hook["command"] = spec["command"].clone();
+                }
+                if let Some(t) = spec.get("timeout") {
+                    hook["timeout"] = t.clone();
+                }
+                match spec.get("shell") {
+                    Some(s) => hook["shell"] = s.clone(),
+                    None => {
+                        if let Some(o) = hook.as_object_mut() {
+                            o.remove("shell");
+                        }
+                    }
+                }
+                synced_events.push(event.to_string());
+            }
             continue;
         }
         arr.push(serde_json::json!({
             "matcher": "",
-            "hooks": [{
-                "type": "command",
-                "command": command,
-                "async": true,
-                "timeout": 5
-            }]
+            "hooks": [spec.clone()]
         }));
         installed_events.push(event.to_string());
     }
 
     write_json_settings(&settings_path, &settings)?;
-    Ok(serde_json::json!({ "installed_events": installed_events }))
+    Ok(serde_json::json!({ "installed_events": installed_events, "synced_events": synced_events }))
 }
 
 fn uninstall_json_hooks(settings_path: &std::path::Path) -> Result<serde_json::Value, String> {
@@ -639,33 +861,111 @@ fn codex_config_path() -> Result<std::path::PathBuf, String> {
     Ok(home.join(".codex").join("config.toml"))
 }
 
-/// 在 config.toml 里启用 [features].hooks = true（按行追加，不引入 TOML 解析器）。
+/// 在 config.toml 里启用 [features].hooks = true（行级解析 features 表，不引入 TOML 解析器）。
+/// 尊重用户显式的 hooks = false；旧 key codex_hooks 迁移为 hooks。
 fn ensure_codex_hooks_feature() -> Result<(), String> {
     let path = codex_config_path()?;
     let text = std::fs::read_to_string(&path).unwrap_or_default();
-    if text.contains("hooks") {
-        // 保守：只要文件里已出现 hooks 字样（features 段或注释）就不动它，
-        // 避免把用户显式关闭的 hooks = false 改回 true。
-        let has_enabled = text.lines().any(|l| {
-            let t = l.trim();
-            t.starts_with("hooks") && t.contains("true")
-        });
-        if has_enabled {
-            return Ok(());
+    let lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+
+    let is_section = |l: &str| {
+        let t = l.trim();
+        t.starts_with('[') && t.ends_with(']')
+    };
+
+    // 定位 [features] 段
+    let mut in_features = false;
+    let mut features_header: Option<usize> = None;
+    let mut hooks_line: Option<usize> = None;
+    let mut codex_hooks_line: Option<usize> = None;
+    let mut hooks_value: Option<bool> = None;
+
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        if is_section(t) {
+            in_features = t == "[features]";
+            if in_features {
+                features_header = Some(i);
+            }
+            continue;
+        }
+        if !in_features {
+            continue;
+        }
+        if let Some(eq) = t.find('=') {
+            let key = t[..eq].trim();
+            let val = t[eq + 1..].trim().trim_matches('"').eq_ignore_ascii_case("true");
+            if key == "hooks" {
+                hooks_line = Some(i);
+                hooks_value = Some(val);
+            } else if key == "codex_hooks" {
+                codex_hooks_line = Some(i);
+                if hooks_value.is_none() {
+                    hooks_value = Some(val);
+                }
+            }
         }
     }
+
+    // 用户显式关闭：不动
+    if hooks_value == Some(false) {
+        return Ok(());
+    }
+    // 已启用且无迁移需求：不动
+    if hooks_value == Some(true) && hooks_line.is_some() && codex_hooks_line.is_none() {
+        return Ok(());
+    }
+
+    backup_file(&path);
+    let mut out = lines.clone();
+    match features_header {
+        Some(h) => {
+            // 有 [features]：更新/插入 hooks = true，移除旧 codex_hooks 行
+            if let Some(hl) = hooks_line {
+                out[hl] = "hooks = true".to_string();
+            } else {
+                let insert_at = codex_hooks_line.unwrap_or(h + 1);
+                out.insert(insert_at, "hooks = true".to_string());
+                // 插入后后续索引位移，重算 codex_hooks 行
+                if let Some(chl) = codex_hooks_line {
+                    let shifted = if chl >= insert_at { chl + 1 } else { chl };
+                    out.remove(shifted);
+                }
+                write_lines_atomic(&path, &out)?;
+                return Ok(());
+            }
+            if let Some(chl) = codex_hooks_line {
+                out.remove(chl);
+            }
+            write_lines_atomic(&path, &out)
+        }
+        None => {
+            // 没有 [features]：追加整段
+            if !out.is_empty() && !out.last().map_or(true, |l| l.trim().is_empty()) {
+                out.push(String::new());
+            }
+            out.push("[features]".to_string());
+            out.push("hooks = true".to_string());
+            write_lines_atomic(&path, &out)
+        }
+    }
+}
+
+fn write_lines_atomic(path: &std::path::Path, lines: &[String]) -> Result<(), String> {
     let parent = path.parent().ok_or("invalid config path")?;
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    let mut content = text;
-    if !content.is_empty() && !content.ends_with('\n') {
+    let mut content = lines.join("\n");
+    if !content.ends_with('\n') {
         content.push('\n');
     }
-    content.push_str("[features]\nhooks = true\n");
-    std::fs::write(&path, content).map_err(|e| e.to_string())
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, content).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 
 fn install_codex_hooks(script_path: &std::path::Path) -> Result<serde_json::Value, String> {
     let hooks_path = codex_hooks_path()?;
+    backup_file(&hooks_path);
     let mut settings = read_json_settings(&hooks_path)?;
 
     let hooks = settings
@@ -675,30 +975,53 @@ fn install_codex_hooks(script_path: &std::path::Path) -> Result<serde_json::Valu
         .or_insert_with(|| serde_json::json!({}));
     let hooks_obj = hooks.as_object_mut().ok_or("hooks 字段不是对象")?;
 
-    let command = build_hook_command(script_path);
+    let spec = codex_hook_spec(script_path);
     let mut installed_events = Vec::new();
+    let mut synced_events = Vec::new();
 
     for event in agent_hook_events("codex") {
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
         let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
-        if arr.iter().any(entry_contains_catrace_hook) {
+        if let Some(entry) = find_catrace_entry_mut(arr) {
+            if let Some(hook) = catrace_hook_obj_mut(entry) {
+                let new_cmd = spec.get("command").and_then(|c| c.as_str()).unwrap_or("");
+                let existing = hook
+                    .get("command")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !existing.is_empty()
+                    && (command_uses_absolute_node(new_cmd) || !command_uses_absolute_node(&existing))
+                {
+                    hook["command"] = spec["command"].clone();
+                }
+                // commandWindows 双字段（Windows）同步写入；POSIX 下无此字段则移除旧的
+                match spec.get("commandWindows") {
+                    Some(cw) => hook["commandWindows"] = cw.clone(),
+                    None => {
+                        if let Some(o) = hook.as_object_mut() {
+                            o.remove("commandWindows");
+                        }
+                    }
+                }
+                if let Some(t) = spec.get("timeout") {
+                    hook["timeout"] = t.clone();
+                }
+                synced_events.push(event.to_string());
+            }
             continue;
         }
         arr.push(serde_json::json!({
-            "hooks": [{
-                "type": "command",
-                "command": command,
-                "timeout": 30
-            }]
+            "hooks": [spec.clone()]
         }));
         installed_events.push(event.to_string());
     }
 
     write_json_settings(&hooks_path, &settings)?;
     ensure_codex_hooks_feature()?;
-    Ok(serde_json::json!({ "installed_events": installed_events }))
+    Ok(serde_json::json!({ "installed_events": installed_events, "synced_events": synced_events }))
 }
 
 // ------------------------------------------------------------------
@@ -712,6 +1035,7 @@ fn gemini_settings_path() -> Result<std::path::PathBuf, String> {
 
 fn install_gemini_hooks(script_path: &std::path::Path) -> Result<serde_json::Value, String> {
     let settings_path = gemini_settings_path()?;
+    backup_file(&settings_path);
     let mut settings = read_json_settings(&settings_path)?;
 
     let hooks = settings
@@ -721,15 +1045,30 @@ fn install_gemini_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
         .or_insert_with(|| serde_json::json!({}));
     let hooks_obj = hooks.as_object_mut().ok_or("hooks 字段不是对象")?;
 
-    let command = build_hook_command(script_path);
+    let command = gemini_hook_command(script_path);
     let mut installed_events = Vec::new();
+    let mut synced_events = Vec::new();
 
     for event in agent_hook_events("gemini") {
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
         let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
-        if arr.iter().any(entry_contains_catrace_hook) {
+        if let Some(entry) = find_catrace_entry_mut(arr) {
+            if let Some(hook) = catrace_hook_obj_mut(entry) {
+                let existing = hook
+                    .get("command")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !existing.is_empty()
+                    && (command_uses_absolute_node(&command)
+                        || !command_uses_absolute_node(&existing))
+                {
+                    hook["command"] = serde_json::json!(command);
+                }
+                synced_events.push(event.to_string());
+            }
             continue;
         }
         arr.push(serde_json::json!({
@@ -744,7 +1083,7 @@ fn install_gemini_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
     }
 
     write_json_settings(&settings_path, &settings)?;
-    Ok(serde_json::json!({ "installed_events": installed_events }))
+    Ok(serde_json::json!({ "installed_events": installed_events, "synced_events": synced_events }))
 }
 
 // ------------------------------------------------------------------
@@ -805,21 +1144,40 @@ fn strip_kimi_hook_blocks(content: &str) -> (String, usize) {
 }
 
 fn install_kimi_hooks(script_path: &std::path::Path) -> Result<serde_json::Value, String> {
-    let command = build_hook_command(script_path);
+    let command = kimi_hook_command(script_path);
     // TOML literal string（单引号）避免 Windows 路径反斜杠转义问题
     let command_escaped = command.replace('\'', "");
     let mut installed_targets = Vec::new();
+    let mut synced_targets = Vec::new();
 
     for path in kimi_config_paths() {
         // 配置目录不存在说明这代 CLI 没装，跳过
         if !path.parent().map_or(false, |p| p.exists()) {
             continue;
         }
-        let mut content = std::fs::read_to_string(&path).unwrap_or_default();
+        let content = std::fs::read_to_string(&path).unwrap_or_default();
         if kimi_config_has_hook(&content) {
-            installed_targets.push(path.display().to_string());
+            // 已装：strip 全部 catrace 块后重写，保证 command 随脚本路径/node 路径更新
+            backup_file(&path);
+            let (mut new_content, _) = strip_kimi_hook_blocks(&content);
+            if !new_content.is_empty() && !new_content.ends_with('\n') {
+                new_content.push('\n');
+            }
+            new_content.push('\n');
+            for event in agent_hook_events("kimi") {
+                new_content.push_str(&format!(
+                    "{}\nevent = \"{}\"\ncommand = '{}'\nmatcher = \"\"\ntimeout = 30\n\n",
+                    KIMI_HOOK_BLOCK_HEADER, event, command_escaped
+                ));
+            }
+            let tmp = path.with_extension("tmp");
+            std::fs::write(&tmp, &new_content).map_err(|e| e.to_string())?;
+            std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+            synced_targets.push(path.display().to_string());
             continue;
         }
+        backup_file(&path);
+        let mut content = content;
         if !content.is_empty() && !content.ends_with('\n') {
             content.push('\n');
         }
@@ -837,10 +1195,10 @@ fn install_kimi_hooks(script_path: &std::path::Path) -> Result<serde_json::Value
         installed_targets.push(path.display().to_string());
     }
 
-    if installed_targets.is_empty() {
+    if installed_targets.is_empty() && synced_targets.is_empty() {
         return Err("未找到 Kimi 配置目录（~/.kimi 或 ~/.kimi-code）".to_string());
     }
-    Ok(serde_json::json!({ "installed_targets": installed_targets }))
+    Ok(serde_json::json!({ "installed_targets": installed_targets, "synced_targets": synced_targets }))
 }
 
 fn uninstall_kimi_hooks() -> Result<serde_json::Value, String> {
