@@ -50,6 +50,81 @@ const EVENT_BODY_KEYS: Record<string, string> = {
   PermissionRequest: 'agent.bodyPermission',
 }
 
+interface EventTheme {
+  accent: string
+  title: string
+  body: string
+  bg: string
+  lightBg: string
+  border: string
+}
+
+const EVENT_THEMES: Record<string, EventTheme> = {
+  PermissionRequest: {
+    accent: '#F59E0B',
+    title: '#92400E',
+    body: '#B45309',
+    bg: '#FFFBEB',
+    lightBg: '#FEF3C7',
+    border: '#FDE68A',
+  },
+  StopFailure: {
+    accent: '#EF4444',
+    title: '#991B1B',
+    body: '#B91C1C',
+    bg: '#FEE2E2',
+    lightBg: '#FECACA',
+    border: '#FECACA',
+  },
+  Stop: {
+    accent: '#06B6D4',
+    title: '#155E75',
+    body: '#0E7490',
+    bg: '#ECFEFF',
+    lightBg: '#CFFAFE',
+    border: '#A5F3FC',
+  },
+  Notification: {
+    accent: '#8B5CF6',
+    title: '#5B21B6',
+    body: '#7C3AED',
+    bg: '#F3E8FF',
+    lightBg: '#E9D5FF',
+    border: '#DDD6FE',
+  },
+  SessionStart: {
+    accent: '#10B981',
+    title: '#065F46',
+    body: '#047857',
+    bg: '#D1FAE5',
+    lightBg: '#A7F3D0',
+    border: '#6EE7B7',
+  },
+  UserPromptSubmit: {
+    accent: '#6B7280',
+    title: '#374151',
+    body: '#4B5563',
+    bg: '#F3F4F6',
+    lightBg: '#E5E7EB',
+    border: '#D1D5DB',
+  },
+}
+
+const EVENT_PRIORITY: Record<string, number> = {
+  PermissionRequest: 6,
+  StopFailure: 5,
+  Stop: 4,
+  Notification: 3,
+  SessionStart: 2,
+  UserPromptSubmit: 1,
+}
+
+const DEFAULT_THEME = EVENT_THEMES.Stop
+
+function getTheme(event: string): EventTheme {
+  return EVENT_THEMES[event] || DEFAULT_THEME
+}
+
 function projectName(cwd?: string): string {
   if (!cwd) return ''
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -69,6 +144,19 @@ function entryBody(entry: AgentEntry): string {
 const isMulti = computed(() => props.entries.length > 1)
 const first = computed(() => props.entries[0])
 const restCount = computed(() => Math.max(0, props.entries.length - 1))
+
+const dominantEvent = computed(() => {
+  return props.entries.reduce((best, entry) => {
+    const score = EVENT_PRIORITY[entry.event] || 0
+    return score > (EVENT_PRIORITY[best] || 0) ? entry.event : best
+  }, props.entries[0]?.event || 'Stop')
+})
+
+const theme = computed(() => getTheme(dominantEvent.value))
+
+function entryTheme(entry: AgentEntry) {
+  return getTheme(entry.event)
+}
 
 const headerTitle = computed(() => {
   if (isMulti.value) return t('agent.titlePending', { n: props.entries.length })
@@ -105,13 +193,23 @@ function onCardClick() {
 </script>
 
 <template>
-  <div class="agent-toast">
+  <div
+    class="agent-toast"
+    :style="{
+      '--accent': theme.accent,
+      '--title': theme.title,
+      '--body': theme.body,
+      '--bg': theme.bg,
+      '--light-bg': theme.lightBg,
+      '--border': theme.border,
+    }"
+  >
     <div class="header">
       <div class="header-left">
         <div class="pulse-dot" />
         <h2 class="title">{{ headerTitle }}</h2>
       </div>
-      <button class="close-btn" @click.stop="emit('close')" aria-label="关闭">
+      <button class="close-btn" @click.stop="emit('close')" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
@@ -133,7 +231,13 @@ function onCardClick() {
       <template v-else>
         <div class="entry-row">
           <div class="entry-text">
-            <span class="entry-project">{{ projectName(first.cwd) || t('agent.unknownProject') }}</span>
+            <div class="entry-meta">
+              <span
+                class="event-dot"
+                :style="{ background: entryTheme(first).accent }"
+              />
+              <span class="entry-project">{{ projectName(first.cwd) || t('agent.unknownProject') }}</span>
+            </div>
             <span class="entry-summary">{{ entryBody(first) }}</span>
           </div>
           <button
@@ -146,9 +250,27 @@ function onCardClick() {
         </div>
 
         <template v-if="expanded">
-          <div v-for="(entry, i) in entries.slice(1)" :key="i" class="entry-row">
+          <div
+            v-for="(entry, i) in entries.slice(1)"
+            :key="i"
+            class="entry-row"
+            :style="{
+              '--accent': entryTheme(entry).accent,
+              '--title': entryTheme(entry).title,
+              '--body': entryTheme(entry).body,
+              '--bg': entryTheme(entry).bg,
+              '--light-bg': entryTheme(entry).lightBg,
+              '--border': entryTheme(entry).border,
+            }"
+          >
             <div class="entry-text">
-              <span class="entry-project">{{ projectName(entry.cwd) || t('agent.unknownProject') }}</span>
+              <div class="entry-meta">
+                <span
+                  class="event-dot"
+                  :style="{ background: entryTheme(entry).accent }"
+                />
+                <span class="entry-project">{{ projectName(entry.cwd) || t('agent.unknownProject') }}</span>
+              </div>
               <span class="entry-summary">{{ entryBody(entry) }}</span>
             </div>
             <button
@@ -198,7 +320,7 @@ function onCardClick() {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #06B6D4;
+  background: var(--accent);
   animation: pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -211,7 +333,7 @@ function onCardClick() {
 .title {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #155E75;
+  color: var(--title);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -235,8 +357,8 @@ function onCardClick() {
 }
 
 .close-btn:hover {
-  background: #ECFEFF;
-  color: #0891B2;
+  background: var(--light-bg);
+  color: var(--accent);
 }
 
 .close-btn:active {
@@ -246,7 +368,7 @@ function onCardClick() {
 .progress-bar {
   width: 100%;
   height: 0.125rem;
-  background: linear-gradient(90deg, #0891B2, #22D3EE);
+  background: linear-gradient(90deg, var(--accent), var(--light-bg));
   border-radius: 0.0625rem;
   margin: 0.375rem 0 0.5rem;
   animation: progress-shrink 8000ms linear forwards;
@@ -265,7 +387,7 @@ function onCardClick() {
 
 .body-text {
   font-size: 0.8125rem;
-  color: #0E7490;
+  color: var(--body);
   line-height: 1.5;
   margin: 0 0 0.5rem 0;
   word-break: break-word;
@@ -282,7 +404,7 @@ function onCardClick() {
 
 .goto-hint {
   font-size: 0.6875rem;
-  color: #0891B2;
+  color: var(--accent);
   opacity: 0.8;
 }
 
@@ -291,7 +413,7 @@ function onCardClick() {
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0;
-  border-bottom: 1px solid #ECFEFF;
+  border-bottom: 1px solid var(--border);
 }
 
 .entry-row:last-of-type {
@@ -306,15 +428,28 @@ function onCardClick() {
   gap: 0.125rem;
 }
 
+.entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.event-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .entry-project {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #155E75;
+  color: var(--title);
 }
 
 .entry-summary {
   font-size: 0.75rem;
-  color: #0E7490;
+  color: var(--body);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -329,13 +464,13 @@ function onCardClick() {
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: #06B6D4;
+  background: var(--accent);
   color: #ffffff;
   transition: all 0.2s ease;
 }
 
 .goto-btn:hover:not(:disabled) {
-  background: #0891B2;
+  filter: brightness(0.92);
 }
 
 .goto-btn:disabled {
@@ -345,7 +480,7 @@ function onCardClick() {
 
 .expand-hint {
   font-size: 0.6875rem;
-  color: #0891B2;
+  color: var(--accent);
   text-align: center;
   padding: 0.25rem 0;
   opacity: 0.8;
@@ -360,12 +495,12 @@ function onCardClick() {
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: #ECFEFF;
-  color: #0891B2;
+  background: var(--light-bg);
+  color: var(--accent);
   transition: all 0.2s ease;
 }
 
 .dismiss-all-btn:hover {
-  background: #CFFAFE;
+  filter: brightness(0.95);
 }
 </style>
