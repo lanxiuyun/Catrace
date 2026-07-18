@@ -23,6 +23,7 @@ import {
   getAgentSoundDataUrl,
   getAgentSoundSettings,
   logFrontend,
+  resolvePermission,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
@@ -184,6 +185,7 @@ onMounted(async () => {
     cwd?: string
     prompt?: string
     summary?: string
+    sessionTitle?: string
     requestId?: number
     toolName?: string
     toolInput?: unknown
@@ -203,6 +205,7 @@ onMounted(async () => {
       cwd: payload.cwd,
       prompt: payload.prompt,
       summary: payload.summary,
+      sessionTitle: payload.sessionTitle,
       requestId: payload.requestId,
       toolName: payload.toolName,
       toolInput: payload.toolInput,
@@ -289,10 +292,25 @@ async function adjustWindowSize() {
 
     // 量内容栈总高度（含被 max-height 隐藏的溢出部分），再加 root 内边距得到窗口总高。
     // scrollHeight 包含 stack 自身为阴影留出的 1rem*2 padding，需减去。
-    const rawStackHeight = stackRef.value?.scrollHeight
-    const stackHeight = rawStackHeight != null ? rawStackHeight - 32 : calcWindowHeight(count)
+    // 优先按每张卡 scrollHeight 累加：stack 被窗口卡住时，单靠 stack.scrollHeight
+    // 偶发偏小（尤其 agent 聚合卡刚展开），导致底部按钮被裁。
+    let contentHeight = 0
+    let measuredCards = 0
+    for (const n of notifications.value) {
+      const el = cardRefs.value.get(n.id)
+      if (el) {
+        contentHeight += el.scrollHeight
+        measuredCards += 1
+      }
+    }
+    if (measuredCards > 0) {
+      contentHeight += Math.max(0, measuredCards - 1) * CARD_GAP
+    } else {
+      const rawStackHeight = stackRef.value?.scrollHeight
+      contentHeight = rawStackHeight != null ? rawStackHeight - 32 : calcWindowHeight(count)
+    }
     // 窗口高度不超过工作区高度，避免超出屏幕
-    const newHeightLogical = Math.min(workAreaHeight, stackHeight + PADDING * 2)
+    const newHeightLogical = Math.min(workAreaHeight, contentHeight + PADDING * 2)
     // 贴右下角：x = 工作区右边缘 - 窗口宽度，y = 工作区下边缘 - 窗口高度
     const newXLogical = workAreaX + workAreaWidth - WINDOW_WIDTH
     const newYLogical = workAreaY + workAreaHeight - newHeightLogical
@@ -317,7 +335,7 @@ async function adjustWindowSize() {
       afterSize: { width: afterSize.width, height: afterSize.height },
       afterPos: { x: afterPos.x, y: afterPos.y },
     }
-    logFrontend('info', `[toast-fe] adjustWindowSize count=${count} rawStack=${rawStackHeight ?? 'undef'} calcH=${newHeightLogical.toFixed(0)} pos=(${newXLogical.toFixed(0)},${newYLogical.toFixed(0)}) afterSize=${afterSize.width}x${afterSize.height} afterPos=(${afterPos.x},${afterPos.y}) sf=${sf}`).catch(() => {})
+    logFrontend('info', `[toast-fe] adjustWindowSize count=${count} contentH=${contentHeight.toFixed(0)} calcH=${newHeightLogical.toFixed(0)} pos=(${newXLogical.toFixed(0)},${newYLogical.toFixed(0)}) afterSize=${afterSize.width}x${afterSize.height} afterPos=(${afterPos.x},${afterPos.y}) sf=${sf}`).catch(() => {})
   } catch (e: any) {
     debugInfo.value.error = String(e?.message ?? e)
     logFrontend('error', `[toast-fe] adjustWindowSize 异常: ${String(e?.message ?? e)}`).catch(() => {})
@@ -469,6 +487,7 @@ async function addNotification(payload: {
   cwd?: string
   prompt?: string
   summary?: string
+  sessionTitle?: string
   requestId?: number
   toolName?: string
   toolInput?: unknown
@@ -524,6 +543,7 @@ async function addNotification(payload: {
         cwd: payload.cwd,
         prompt: payload.prompt,
         summary: payload.summary,
+        sessionTitle: payload.sessionTitle,
       }
       const idx = existing.agentEntries?.findIndex(
         (e) => e.sessionId && e.sessionId === entry.sessionId
@@ -533,6 +553,12 @@ async function addNotification(payload: {
       } else {
         existing.agentEntries = [...(existing.agentEntries ?? []), entry]
       }
+      // 合并后内容变高；stack 已是固定窗口高时只内部滚动，ResizeObserver 看不到
+      // client 尺寸变化，必须主动重算窗口高度，否则卡片底部（前往/全部已读）被裁切。
+      await nextTick()
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+      await adjustWindowSize()
+      scrollStackToBottom()
       return
     }
   } else if (payload.kind === 'agent') {
@@ -577,6 +603,7 @@ async function addNotification(payload: {
           cwd: payload.cwd,
           prompt: payload.prompt,
           summary: payload.summary,
+          sessionTitle: payload.sessionTitle,
         }]
       : undefined,
     totalMs: autoHideMs,
@@ -660,6 +687,13 @@ function removeNotification(id: number, animate: boolean) {
   const item = notifications.value[index]
   // 已经在关闭动画中，避免重复触发
   if (item.leaving) return
+
+  // 审批卡被栈顶挤掉 / 关窗 / session 销项时，必须 timeout 挂起请求，
+  // 否则 Claude 的 PermissionRequest http hook 一直等，agent 线程卡死。
+  // 已决策/已超时的卡 resolve 会返回 false，无害。
+  if (item.kind === 'permission' && item.permission?.requestId) {
+    resolvePermission(item.permission.requestId, 'timeout').catch(() => {})
+  }
 
   stopTimer(item)
   if (item.endTimer) {
@@ -840,13 +874,22 @@ function toggleUpdateDetails(item: ToastItem) {
 }
 
 /**
- * 从 sticky agent 待办卡里销掉指定 session。
+ * 从 sticky agent 待办卡 + 审批卡里销掉指定 session。
  * - 多会话聚合：只移除该条目；条目清空则整卡关闭
  * - 单条 / auto 卡：session 匹配则整卡关闭
- * 来源：UserPromptSubmit 自动销项，或用户在聚合列表点「前往」后
+ * - permission 卡：session 匹配则整卡关闭（后端已/将把挂起审批 timeout 掉）
+ * 来源：UserPromptSubmit 自动销项、同 session 新审批顶替旧卡、或用户在聚合列表点「前往」后
  */
 function dismissAgentSession(sessionId: string) {
   if (!sessionId || sessionId === 'unknown') return
+  // 审批卡：按 session 整卡关。不在这里 resolve——后端 UserPromptSubmit / 顶替路径已 timeout。
+  const permCards = notifications.value.filter(
+    (n) => n.kind === 'permission' && n.permission?.sessionId === sessionId,
+  )
+  for (const item of permCards) {
+    removeNotification(item.id, true)
+  }
+
   const targets = notifications.value.filter((n) => n.kind === 'agent' && n.agentEntries?.length)
   for (const item of targets) {
     const entries = item.agentEntries
@@ -953,6 +996,7 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
           @dismiss-all="handleClose(item)"
           @dismiss-entry="(sid) => dismissAgentSession(sid)"
+          @layout="() => nextTick(() => adjustWindowSize())"
         />
 
         <PermissionToastCard
@@ -1233,6 +1277,12 @@ async function handleUpdateInstall(item: ToastItem) {
   .liquid-ball {
     animation: none;
   }
+}
+
+/* Agent / permission / eye / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
+.toast-card-agent,
+.toast-card-permission {
+  min-height: auto;
 }
 
 /* Agent notification theming — dynamic per event */

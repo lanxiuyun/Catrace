@@ -99,6 +99,9 @@ struct AgentHookPayload {
     /// PermissionRequest 带来的工具输入（bash 命令、文件路径等），审批卡展示用
     #[serde(default)]
     tool_input: Option<serde_json::Value>,
+    /// 部分 agent / clawd 会直接带会话标题；没有则从 transcript 的 ai-title 行兜底
+    #[serde(default)]
+    session_title: String,
 }
 
 /// 从 transcript（JSONL）里找最后一条 assistant 文本消息，截断成摘要。
@@ -142,6 +145,47 @@ fn summarize_transcript(path: &str) -> Option<String> {
     None
 }
 
+/// 从 transcript 取会话标题。
+/// Claude Desktop / Code 会写 `{"type":"ai-title","aiTitle":"修复 approve…"}`（侧栏显示的名字）。
+/// 从后往前找最新一条；没有则 None，前端退回 cwd 项目名。
+fn extract_session_title(path: &str) -> Option<String> {
+    if path.is_empty() {
+        return None;
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    for line in text.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let ty = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        // Claude：ai-title / aiTitle；兼容其它可能字段
+        if ty == "ai-title" || ty == "title" || ty == "session-title" {
+            for key in ["aiTitle", "title", "session_title", "sessionTitle", "name"] {
+                if let Some(s) = v.get(key).and_then(|x| x.as_str()) {
+                    let s = s.trim();
+                    if !s.is_empty() {
+                        return Some(truncate_chars(s, 60));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// payload.session_title 优先；否则读 transcript。
+fn resolve_session_title(payload: &AgentHookPayload) -> Option<String> {
+    let direct = payload.session_title.trim();
+    if !direct.is_empty() {
+        return Some(truncate_chars(direct, 60));
+    }
+    extract_session_title(&payload.transcript_path)
+}
+
 fn truncate_chars(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         return s.to_string();
@@ -176,8 +220,11 @@ pub fn start_server(app: tauri::AppHandle, db: Db) {
             }
         };
         log_info!("agent-hook", "listening on {}", addr);
+        // 每个请求单独线程：/permission 会阻塞数分钟，若串行处理会卡住后续 /state，
+        // 表现为「审批中发了 Stop 卡不弹，点完审批才一起刷出来」。
         for request in server.incoming_requests() {
-            handle_request(&app, request);
+            let app = app.clone();
+            thread::spawn(move || handle_request(&app, request));
         }
     });
 }
@@ -193,19 +240,25 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         request.url()
     );
 
-    if request.method() != &tiny_http::Method::Post {
-        let _ = request.respond(tiny_http::Response::empty(404));
+    let url = request.url().to_string();
+    // 浏览器测试页（file:// 或 localhost）会先发 OPTIONS 预检；只开放本机 hook 路径
+    if request.method() == &tiny_http::Method::Options {
+        let _ = request.respond(cors_empty(204));
         return;
     }
-    let url = request.url().to_string();
+
+    if request.method() != &tiny_http::Method::Post {
+        let _ = request.respond(cors_empty(404));
+        return;
+    }
     if url != "/state" && url != "/permission" {
-        let _ = request.respond(tiny_http::Response::empty(404));
+        let _ = request.respond(cors_empty(404));
         return;
     }
 
     let mut body = String::new();
     if request.as_reader().read_to_string(&mut body).is_err() {
-        let _ = request.respond(tiny_http::Response::empty(400));
+        let _ = request.respond(cors_empty(400));
         return;
     }
 
@@ -221,7 +274,7 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
                 e,
                 body
             );
-            let _ = request.respond(tiny_http::Response::empty(400));
+            let _ = request.respond(cors_empty(400));
             return;
         }
     };
@@ -243,8 +296,8 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         return;
     }
 
-    // /state：立即响应，不阻塞 agent 的 hook 执行
-    let _ = request.respond(tiny_http::Response::empty(200));
+    // /state：立即响应，不阻塞 agent 的 hook 执行（带 CORS，方便本地网页测试）
+    let _ = request.respond(cors_empty(200));
 
     if !SERVER_ENABLED.load(Ordering::SeqCst) {
         return;
@@ -252,10 +305,21 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
 
     // 自动销项：用户重新提交 prompt 说明已回到该会话，撤掉对应 sticky 待办。
     // 即使 UserPromptSubmit 自身 mode=off（默认），也要处理销项。
+    // 同时：该 session 若有挂起的 /permission，立即 timeout 放行，避免 Claude 卡在阻塞 hook
+    // （用户已换话题/重开对话，旧审批卡无人点就会把 agent 线程挂死）。
     if payload.event == "UserPromptSubmit"
         && !payload.session_id.is_empty()
         && payload.session_id != "unknown"
     {
+        let cancelled = timeout_pending_permissions_for_session(&payload.session_id);
+        if cancelled > 0 {
+            log_info!(
+                "agent-hook",
+                "UserPromptSubmit：取消 session={} 的 {} 个挂起审批",
+                payload.session_id,
+                cancelled
+            );
+        }
         crate::reminder_toast::dismiss_agent_session_toast(app, &payload.session_id);
     }
 
@@ -270,6 +334,7 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
     }
 
     let summary = summarize_transcript(&payload.transcript_path);
+    let session_title = resolve_session_title(&payload);
     crate::reminder_toast::create_agent_toast_window(
         app,
         &payload.event,
@@ -279,6 +344,7 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         &payload.cwd,
         &payload.prompt,
         summary.as_deref(),
+        session_title.as_deref(),
     );
 }
 
@@ -303,7 +369,6 @@ fn is_duplicate(payload: &AgentHookPayload) -> bool {
 /// HTTP 响应由接收线程在决策到达后直接写 raw writer 完成（`into_writer`），
 /// 因为 tiny_http 的 Request::respond 消费 Request、无法跨线程暂存。
 struct PendingPermission {
-    #[allow(dead_code)] // 预留：未来按 session 批量清理/超时广播时用
     session_id: String,
     decision: Option<String>,
 }
@@ -330,6 +395,23 @@ fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payloa
         payload.session_id
     );
     let mut writer = request.into_writer();
+
+    // 同 session 若已有挂起审批，先 timeout 掉旧的——Claude 通常一会话同时只等一个，
+    // 残留旧卡会让旧连接一直占着接收线程，表现为「session 改了线程卡死」。
+    if !payload.session_id.is_empty() && payload.session_id != "unknown" {
+        let superseded = timeout_pending_permissions_for_session(&payload.session_id);
+        if superseded > 0 {
+            log_info!(
+                "agent-hook",
+                "/permission id={} 顶替同 session 旧审批 {} 个",
+                request_id,
+                superseded
+            );
+            // 顺手撤掉旧审批卡，避免 UI 上残留无人认领的按钮
+            crate::reminder_toast::dismiss_agent_session_toast(app, &payload.session_id);
+        }
+    }
+
     {
         let mut guard = PENDING_PERMISSIONS.lock().unwrap();
         guard.get_or_insert_with(HashMap::new).insert(
@@ -376,9 +458,10 @@ fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payloa
     log_info!("agent-hook", "/permission id={} 决策={}", request_id, decision);
 
     // 手写 HTTP 响应（raw writer 上没有 Response 便捷封装）
+    // 带 CORS，本地网页测试页才能读到决策 body
     let body = build_permission_response_body(&decision);
     let head = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nConnection: close\r\n\r\n",
         body.len()
     );
     use std::io::Write;
@@ -387,13 +470,32 @@ fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payloa
     let _ = writer.flush();
 }
 
+/// 带 CORS 头的空响应。浏览器测试页（file:// / localhost）直连本机 hook 时需要。
+/// Claude / Node hook 不读这些头，无影响。
+fn cors_empty(status: u16) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
+    let mut resp = tiny_http::Response::from_data(Vec::new()).with_status_code(status);
+    for (k, v) in [
+        ("Access-Control-Allow-Origin", "*"),
+        ("Access-Control-Allow-Methods", "POST, OPTIONS"),
+        ("Access-Control-Allow-Headers", "Content-Type"),
+    ] {
+        if let Ok(h) = tiny_http::Header::from_bytes(k.as_bytes(), v.as_bytes()) {
+            resp.add_header(h);
+        }
+    }
+    resp
+}
+
 /// 取走某个请求的决策（若有）。取走后 PendingPermission 被移除。
 fn take_permission_decision(request_id: u64) -> Option<String> {
     let mut guard = PENDING_PERMISSIONS.lock().unwrap();
     let map = guard.as_mut()?;
     let pending = map.get_mut(&request_id)?;
     if pending.decision.is_some() {
-        return pending.decision.take();
+        // 决策一旦取走就从 map 删掉，避免残留条目挡住后续同 id 判断
+        let d = pending.decision.take();
+        map.remove(&request_id);
+        return d;
     }
     None
 }
@@ -402,6 +504,27 @@ fn remove_pending_permission(request_id: u64) {
     if let Some(map) = PENDING_PERMISSIONS.lock().unwrap().as_mut() {
         map.remove(&request_id);
     }
+}
+
+/// 把指定 session 下所有尚未决策的挂起审批标为 timeout。
+/// 接收线程轮询到后会回 `{}`，Claude 回退终端审批，不再永久挂起。
+/// 返回被取消的数量。
+fn timeout_pending_permissions_for_session(session_id: &str) -> usize {
+    if session_id.is_empty() || session_id == "unknown" {
+        return 0;
+    }
+    let mut guard = PENDING_PERMISSIONS.lock().unwrap();
+    let Some(map) = guard.as_mut() else {
+        return 0;
+    };
+    let mut n = 0;
+    for pending in map.values_mut() {
+        if pending.session_id == session_id && pending.decision.is_none() {
+            pending.decision = Some("timeout".to_string());
+            n += 1;
+        }
+    }
+    n
 }
 
 /// 构造 Claude 期望的决策 JSON。timeout 不回 hookSpecificOutput，让 Claude 回退终端审批。
@@ -439,6 +562,10 @@ pub fn resolve_permission(request_id: u64, decision: String) -> bool {
     }
     let mut guard = PENDING_PERMISSIONS.lock().unwrap();
     if let Some(pending) = guard.as_mut().and_then(|m| m.get_mut(&request_id)) {
+        // 已有决策不覆盖（UserPromptSubmit 取消与用户点击竞态时，先到者胜）
+        if pending.decision.is_some() {
+            return false;
+        }
         pending.decision = Some(decision);
         return true;
     }

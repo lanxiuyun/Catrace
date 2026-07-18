@@ -8,53 +8,55 @@ hook payload 经脚本透传到后端（`catrace-agent-hook.cjs` → `agent_hook
 
 | 字段 | 来源 | 用途 |
 |------|------|------|
-| `session_id` | hook stdin | 合并粒度 + `claude -r` 恢复 |
-| `cwd` | hook stdin | 项目名（取 basename 进标题）+ 终端工作目录 |
-| `transcript_path` | hook stdin | Rust 倒读 JSONL 取最后一条 assistant 文本做摘要 |
-| `prompt` | hook stdin | UserPromptSubmit 事件的摘要兜底 |
+| `session_id` | hook stdin | 合并粒度 + `claude -r` 恢复 + 审批挂起按 session 清理 |
+| `cwd` | hook stdin | 项目 chip（basename）+ 终端工作目录 |
+| `transcript_path` | hook stdin | 摘要（末条 assistant）+ 会话 title（`ai-title`） |
+| `prompt` | hook stdin | UserPromptSubmit 摘要兜底 |
+| `session_title` | 可选 payload / transcript | 卡顶主标题（Claude 侧栏名） |
 
-摘要生成规则（`agent_hook.rs::summarize_transcript`）：
-- 从 transcript **末尾倒找**第一条 `type=assistant` 的文本 content，取首行截 80 字
-- 读不到/没有文本 → None，前端降级为事件默认文案（`agent.bodyXxx`）
-- UserPromptSubmit 没有 transcript 可用时，用用户输入的 prompt 原文当摘要
+摘要（`summarize_transcript`）：倒找 `type=assistant` 文本，首行截 80 字；没有则前端 `agent.bodyXxx`。  
+会话 title（`extract_session_title` / `resolve_session_title`）：payload 优先，否则 transcript 最新 `{"type":"ai-title","aiTitle":…}`。
+
+**卡面分层**（项目 chip / 事件 chip / 顶栏 title / 正文）详见  
+[agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md](agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md)。
 
 ## 交互动作
 
 | 动作 | 行为 |
 |------|------|
-| 点卡片主体（单条） | `open_agent_session(cwd, session_id)`：Windows `cmd /c start cmd /k claude -r <sid>`，macOS osascript Terminal；成功后卡片消失 |
-| 点卡片主体（聚合） | 展开/折叠列表 |
-| 聚合列表每行「前往」 | 同上；成功后**只销该 session 条目**，其余条目保留（`dismissEntry`） |
+| 点卡片主体（单条） | `open_agent_session(cwd, session_id)`；成功后整卡关 |
+| 点卡片主体（聚合） | 展开/折叠，并 `emit('layout')` 让父级重算窗口高度 |
+| 聚合列表每行「前往」 | 只销该 session 条目（`dismissEntry`） |
 | 右上 × | 已读消失 |
 | 聚合卡底部「全部已读」 | 整体消失 |
-| **自动销项** | 同 session 再收到 `UserPromptSubmit`（用户已回到该会话）→ 后端 `dismiss_agent_session_toast` → 前端 `window.dismissAgentSession(sessionId)` 移除该条目；条目清空则整卡关 |
+| **自动销项** | `UserPromptSubmit` → 后端 timeout 该 session 挂起审批 + `dismiss_agent_session_toast` → 前端同时清 agent 条目与 permission 卡 |
 
-打开终端失败时**保留卡片**让用户重试，不静默吞掉。
+打开终端失败时**保留卡片**让用户重试。
 
 ## 自动销项细节
 
-- 触发点在 `agent_hook.rs::handle_request`，**先于**事件三态策略判断：即使 `UserPromptSubmit` 默认 `mode=off` 不弹卡，仍会销 sticky 待办。
+- 触发点在 `handle_request`，**先于**三态判断；`UserPromptSubmit` 默认 off 仍销项。
 - 只匹配 `session_id` 非空且 ≠ `"unknown"`。
-- 前端对所有 `kind=agent` 卡扫描 `agentEntries`，按 sessionId 过滤；空了走 `removeNotification` 带动画。
-- 对应 Rust：`reminder_toast::dismiss_agent_session_toast`（eval `window.dismissAgentSession`）。
+- 前端 `dismissAgentSession`：permission 卡按 session 整卡关 + agent 条目过滤。
+- sticky **合并进已有卡**后必须 `adjustWindowSize`，否则窗口高度不涨、底部按钮被裁——见信息分层子文档。
 
 ## sticky 合并粒度：按 sessionId
 
-同一会话的新事件**刷新**已有条目（新摘要覆盖旧的），不同会话**追加**新条目。
-不要用事件名做合并 key——同一事件多次触发会丢信息，同会话多事件又会重复列。
+同一会话新事件**刷新**条目，不同会话**追加**。不要用事件名做 merge key。
 
 ## 组件边界（解耦纪律）
 
-`ReminderToast.vue` 只管通知栈生命周期（入栈、计时、FLIP 动画、窗口尺寸），**卡片内容渲染全部下沉到专用组件**：
+`ReminderToast.vue` 只管栈生命周期；内容下沉：
 
 ```
-ReminderToast.vue（栈管理）
-├── EyeToastCard.vue     — kind=eye
-├── AgentToastCard.vue   — kind=agent（本目录）
-└── 通用 header/body/actions — rest / water / update / rest-timer
+ReminderToast.vue（栈管理 + 窗口高度）
+├── EyeToastCard.vue
+├── AgentToastCard.vue      — kind=agent
+├── PermissionToastCard.vue — kind=permission（P6）
+└── 通用 header/body — rest / water / update / rest-timer
 ```
 
-抽组件时**必须同步检查父模板里按 kind 分支的 v-if**：通用 header、body-text、progress-bar 三处都要把新 kind 排除，否则会和组件内部渲染叠成双份（2026-07-12 双进度条 bug 就是这么来的——progress-bar 条件漏加 `item.kind !== 'agent'`）。
+父模板里通用 header / body-text / progress-bar 的 v-if **必须排除** agent 与 permission，否则双份渲染。
 
 ## 提示音
 

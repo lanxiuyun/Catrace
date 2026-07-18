@@ -1,35 +1,45 @@
 # Agent 通知
 
-接收 AI agent（Claude Code / Codex / Gemini / Kimi）hook 推送的状态事件，按用户配置的三态策略复用 [[toast-window]] 弹出卡片；设置页提供每 agent 一键安装/卸载。
+接收 AI agent（Claude Code / Codex / Gemini / Kimi）hook 推送的状态事件，按用户配置的三态策略复用 [[toast-window]] 弹出卡片；Claude **PermissionRequest** 走阻塞 `/permission` 真审批；设置页提供每 agent 一键安装/卸载。
 
 ## 链路
 
 ```
-agent 触发 hook → 释放到 app_data_dir/hooks/catrace-agent-hook.cjs 的 Node 脚本
-  → 读 stdin JSON（事件名在 hook_event_name，不在 argv！）→ 事件名归一化
-  → POST 127.0.0.1:23456/state → agent_hook.rs
-      ├─ UserPromptSubmit：按 sessionId 自动销 sticky 待办（即使 mode=off）
-      └─ 事件策略过滤 / auto 去重 / transcript 摘要（PermissionRequest 用 tool_name 兜底）
-  → reminder_toast.rs eval window.addToastNotification({kind:"agent", mode})
+agent 触发 hook
+  ├─ 状态事件 → catrace-agent-hook.cjs → POST :23456/state
+  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + 销 sticky/permission 卡（即使 mode=off）
+  │     └─ 策略过滤 / auto 去重 / transcript 摘要 + ai-title 会话名
+  │           → reminder_toast eval addToastNotification({kind:"agent", sessionTitle, …})
+  │
+  └─ PermissionRequest（Claude type:http）→ POST :23456/permission（阻塞）
+        → 挂起 PENDING_PERMISSIONS + 琥珀色 PermissionToastCard
+        → Allow/Deny/timeout → 手写 HTTP 决策（timeout 回 {} 让 Claude 回退终端）
 ```
 
-默认策略：召唤型（Stop / StopFailure / Notification / PermissionRequest）= sticky；播报型 off。设置页可改。PermissionRequest **只通知不审批**。
+默认策略：召唤型（Stop / StopFailure / Notification）= sticky；播报型 off。PermissionRequest **不走三态**，装了 http hook 即代批。
+
+HTTP **每请求一线程**（permission 阻塞不得卡住后续 /state）。本机测试页需要 CORS，见子文档。
 
 ## 涉及文件
 
-- `src-tauri/src/agent_hook.rs` — HTTP 服务（tiny_http，固定端口 23456）、事件三态策略、去重、四个 agent 的安装/卸载/检测命令；transcript 摘要生成；`open_agent_session` 前往会话；提示音设置/读取；`UserPromptSubmit` 自动销项
-- `src-tauri/resources/catrace-agent-hook.cjs` — hook 脚本（`include_bytes!` 内嵌，安装时释放到 app_data_dir）；**必须 .cjs**：仓库根 package.json 带 `type:module`，.js 会被 Node 当 ESM 导致 require 崩溃
-- `src-tauri/resources/agent-notify.wav` — 内置提示音（180ms / 880Hz），释放到 app_data_dir/sounds/
-- `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window(...)` / `dismiss_agent_session_toast(session_id)`
-- `src/views/ReminderToast.vue` — 通知栈生命周期；agent 卡片渲染下沉到 AgentToastCard；`window.dismissAgentSession`
-- `src/components/AgentToastCard.vue` — agent 卡片：项目名+摘要标题、聚合展开式列表、前往会话、全部已读；多会话「前往」只销当前条目
-- `src/components/settings/AgentSettingsCard.vue` — 设置页：全局开关、agent 安装列表、事件策略、提示音设置；开关关闭时安装列表和事件策略整段隐藏（单个 `v-if="enabled"` 包住）
-- `src/api/tauri.ts` — 前端 invoke 封装
+- `src-tauri/src/agent_hook.rs` — HTTP（23456）、三态、去重、安装器、transcript 摘要/title、`/permission` 挂起与 timeout、CORS、并行 accept、`open_agent_session`、提示音
+- `src-tauri/resources/catrace-agent-hook.cjs` — 状态 hook 脚本（**必须 .cjs**）；透传 `session_title`；PermissionRequest **不**走此脚本
+- `src-tauri/resources/agent-notify.wav` — 内置提示音
+- `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window` / `create_agent_permission_window` / `dismiss_agent_session_toast`
+- `src/views/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、`dismissAgentSession`
+- `src/components/AgentToastCard.vue` — 项目/事件/会话 title 分层、聚合、前往、layout 事件
+- `src/components/PermissionToastCard.vue` — Allow / Deny / 前往终端
+- `src/components/settings/AgentSettingsCard.vue` — 开关、安装、事件策略、提示音
+- `src/api/tauri.ts` — invoke 封装（含 `resolvePermission`）
+- `tools/agent-hook-tester/` — 本地网页测试器（直连 23456）
 
 ## 子文档
 
-- [roadmap-and-progress.md](roadmap-and-progress.md) — **完整开发计划与进度**（P0–P8：待办 Toast → 真审批 → 交互小窗；已完成/待做/验收）
-- [event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md](event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md) — 三态策略的存储/默认/去重规则，sticky 常驻与多卡合并的前端行为
-- [agent-toast-card-content-interaction-and-component-boundary.md](agent-toast-card-content-interaction-and-component-boundary.md) — 卡片内容来源（transcript 摘要）、交互动作、按 sessionId 合并粒度、与 toast-window 的组件边界、提示音链路
-- [files-to-change-when-adding-a-new-agent-hook-target.md](files-to-change-when-adding-a-new-agent-hook-target.md) — 新增一个 agent 接入要改的所有位置（以 Codex/Gemini/Kimi 为参照）
-- [hook-install-development-guide.md](hook-install-development-guide.md) — **改 hook 安装/脚本前必读**：四 agent 配置规格、平台坑、与 clawd 缺口、安全修改流程
+- [roadmap-and-progress.md](roadmap-and-progress.md) — P0–P8 路线图与进度
+- [event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md](event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md) — 三态与 sticky 合并
+- [agent-toast-card-content-interaction-and-component-boundary.md](agent-toast-card-content-interaction-and-component-boundary.md) — 内容来源、交互、组件边界、提示音
+- [agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md](agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md) — **卡面信息架构 + 合并后高度纪律**
+- [permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md](permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md) — **P6 挂起释放 + 并行 accept + CORS**
+- [本地网页直连-agent-hook-测全链路-CORS与测试页.md](本地网页直连-agent-hook-测全链路-CORS与测试页.md) — 测试页用法与设计取舍
+- [files-to-change-when-adding-a-new-agent-hook-target.md](files-to-change-when-adding-a-new-agent-hook-target.md) — 新增 agent 接入清单
+- [hook-install-development-guide.md](hook-install-development-guide.md) — 改安装/脚本前必读

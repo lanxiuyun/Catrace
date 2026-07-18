@@ -210,8 +210,9 @@ pub fn create_toast_window(
     });
 }
 
-/// 自动销项：用户已回到某 agent 会话时，从前端 sticky 待办卡里移除该 session。
+/// 自动销项：用户已回到某 agent 会话时，从前端 sticky 待办卡 + 该 session 的审批卡里移除。
 /// 通过 eval 调 `window.dismissAgentSession`；窗口不存在则无需处理。
+/// 注意：后端挂起的 /permission 必须由调用方先 timeout 决策（见 agent_hook），这里只管 UI。
 pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &str) {
     if session_id.is_empty() || session_id == "unknown" {
         return;
@@ -234,6 +235,7 @@ pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &s
 /// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
 /// mode: "auto" = 到时自动消失；"sticky" = 常驻直到用户手动关闭。
 /// summary: 从 transcript 提取的任务摘要，可能为 None（前端降级为默认文案）。
+/// session_title: 会话名（Claude 侧栏名 / ai-title），没有则前端用 cwd 项目名。
 /// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=agent 的通知。
 pub fn create_agent_toast_window(
     app_handle: &tauri::AppHandle,
@@ -244,6 +246,7 @@ pub fn create_agent_toast_window(
     cwd: &str,
     prompt: &str,
     summary: Option<&str>,
+    session_title: Option<&str>,
 ) {
     let app = app_handle.clone();
     let payload = serde_json::json!({
@@ -255,6 +258,7 @@ pub fn create_agent_toast_window(
         "cwd": cwd,
         "prompt": prompt,
         "summary": summary,
+        "sessionTitle": session_title,
     });
     let js = format!(
         "if (window.addToastNotification) {{ window.addToastNotification({}); }}",

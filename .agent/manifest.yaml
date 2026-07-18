@@ -96,6 +96,9 @@ features:
       - .agent/features/agent-notification/roadmap-and-progress.md
       - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
       - .agent/features/agent-notification/agent-toast-card-content-interaction-and-component-boundary.md
+      - .agent/features/agent-notification/agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md
+      - .agent/features/agent-notification/permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md
+      - .agent/features/agent-notification/本地网页直连-agent-hook-测全链路-CORS与测试页.md
       - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
       - .agent/features/agent-notification/hook-install-development-guide.md
     related:
@@ -153,6 +156,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-18-permission-hang-on-session-change.md
   - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
   - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
@@ -167,6 +171,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
   - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
   - .agent/devlog/2026-07-17-p6-permission-approve-deny.md
   - .agent/devlog/2026-07-17-p4-hook-install-reliability.md
@@ -182,5 +187,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知 P0–P4 + P6(Claude 真审批) 完成；路线图见 features/agent-notification/roadmap-and-progress.md
-  next: P5 实测升版（含 P6 真机复测）→ P7 交互小窗 → P6 二期（Codex/Kimi 审批）
+  phase: agent 通知 P6 稳固（挂起释放+并行HTTP+CORS）+ 卡面分层/title + 本地测试页；路线图见 features/agent-notification/roadmap-and-progress.md
+  next: P5 真机复测（S5/S6/并行Stop/真Claude title）后升版 → 重装 Hook 释放新 cjs → P7 交互小窗 → P6 二期（Codex/Kimi 审批）

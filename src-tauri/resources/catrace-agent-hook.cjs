@@ -78,6 +78,13 @@ async function main() {
     transcript_path: payload.transcript_path || "",
     prompt: payload.prompt || "",
     tool_name: String(toolName || ""),
+    // 有的 agent 直接带标题；没有时 Catrace 会从 transcript 的 ai-title 行读
+    session_title:
+      payload.session_title ||
+      payload.sessionTitle ||
+      payload.ai_title ||
+      payload.aiTitle ||
+      "",
   });
 
   const req = http.request(

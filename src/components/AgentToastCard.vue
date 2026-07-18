@@ -11,6 +11,8 @@ export interface AgentEntry {
   cwd?: string
   prompt?: string
   summary?: string
+  /** Claude 侧栏会话名（transcript ai-title） */
+  sessionTitle?: string
 }
 
 const props = defineProps<{
@@ -26,18 +28,21 @@ const emit = defineEmits<{
   (e: 'dismissAll'): void
   /** 仅销掉某一会话条目（多会话聚合卡用）；payload 为 sessionId */
   (e: 'dismissEntry', sessionId: string): void
+  /** 内容高度可能变化（展开/收起），请父级重算 toast 窗口 */
+  (e: 'layout'): void
 }>()
 
 // 聚合卡默认展开，用户一眼看到全部待办会话
 const expanded = ref(true)
 const navigating = ref<number | null>(null)
 
-const EVENT_TITLE_KEYS: Record<string, string> = {
-  SessionStart: 'agent.titleIdle',
-  UserPromptSubmit: 'agent.titleThinking',
-  Stop: 'agent.titleAttention',
-  StopFailure: 'agent.titleError',
-  Notification: 'agent.titleNotification',
+/** 事件 → 设置页同款短标签（任务完成 / 出错…） */
+const EVENT_LABEL_KEYS: Record<string, string> = {
+  SessionStart: 'settings.agent.eventSessionStart',
+  UserPromptSubmit: 'settings.agent.eventUserPromptSubmit',
+  Stop: 'settings.agent.eventStop',
+  StopFailure: 'settings.agent.eventStopFailure',
+  Notification: 'settings.agent.eventNotification',
 }
 
 const EVENT_BODY_KEYS: Record<string, string> = {
@@ -55,6 +60,8 @@ interface EventTheme {
   bg: string
   lightBg: string
   border: string
+  badgeBg: string
+  badgeFg: string
 }
 
 const EVENT_THEMES: Record<string, EventTheme> = {
@@ -65,38 +72,48 @@ const EVENT_THEMES: Record<string, EventTheme> = {
     bg: '#FEE2E2',
     lightBg: '#FECACA',
     border: '#FECACA',
+    badgeBg: '#FEE2E2',
+    badgeFg: '#B91C1C',
   },
   Stop: {
     accent: '#06B6D4',
-    title: '#155E75',
-    body: '#0E7490',
+    title: '#0F172A',
+    body: '#475569',
     bg: '#ECFEFF',
     lightBg: '#CFFAFE',
     border: '#A5F3FC',
+    badgeBg: '#CFFAFE',
+    badgeFg: '#0E7490',
   },
   Notification: {
     accent: '#8B5CF6',
-    title: '#5B21B6',
-    body: '#7C3AED',
+    title: '#0F172A',
+    body: '#475569',
     bg: '#F3E8FF',
     lightBg: '#E9D5FF',
     border: '#DDD6FE',
+    badgeBg: '#EDE9FE',
+    badgeFg: '#6D28D9',
   },
   SessionStart: {
     accent: '#10B981',
-    title: '#065F46',
-    body: '#047857',
+    title: '#0F172A',
+    body: '#475569',
     bg: '#D1FAE5',
     lightBg: '#A7F3D0',
     border: '#6EE7B7',
+    badgeBg: '#D1FAE5',
+    badgeFg: '#047857',
   },
   UserPromptSubmit: {
     accent: '#6B7280',
-    title: '#374151',
-    body: '#4B5563',
+    title: '#0F172A',
+    body: '#475569',
     bg: '#F3F4F6',
     lightBg: '#E5E7EB',
     border: '#D1D5DB',
+    badgeBg: '#F3F4F6',
+    badgeFg: '#4B5563',
   },
 }
 
@@ -114,20 +131,33 @@ function getTheme(event: string): EventTheme {
   return EVENT_THEMES[event] || DEFAULT_THEME
 }
 
+/** 项目名 = cwd 最后一段 */
 function projectName(cwd?: string): string {
   if (!cwd) return ''
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
   return parts[parts.length - 1] || ''
 }
 
-function entryTitle(entry: AgentEntry): string {
-  return t(EVENT_TITLE_KEYS[entry.event] || 'agent.titleDefault')
+/** 会话 title：Claude 侧栏名；没有则空（不拿项目名顶替，避免和项目重复） */
+function sessionTitleOf(entry?: AgentEntry): string {
+  return entry?.sessionTitle?.trim() || ''
+}
+
+function eventLabel(event: string): string {
+  const key = EVENT_LABEL_KEYS[event]
+  return key ? t(key) : event || t('agent.titleDefault')
 }
 
 function entryBody(entry: AgentEntry): string {
   if (entry.summary) return entry.summary
   if (entry.event === 'UserPromptSubmit' && entry.prompt) return entry.prompt
   return t(EVENT_BODY_KEYS[entry.event] || 'agent.bodyDefault')
+}
+
+/** 主标题行：优先会话 title，否则项目名，再否则通用「AI 助手」 */
+function mainTitle(entry?: AgentEntry): string {
+  if (!entry) return t('agent.titleDefault')
+  return sessionTitleOf(entry) || projectName(entry.cwd) || t('agent.titleDefault')
 }
 
 const isMulti = computed(() => props.entries.length > 1)
@@ -149,9 +179,7 @@ function entryTheme(entry: AgentEntry) {
 
 const headerTitle = computed(() => {
   if (isMulti.value) return t('agent.titlePending', { n: props.entries.length })
-  const proj = projectName(first.value?.cwd)
-  const base = entryTitle(first.value)
-  return proj ? `${proj} — ${base}` : base
+  return mainTitle(first.value)
 })
 
 async function gotoSession(entry: AgentEntry, index: number) {
@@ -175,6 +203,8 @@ async function gotoSession(entry: AgentEntry, index: number) {
 function onCardClick() {
   if (isMulti.value) {
     expanded.value = !expanded.value
+    // 展开/折叠条目数变化 → 通知父级重算窗口高度
+    emit('layout')
   } else {
     gotoSession(first.value, 0)
   }
@@ -191,13 +221,13 @@ function onCardClick() {
       '--bg': theme.bg,
       '--light-bg': theme.lightBg,
       '--border': theme.border,
+      '--badge-bg': theme.badgeBg,
+      '--badge-fg': theme.badgeFg,
     }"
   >
+    <!-- 顶栏：title 直接顶格 + 关闭；无呼吸点 -->
     <div class="header">
-      <div class="header-left">
-        <div class="pulse-dot" />
-        <h2 class="title">{{ headerTitle }}</h2>
-      </div>
+      <h2 class="title" :title="headerTitle">{{ headerTitle }}</h2>
       <button class="close-btn" @click.stop="emit('close')" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -208,74 +238,66 @@ function onCardClick() {
     <div v-if="!sticky" class="progress-bar" />
 
     <div class="card-body" @click="onCardClick">
-      <!-- 单条 -->
+      <!-- 单条：项目 · 事件 chip + 摘要 -->
       <template v-if="!isMulti">
+        <div class="meta-row">
+          <span v-if="projectName(first.cwd)" class="chip project-chip" :title="first.cwd">
+            {{ projectName(first.cwd) }}
+          </span>
+          <span v-else class="chip project-chip muted">{{ t('agent.unknownProject') }}</span>
+          <span class="chip event-chip">{{ eventLabel(first.event) }}</span>
+        </div>
+
         <p class="body-text">{{ entryBody(first) }}</p>
+
         <div class="hint-row">
           <span class="goto-hint">{{ t('agent.gotoSession') }}</span>
         </div>
       </template>
 
-      <!-- 聚合：折叠显示第一条 + 展开列表 -->
+      <!-- 聚合：每条展示 项目 + 事件 + title -->
       <template v-else>
-        <div class="entry-row">
+        <div
+          v-for="(entry, i) in (expanded ? entries : entries.slice(0, 1))"
+          :key="entry.sessionId || i"
+          class="entry-row"
+          :style="{
+            '--accent': entryTheme(entry).accent,
+            '--title': entryTheme(entry).title,
+            '--body': entryTheme(entry).body,
+            '--bg': entryTheme(entry).bg,
+            '--light-bg': entryTheme(entry).lightBg,
+            '--border': entryTheme(entry).border,
+            '--badge-bg': entryTheme(entry).badgeBg,
+            '--badge-fg': entryTheme(entry).badgeFg,
+          }"
+        >
           <div class="entry-text">
-            <div class="entry-meta">
-              <span
-                class="event-dot"
-                :style="{ background: entryTheme(first).accent }"
-              />
-              <span class="entry-project">{{ projectName(first.cwd) || t('agent.unknownProject') }}</span>
+            <div class="meta-row compact">
+              <span class="chip project-chip">
+                {{ projectName(entry.cwd) || t('agent.unknownProject') }}
+              </span>
+              <span class="chip event-chip">{{ eventLabel(entry.event) }}</span>
             </div>
-            <span class="entry-summary">{{ entryBody(first) }}</span>
+            <span class="entry-session" :title="mainTitle(entry)">{{ mainTitle(entry) }}</span>
+            <span class="entry-summary">{{ entryBody(entry) }}</span>
           </div>
           <button
             class="goto-btn"
-            :disabled="navigating === 0"
-            @click.stop="gotoSession(first, 0)"
+            :disabled="navigating === i"
+            @click.stop="gotoSession(entry, i)"
           >
             {{ t('agent.goto') }}
           </button>
         </div>
 
-        <template v-if="expanded">
-          <div
-            v-for="(entry, i) in entries.slice(1)"
-            :key="i"
-            class="entry-row"
-            :style="{
-              '--accent': entryTheme(entry).accent,
-              '--title': entryTheme(entry).title,
-              '--body': entryTheme(entry).body,
-              '--bg': entryTheme(entry).bg,
-              '--light-bg': entryTheme(entry).lightBg,
-              '--border': entryTheme(entry).border,
-            }"
-          >
-            <div class="entry-text">
-              <div class="entry-meta">
-                <span
-                  class="event-dot"
-                  :style="{ background: entryTheme(entry).accent }"
-                />
-                <span class="entry-project">{{ projectName(entry.cwd) || t('agent.unknownProject') }}</span>
-              </div>
-              <span class="entry-summary">{{ entryBody(entry) }}</span>
-            </div>
-            <button
-              class="goto-btn"
-              :disabled="navigating === i + 1"
-              @click.stop="gotoSession(entry, i + 1)"
-            >
-              {{ t('agent.goto') }}
-            </button>
-          </div>
+        <template v-if="expanded && entries.length > 1">
           <button class="dismiss-all-btn" @click.stop="emit('dismissAll')">
             {{ t('agent.dismissAll') }}
           </button>
         </template>
 
-        <div v-else class="expand-hint">
+        <div v-else-if="!expanded && restCount > 0" class="expand-hint">
           {{ t('agent.moreCount', { n: restCount }) }}
         </div>
       </template>
@@ -293,40 +315,26 @@ function onCardClick() {
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.25rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  min-width: 0;
-}
-
-.pulse-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 1.5s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.3); }
+  margin-bottom: 0.375rem;
+  min-height: 1.25rem;
 }
 
 .title {
-  font-size: 0.875rem;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: var(--title);
   margin: 0;
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .close-btn {
@@ -359,7 +367,7 @@ function onCardClick() {
   height: 0.125rem;
   background: linear-gradient(90deg, var(--accent), var(--light-bg));
   border-radius: 0.0625rem;
-  margin: 0.375rem 0 0.5rem;
+  margin: 0.25rem 0 0.5rem;
   animation: progress-shrink 8000ms linear forwards;
 }
 
@@ -374,14 +382,59 @@ function onCardClick() {
   min-height: 0;
 }
 
+/* —— 分层信息 —— */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+.meta-row.compact {
+  margin-bottom: 0.2rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 1.25rem;
+  padding: 0 0.4375rem;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-chip {
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+  border: 0.0625rem solid rgba(15, 23, 42, 0.08);
+}
+
+.project-chip.muted {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.event-chip {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  border: 0.0625rem solid var(--border);
+}
+
 .body-text {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--body);
-  line-height: 1.5;
+  line-height: 1.45;
   margin: 0 0 0.5rem 0;
   word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -394,15 +447,21 @@ function onCardClick() {
 .goto-hint {
   font-size: 0.6875rem;
   color: var(--accent);
-  opacity: 0.8;
+  opacity: 0.85;
+  font-weight: 600;
 }
 
+/* —— 多会话条目 —— */
 .entry-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
+}
+
+.entry-row:first-of-type {
+  padding-top: 0.125rem;
 }
 
 .entry-row:last-of-type {
@@ -417,27 +476,17 @@ function onCardClick() {
   gap: 0.125rem;
 }
 
-.entry-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.event-dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.entry-project {
-  font-size: 0.75rem;
-  font-weight: 600;
+.entry-session {
+  font-size: 0.8125rem;
+  font-weight: 700;
   color: var(--title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .entry-summary {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--body);
   white-space: nowrap;
   overflow: hidden;

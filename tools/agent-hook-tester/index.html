@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Catrace Agent Hook 测试</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card: #fff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --blue: #2563eb;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --soft: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 22px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    label {
+      font-size: 13px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+      background: #fff;
+    }
+    textarea {
+      min-height: 88px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+    .field { flex: 1; min-width: 160px; }
+    .field.sm { flex: 0 0 110px; min-width: 90px; }
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font: inherit;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    button:hover { background: #f9fafb; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    button.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+    button.primary:hover { filter: brightness(.95); }
+    button.amber {
+      background: #f59e0b;
+      border-color: #f59e0b;
+      color: #111;
+      font-weight: 600;
+    }
+    button.green {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+    button.ghost {
+      background: var(--soft);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: var(--muted);
+    }
+    .status.ok { background: #d1fae5; color: var(--green); }
+    .status.bad { background: #fee2e2; color: var(--red); }
+    .status.wait { background: #fef3c7; color: var(--amber); }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .scenario {
+      text-align: left;
+      padding: 12px;
+      min-height: 74px;
+    }
+    .scenario b {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .scenario span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    #log {
+      background: #0b1220;
+      color: #d1d5db;
+      border-radius: 10px;
+      padding: 12px;
+      height: 280px;
+      overflow: auto;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-line { margin: 0 0 8px; }
+    .log-ts { color: #6b7280; }
+    .log-send { color: #60a5fa; }
+    .log-ok { color: #34d399; }
+    .log-err { color: #f87171; }
+    .log-wait { color: #fbbf24; }
+    .log-info { color: #e5e7eb; }
+    .toolbar { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    details summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+    .checks label { display: flex; gap: 6px; align-items: center; margin: 0; color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Catrace Agent Hook 测试</h1>
+    <p class="sub">用大按钮模拟 Claude 发事件。先开 Catrace，再点「探测」。</p>
+
+    <div class="card">
+      <div class="row">
+        <div class="field sm">
+          <label>Host</label>
+          <input id="host" value="127.0.0.1" />
+        </div>
+        <div class="field sm">
+          <label>Port</label>
+          <input id="port" type="number" value="23456" />
+        </div>
+        <div class="field" style="flex:2">
+          <label>session_id</label>
+          <input id="session" />
+        </div>
+        <div class="field" style="flex:2">
+          <label>cwd</label>
+          <input id="cwd" value="C:\work_sapce\Catrace" />
+        </div>
+        <div class="field" style="flex:2">
+          <label>session_title（可选）</label>
+          <input id="sessionTitle" placeholder="例：修复 approve 窗口导致线程卡死" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="btnPing">探测服务</button>
+        <button class="ghost" id="btnNewSession">新 session</button>
+        <span class="status" id="status">未探测</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>1. 常用事件（/state）</h2>
+      <p class="hint">立即返回。Stop / 失败 / 通知默认弹常驻卡；UserPromptSubmit 默认不弹，但会消掉该 session 的待办和审批卡。</p>
+      <div class="grid">
+        <button class="scenario" data-event="Stop"><b>Stop</b><span>任务完成 / 等你</span></button>
+        <button class="scenario" data-event="StopFailure"><b>StopFailure</b><span>出错，召唤你</span></button>
+        <button class="scenario" data-event="Notification"><b>Notification</b><span>助手喊你</span></button>
+        <button class="scenario" data-event="UserPromptSubmit"><b>UserPromptSubmit</b><span>销 sticky + 取消审批</span></button>
+        <button class="scenario" data-event="SessionStart"><b>SessionStart</b><span>默认不弹</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. 权限审批（/permission，会卡住等你点）</h2>
+      <p class="hint">琥珀色审批卡。点 Allow/Deny 后这里才有结果。也可先发审批，再点上面的 UserPromptSubmit 测「session 变化取消」。</p>
+      <div class="row" style="margin-bottom:10px">
+        <div class="field sm">
+          <label>工具</label>
+          <select id="tool">
+            <option>Bash</option>
+            <option>Edit</option>
+            <option>Write</option>
+            <option>Read</option>
+            <option>WebFetch</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>tool_input JSON</label>
+          <input id="toolInput" />
+        </div>
+      </div>
+      <div class="checks" style="margin-bottom:12px">
+        <label><input type="checkbox" id="realBody" checked /> 真实 Claude body（只有 hook_event_name）</label>
+      </div>
+      <div class="row">
+        <button class="amber" id="btnPerm">发审批（阻塞）</button>
+        <button id="btnPerm2">再发一个同 session（测顶替）</button>
+        <span class="status" id="permStatus">空闲</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. 一键场景</h2>
+      <p class="hint">按顺序验收最省事。看右下/下方日志 + Catrace 弹窗。</p>
+      <div class="grid">
+        <button class="scenario" id="s1"><b>S1 弹 sticky</b><span>Stop → 常驻待办卡</span></button>
+        <button class="scenario" id="s2"><b>S2 多 session</b><span>两会话合并一张卡</span></button>
+        <button class="scenario" id="s3"><b>S3 销 sticky</b><span>Stop 后自动 UserPrompt</span></button>
+        <button class="scenario" id="s4"><b>S4 点审批</b><span>弹卡，你去点 Allow/Deny</span></button>
+        <button class="scenario" id="s5"><b>S5 审批被取消</b><span>弹卡后自动发 prompt</span></button>
+        <button class="scenario" id="s6"><b>S6 审批顶替</b><span>连发两个 permission</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0">日志</h2>
+        <button class="ghost" id="btnClear">清空</button>
+      </div>
+      <div id="log"></div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>高级：原始 JSON</summary>
+        <div class="row" style="margin-bottom:8px">
+          <div class="field sm">
+            <label>路径</label>
+            <select id="rawPath">
+              <option>/state</option>
+              <option>/permission</option>
+              <option>/nope</option>
+            </select>
+          </div>
+        </div>
+        <textarea id="rawBody"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button id="btnRaw">发送原始请求</button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    const STATE_MAP = {
+      Stop: "attention",
+      StopFailure: "error",
+      Notification: "notification",
+      UserPromptSubmit: "thinking",
+      SessionStart: "idle",
+    };
+
+    const TOOL_INPUTS = {
+      Bash: { command: "git status", description: "Show working tree status" },
+      Edit: { file_path: "src/main.rs", old_string: "foo", new_string: "bar" },
+      Write: { file_path: "notes.md", content: "# hello" },
+      Read: { file_path: "README.md" },
+      WebFetch: { url: "https://example.com" },
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function newSession() {
+      $("session").value = "test-" + Math.random().toString(16).slice(2, 10);
+    }
+
+    function common() {
+      return {
+        session_id: $("session").value.trim() || "unknown",
+        cwd: $("cwd").value.trim(),
+        prompt: "",
+        transcript_path: "",
+        // 可选：模拟 Claude 侧栏会话名；真 Claude 会从 transcript 的 ai-title 读
+        session_title: ($("sessionTitle") && $("sessionTitle").value.trim()) || "",
+      };
+    }
+
+    function targetBase() {
+      return `http://${$("host").value.trim()}:${$("port").value.trim()}`;
+    }
+
+    function log(msg, cls = "info") {
+      const el = document.createElement("div");
+      el.className = "log-line log-" + cls;
+      const ts = new Date().toLocaleTimeString("zh-CN", { hour12: false }) +
+        "." + String(Date.now() % 1000).padStart(3, "0");
+      el.innerHTML = `<span class="log-ts">[${ts}]</span> ${escapeHtml(msg)}`;
+      $("log").appendChild(el);
+      $("log").scrollTop = $("log").scrollHeight;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\n", "<br>");
+    }
+
+    function setStatus(text, cls) {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status" + (cls ? " " + cls : "");
+    }
+
+    function setPermStatus(text, cls) {
+      const el = $("permStatus");
+      el.textContent = text;
+      el.className = "status" + (cls ? " " + cls : "");
+    }
+
+    async function post(path, body, timeoutMs = 8000) {
+      // 直连 Catrace（agent_hook 已回 CORS）。file:// 打开本页或 http 服务打开都行。
+      const url = `${targetBase()}${path}`;
+      log(`→ POST ${url}\n${JSON.stringify(body, null, 0)}`, "send");
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        const text = await res.text();
+        let parsed = text;
+        try { parsed = text ? JSON.parse(text) : null; } catch {}
+        const pretty = parsed == null || parsed === ""
+          ? "(empty)"
+          : typeof parsed === "string" ? parsed : JSON.stringify(parsed);
+        log(`← HTTP ${res.status}\nbody=${pretty}`, res.ok ? "ok" : "err");
+        return { ok: res.ok, status: res.status, body: parsed };
+      } catch (e) {
+        let hint = "";
+        if (e.name === "TypeError") {
+          hint = "\n（连不上？确认 Catrace 已启动，且是带 CORS 的新版本）";
+        } else if (e.name === "AbortError") {
+          hint = "\n（超时）";
+        }
+        log(`← ERROR ${e.name}: ${e.message}${hint}`, "err");
+        return { ok: false, error: e };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function sendState(event, sessionId) {
+      const body = {
+        event,
+        state: STATE_MAP[event] || "idle",
+        ...common(),
+      };
+      if (sessionId) body.session_id = sessionId;
+      return post("/state", body, 5000);
+    }
+
+    function buildPermissionBody(tag) {
+      let toolInput;
+      try {
+        toolInput = JSON.parse($("toolInput").value || "null");
+      } catch (e) {
+        alert("tool_input 不是合法 JSON");
+        return null;
+      }
+      const tool = $("tool").value;
+      const c = common();
+      if (tag && toolInput && typeof toolInput === "object") {
+        toolInput = { ...toolInput };
+        if (toolInput.command) toolInput.command += " # " + tag;
+      }
+      if ($("realBody").checked) {
+        return {
+          hook_event_name: "PermissionRequest",
+          session_id: c.session_id,
+          cwd: c.cwd,
+          transcript_path: c.transcript_path,
+          tool_name: tool,
+          tool_input: toolInput,
+          permission_mode: "default",
+        };
+      }
+      return {
+        event: "PermissionRequest",
+        state: "permission",
+        tool_name: tool,
+        tool_input: toolInput,
+        ...c,
+      };
+    }
+
+    async function sendPermission(tag) {
+      const body = buildPermissionBody(tag);
+      if (!body) return;
+      setPermStatus("等待你点审批卡…", "wait");
+      log("阻塞等待审批（可同时点 UserPromptSubmit 取消）", "wait");
+      $("btnPerm").disabled = true;
+      try {
+        await post("/permission", body, 600000);
+      } finally {
+        $("btnPerm").disabled = false;
+        setPermStatus("空闲");
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise((r) => setTimeout(r, ms));
+    }
+
+    function fillToolInput() {
+      const t = $("tool").value;
+      $("toolInput").value = JSON.stringify(TOOL_INPUTS[t] || {}, null, 0);
+    }
+
+    // ---- bind ----
+    $("btnPing").onclick = async () => {
+      const r = await post("/state", {
+        event: "Ping",
+        state: "idle",
+        session_id: "ping-check",
+        cwd: $("cwd").value,
+        prompt: "",
+        transcript_path: "",
+      }, 3000);
+      if (r.ok) setStatus("在线 ✓", "ok");
+      else setStatus("离线 / 失败", "bad");
+    };
+
+    $("btnNewSession").onclick = () => {
+      newSession();
+      log("新 session = " + $("session").value, "info");
+    };
+
+    document.querySelectorAll("[data-event]").forEach((btn) => {
+      btn.onclick = () => sendState(btn.dataset.event);
+    });
+
+    $("tool").onchange = fillToolInput;
+    $("btnPerm").onclick = () => sendPermission();
+    $("btnPerm2").onclick = () => sendPermission("supersede");
+    $("btnClear").onclick = () => { $("log").innerHTML = ""; };
+
+    $("s1").onclick = async () => {
+      log("=== S1 弹 sticky ===", "info");
+      await sendState("Stop");
+    };
+
+    $("s2").onclick = async () => {
+      log("=== S2 多 session 合并 ===", "info");
+      const s1 = $("session").value;
+      const s2 = "test-" + Math.random().toString(16).slice(2, 10);
+      await sendState("Stop", s1);
+      await sleep(400);
+      await sendState("Stop", s2);
+      log("第二 session = " + s2, "info");
+    };
+
+    $("s3").onclick = async () => {
+      log("=== S3 销 sticky ===", "info");
+      const sid = $("session").value;
+      await sendState("Stop", sid);
+      await sleep(800);
+      log("发送 UserPromptSubmit…", "info");
+      await sendState("UserPromptSubmit", sid);
+    };
+
+    $("s4").onclick = async () => {
+      log("=== S4 点审批：去 Catrace 点 Allow/Deny ===", "info");
+      $("realBody").checked = true;
+      sendPermission(); // 故意不 await，避免卡住其它按钮语义；按钮自己会 disable
+    };
+
+    $("s5").onclick = async () => {
+      log("=== S5 审批被 prompt 取消 ===", "info");
+      $("realBody").checked = true;
+      const sid = $("session").value;
+      const p = sendPermission("cancel-me");
+      await sleep(1200);
+      log("发送 UserPromptSubmit 取消审批…", "info");
+      await sendState("UserPromptSubmit", sid);
+      await p;
+    };
+
+    $("s6").onclick = async () => {
+      log("=== S6 同 session 顶替 ===", "info");
+      $("realBody").checked = true;
+      const p1 = sendPermission("first");
+      await sleep(600);
+      const p2 = sendPermission("second");
+      await Promise.all([p1, p2]);
+    };
+
+    $("btnRaw").onclick = async () => {
+      let body;
+      try { body = JSON.parse($("rawBody").value); }
+      catch (e) { alert("JSON 无效: " + e.message); return; }
+      const path = $("rawPath").value;
+      const timeout = path === "/permission" ? 600000 : 8000;
+      if (path === "/permission") setPermStatus("等待…", "wait");
+      try { await post(path, body, timeout); }
+      finally { if (path === "/permission") setPermStatus("空闲"); }
+    };
+
+    // init
+    newSession();
+    fillToolInput();
+    $("rawBody").value = JSON.stringify({
+      event: "Stop",
+      state: "attention",
+      session_id: "raw-test",
+      cwd: "C:\\work_sapce\\Catrace",
+      prompt: "",
+      transcript_path: "",
+    }, null, 2);
+    log("打开页面。先点「探测服务」。", "info");
+  </script>
+</body>
+</html>
