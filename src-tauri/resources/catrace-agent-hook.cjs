@@ -19,15 +19,14 @@ const EVENT_ALIASES = {
   PostToolUseFailure: "StopFailure",
 };
 
-// 未映射的事件（PreToolUse 等高频事件）直接忽略
-// PermissionRequest：只推状态（notify-only），不代替终端审批 UI
+// 未映射的事件（PreToolUse 等高频事件）直接忽略。
+// PermissionRequest 不走此脚本：P6 起 Claude 用 type:"http" 阻塞 hook 直推 /permission 做真审批。
 const EVENT_TO_STATE = {
   SessionStart: "idle",
   UserPromptSubmit: "thinking",
   Stop: "attention",
   StopFailure: "error",
   Notification: "notification",
-  PermissionRequest: "permission",
 };
 
 function readStdin(timeoutMs) {
