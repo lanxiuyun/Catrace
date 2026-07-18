@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tauri::Manager;
 
 use crate::{
-    accessibility_permission_granted, log_error, window_manager, ReminderWindowData,
+    accessibility_permission_granted, log_error, log_info, window_manager, ReminderWindowData,
     ReminderWindowStore,
 };
 
@@ -310,6 +310,93 @@ pub fn create_agent_toast_window(
             }
             Err(e) => {
                 log_error!("toast-win", "build failed: {}", e);
+            }
+        }
+    });
+}
+
+/// 弹出 agent 权限审批卡（P6 阻塞式）。
+/// 与待办 sticky 不同：这条通知挂在一个阻塞 HTTP 请求上，用户点 Allow/Deny 才会回决策给 agent。
+/// request_id 关联后端挂起的请求；tool_input 是工具输入（bash 命令等），前端截断展示。
+/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=permission 的通知。
+pub fn create_agent_permission_window(
+    app_handle: &tauri::AppHandle,
+    request_id: u64,
+    tool_name: &str,
+    tool_input: Option<&serde_json::Value>,
+    session_id: &str,
+    cwd: &str,
+) {
+    let app = app_handle.clone();
+    let payload = serde_json::json!({
+        "kind": "permission",
+        "requestId": request_id,
+        "toolName": tool_name,
+        "toolInput": tool_input,
+        "sessionId": session_id,
+        "cwd": cwd,
+    });
+    let js = format!(
+        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+        payload
+    );
+
+    tauri::async_runtime::spawn(async move {
+        let _guard = TOAST_MUTEX.lock().await;
+        let window_exists = app.get_webview_window(TOAST_WINDOW_LABEL).is_some();
+        log_info!(
+            "toast-win",
+            "permission 卡：进入建窗协程 request_id={} window_exists={}",
+            request_id,
+            window_exists
+        );
+        // 窗口已存在：直接 eval 追加审批卡
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            log_info!("toast-win", "permission 卡 eval request_id={}", request_id);
+            if let Err(e) = window.eval(&js) {
+                log_error!("toast-win", "permission 卡 eval 失败: {}", e);
+            }
+            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+            let _ = window.eval(route_js);
+            window_manager::show_reminder_no_activate(&app, &window);
+            log_info!("toast-win", "permission 卡：已 show（复用窗口）request_id={}", request_id);
+            return;
+        }
+
+        // 窗口不存在：兜底创建（真 Claude 触发时窗口常是关的，缺了这步审批卡就永远弹不出）
+        log_info!("toast-win", "permission 卡：toast 窗口不存在，新建 request_id={}", request_id);
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                log_info!("toast-win", "permission 卡：新窗 build 成功 request_id={}", request_id);
+                let _ = position_toast_window(&window, &app);
+                window_manager::show_reminder_no_activate(&app, &window);
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
+                let _ = window.eval(&js);
+                log_info!("toast-win", "permission 卡：新窗已 show+eval request_id={}", request_id);
+            }
+            Err(e) => {
+                log_error!("toast-win", "permission 卡建窗失败: {}", e);
             }
         }
     });

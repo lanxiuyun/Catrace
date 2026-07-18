@@ -1244,7 +1244,6 @@ pub fn run() {
 
             // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
             agent_hook::start_server(app.app_handle().clone(), db.clone());
-
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1546,6 +1545,7 @@ pub fn run() {
             agent_hook::uninstall_agent_hooks,
             agent_hook::is_agent_hook_installed,
             agent_hook::open_agent_session,
+            agent_hook::resolve_permission,
             agent_hook::get_agent_sound_settings,
             agent_hook::set_agent_sound_settings,
             agent_hook::get_agent_sound_data_url,

@@ -14,17 +14,20 @@ use tauri::Manager;
 use crate::db::Db;
 use crate::{log_error, log_info};
 
-/// 固定监听端口，避开 clawd-on-desk 的 23333-23337。
+/// 固定监听端口。
+/// 用 23456 而非 clawd 的 23333：clawd 的 /state 与 PermissionRequest(http) 都指向 23333，
+/// 共存时 23333 被 clawd 占用会导致 Catrace 绑定失败、通知静默失效。23456 不在 clawd
+/// 探测范围（23333–23337）内，二者可独立运行互不抢占。
 const AGENT_HOOK_PORT: u16 = 23456;
 /// 所有可订阅的 hook 事件；每个事件的显示策略由用户配置。
+/// 注意：PermissionRequest 走阻塞 HTTP（type:"http"）做真审批，不再注册 command hook，
+/// 因此不在 KNOWN_EVENTS / 三态策略里。
 const KNOWN_EVENTS: &[&str] = &[
     "SessionStart",
     "UserPromptSubmit",
     "Stop",
     "StopFailure",
     "Notification",
-    // 只通知不审批：弹 sticky 待办，不阻塞 agent 的权限 UI
-    "PermissionRequest",
 ];
 /// 同会话同事件的去重窗口（仅 auto 模式生效），防止连续触发刷屏。
 const DEDUP_TTL: Duration = Duration::from_secs(8);
@@ -37,11 +40,26 @@ static SERVER_ENABLED: AtomicBool = AtomicBool::new(true);
 static EVENT_MODES: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 static DEDUP_CACHE: Mutex<Option<HashMap<(String, String), Instant>>> = Mutex::new(None);
 
+/// 临时诊断：把 hook 请求落盘到 TEMP/catrace-hook-hit.log，绕开应用日志系统。
+/// 排查「客户端是否把 http hook 发到 Catrace」——应用日志可能因 dev 缓冲看不到。
+fn debug_log_hit(msg: &str) {
+    let mut path = std::env::temp_dir();
+    path.push("catrace-hook-hit.log");
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        use std::io::Write;
+        let _ = writeln!(f, "[{}] {}", ts, msg);
+    }
+}
+
 /// 事件显示策略：off=不通知 / auto=弹出后自动消失 / sticky=常驻直到用户关闭。
 fn default_event_mode(event: &str) -> &'static str {
     match event {
-        // 召唤型：完成/出错/喊你/等批准 → 默认常驻；用户可在设置里改 off/auto/sticky
-        "Stop" | "StopFailure" | "Notification" | "PermissionRequest" => "sticky",
+        // 召唤型：完成/出错/喊你 → 默认常驻；用户可在设置里改 off/auto/sticky
+        "Stop" | "StopFailure" | "Notification" => "sticky",
         // 播报型：开会话/思考中 → 默认不弹（UserPromptSubmit 仍参与自动销 sticky）
         _ => "off",
     }
@@ -59,7 +77,12 @@ fn event_mode(event: &str) -> String {
 
 #[derive(Debug, Clone, Deserialize)]
 struct AgentHookPayload {
+    /// /state 由 hook 脚本带 event；/permission 由 Claude http hook 直发、只有 hook_event_name
+    #[serde(default)]
     event: String,
+    /// Claude http hook（PermissionRequest）带的事件名，event 缺失时兜底
+    #[serde(default)]
+    hook_event_name: String,
     #[serde(default)]
     state: String,
     #[serde(default)]
@@ -73,6 +96,9 @@ struct AgentHookPayload {
     /// PermissionRequest 等事件带来的工具名，作摘要兜底
     #[serde(default)]
     tool_name: String,
+    /// PermissionRequest 带来的工具输入（bash 命令、文件路径等），审批卡展示用
+    #[serde(default)]
+    tool_input: Option<serde_json::Value>,
 }
 
 /// 从 transcript（JSONL）里找最后一条 assistant 文本消息，截断成摘要。
@@ -157,7 +183,22 @@ pub fn start_server(app: tauri::AppHandle, db: Db) {
 }
 
 fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
-    if request.method() != &tiny_http::Method::Post || request.url() != "/state" {
+    // 临时诊断：把每个进来的请求落盘，绕开应用日志（排查 http hook 是否到达）
+    debug_log_hit(&format!("HIT {} {}", request.method(), request.url()));
+    // 主日志同步记一条「请求到达」，一眼确认 /permission 来没来（不用翻后面路由分支）
+    log_info!(
+        "agent-hook",
+        ">>> 收到 HTTP 请求 {} {}",
+        request.method(),
+        request.url()
+    );
+
+    if request.method() != &tiny_http::Method::Post {
+        let _ = request.respond(tiny_http::Response::empty(404));
+        return;
+    }
+    let url = request.url().to_string();
+    if url != "/state" && url != "/permission" {
         let _ = request.respond(tiny_http::Response::empty(404));
         return;
     }
@@ -168,15 +209,41 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         return;
     }
 
-    let payload: AgentHookPayload = match serde_json::from_str(&body) {
+    debug_log_hit(&format!("BODY {} -> {}", url, body));
+
+    let mut payload: AgentHookPayload = match serde_json::from_str(&body) {
         Ok(p) => p,
-        Err(_) => {
+        Err(e) => {
+            log_error!(
+                "agent-hook",
+                "JSON 解析失败 url={} err={} body={}",
+                url,
+                e,
+                body
+            );
             let _ = request.respond(tiny_http::Response::empty(400));
             return;
         }
     };
+    // /permission 由 Claude http hook 直发，body 只有 hook_event_name 没有 event，补齐
+    if payload.event.is_empty() {
+        payload.event = payload.hook_event_name.clone();
+    }
 
-    // 立即响应，不阻塞 agent 的 hook 执行
+    // 阻塞式权限审批：挂起连接，等 UI 决策或超时才响应
+    if url == "/permission" {
+        log_info!(
+            "agent-hook",
+            "【审批】命中 /permission，tool={} session={} enabled={}",
+            payload.tool_name,
+            payload.session_id,
+            SERVER_ENABLED.load(Ordering::SeqCst)
+        );
+        handle_permission(app, request, payload);
+        return;
+    }
+
+    // /state：立即响应，不阻塞 agent 的 hook 执行
     let _ = request.respond(tiny_http::Response::empty(200));
 
     if !SERVER_ENABLED.load(Ordering::SeqCst) {
@@ -202,15 +269,7 @@ fn handle_request(app: &tauri::AppHandle, mut request: tiny_http::Request) {
         return;
     }
 
-    let summary = summarize_transcript(&payload.transcript_path).or_else(|| {
-        if !payload.tool_name.is_empty() {
-            Some(format!("等待批准：{}", payload.tool_name))
-        } else if payload.event == "PermissionRequest" {
-            Some("等待你批准工具调用".to_string())
-        } else {
-            None
-        }
-    });
+    let summary = summarize_transcript(&payload.transcript_path);
     crate::reminder_toast::create_agent_toast_window(
         app,
         &payload.event,
@@ -233,6 +292,156 @@ fn is_duplicate(payload: &AgentHookPayload) -> bool {
         return true;
     }
     cache.insert(key, now);
+    false
+}
+
+// ------------------------------------------------------------------
+// P6：阻塞式权限审批（POST /permission）
+// ------------------------------------------------------------------
+
+/// 挂起的权限请求：decision 为 None 表示还在等 UI。
+/// HTTP 响应由接收线程在决策到达后直接写 raw writer 完成（`into_writer`），
+/// 因为 tiny_http 的 Request::respond 消费 Request、无法跨线程暂存。
+struct PendingPermission {
+    #[allow(dead_code)] // 预留：未来按 session 批量清理/超时广播时用
+    session_id: String,
+    decision: Option<String>,
+}
+
+/// request_id → 挂起请求。tiny_http 的 Request 只能在接收线程响应，
+/// 所以这里存「decision + 未发送的 response」，由接收线程轮询取回并完成。
+static PENDING_PERMISSIONS: Mutex<Option<HashMap<u64, PendingPermission>>> = Mutex::new(None);
+static PERMISSION_ID_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// Claude hook 侧 timeout（秒）。略大于审批等待，保证是 Catrace 先回决策/超时，而非 Claude 先放弃。
+const CLAUDE_PERMISSION_HOOK_TIMEOUT_SECS: u64 = 600;
+/// Catrace 审批等待时长（秒）：超时回 timeout 决策，让 Claude 回退终端，不永久挂起。
+const PERMISSION_AWAIT_TIMEOUT: Duration = Duration::from_secs(540);
+
+/// 阻塞处理一个权限请求：挂起 ~9 分钟，轮询等 UI 决策；超时回 timeout。
+/// 决策通过 `resolve_permission`（UI 按钮 invoke）写入 PENDING_PERMISSIONS。
+fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payload: AgentHookPayload) {
+    let request_id = PERMISSION_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+    log_info!(
+        "agent-hook",
+        "/permission 收到请求 id={} tool={} session={}",
+        request_id,
+        payload.tool_name,
+        payload.session_id
+    );
+    let mut writer = request.into_writer();
+    {
+        let mut guard = PENDING_PERMISSIONS.lock().unwrap();
+        guard.get_or_insert_with(HashMap::new).insert(
+            request_id,
+            PendingPermission {
+                session_id: payload.session_id.clone(),
+                decision: None,
+            },
+        );
+    }
+
+    // 弹审批卡（独立于待办 sticky；窗口不存在则前端不入队，卡片丢但决策仍会超时回退）
+    log_info!(
+        "agent-hook",
+        "/permission id={} 调用 create_agent_permission_window",
+        request_id
+    );
+    crate::reminder_toast::create_agent_permission_window(
+        app,
+        request_id,
+        &payload.tool_name,
+        payload.tool_input.as_ref(),
+        &payload.session_id,
+        &payload.cwd,
+    );
+    log_info!(
+        "agent-hook",
+        "/permission id={} 建窗调用已派发，进入决策轮询",
+        request_id
+    );
+
+    let deadline = Instant::now() + PERMISSION_AWAIT_TIMEOUT;
+    let decision = loop {
+        if let Some(d) = take_permission_decision(request_id) {
+            break d;
+        }
+        if Instant::now() >= deadline {
+            remove_pending_permission(request_id);
+            break "timeout".to_string();
+        }
+        thread::sleep(Duration::from_millis(150));
+    };
+
+    log_info!("agent-hook", "/permission id={} 决策={}", request_id, decision);
+
+    // 手写 HTTP 响应（raw writer 上没有 Response 便捷封装）
+    let body = build_permission_response_body(&decision);
+    let head = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    use std::io::Write;
+    let _ = writer.write_all(head.as_bytes());
+    let _ = writer.write_all(body.as_bytes());
+    let _ = writer.flush();
+}
+
+/// 取走某个请求的决策（若有）。取走后 PendingPermission 被移除。
+fn take_permission_decision(request_id: u64) -> Option<String> {
+    let mut guard = PENDING_PERMISSIONS.lock().unwrap();
+    let map = guard.as_mut()?;
+    let pending = map.get_mut(&request_id)?;
+    if pending.decision.is_some() {
+        return pending.decision.take();
+    }
+    None
+}
+
+fn remove_pending_permission(request_id: u64) {
+    if let Some(map) = PENDING_PERMISSIONS.lock().unwrap().as_mut() {
+        map.remove(&request_id);
+    }
+}
+
+/// 构造 Claude 期望的决策 JSON。timeout 不回 hookSpecificOutput，让 Claude 回退终端审批。
+fn build_permission_response_body(decision: &str) -> String {
+    match decision {
+        "allow" | "deny" => serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": { "behavior": decision }
+            }
+        })
+        .to_string(),
+        _ => "{}".to_string(), // timeout / 其他：空对象 → Claude 回退终端
+    }
+}
+
+/// 判断一个 request_id 是否还在等待（前端用来避免对已完成/超时的请求发决策）。
+fn is_permission_pending(request_id: u64) -> bool {
+    PENDING_PERMISSIONS
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map_or(false, |m| m.contains_key(&request_id))
+}
+
+/// UI 决策入口：前端点 Allow/Deny/前往终端时调用。
+/// 返回 true 表示决策被接受（请求仍在等待）；false 表示请求已超时/不存在。
+#[tauri::command]
+pub fn resolve_permission(request_id: u64, decision: String) -> bool {
+    if !["allow", "deny", "timeout"].contains(&decision.as_str()) {
+        return false;
+    }
+    if !is_permission_pending(request_id) {
+        return false;
+    }
+    let mut guard = PENDING_PERMISSIONS.lock().unwrap();
+    if let Some(pending) = guard.as_mut().and_then(|m| m.get_mut(&request_id)) {
+        pending.decision = Some(decision);
+        return true;
+    }
     false
 }
 
@@ -527,6 +736,58 @@ fn catrace_hook_obj_mut(entry: &mut serde_json::Value) -> Option<&mut serde_json
         })
 }
 
+/// 判断一个 url 是否是 Catrace 的权限审批端点（http hook 的 marker 等价物）。
+fn is_catrace_permission_url(url: &str) -> bool {
+    url.contains("/permission") && url.contains(&format!(":{}", AGENT_HOOK_PORT))
+}
+
+/// 在 entry 数组里找到 Catrace 的 http 权限 hook（type:"http" + url 指向本地 /permission）的可变引用。
+/// 用于 P6 安装幂等：命中则更新 url/timeout，未命中则追加。
+fn find_catrace_permission_hook_mut(
+    arr: &mut [serde_json::Value],
+) -> Option<&mut serde_json::Value> {
+    arr.iter_mut().find_map(|entry| {
+        // entry 自身是 http hook
+        let entry_is_http = entry.get("type").and_then(|t| t.as_str()) == Some("http")
+            && entry
+                .get("url")
+                .and_then(|u| u.as_str())
+                .map_or(false, is_catrace_permission_url);
+        if entry_is_http {
+            return Some(entry);
+        }
+        // entry.hooks[] 里有 http hook
+        entry
+            .get_mut("hooks")
+            .and_then(|h| h.as_array_mut())
+            .and_then(|hooks| {
+                hooks.iter_mut().find(|h| {
+                    h.get("type").and_then(|t| t.as_str()) == Some("http")
+                        && h.get("url")
+                            .and_then(|u| u.as_str())
+                            .map_or(false, is_catrace_permission_url)
+                })
+            })
+    })
+}
+
+/// 判断一个 entry 是否是 Catrace 的 http 权限 hook（不可变版，卸载用）。
+fn entry_is_catrace_permission_hook(entry: &serde_json::Value) -> bool {
+    let url_is = |v: &serde_json::Value| {
+        v.get("type").and_then(|t| t.as_str()) == Some("http")
+            && v.get("url")
+                .and_then(|u| u.as_str())
+                .map_or(false, is_catrace_permission_url)
+    };
+    if url_is(entry) {
+        return true;
+    }
+    entry
+        .get("hooks")
+        .and_then(|h| h.as_array())
+        .map_or(false, |hooks| hooks.iter().any(url_is))
+}
+
 // ------------------------------------------------------------------
 // P4：安装可靠性 —— node 绝对路径、平台命令包装、字段级 sync、备份
 // ------------------------------------------------------------------
@@ -716,26 +977,16 @@ pub fn get_supported_agents() -> Vec<String> {
 }
 
 /// 各 agent 写入配置的 hook 事件（安装用；通知策略仍按归一化后的事件配置）。
+/// 各 agent 写入配置的「状态通知」command hook 事件。
+/// PermissionRequest 不在此列：Claude 走 type:"http" 阻塞审批（见 install_claude_hooks 末尾），
+/// Codex/Kimi/Gemini 的真审批 v1 未做，旧 command hook 会在安装时被清除（回退终端原生审批）。
 fn agent_hook_events(agent: &str) -> &'static [&'static str] {
     match agent {
-        // Codex 原生支持 PermissionRequest（command hook，非阻塞通知）
-        "codex" => &[
-            "SessionStart",
-            "UserPromptSubmit",
-            "Stop",
-            "PermissionRequest",
-        ],
+        "codex" => &["SessionStart", "UserPromptSubmit", "Stop"],
         // Gemini 无 PermissionRequest；BeforeTool 是 gating hook，需 stdout 决策，暂不注册
         "gemini" => &["SessionStart", "BeforeAgent", "AfterAgent", "Notification"],
-        // Kimi Code 支持 PermissionRequest；旧 CLI 不认识时会忽略该块或跳过（安装仍幂等）
-        "kimi" => &[
-            "SessionStart",
-            "UserPromptSubmit",
-            "Stop",
-            "Notification",
-            "PermissionRequest",
-        ],
-        // Claude：PermissionRequest 用 command hook 只推状态（async），不替代终端审批 UI
+        "kimi" => &["SessionStart", "UserPromptSubmit", "Stop", "Notification"],
+        // Claude 状态事件全集
         _ => KNOWN_EVENTS,
     }
 }
@@ -802,6 +1053,43 @@ fn install_claude_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
         installed_events.push(event.to_string());
     }
 
+    // ── P6：Claude 权限真审批 ──
+    // 1. 清掉 PermissionRequest 下残留的 command hook（旧 P3 只通知版），避免与 http hook 双发
+    let mut perm_command_removed = false;
+    if let Some(serde_json::Value::Array(arr)) = hooks_obj.get_mut("PermissionRequest") {
+        let before = arr.len();
+        arr.retain(|e| !entry_contains_catrace_hook(e));
+        perm_command_removed = before != arr.len();
+    }
+    // 2. 注册 type:"http" 阻塞 hook，Claude 会挂起等 /permission 的决策响应
+    let perm_url = format!("http://127.0.0.1:{}/permission", AGENT_HOOK_PORT);
+    let perm_entries = hooks_obj
+        .entry("PermissionRequest".to_string())
+        .or_insert_with(|| serde_json::json!([]));
+    let perm_arr = perm_entries
+        .as_array_mut()
+        .ok_or("hooks.PermissionRequest 不是数组")?;
+    let perm_hook = serde_json::json!({
+        "type": "http",
+        "url": perm_url,
+        "timeout": CLAUDE_PERMISSION_HOOK_TIMEOUT_SECS
+    });
+    let mut perm_synced = false;
+    if let Some(existing) = find_catrace_permission_hook_mut(perm_arr) {
+        if existing.get("url").and_then(|u| u.as_str()) != Some(perm_url.as_str()) {
+            existing["url"] = serde_json::json!(perm_url);
+        }
+        existing["timeout"] = serde_json::json!(CLAUDE_PERMISSION_HOOK_TIMEOUT_SECS);
+        perm_synced = true;
+    } else {
+        perm_arr.push(serde_json::json!({ "matcher": "", "hooks": [perm_hook] }));
+    }
+    if perm_command_removed || perm_synced {
+        synced_events.push("PermissionRequest".to_string());
+    } else {
+        installed_events.push("PermissionRequest(http)".to_string());
+    }
+
     write_json_settings(&settings_path, &settings)?;
     Ok(serde_json::json!({ "installed_events": installed_events, "synced_events": synced_events }))
 }
@@ -815,7 +1103,8 @@ fn uninstall_json_hooks(settings_path: &std::path::Path) -> Result<serde_json::V
         for (event, entries) in hooks.iter_mut() {
             if let Some(arr) = entries.as_array_mut() {
                 let before = arr.len();
-                arr.retain(|e| !entry_contains_catrace_hook(e));
+                // 清 command hook（marker）与 http 权限 hook（url 指向本地 /permission）
+                arr.retain(|e| !entry_contains_catrace_hook(e) && !entry_is_catrace_permission_hook(e));
                 removed += before - arr.len();
                 if arr.is_empty() {
                     empty_events.push(event.clone());
@@ -1017,6 +1306,14 @@ fn install_codex_hooks(script_path: &std::path::Path) -> Result<serde_json::Valu
             "hooks": [spec.clone()]
         }));
         installed_events.push(event.to_string());
+    }
+
+    // Codex 真审批 v1 未做：清掉旧 P3 只通知版的 PermissionRequest command hook，回退终端原生审批
+    if let Some(serde_json::Value::Array(arr)) = hooks_obj.get_mut("PermissionRequest") {
+        arr.retain(|e| !entry_contains_catrace_hook(e));
+        if arr.is_empty() {
+            hooks_obj.remove("PermissionRequest");
+        }
     }
 
     write_json_settings(&hooks_path, &settings)?;
