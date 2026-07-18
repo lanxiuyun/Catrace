@@ -38,7 +38,6 @@ const EVENT_TITLE_KEYS: Record<string, string> = {
   Stop: 'agent.titleAttention',
   StopFailure: 'agent.titleError',
   Notification: 'agent.titleNotification',
-  PermissionRequest: 'agent.titlePermission',
 }
 
 const EVENT_BODY_KEYS: Record<string, string> = {
@@ -47,7 +46,6 @@ const EVENT_BODY_KEYS: Record<string, string> = {
   Stop: 'agent.bodyAttention',
   StopFailure: 'agent.bodyError',
   Notification: 'agent.bodyNotification',
-  PermissionRequest: 'agent.bodyPermission',
 }
 
 interface EventTheme {
@@ -60,14 +58,6 @@ interface EventTheme {
 }
 
 const EVENT_THEMES: Record<string, EventTheme> = {
-  PermissionRequest: {
-    accent: '#F59E0B',
-    title: '#92400E',
-    body: '#B45309',
-    bg: '#FFFBEB',
-    lightBg: '#FEF3C7',
-    border: '#FDE68A',
-  },
   StopFailure: {
     accent: '#EF4444',
     title: '#991B1B',
@@ -111,7 +101,6 @@ const EVENT_THEMES: Record<string, EventTheme> = {
 }
 
 const EVENT_PRIORITY: Record<string, number> = {
-  PermissionRequest: 6,
   StopFailure: 5,
   Stop: 4,
   Notification: 3,

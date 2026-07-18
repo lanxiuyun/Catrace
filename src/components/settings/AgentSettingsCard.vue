@@ -60,7 +60,6 @@ const eventNameKeys: Record<string, string> = {
   Stop: 'settings.agent.eventStop',
   StopFailure: 'settings.agent.eventStopFailure',
   Notification: 'settings.agent.eventNotification',
-  PermissionRequest: 'settings.agent.eventPermissionRequest',
 }
 
 onMounted(async () => {
