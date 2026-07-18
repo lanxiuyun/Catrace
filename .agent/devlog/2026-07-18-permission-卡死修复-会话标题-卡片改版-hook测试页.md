@@ -10,7 +10,7 @@
 - **HTTP 并行**：`incoming_requests` 每请求一线程，`/permission` 阻塞不再卡住后续 `/state`
 - **CORS + OPTIONS**：本地网页可直连 `127.0.0.1:23456` 测 hook
 - **会话 title**：transcript `ai-title` / payload `session_title` → 卡顶主标题
-- **Agent 卡改版**：顶栏 title；chip 显示项目 + 事件；去掉呼吸点
+- **Agent 卡改版**：顶栏呼吸点 + title；chip 显示项目 + 事件（曾去掉呼吸点，用户反馈后加回）
 - **窗口高度**：sticky 合并 / 展开折叠后强制 `adjustWindowSize`；按卡 `scrollHeight` 累加
 - **测试页**：`tools/agent-hook-tester/`（`index.html` + 可选 `server.py`；旧 PyQt 可忽略）
 

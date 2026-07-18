@@ -225,9 +225,12 @@ function onCardClick() {
       '--badge-fg': theme.badgeFg,
     }"
   >
-    <!-- 顶栏：title 直接顶格 + 关闭；无呼吸点 -->
+    <!-- 顶栏：呼吸点 + title + 关闭 -->
     <div class="header">
-      <h2 class="title" :title="headerTitle">{{ headerTitle }}</h2>
+      <div class="header-left">
+        <div class="pulse-dot" />
+        <h2 class="title" :title="headerTitle">{{ headerTitle }}</h2>
+      </div>
       <button class="close-btn" @click.stop="emit('close')" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -320,6 +323,29 @@ function onCardClick() {
   gap: 0.5rem;
   margin-bottom: 0.375rem;
   min-height: 1.25rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.pulse-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.35rem; /* 与 title 首行视觉居中 */
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
 }
 
 .title {
