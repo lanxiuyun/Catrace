@@ -31,3 +31,6 @@ dist-ssr
 
 # Tauri signing keys
 keys/
+
+__pycache__/
+*.pyc
