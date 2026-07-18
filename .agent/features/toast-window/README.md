@@ -6,8 +6,13 @@
 
 - `src-tauri/src/reminder_toast.rs` — Toast 窗口创建/复用；兜底创建分支才定位，已有窗口由前端定位
 - `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/ReminderToast.vue` — 前端卡片堆叠、窗口尺寸/位置调整、动画
+- `src/views/ReminderToast.vue` — 前端卡片堆叠、窗口尺寸/位置调整、动画；**只管栈生命周期，卡片内容下沉到专用组件**
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
+- `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
+
+## 组件边界纪律
+
+新增卡片类型时**必须抽独立组件**，不要堆进 ReminderToast.vue；同时检查父模板三处按 kind 分支的 v-if（通用 header / body-text / progress-bar）都把新 kind 排除，否则会和组件内部渲染叠成双份（2026-07-12 agent 双进度条 bug 即此原因）。
 
 ## 窗口特性
 
@@ -33,6 +38,7 @@
 | 护眼提醒 | 绿色 | 25s 自动消失，倒计时在进度条右侧，hover 不暂停 |
 | 休息计时 | 绿色 | 不自动关闭，液体球动画，满 break_minutes 后继续累计 |
 | 更新通知 | 橙色 | 不自动关闭，展开更新日志 + 下载进度条 |
+| agent 通知 | 青色 | 按事件策略：auto 8s 消失 / sticky 常驻手动关，多个 sticky 合并为一张「N 个会话在等你」；详见 [[agent-notification]] |
 
 ## 定位职责
 

@@ -11,6 +11,8 @@
     "updater:default",
     "process:default",
     "store:default",
+    "dialog:default",
+    "dialog:allow-open",
     "core:window:allow-close",
     "core:window:allow-inner-position",
     "core:window:allow-inner-size",

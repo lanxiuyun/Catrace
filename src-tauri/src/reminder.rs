@@ -13,11 +13,11 @@ pub struct ReminderState {
 
 impl ReminderState {
     pub fn is_snoozed(&self) -> bool {
-        self.snooze_until.map_or(false, |t| t > Instant::now())
+        self.snooze_until.is_some_and(|t| t > Instant::now())
     }
 
     pub fn is_skipped(&self, boundary: i64) -> bool {
-        self.skip_until_boundary.map_or(false, |b| b >= boundary)
+        self.skip_until_boundary.is_some_and(|b| b >= boundary)
     }
 }
 

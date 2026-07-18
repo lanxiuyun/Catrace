@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 export interface AppConfig {
   window_minutes: number
@@ -343,4 +344,97 @@ export async function hideWindow(label: string): Promise<void> {
 /** 动态切换窗口激活模式；active=true 恢复可聚焦 */
 export async function setWindowActiveMode(label: string, active: boolean): Promise<void> {
   return invoke('plugin:catrace-window|set_window_active_mode', { label, active })
+}
+
+// ---------- Agent 通知 ----------
+
+/** 获取 agent 通知开关 */
+export async function getAgentNotificationEnabled(): Promise<boolean> {
+  return invoke('get_agent_notification_enabled')
+}
+
+/** 设置 agent 通知开关 */
+export async function setAgentNotificationEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_agent_notification_enabled', { enabled })
+}
+
+/** 获取支持的 agent 列表 */
+export async function getSupportedAgents(): Promise<string[]> {
+  return invoke('get_supported_agents')
+}
+
+/** 一键安装 agent hook（agent: claude / codex / gemini / kimi） */
+export async function installAgentHooks(agent: string): Promise<{ installed_events?: string[]; installed_targets?: string[] }> {
+  return invoke('install_agent_hooks', { agent })
+}
+
+/** 卸载 agent hook */
+export async function uninstallAgentHooks(agent: string): Promise<{ removed: number }> {
+  return invoke('uninstall_agent_hooks', { agent })
+}
+
+/** 检测 hook 是否已安装 */
+export async function isAgentHookInstalled(agent: string): Promise<boolean> {
+  return invoke('is_agent_hook_installed', { agent })
+}
+
+export type AgentEventMode = 'off' | 'auto' | 'sticky'
+
+export interface AgentEventModeEntry {
+  event: string
+  mode: AgentEventMode
+}
+
+/** 获取每个 hook 事件的显示策略 */
+export async function getAgentEventModes(): Promise<AgentEventModeEntry[]> {
+  return invoke('get_agent_event_modes')
+}
+
+/** 设置单个事件的显示策略：off=不通知 / auto=自动消失 / sticky=常驻 */
+export async function setAgentEventMode(event: string, mode: AgentEventMode): Promise<void> {
+  return invoke('set_agent_event_mode', { event, mode })
+}
+
+/** 在 cwd 下新开终端，恢复 Claude Code 会话 */
+export async function openAgentSession(cwd: string, sessionId: string): Promise<void> {
+  return invoke('open_agent_session', { cwd, sessionId })
+}
+
+/** P6 权限审批：把用户的 Allow/Deny 决策回给后端挂起的阻塞请求。
+ *  decision: 'allow' | 'deny' | 'timeout'（timeout = 回退终端审批）。
+ *  返回 false 表示该请求已超时/不存在（卡片应直接消失，无需再处理）。 */
+export async function resolvePermission(requestId: number, decision: string): Promise<boolean> {
+  return invoke('resolve_permission', { requestId, decision })
+}
+
+export type AgentSoundMode = 'builtin' | 'custom' | 'muted'
+
+export interface AgentSoundSettings {
+  mode: AgentSoundMode
+  custom_path: string
+  volume: number
+}
+
+export async function getAgentSoundSettings(): Promise<AgentSoundSettings> {
+  return invoke('get_agent_sound_settings')
+}
+
+export async function setAgentSoundSettings(mode: AgentSoundMode, customPath: string, volume: number): Promise<void> {
+  return invoke('set_agent_sound_settings', { mode, customPath, volume })
+}
+
+/** 弹出系统文件选择器，返回单个音频文件路径；取消返回 null */
+export async function pickAgentSoundFile(): Promise<string | null> {
+  return open({
+    multiple: false,
+    directory: false,
+    filters: [
+      { name: 'Audio', extensions: ['wav', 'mp3', 'ogg'] },
+    ],
+  })
+}
+
+/** 返回提示音 data URL；muted 或读不到时返回 null */
+export async function getAgentSoundDataUrl(): Promise<string | null> {
+  return invoke('get_agent_sound_data_url')
 }

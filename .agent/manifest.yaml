@@ -90,6 +90,21 @@ features:
       - water-reminder
       - toast-window
       - i18n
+  agent-notification:
+    docs:
+      - .agent/features/agent-notification/README.md
+      - .agent/features/agent-notification/roadmap-and-progress.md
+      - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
+      - .agent/features/agent-notification/agent-toast-card-content-interaction-and-component-boundary.md
+      - .agent/features/agent-notification/agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md
+      - .agent/features/agent-notification/permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md
+      - .agent/features/agent-notification/本地网页直连-agent-hook-测全链路-CORS与测试页.md
+      - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
+      - .agent/features/agent-notification/hook-install-development-guide.md
+    related:
+      - toast-window
+      - settings
+      - i18n
 
 architecture:
   project-structure:
@@ -131,6 +146,8 @@ reference:
   - .agent/reference/test-strategy.md
   - .agent/reference/config-reference.md
   - .agent/reference/version-management.md
+  - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
+  - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
   - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md
@@ -139,12 +156,30 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-18-permission-card-disappears-on-mouse-leave.md
+  - .agent/bugs/2026-07-18-permission-hang-on-session-change.md
+  - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
   - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
   - .agent/bugs/2026-07-10-toast-stacking-display.md
 
+skills:
+  cross-software-http-debugging-logging:
+    docs:
+      - .agent/skills/cross-software-http-debugging-logging/README.md
+    related:
+      - agent-notification
+
 devlog:
+  - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
+  - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
+  - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
+  - .agent/devlog/2026-07-17-p6-permission-approve-deny.md
+  - .agent/devlog/2026-07-17-p4-hook-install-reliability.md
+  - .agent/devlog/2026-07-17-agent-sticky-auto-dismiss-on-user-prompt.md
+  - .agent/devlog/2026-07-12-agent-toast-card-summary-goto-session-sound-and-component-extraction.md
+  - .agent/devlog/2026-07-12-agent-notification-event-policy-and-codex-gemini-kimi-support.md
   - .agent/devlog/2026-07-12-updater-migrated-from-upgradelink-to-github-release-plus-ghproxy.md
   - .agent/devlog/2026-07-11-toast-卡片缩小到原生尺寸-和阴影修复.md
   - .agent/devlog/2026-07-11-eye-toast-snooze-skip-buttons.md
@@ -154,5 +189,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: 更新通道迁移完成（GitHub Release + ghproxy 镜像），v26.7.15 latest.json 已手动修复上传
-  next: 下次发版验证 rewrite-latest-json 全流程；按需推进 agent 通知、项目重构（见 .agent/todo.md）
+  phase: agent 通知 P6 稳固（挂起释放+并行HTTP+CORS）+ 卡面分层/title + 本地测试页；路线图见 features/agent-notification/roadmap-and-progress.md
+  next: P5 真机复测（S5/S6/并行Stop/真Claude title）后升版 → 重装 Hook 释放新 cjs → P7 交互小窗 → P6 二期（Codex/Kimi 审批）

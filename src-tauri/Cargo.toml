@@ -1,6 +1,6 @@
 [package]
 name = "catrace"
-version = "26.7.16"
+version = "26.7.18"
 description = "Desktop tool to balance work and rest"
 authors = ["lanxiuyun"]
 edition = "2021"
@@ -36,6 +36,9 @@ base64 = "0.22"
 active-win-pos-rs = "0.10"
 reqwest = { version = "0.12", features = ["json"] }
 uuid = { version = "1", features = ["v4"] }
+tiny_http = "0.12"
+dirs = "5"
+tauri-plugin-dialog = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_System_Com", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell"] }
