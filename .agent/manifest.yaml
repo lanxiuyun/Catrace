@@ -156,6 +156,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-18-permission-card-disappears-on-mouse-leave.md
   - .agent/bugs/2026-07-18-permission-hang-on-session-change.md
   - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
   - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
@@ -171,6 +172,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
   - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
   - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
   - .agent/devlog/2026-07-17-p6-permission-approve-deny.md
