@@ -34,7 +34,7 @@
 | **P3** | 权限「只通知」 | ✅ 完成 | PermissionRequest → sticky，不代批 |
 | **P4** | Hook 安装可靠性 | ✅ 完成 | Windows 命令包装、字段级 sync、node 绝对路径、backup |
 | **P5** | 实测与发版收口 | 🔲 进行中 | 真 Claude/Codex 实测；升版本号 |
-| **P6** | 权限真审批（Allow/Deny） | 📋 已规划未做 | 阻塞 HTTP / 挂起响应；Claude-first |
+| **P6** | 权限真审批（Allow/Deny） | ✅ 完成（Claude） | 阻塞 HTTP /permission + 独立审批卡；Codex/Kimi 待二期 |
 | **P7** | 交互小窗 | 📋 已规划未做 | 独立窗口；批 + 停 + 可选对话 |
 | **P8** | 更多 agent / 插件派 | 🧊 暂缓 | OpenCode / OpenClaw / Hermes 等 |
 
@@ -110,45 +110,44 @@
 | P5.5 | 版本号三处同步升版（读 [version-management](../../reference/version-management.md)） |
 | P5.6 | 发版说明写清：只通知不审批、需重装 hook |
 
-### P6 — 权限真审批（Allow / Deny）📋
+### P6 — 权限真审批（Allow / Deny）✅（Claude 已完成 2026-07-17）
 
 **目标**：PermissionRequest 时 Catrace 可代批，agent 阻塞等结果；用户仍可回退终端。
 
-#### 6.1 协议（Claude-first）
+**起因**：P3 只通知的权限卡在终端批准后无法销掉（批准后走 Pre/PostToolUse，无 UserPromptSubmit）。为彻底闭环，直接从 P3 跳到 P6 真审批。
+
+#### 6.1 协议（已实现，Claude-first）
 
 ```
 Claude PermissionRequest hook
-  → type: "http"  （或兼容的阻塞 command）
-  → Catrace POST /permission  （新端点，阻塞）
-  → 挂起 tiny_http Response
-  → UI Allow / Deny /（可选 Always）
-  → 写回 hook 要求的 JSON 决策
-  → 释放连接
+  → type: "http"  →  Catrace POST /permission（阻塞，挂起 raw writer）
+  → 独立审批卡（PermissionToastCard） Allow / Deny / 前往终端
+  → resolve_permission invoke 写决策 → 接收线程写回 hookSpecificOutput JSON
+  → 释放连接；超时（540s）回 {} → Claude 回退终端审批
 ```
 
-对照 clawd：
+对照 clawd：端口固定 23456；超时回 `{}`（非 deny）让 Claude 回退终端；安装时**清掉** PermissionRequest 的旧 command hook，不与 http hook 双注册（clawd 同款 stale 清理）。
 
-- 端口可固定 23456（单例，不必 23333 漂移）  
-- DND / 超时：destroy 连接或返回 deny，让 Claude 回退终端  
-- **不要**与现有 async command 的 PermissionRequest 双注册（clawd 会清 stale command hook）
+#### 6.2 实现清单（对照）
 
-#### 6.2 实现清单
+| 项 | 状态 | 说明 |
+|----|------|------|
+| P6.1 `POST /permission` 挂起 + 超时 | ✅ | tiny_http `into_writer` 挂起；接收线程轮询决策（150ms），540s 超时 |
+| P6.2 内存表 `request_id → pending`；前端决策 invoke | ✅ | `PENDING_PERMISSIONS` + `resolve_permission` |
+| P6.3 安装：Claude 改 http PermissionRequest；卸载清干净 | ✅ | url marker sync；uninstall 同清 command+http |
+| P6.4 UI：独立 permission 卡 | ✅ | `PermissionToastCard`，琥珀色，非 sticky 待办 |
+| P6.5 Codex 决策字段 | 🔲 二期 | v1 清掉旧 command hook，回退终端 |
+| P6.6 Kimi PermissionRequest 对齐 | 🔲 二期 | 同上 |
+| P6.7 Gemini gating | 🧊 跳过 | 无 PermissionRequest |
+| P6.8 安全 | ✅ | 仅 127.0.0.1；tool_input 前端截断 120 字不落敏感全文 |
+| P6.9 总开关「在 Catrace 审批」 | 🔲 二期 | v1 跟随 agent_notification_enabled |
 
-| 项 | 内容 |
-|----|------|
-| P6.1 | `POST /permission`：读 body、挂起、超时（建议 60–600s 可配） |
-| P6.2 | 内存表：`request_id → pending response`；前端决策 invoke 完成 |
-| P6.3 | 安装：Claude 改为 HTTP PermissionRequest；卸载清干净 |
-| P6.4 | UI：toast 上 Allow/Deny **或** 独立 permission 卡（推荐独立，避免和待办混） |
-| P6.5 | Codex PermissionRequest 决策字段约束（clawd：fail-close 若干 future 字段） |
-| P6.6 | Kimi Code `PermissionRequest` / `PermissionResult` 对齐 |
-| P6.7 | Gemini：评估 BeforeTool gating stdout JSON；风险高可继续跳过 |
-| P6.8 | 安全：仅 127.0.0.1；无鉴权但拒绝非本机；日志不落敏感命令全文（可截断） |
-| P6.9 | 设置：总开关「在 Catrace 审批」默认关或开（产品定） |
+**v1 决策**：
+- **没有独立「审批开关」**：装了 Claude http hook 就代批；不想代批就不装/卸载（回退终端）。二期再加独立开关。
+- **Codex/Kimi 回退终端**：它们的旧 PermissionRequest command hook 在重装时被清除，审批回到 agent 原生 UI。
+- **跨线程响应**：tiny_http `Request::respond` 消费 Request 无法跨线程暂存，故用 `into_writer` 拿 raw writer，决策到达后手写 HTTP 响应行+头+体。
 
-**非目标（P6）**：完整聊天、Always Allow 跨会话策略库（可二期）。
-
-**验收**：Claude 要跑 Bash → Catrace 卡出 → 点 Allow → 终端继续且无二次问；点 Deny → 工具拒绝；Catrace 退出/超时时 Claude 不永久卡死。
+**验收**：Claude 要跑 Bash → 审批卡出 → 点 Allow → 终端继续且无二次问；点 Deny → 工具拒绝；超时/Catrace 退出 → Claude 回退终端，不永久卡死（待 P5 真机复测）。
 
 ### P7 — 交互小窗 📋
 
@@ -264,8 +263,8 @@ agent hooks (command, async)
 
 ## 8. 当前进度一句话
 
-**P0–P4 已完成**（链路、四 agent、三态、待办体验、Permission 只通知、自动销、默认展开、安装可靠性）。  
-**下一步：P5 实测发版 → P6 真审批 → P7 交互小窗。**  
+**P0–P4、P6(Claude) 已完成**。P6 起因是 P3 权限卡残留——批准后无 UserPromptSubmit 可销卡，索性直上真审批闭环。
+**下一步：P5 实测发版（含 P6 真机复测）→ P7 交互小窗 → P6 二期（Codex/Kimi 审批 + 独立审批开关）。**  
 Allow/Deny 与小窗已写入本路线图，**延期实现，不是砍掉。**
 
 ---

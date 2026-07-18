@@ -153,12 +153,22 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
   - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
   - .agent/bugs/2026-07-10-toast-stacking-display.md
 
+skills:
+  cross-software-http-debugging-logging:
+    docs:
+      - .agent/skills/cross-software-http-debugging-logging/README.md
+    related:
+      - agent-notification
+
 devlog:
+  - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
+  - .agent/devlog/2026-07-17-p6-permission-approve-deny.md
   - .agent/devlog/2026-07-17-p4-hook-install-reliability.md
   - .agent/devlog/2026-07-17-agent-sticky-auto-dismiss-on-user-prompt.md
   - .agent/devlog/2026-07-12-agent-toast-card-summary-goto-session-sound-and-component-extraction.md
@@ -172,5 +182,5 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知 P0–P4 完成；路线图见 features/agent-notification/roadmap-and-progress.md
-  next: P5 实测升版 → P6 真审批 Allow/Deny → P7 交互小窗
+  phase: agent 通知 P0–P4 + P6(Claude 真审批) 完成；路线图见 features/agent-notification/roadmap-and-progress.md
+  next: P5 实测升版（含 P6 真机复测）→ P7 交互小窗 → P6 二期（Codex/Kimi 审批）
