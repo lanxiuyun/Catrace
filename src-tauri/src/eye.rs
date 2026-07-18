@@ -14,13 +14,13 @@ pub struct EyeReminderState {
 
 impl EyeReminderState {
     pub fn is_snoozed(&self) -> bool {
-        self.snooze_until.map_or(false, |t| t > Instant::now())
+        self.snooze_until.is_some_and(|t| t > Instant::now())
     }
 
     /// 距离上次发送是否已超过 1 秒，避免同一秒内重复弹窗
     pub fn can_send_reminder(&self) -> bool {
         self.last_reminder_sent
-            .map_or(true, |t| t.elapsed() >= Duration::from_secs(1))
+            .is_none_or(|t| t.elapsed() >= Duration::from_secs(1))
     }
 }
 

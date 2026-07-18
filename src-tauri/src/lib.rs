@@ -76,7 +76,7 @@ fn start_input_sampling(state: Arc<Mutex<ActivityState>>, started: Arc<AtomicBoo
             let _guard = device_state.on_key_down(move |_: &Keycode| {
                 let mut s = keyboard_state.lock().unwrap();
                 if s.key_debounce
-                    .map_or(true, |t| t.elapsed() > Duration::from_secs(2))
+                    .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
                 {
                     s.count += 1;
                     s.key_debounce = Some(Instant::now());
@@ -830,7 +830,7 @@ fn test_notification(
                     "is_complete": is_complete,
                 }),
             );
-            let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+            window_manager::show_reminder_no_activate(&app_handle, &window);
         }
     }
 
@@ -1401,7 +1401,7 @@ pub fn run() {
                                             "is_complete": is_complete,
                                         }),
                                     );
-                                    let _ = window_manager::show_reminder_no_activate(&app_handle, &window);
+                                    window_manager::show_reminder_no_activate(&app_handle, &window);
                                 }
                             }
                         }

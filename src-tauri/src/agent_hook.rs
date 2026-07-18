@@ -547,7 +547,7 @@ fn is_permission_pending(request_id: u64) -> bool {
         .lock()
         .unwrap()
         .as_ref()
-        .map_or(false, |m| m.contains_key(&request_id))
+        .is_some_and(|m| m.contains_key(&request_id))
 }
 
 /// UI 决策入口：前端点 Allow/Deny/前往终端时调用。
@@ -825,14 +825,14 @@ fn write_json_settings(path: &std::path::Path, value: &serde_json::Value) -> Res
 }
 
 fn entry_contains_catrace_hook(entry: &serde_json::Value) -> bool {
-    let has_marker = |cmd: Option<&str>| cmd.map_or(false, |s| s.contains(HOOK_SCRIPT_MARKER));
+    let has_marker = |cmd: Option<&str>| cmd.is_some_and(|s| s.contains(HOOK_SCRIPT_MARKER));
     if has_marker(entry.get("command").and_then(|c| c.as_str())) {
         return true;
     }
     entry
         .get("hooks")
         .and_then(|h| h.as_array())
-        .map_or(false, |hooks| {
+        .is_some_and(|hooks| {
             hooks.iter().any(|h| has_marker(h.get("command").and_then(|c| c.as_str())))
         })
 }
@@ -847,7 +847,7 @@ fn catrace_hook_obj_mut(entry: &mut serde_json::Value) -> Option<&mut serde_json
     if entry
         .get("command")
         .and_then(|c| c.as_str())
-        .map_or(false, |s| s.contains(HOOK_SCRIPT_MARKER))
+        .is_some_and(|s| s.contains(HOOK_SCRIPT_MARKER))
     {
         return Some(entry);
     }
@@ -858,7 +858,7 @@ fn catrace_hook_obj_mut(entry: &mut serde_json::Value) -> Option<&mut serde_json
             hooks.iter_mut().find(|h| {
                 h.get("command")
                     .and_then(|c| c.as_str())
-                    .map_or(false, |s| s.contains(HOOK_SCRIPT_MARKER))
+                    .is_some_and(|s| s.contains(HOOK_SCRIPT_MARKER))
             })
         })
 }
@@ -879,7 +879,7 @@ fn find_catrace_permission_hook_mut(
             && entry
                 .get("url")
                 .and_then(|u| u.as_str())
-                .map_or(false, is_catrace_permission_url);
+                .is_some_and(is_catrace_permission_url);
         if entry_is_http {
             return Some(entry);
         }
@@ -892,7 +892,7 @@ fn find_catrace_permission_hook_mut(
                     h.get("type").and_then(|t| t.as_str()) == Some("http")
                         && h.get("url")
                             .and_then(|u| u.as_str())
-                            .map_or(false, is_catrace_permission_url)
+                            .is_some_and(is_catrace_permission_url)
                 })
             })
     })
@@ -904,7 +904,7 @@ fn entry_is_catrace_permission_hook(entry: &serde_json::Value) -> bool {
         v.get("type").and_then(|t| t.as_str()) == Some("http")
             && v.get("url")
                 .and_then(|u| u.as_str())
-                .map_or(false, is_catrace_permission_url)
+                .is_some_and(is_catrace_permission_url)
     };
     if url_is(entry) {
         return true;
@@ -912,7 +912,7 @@ fn entry_is_catrace_permission_hook(entry: &serde_json::Value) -> bool {
     entry
         .get("hooks")
         .and_then(|h| h.as_array())
-        .map_or(false, |hooks| hooks.iter().any(url_is))
+        .is_some_and(|hooks| hooks.iter().any(url_is))
 }
 
 // ------------------------------------------------------------------
@@ -1357,7 +1357,7 @@ fn ensure_codex_hooks_feature() -> Result<(), String> {
         }
         None => {
             // 没有 [features]：追加整段
-            if !out.is_empty() && !out.last().map_or(true, |l| l.trim().is_empty()) {
+            if !out.is_empty() && !out.last().is_none_or(|l| l.trim().is_empty()) {
                 out.push(String::new());
             }
             out.push("[features]".to_string());
@@ -1576,7 +1576,7 @@ fn install_kimi_hooks(script_path: &std::path::Path) -> Result<serde_json::Value
 
     for path in kimi_config_paths() {
         // 配置目录不存在说明这代 CLI 没装，跳过
-        if !path.parent().map_or(false, |p| p.exists()) {
+        if !path.parent().is_some_and(|p| p.exists()) {
             continue;
         }
         let content = std::fs::read_to_string(&path).unwrap_or_default();
