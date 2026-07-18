@@ -652,14 +652,14 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
-  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.sticky) return
+  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky/permission 卡片不依赖 hover 控制生命周期
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.sticky) return
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
