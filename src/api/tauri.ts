@@ -400,6 +400,13 @@ export async function openAgentSession(cwd: string, sessionId: string): Promise<
   return invoke('open_agent_session', { cwd, sessionId })
 }
 
+/** P6 权限审批：把用户的 Allow/Deny 决策回给后端挂起的阻塞请求。
+ *  decision: 'allow' | 'deny' | 'timeout'（timeout = 回退终端审批）。
+ *  返回 false 表示该请求已超时/不存在（卡片应直接消失，无需再处理）。 */
+export async function resolvePermission(requestId: number, decision: string): Promise<boolean> {
+  return invoke('resolve_permission', { requestId, decision })
+}
+
 export type AgentSoundMode = 'builtin' | 'custom' | 'muted'
 
 export interface AgentSoundSettings {

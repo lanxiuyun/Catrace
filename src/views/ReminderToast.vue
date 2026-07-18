@@ -22,14 +22,16 @@ import {
   dismissRestTimer,
   getAgentSoundDataUrl,
   getAgentSoundSettings,
+  logFrontend,
 } from '../api/tauri'
 import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
 import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
+import PermissionToastCard, { type PermissionItem } from '../components/PermissionToastCard.vue'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent'
+type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission'
 
 interface ToastItem {
   id: number
@@ -56,6 +58,8 @@ interface ToastItem {
   agentState?: string
   sticky?: boolean
   agentEntries?: AgentEntry[]
+  // permission (P6) fields
+  permission?: PermissionItem
   // rest timer fields
   breakMinutes?: number
   restStartTs?: number
@@ -180,7 +184,11 @@ onMounted(async () => {
     cwd?: string
     prompt?: string
     summary?: string
+    requestId?: number
+    toolName?: string
+    toolInput?: unknown
   }) => {
+    logFrontend('info', `[toast-fe] addToastNotification kind=${payload.kind} requestId=${payload.requestId ?? '-'} tool=${payload.toolName ?? '-'}`).catch(() => {})
     addNotification({
       kind: payload.kind || 'rest',
       boundary: payload.boundary ?? 0,
@@ -195,6 +203,9 @@ onMounted(async () => {
       cwd: payload.cwd,
       prompt: payload.prompt,
       summary: payload.summary,
+      requestId: payload.requestId,
+      toolName: payload.toolName,
+      toolInput: payload.toolInput,
     })
   }
 
@@ -306,8 +317,10 @@ async function adjustWindowSize() {
       afterSize: { width: afterSize.width, height: afterSize.height },
       afterPos: { x: afterPos.x, y: afterPos.y },
     }
+    logFrontend('info', `[toast-fe] adjustWindowSize count=${count} rawStack=${rawStackHeight ?? 'undef'} calcH=${newHeightLogical.toFixed(0)} pos=(${newXLogical.toFixed(0)},${newYLogical.toFixed(0)}) afterSize=${afterSize.width}x${afterSize.height} afterPos=(${afterPos.x},${afterPos.y}) sf=${sf}`).catch(() => {})
   } catch (e: any) {
     debugInfo.value.error = String(e?.message ?? e)
+    logFrontend('error', `[toast-fe] adjustWindowSize 异常: ${String(e?.message ?? e)}`).catch(() => {})
   }
 }
 
@@ -456,7 +469,49 @@ async function addNotification(payload: {
   cwd?: string
   prompt?: string
   summary?: string
+  requestId?: number
+  toolName?: string
+  toolInput?: unknown
 }) {
+  // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
+  if (payload.kind === 'permission') {
+    logFrontend('info', `[toast-fe] permission 分支进入 requestId=${payload.requestId ?? '-'} notifications=${notifications.value.length}`).catch(() => {})
+    playAgentSound()
+    while (notifications.value.length >= MAX_NOTIFICATIONS) {
+      removeNotification(notifications.value[0].id, false)
+    }
+    const id = ++idCounter
+    const item: ToastItem = {
+      id,
+      kind: 'permission',
+      title: '',
+      body: '',
+      boundary: 0,
+      visible: false,
+      isHovered: false,
+      remainingMs: 0,
+      closeTimer: null,
+      lastStartAt: 0,
+      permission: {
+        requestId: payload.requestId ?? 0,
+        toolName: payload.toolName || '',
+        toolInput: payload.toolInput,
+        sessionId: payload.sessionId,
+        cwd: payload.cwd,
+      },
+      totalMs: 0,
+    }
+    notifications.value.push(item)
+    requestAnimationFrame(() => {
+      const found = notifications.value.find((n) => n.id === id)
+      if (found) found.visible = true
+      logFrontend('info', `[toast-fe] permission 卡已 push id=${id} requestId=${item.permission?.requestId ?? '-'} visible=${found?.visible}`).catch(() => {})
+    })
+    await adjustWindowSize()
+    scrollStackToBottom()
+    return
+  }
+
   // sticky 型 agent 通知合并进同一张卡片：同 session 的新事件刷新条目，
   // 不同 session 追加为新条目，避免多 agent 同时等待时糊屏。
   if (payload.kind === 'agent' && payload.mode === 'sticky') {
@@ -871,6 +926,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
           'toast-card-agent': item.kind === 'agent',
+          'toast-card-permission': item.kind === 'permission',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -899,8 +955,14 @@ async function handleUpdateInstall(item: ToastItem) {
           @dismiss-entry="(sid) => dismissAgentSession(sid)"
         />
 
+        <PermissionToastCard
+          v-else-if="item.kind === 'permission' && item.permission"
+          :item="item.permission"
+          @close="handleClose(item)"
+        />
+
         <!-- Header -->
-        <div v-if="item.kind !== 'eye' && item.kind !== 'agent'" class="header">
+        <div v-if="item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="header">
           <div class="header-left">
             <div class="pulse-dot" />
             <h2 v-if="item.kind === 'update'" class="title">
@@ -920,9 +982,9 @@ async function handleUpdateInstall(item: ToastItem) {
           </button>
         </div>
 
-        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / agent / sticky cards) -->
+        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / agent / permission / sticky cards) -->
         <div
-          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && !item.sticky"
+          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && item.kind !== 'permission' && !item.sticky"
           class="progress-bar"
           :class="{ paused: item.isHovered }"
         />
@@ -938,7 +1000,7 @@ async function handleUpdateInstall(item: ToastItem) {
         </div>
 
         <!-- Body -->
-        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent'" class="body-text">{{ item.body }}</p>
+        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="body-text">{{ item.body }}</p>
 
         <!-- Update changelog -->
         <div
@@ -1193,6 +1255,14 @@ async function handleUpdateInstall(item: ToastItem) {
 
 .toast-card-agent .body-text {
   color: var(--body);
+}
+
+/* Permission approval card (P6) — amber, always visible until decision */
+.toast-card-permission {
+  border: 0.0625rem solid #fde68a;
+  box-shadow:
+    0 0.5rem 1.5rem rgba(245, 158, 11, 0.18),
+    0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);
 }
 
 /* Update reminder theming — matches reference image orange accent */
