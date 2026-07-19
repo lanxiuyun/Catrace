@@ -103,7 +103,8 @@ pub fn show_eye_notification(locale: &str, bus: &EventBus) {
 
 #[tauri::command]
 pub fn get_eye_settings(db: tauri::State<db::Db>) -> serde_json::Value {
-    let enabled = db.get_setting("eye_reminder_enabled", "true") == "true";
+    // 护眼提醒暂无 UI 入口，强制关闭（忽略已存设置）
+    let enabled = false;
     let interval: i64 = db
         .get_setting("eye_interval_minutes", "20")
         .parse()
@@ -169,7 +170,8 @@ pub fn check_and_notify(
     locale: &str,
     bus: &EventBus,
 ) {
-    let eye_enabled = db.get_setting("eye_reminder_enabled", "true") == "true";
+    // 护眼提醒暂无 UI 入口，强制关闭（忽略已存设置）
+    let eye_enabled = false;
     if !eye_enabled {
         return;
     }

@@ -115,7 +115,8 @@ pub fn show_water_notification(locale: &str, bus: &EventBus) {
 
 #[tauri::command]
 pub fn get_water_settings(db: tauri::State<db::Db>) -> serde_json::Value {
-    let enabled = db.get_setting("water_reminder_enabled", "true") == "true";
+    // 喝水提醒暂无 UI 入口，强制关闭（忽略已存设置）
+    let enabled = false;
     let interval: i64 = db
         .get_setting("water_interval_minutes", "60")
         .parse()
@@ -206,7 +207,8 @@ pub fn check_and_notify(
     locale: &str,
     bus: &EventBus,
 ) {
-    let water_enabled = db.get_setting("water_reminder_enabled", "true") == "true";
+    // 喝水提醒暂无 UI 入口，强制关闭（忽略已存设置）
+    let water_enabled = false;
     if !water_enabled {
         return;
     }
