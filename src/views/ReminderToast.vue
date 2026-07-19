@@ -191,49 +191,7 @@ onMounted(async () => {
     // ignore
   }
 
-  // 暴露全局函数给 Rust 端 eval 调用（agent/update/permission 尚未迁 Bus）
-  ;(window as any).addToastNotification = (payload: {
-    kind?: ToastKind
-    boundary?: number
-    title?: string
-    body?: string
-    version?: string
-    updateBody?: string
-    event?: string
-    agentState?: string
-    mode?: string
-    sessionId?: string
-    cwd?: string
-    prompt?: string
-    summary?: string
-    sessionTitle?: string
-    requestId?: number
-    toolName?: string
-    toolInput?: unknown
-  }) => {
-    logFrontend('info', `[toast-fe] addToastNotification kind=${payload.kind} requestId=${payload.requestId ?? '-'} tool=${payload.toolName ?? '-'}`).catch(() => {})
-    addNotification({
-      kind: payload.kind || 'rest',
-      boundary: payload.boundary ?? 0,
-      title: payload.title || '',
-      body: payload.body || '',
-      version: payload.version,
-      updateBody: payload.updateBody,
-      event: payload.event,
-      agentState: payload.agentState,
-      mode: payload.mode,
-      sessionId: payload.sessionId,
-      cwd: payload.cwd,
-      prompt: payload.prompt,
-      summary: payload.summary,
-      sessionTitle: payload.sessionTitle,
-      requestId: payload.requestId,
-      toolName: payload.toolName,
-      toolInput: payload.toolInput,
-    })
-  }
-
-  // 自动销项：用户回到某会话（UserPromptSubmit）时由 Rust eval 调用
+  // 暴露全局函数：agent 会话销项仍由 Rust eval 调用（非内容注入）
   ;(window as any).dismissAgentSession = (sessionId: string) => {
     dismissAgentSession(sessionId)
   }
@@ -266,7 +224,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  delete (window as any).addToastNotification
   delete (window as any).dismissAgentSession
   unlistenDebug?.()
   unlistenDebug = null
@@ -512,17 +469,15 @@ function handleBusEvent(event: BusEvent) {
   if (event.status && event.status !== 'active') return
   if (seenBusEventIds.has(event.id)) return
 
-  // 仅内置 toast kinds 走 bus 渲染；agent/permission 仍走 eval
   const kind = event.kind as ToastKind
-  if (kind !== 'rest' && kind !== 'water' && kind !== 'eye') {
+  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update']
+  if (!busKinds.includes(kind)) {
     return
   }
 
   seenBusEventIds.add(event.id)
-  const boundary =
-    typeof (event.payload as { boundary?: number } | null)?.boundary === 'number'
-      ? (event.payload as { boundary: number }).boundary
-      : 0
+  const p = (event.payload ?? {}) as Record<string, unknown>
+  const boundary = typeof p.boundary === 'number' ? p.boundary : 0
 
   logFrontend('info', `[toast-fe] bus event kind=${kind} id=${event.id}`).catch(() => {})
   addNotification({
@@ -531,6 +486,24 @@ function handleBusEvent(event: BusEvent) {
     title: event.title || '',
     body: event.body || '',
     eventId: event.id,
+    version: typeof p.version === 'string' ? p.version : undefined,
+    updateBody: typeof p.updateBody === 'string' ? p.updateBody : undefined,
+    event: typeof p.event === 'string' ? p.event : undefined,
+    agentState: typeof p.agentState === 'string' ? p.agentState : undefined,
+    mode:
+      typeof p.mode === 'string'
+        ? p.mode
+        : event.sticky
+          ? 'sticky'
+          : undefined,
+    sessionId: typeof p.sessionId === 'string' ? p.sessionId : undefined,
+    cwd: typeof p.cwd === 'string' ? p.cwd : undefined,
+    prompt: typeof p.prompt === 'string' ? p.prompt : undefined,
+    summary: typeof p.summary === 'string' ? p.summary : undefined,
+    sessionTitle: typeof p.sessionTitle === 'string' ? p.sessionTitle : undefined,
+    requestId: typeof p.requestId === 'number' ? p.requestId : undefined,
+    toolName: typeof p.toolName === 'string' ? p.toolName : undefined,
+    toolInput: p.toolInput,
   })
 }
 

@@ -7,14 +7,18 @@
 ```
 agent 触发 hook
   ├─ 状态事件 → catrace-agent-hook.cjs → POST :23456/state
-  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + 销 sticky/permission 卡（即使 mode=off）
+  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + dismissAgentSession（即使 mode=off）
   │     └─ 策略过滤 / auto 去重 / transcript 摘要 + ai-title 会话名
-  │           → reminder_toast eval addToastNotification({kind:"agent", sessionTitle, …})
+  │           → create_agent_toast_window → EventBus.publish(kind=agent)
+  │                 → ReminderToast listen catrace:event → AgentToastCard
   │
   └─ PermissionRequest（Claude type:http）→ POST :23456/permission（阻塞）
-        → 挂起 PENDING_PERMISSIONS + 琥珀色 PermissionToastCard
+        → 挂起 PENDING_PERMISSIONS
+        → create_agent_permission_window → EventBus.publish(kind=permission)
         → Allow/Deny/timeout → 手写 HTTP 决策（timeout 回 {} 让 Claude 回退终端）
 ```
+
+UI 内容路径见 [[desktop-event-os]]；HTTP/策略/安装逻辑未改。
 
 默认策略：召唤型（Stop / StopFailure / Notification）= sticky；播报型 off。PermissionRequest **不走三态**，装了 http hook 即代批。
 

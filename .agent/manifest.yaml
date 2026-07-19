@@ -149,6 +149,7 @@ architecture:
       - .agent/architecture/desktop-event-os/README.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
+      - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
       - .agent/architecture/desktop-event-os/signal-collection-schema-and-privacy.md
     related:
       - input-monitoring
@@ -189,6 +190,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-19-toast-content-fully-via-event-bus-including-agent.md
   - .agent/devlog/2026-07-19-step2-event-core-and-signal-collection-scaffold.md
   - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
   - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
@@ -208,5 +210,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: Desktop Event OS — rest/water/eye 已迁 Event Bus→Toast 订阅线；agent 仍 eval；内置 pluginRegistry 占位
-  next: 真机验 rest/water/eye 单卡无双弹 → 迁 agent/update/permission 到 bus → 设置页按 registry 挂载插件设置卡
+  phase: Desktop Event OS — Toast 内容全量走 Event Bus（含 agent/permission/update）；rest-timer 与 dismissAgentSession 仍专用通道
+  next: 真机验 agent 通知与 permission 卡 → 设置页按 pluginRegistry 挂载 → 可选拆 CardComponent

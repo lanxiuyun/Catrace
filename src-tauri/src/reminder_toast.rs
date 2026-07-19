@@ -285,11 +285,25 @@ pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &s
     });
 }
 
+fn try_publish_toast_event(app_handle: &tauri::AppHandle, event: crate::event::BusEvent) -> bool {
+    use tauri::Manager;
+    if let Some(bus) = app_handle.try_state::<crate::bus::EventBus>() {
+        match bus.inner().publish(event) {
+            Ok(_) => true,
+            Err(e) => {
+                log_error!("toast-win", "bus.publish failed: {}", e);
+                false
+            }
+        }
+    } else {
+        log_error!("toast-win", "EventBus state missing");
+        false
+    }
+}
+
 /// 弹出 agent 状态通知 Toast（AI agent hook 事件）。
 /// mode: "auto" = 到时自动消失；"sticky" = 常驻直到用户手动关闭。
-/// summary: 从 transcript 提取的任务摘要，可能为 None（前端降级为默认文案）。
-/// session_title: 会话名（Claude 侧栏名 / ai-title），没有则前端用 cwd 项目名。
-/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=agent 的通知。
+/// 经 Event Bus 下发，Toast 窗订阅渲染。
 pub fn create_agent_toast_window(
     app_handle: &tauri::AppHandle,
     event: &str,
@@ -301,81 +315,60 @@ pub fn create_agent_toast_window(
     summary: Option<&str>,
     session_title: Option<&str>,
 ) {
-    let app = app_handle.clone();
-    let payload = serde_json::json!({
-        "kind": "agent",
-        "event": event,
-        "agentState": state,
-        "mode": mode,
-        "sessionId": session_id,
-        "cwd": cwd,
-        "prompt": prompt,
-        "summary": summary,
-        "sessionTitle": session_title,
-    });
-    let js = format!(
-        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
-        payload
-    );
+    use crate::event::{
+        BusEvent, DisplayMode, EventLevel, EventSource, EventStatus,
+    };
 
-    tauri::async_runtime::spawn(async move {
-        // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
-        let _guard = TOAST_MUTEX.lock().await;
+    let sticky = mode == "sticky";
+    let bus_event = BusEvent {
+        id: String::new(),
+        event_type: format!("agent.{event}"),
+        source: EventSource::AgentHook,
+        kind: "agent".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Info,
+        title: String::new(),
+        body: String::new(),
+        actions: vec![],
+        progress: None,
+        sticky: Some(sticky),
+        payload: serde_json::json!({
+            "event": event,
+            "agentState": state,
+            "mode": mode,
+            "sessionId": session_id,
+            "cwd": cwd,
+            "prompt": prompt,
+            "summary": summary,
+            "sessionTitle": session_title,
+        }),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: if session_id.is_empty() {
+            None
+        } else {
+            Some(session_id.to_string())
+        },
+        dedupe_key: if sticky {
+            Some(format!("agent.sticky:{session_id}"))
+        } else {
+            Some(format!("agent.auto:{session_id}:{event}"))
+        },
+    };
 
-        // 窗口已存在：前端会自己定位，Rust 端只追加通知并显示
-        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
-            let _ = window.eval(&js);
-            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-            let _ = window.eval(route_js);
-            window_manager::show_reminder_no_activate(&app, &window);
-            return;
-        }
-
-        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
-        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
-            return;
-        }
-
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
-            Ok(window) => {
-                let _ = position_toast_window(&window, &app);
-                window_manager::show_reminder_no_activate(&app, &window);
-
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-                let _ = window.eval(route_js);
-                let _ = window.eval(&js);
-            }
-            Err(e) => {
-                log_error!("toast-win", "build failed: {}", e);
-            }
-        }
-    });
+    if !try_publish_toast_event(app_handle, bus_event) {
+        // bus 不可用时兜底：至少保证窗口在
+        ensure_toast_window_visible(app_handle);
+    }
 }
 
 /// 弹出 agent 权限审批卡（P6 阻塞式）。
-/// 与待办 sticky 不同：这条通知挂在一个阻塞 HTTP 请求上，用户点 Allow/Deny 才会回决策给 agent。
-/// request_id 关联后端挂起的请求；tool_input 是工具输入（bash 命令等），前端截断展示。
-/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=permission 的通知。
+/// 经 Event Bus 下发 kind=permission。
 pub fn create_agent_permission_window(
     app_handle: &tauri::AppHandle,
     request_id: u64,
@@ -384,151 +377,89 @@ pub fn create_agent_permission_window(
     session_id: &str,
     cwd: &str,
 ) {
-    let app = app_handle.clone();
-    let payload = serde_json::json!({
-        "kind": "permission",
-        "requestId": request_id,
-        "toolName": tool_name,
-        "toolInput": tool_input,
-        "sessionId": session_id,
-        "cwd": cwd,
-    });
-    let js = format!(
-        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
-        payload
+    use crate::event::{
+        BusEvent, DisplayMode, EventLevel, EventSource, EventStatus,
+    };
+
+    log_info!(
+        "toast-win",
+        "permission 卡：bus publish request_id={}",
+        request_id
     );
 
-    tauri::async_runtime::spawn(async move {
-        let _guard = TOAST_MUTEX.lock().await;
-        let window_exists = app.get_webview_window(TOAST_WINDOW_LABEL).is_some();
-        log_info!(
-            "toast-win",
-            "permission 卡：进入建窗协程 request_id={} window_exists={}",
-            request_id,
-            window_exists
-        );
-        // 窗口已存在：直接 eval 追加审批卡
-        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
-            log_info!("toast-win", "permission 卡 eval request_id={}", request_id);
-            if let Err(e) = window.eval(&js) {
-                log_error!("toast-win", "permission 卡 eval 失败: {}", e);
-            }
-            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-            let _ = window.eval(route_js);
-            window_manager::show_reminder_no_activate(&app, &window);
-            log_info!("toast-win", "permission 卡：已 show（复用窗口）request_id={}", request_id);
-            return;
-        }
+    let bus_event = BusEvent {
+        id: String::new(),
+        event_type: "agent.permission".into(),
+        source: EventSource::AgentHook,
+        kind: "permission".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Warning,
+        title: String::new(),
+        body: String::new(),
+        actions: vec![],
+        progress: None,
+        sticky: Some(true),
+        payload: serde_json::json!({
+            "requestId": request_id,
+            "toolName": tool_name,
+            "toolInput": tool_input,
+            "sessionId": session_id,
+            "cwd": cwd,
+        }),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: Some(format!("permission:{request_id}")),
+        dedupe_key: Some(format!("agent.permission:{request_id}")),
+    };
 
-        // 窗口不存在：兜底创建（真 Claude 触发时窗口常是关的，缺了这步审批卡就永远弹不出）
-        log_info!("toast-win", "permission 卡：toast 窗口不存在，新建 request_id={}", request_id);
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
-            Ok(window) => {
-                log_info!("toast-win", "permission 卡：新窗 build 成功 request_id={}", request_id);
-                let _ = position_toast_window(&window, &app);
-                window_manager::show_reminder_no_activate(&app, &window);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-                let _ = window.eval(route_js);
-                let _ = window.eval(&js);
-                log_info!("toast-win", "permission 卡：新窗已 show+eval request_id={}", request_id);
-            }
-            Err(e) => {
-                log_error!("toast-win", "permission 卡建窗失败: {}", e);
-            }
-        }
-    });
+    if !try_publish_toast_event(app_handle, bus_event) {
+        ensure_toast_window_visible(app_handle);
+    }
 }
 
-/// 弹出「发现新版本」更新通知 Toast。
-/// 不写入 ReminderWindowStore，仅通过 eval 向前端追加一条 kind=update 的通知。
+/// 弹出「发现新版本」更新通知 Toast。经 Event Bus 下发。
 pub fn create_update_toast_window(
     app_handle: &tauri::AppHandle,
     version: &str,
     changelog: &str,
 ) {
-    let app = app_handle.clone();
-    let payload = serde_json::json!({
-        "kind": "update",
-        "version": version,
-        "updateBody": changelog,
-    });
-    let js = format!(
-        "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
-        payload
-    );
+    use crate::event::{
+        BusEvent, DisplayMode, EventLevel, EventSource, EventStatus,
+    };
 
-    tauri::async_runtime::spawn(async move {
-        // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
-        let _guard = TOAST_MUTEX.lock().await;
+    let bus_event = BusEvent {
+        id: String::new(),
+        event_type: "system.update.available".into(),
+        source: EventSource::Internal,
+        kind: "update".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Info,
+        title: String::new(),
+        body: String::new(),
+        actions: vec![],
+        progress: None,
+        sticky: Some(true),
+        payload: serde_json::json!({
+            "version": version,
+            "updateBody": changelog,
+        }),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: None,
+        dedupe_key: Some(format!("system.update:{version}")),
+    };
 
-        // 窗口已存在：前端会自己定位，Rust 端只追加通知并显示
-        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
-            let _ = window.eval(&js);
-            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-            let _ = window.eval(route_js);
-            window_manager::show_reminder_no_activate(&app, &window);
-            return;
-        }
-
-        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
-        // 加锁期间二次检查，避免重复创建窗口
-        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
-            return;
-        }
-
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        // 调试背景由前端 CSS 控制，这里始终使用透明背景
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
-            Ok(window) => {
-                let _ = position_toast_window(&window, &app);
-                window_manager::show_reminder_no_activate(&app, &window);
-
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-                let _ = window.eval(route_js);
-                let _ = window.eval(&js);
-            }
-            Err(e) => {
-                log_error!("toast-win", "build failed: {}", e);
-            }
-        }
-    });
+    if !try_publish_toast_event(app_handle, bus_event) {
+        ensure_toast_window_visible(app_handle);
+    }
 }

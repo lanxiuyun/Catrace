@@ -2,46 +2,48 @@
 
 ## 协议要点
 
-- `event_type`：稳定协议名，如 `reminder.water.due`
-- `kind`：渲染族，对齐现有 toast kind（`water` / `agent` / …）
-- `source`：判别联合 JSON  
-  `{ "type": "internal" | "agent_hook" | "sdk" }` 或 `{ "type": "plugin", "name": "…" }`
-- 生命周期：`status` active|resolved，`revision` 单调，`created_at`/`updated_at` ms
+- `event_type`：稳定协议名（`reminder.water.due` / `agent.permission` / `system.update.available`）
+- `kind`：渲染族，对齐 Toast 分支（`rest` | `water` | `eye` | `agent` | `permission` | `update`）
+- `source`：`{ "type": "internal" | "agent_hook" | "sdk" }` 或 `{ "type": "plugin", "name" }`
+- 生命周期：`status` active|resolved，`revision` 单调，时间戳 ms
 - `resolution.kind`：completed | dismissed | action | expired | superseded
+- kind 专属字段放 `payload`（如 boundary、sessionId、requestId、version）
 
-## Commands（Tauri）
+## Commands
 
 | Command | 作用 |
 |---------|------|
-| `publish_event` | 规范化 id/时间戳/revision，入库 registry，emit `catrace:event` |
-| `update_event` | 白名单 patch（title/body/level/display_mode/actions/progress/sticky/payload/expires_at） |
-| `resolve_event` | 置 resolved |
-| `resolve_event_action` | 校验 action_id 后 resolve（**不**执行业务副作用） |
-| `get_active_events` | 水合用 |
+| `publish_event` | 规范化后入库 + emit `catrace:event`；toast 模式会 ensure 窗口 |
+| `update_event` | 白名单 patch |
+| `resolve_event` / `resolve_event_action` | 置 resolved（不执行业务副作用） |
+| `get_active_events` | Toast / 主窗水合 |
 
-锁顺序：registry 内 mutate + clone → **放锁** → emit + broadcast。
+锁：registry mutate + clone → **放锁** → ensure 窗口 / emit。
 
-## 前端 Hub
+## 生产者 → Bus（当前）
 
-- 主窗口 `main.ts` 启动 `eventHub.startListening`（先 listen 再 `get_active_events`）
-- Toast / reminder 窗 **不**启动 hub，避免双通道
-- upsert 按 id；旧 revision 丢弃；resolved 历史有界
+| 来源 | event_type 例 | kind | 入口 |
+|------|---------------|------|------|
+| 久坐 toast | `reminder.rest.due` | rest | `lib::show_notification` |
+| 喝水 | `reminder.water.due` | water | `water::show_water_notification` |
+| 护眼 | `reminder.eye.due` | eye | `eye::show_eye_notification` |
+| Agent 状态 | `agent.{event}` | agent | `reminder_toast::create_agent_toast_window` |
+| 权限审批 | `agent.permission` | permission | `create_agent_permission_window` |
+| 更新 | `system.update.available` | update | `create_update_toast_window` |
 
-## 生产者双写范例（water）
+`create_toast_window`（eval 注入）已废弃未再调用，仅保留 dead_code。
 
-```
-title/body 算一次
-  → bus.publish(BusEvent { event_type, kind: water, … })
-  → reminder_toast::create_toast_window(…)   // 权威 UI
-```
+## 前端
 
-bus 失败只 log。后续 eye/rest/agent 照抄，permission 最后（阻塞语义敏感）。
+- **Toast 窗**：`listen('catrace:event')` + `getActiveEvents`；`seenBusEventIds` 防重复
+- **主窗 hub**：观察用，不驱动 Toast
+- 用户操作：先业务 command，再 `resolve_*`（有 `eventId` 时）
 
-## 扩展时
+## 扩展新 kind
 
-1. 新 `event_type` 写入协议约定（勿与 kind 混用）
-2. 生产者：双写；勿让 hub 渲第二张卡
-3. 需要 Action 业务：在生产者 command 里做，resolve 只记账
-4. 插件 Card：远期 `pluginRegistry.getCardComponent`，本期 toast 仍 hardcode kind
+1. 生产者只 `bus.publish`，payload 约定写清
+2. `ReminderToast.handleBusEvent` 的 `busKinds` 加入 kind
+3. `addNotification` / 模板分支
+4. 可选：`registerBuiltins` 登记 event_type 与设置卡
 
-相关：[[water-reminder]] · [[toast-window]] · [step2-roadmap…](step2-roadmap-event-core-and-signal-core.md)
+相关：[toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) · [[toast-window]] · [[agent-notification]]

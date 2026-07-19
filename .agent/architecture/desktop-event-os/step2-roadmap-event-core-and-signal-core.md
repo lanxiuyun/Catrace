@@ -35,7 +35,7 @@
 | **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 骨架完成 | rest/water/eye |
 | **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 骨架完成 | agent 仍 eval |
 | **M7c** 内置插件注册 | pluginRegistry + settings 绑定 | ✅ 占位 | Card 组件未拆 |
-| **M8** Toast 消费 hub（可选） | 渲染适配层，去掉 eval 权威 | 🟡 部分 | rest/water/eye 完成；agent/update 仍 eval |
+| **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；仅 dismissAgentSession 仍 eval |
 | **M9** 外部 SDK / HTTP | 多语言 demo | 🧊 暂缓 | Phase 2 边界外 |
 | **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | 内置 registry 已占位 |
 
@@ -113,7 +113,7 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 
 ## 8. 一句话进度
 
-**M1–M5 完成；rest/water/eye 已只走 Event Bus → Toast 订阅渲染（无 eval 双弹）。**  
-Agent / update / permission 仍 eval。  
-下一步：真机验 rest/water/eye → 迁 agent → 设置页按插件 registry 渲染。  
+**Toast 内容路径已全部经 Event Bus：rest/water/eye/agent/permission/update。**  
+仅 `dismissAgentSession` 与 `rest-timer` 仍用专用通道。  
+下一步：真机验 agent/permission → 设置页按 registry 挂载 → 可选拆 Card 组件。  
 Desktop Event OS 长期愿景见本目录 [README.md](README.md)。

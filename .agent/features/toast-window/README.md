@@ -2,11 +2,17 @@
 
 独立透明 WebviewWindow + Vue 卡片实现的右下角通知堆叠。
 
+> **内容入口（Step 2）**：rest/water/eye/agent/permission/update 均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
+> Rust 侧 `ensure_toast_window_visible` 只保证窗口在位。详见  
+> [toast-renders-only-from-event-bus.md](../../architecture/desktop-event-os/toast-renders-only-from-event-bus.md)。  
+> 例外：`catrace-rest-timer`、`dismissAgentSession` eval。
+
 ## 涉及文件
 
-- `src-tauri/src/reminder_toast.rs` — Toast 窗口创建/复用；兜底创建分支才定位，已有窗口由前端定位
+- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用；agent/update/permission **publish bus**（不再 eval 内容）
+- `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
 - `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/ReminderToast.vue` — 前端卡片堆叠、窗口尺寸/位置调整、动画；**只管栈生命周期，卡片内容下沉到专用组件**
+- `src/views/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 
