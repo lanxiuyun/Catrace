@@ -1,38 +1,29 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import Sortable from 'sortablejs'
-import ReminderSettingsCard from '../components/settings/ReminderSettingsCard.vue'
 import MediaSettingsCard from '../components/settings/MediaSettingsCard.vue'
 import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
 import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
-import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
-import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
-import AgentSettingsCard from '../components/settings/AgentSettingsCard.vue'
 import SignalSettingsCard from '../components/settings/SignalSettingsCard.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water', 'eye', 'agent', 'signal'] as const
-type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'eye', 'agent', 'signal', 'system', 'links']
+const GROUP_KEYS = ['notification', 'media', 'signal', 'system', 'links'] as const
+type GroupKey = (typeof GROUP_KEYS)[number]
+const defaultGroupOrder: GroupKey[] = ['notification', 'media', 'signal', 'system', 'links']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
 const cardComponents: Record<GroupKey, any> = {
-  reminder: ReminderSettingsCard,
-  media: MediaSettingsCard,
-  system: SystemSettingsCard,
   notification: NotificationSettingsCard,
-  links: LinksSettingsCard,
-  water: WaterSettingsCard,
-  eye: EyeSettingsCard,
-  agent: AgentSettingsCard,
+  media: MediaSettingsCard,
   signal: SignalSettingsCard,
+  system: SystemSettingsCard,
+  links: LinksSettingsCard,
 }
 
 let settingsStore: Store | null = null
@@ -45,12 +36,31 @@ async function getSettingsStore() {
   return settingsStore
 }
 
+function normalizeGroupOrder(saved: unknown): GroupKey[] {
+  const allowed = new Set<string>(GROUP_KEYS)
+  const out: GroupKey[] = []
+  if (Array.isArray(saved)) {
+    for (const k of saved) {
+      if (typeof k === 'string' && allowed.has(k) && !out.includes(k as GroupKey)) {
+        out.push(k as GroupKey)
+      }
+    }
+  }
+  for (const k of defaultGroupOrder) {
+    if (!out.includes(k)) out.push(k)
+  }
+  return out
+}
+
 async function loadGroupOrder() {
   try {
     const store = await getSettingsStore()
-    const saved = await store.get<GroupKey[]>('settings_group_order')
-    if (saved && saved.length === GROUP_KEYS.length && saved.every(k => GROUP_KEYS.includes(k))) {
-      groupOrder.value = saved
+    const saved = await store.get('settings_group_order')
+    const normalized = normalizeGroupOrder(saved)
+    groupOrder.value = normalized
+    // Persist migration when old 9-card order was filtered
+    if (JSON.stringify(saved) !== JSON.stringify(normalized)) {
+      await store.set('settings_group_order', normalized)
     }
   } catch (e) {
     console.error('Failed to load settings group order', e)
@@ -76,11 +86,11 @@ function initSortable() {
     ghostClass: 'dragging',
     dragClass: 'drag-over',
     handle: '.drag-handle',
-    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, .water-test-btn, .eye-test-btn, input, textarea, select, button, a',
+    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
       const keys = Array.from(grid.children)
-        .map(child => child.getAttribute('data-group-key') as GroupKey | null)
+        .map((child) => child.getAttribute('data-group-key') as GroupKey | null)
         .filter((k): k is GroupKey => !!k && GROUP_KEYS.includes(k))
       if (keys.length === GROUP_KEYS.length) {
         groupOrder.value = keys
@@ -100,6 +110,7 @@ onMounted(async () => {
 <template>
   <div class="settings">
     <h1 class="title">{{ t('settings.title') }}</h1>
+    <p class="subtitle">{{ t('settings.subtitle') }}</p>
 
     <div class="settings-grid">
       <div
@@ -111,7 +122,7 @@ onMounted(async () => {
         <KeepAlive>
           <component :is="cardComponents[key]" />
         </KeepAlive>
-        <div class="drag-handle" aria-label="拖动排序">
+        <div class="drag-handle" :aria-label="t('settings.dragHandle')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="5" cy="5" r="2" />
             <circle cx="12" cy="5" r="2" />
@@ -134,8 +145,14 @@ onMounted(async () => {
 .title {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #2E1065;
+  color: #2e1065;
+  margin: 0 0 0.35rem 0;
+}
+
+.subtitle {
   margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: #8b7aab;
 }
 
 .settings-grid {
@@ -147,7 +164,7 @@ onMounted(async () => {
 :deep(.group) {
   position: relative;
   background: #fff;
-  border: 0.0625rem solid #EBE6F2;
+  border: 0.0625rem solid #ebe6f2;
   border-radius: 0.875rem;
   padding: 1rem 1.25rem;
   box-sizing: border-box;
@@ -173,15 +190,15 @@ onMounted(async () => {
   width: 1.625rem;
   height: 1.625rem;
   border-radius: 0.375rem;
-  color: #C4B5FD;
+  color: #c4b5fd;
   cursor: grab;
   transition: color 0.15s ease, background-color 0.15s ease;
   z-index: 10;
 }
 
 .drag-handle:hover {
-  color: #7C3AED;
-  background: #F5F3FF;
+  color: #7c3aed;
+  background: #f5f3ff;
 }
 
 .drag-handle:active {
@@ -194,7 +211,7 @@ onMounted(async () => {
 }
 
 .settings-card-wrapper.dragging :deep(.group) {
-  background: #F5F3FF;
+  background: #f5f3ff;
   border-style: dashed;
 }
 
@@ -209,7 +226,7 @@ onMounted(async () => {
 :deep(.group-label) {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #8B7AAB;
+  color: #8b7aab;
   text-transform: uppercase;
   letter-spacing: 0.0312rem;
   margin-bottom: 0;
@@ -217,7 +234,7 @@ onMounted(async () => {
 
 :deep(.divider) {
   height: 0.0625rem;
-  background: #F5F3FF;
+  background: #f5f3ff;
   margin: 0;
 }
 

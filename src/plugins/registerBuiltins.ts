@@ -1,13 +1,13 @@
 import type { Component } from 'vue'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
+import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
 import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
 import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
-import ReminderSettingsCard from '../components/settings/ReminderSettingsCard.vue'
 import AgentSettingsCard from '../components/settings/AgentSettingsCard.vue'
 
 /**
- * 内置「插件」注册：先把设置卡与 event_type 边界挂到 registry。
- * Toast 卡仍由 ReminderToast 按 kind 渲染；后续再把 CardComponent 接上。
+ * 内置「插件」注册：设置/详情组件与 event_type 边界挂到 registry。
+ * 产品可见列表由 Plugins.vue allowlist 控制，不必等于此处全部。
  */
 export function registerBuiltinPlugins() {
   const registry = usePluginRegistry()
@@ -26,7 +26,7 @@ export function registerBuiltinPlugins() {
       description: '连续活跃超时休息提醒',
       events: ['reminder.rest.due', 'kind:rest'],
       settingsKey: 'reminder',
-      SettingsComponent: ReminderSettingsCard,
+      SettingsComponent: RestPluginPanel,
     },
     {
       name: 'water',

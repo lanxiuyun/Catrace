@@ -48,7 +48,6 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.use(i18n)
-app.mount('#app')
 
 // Main window only: observe Event Bus (do not drive Toast rendering).
 const isToastOrReminder =
@@ -58,7 +57,13 @@ const isToastOrReminder =
   window.location.hash.includes('reminder-popup') ||
   window.location.hash.includes('reminder-fullscreen')
 if (!isToastOrReminder) {
+  // Register before mount so #/plugins can resolve SettingsComponent immediately.
   registerBuiltinPlugins()
+}
+
+app.mount('#app')
+
+if (!isToastOrReminder) {
   useEventHub(pinia).startListening().catch((e) => {
     console.warn('[eventHub] startListening failed', e)
   })

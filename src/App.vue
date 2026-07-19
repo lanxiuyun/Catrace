@@ -32,7 +32,11 @@ const menuOptions = computed(() => [
     key: '/dashboard',
   },
   {
-    label: () => h(RouterLink, { to: '/settings' }, { default: () => t('nav.settings') }),
+    label: () => h(RouterLink, { to: '/plugins' }, { default: () => t('nav.plugins') }),
+    key: '/plugins',
+  },
+  {
+    label: () => h(RouterLink, { to: '/settings' }, { default: () => t('nav.systemSettings') }),
     key: '/settings',
   },
   {

@@ -1,7 +1,9 @@
 export default {
   nav: {
     overview: '概览',
-    settings: '设置',
+    plugins: '功能插件',
+    systemSettings: '系统设置',
+    settings: '系统设置',
     debug: '调试',
   },
   dashboard: {
@@ -24,8 +26,9 @@ export default {
     },
   },
   settings: {
-    title: '设置',
-    subtitle: '自定义 Catrace 的工作方式',
+    title: '系统设置',
+    subtitle: '通知方式、媒体检测与系统选项',
+    dragHandle: '拖动排序',
     groups: {
       reminder: '提醒偏好',
       media: '视频与音乐',
@@ -324,5 +327,28 @@ export default {
     permissionGoto: '前往终端',
     permissionDecided: '已处理',
     permissionTimedOut: '已超时，请回终端处理',
+  },
+  plugins: {
+    pageTitle: '功能插件',
+    pageSubtitle: '管理 Catrace 提供的健康提醒功能',
+    listHeading: '功能列表',
+    rest: {
+      name: '久坐提醒',
+      subtitle: '在专注工作后提醒你休息',
+      listSubtitle: '连续久坐后提醒你站起来活动',
+      badge: '健康提醒',
+      switchAria: '久坐提醒界面开关（仅界面状态）',
+      timingSection: '提醒节奏',
+      windowTitle: '连续久坐',
+      windowDesc: '连续活跃多久后提醒你休息',
+      breakTitle: '建议休息',
+      breakDesc: '连续休息多少分钟算一次有效休息',
+      snoozeTitle: '重复提醒',
+      snoozeDesc: '活跃满后每隔多久再提醒一次',
+      previewSection: '通知预览',
+      previewDefaultTitle: '休息提醒',
+      previewDefaultBody: '这是一条测试提醒',
+      testBtn: '发送测试提醒',
+    },
   },
 }

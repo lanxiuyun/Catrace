@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
+import Plugins from '../views/Plugins.vue'
 import Settings from '../views/Settings.vue'
 import Debug from '../views/Debug.vue'
 import ReminderPopup from '../views/ReminderPopup.vue'
@@ -11,6 +12,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/dashboard' },
     { path: '/dashboard', component: Dashboard },
+    { path: '/plugins', component: Plugins },
     { path: '/settings', component: Settings },
     { path: '/debug', component: Debug },
     { path: '/reminder-popup', component: ReminderPopup },

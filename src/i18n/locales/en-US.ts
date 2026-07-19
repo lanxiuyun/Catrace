@@ -1,7 +1,9 @@
 export default {
   nav: {
     overview: 'Overview',
-    settings: 'Settings',
+    plugins: 'Plugins',
+    systemSettings: 'System',
+    settings: 'System',
     debug: 'Debug',
   },
   dashboard: {
@@ -24,8 +26,9 @@ export default {
     },
   },
   settings: {
-    title: 'Settings',
-    subtitle: 'Customize how Catrace works',
+    title: 'System Settings',
+    subtitle: 'Notifications, media detection, and system options',
+    dragHandle: 'Drag to reorder',
     groups: {
       reminder: 'Reminder Preferences',
       media: 'Video & Music',
@@ -324,5 +327,28 @@ export default {
     permissionGoto: 'Open terminal',
     permissionDecided: 'Handled',
     permissionTimedOut: 'Timed out — approve in the terminal',
+  },
+  plugins: {
+    pageTitle: 'Feature Plugins',
+    pageSubtitle: 'Manage Catrace health reminder features',
+    listHeading: 'Features',
+    rest: {
+      name: 'Sitting Reminder',
+      subtitle: 'Take healthier breaks after focused work',
+      listSubtitle: 'Remind you to stand after long sitting',
+      badge: 'Health',
+      switchAria: 'Sitting reminder UI toggle (UI state only)',
+      timingSection: 'Reminder timing',
+      windowTitle: 'Continuous sitting',
+      windowDesc: 'How long of continuous activity before a rest reminder',
+      breakTitle: 'Suggested break',
+      breakDesc: 'How many consecutive rest minutes count as a valid break',
+      snoozeTitle: 'Repeat reminder',
+      snoozeDesc: 'How often to remind again after the active window is reached',
+      previewSection: 'Notification preview',
+      previewDefaultTitle: 'Rest Reminder',
+      previewDefaultBody: 'This is a test notification',
+      testBtn: 'Send test reminder',
+    },
   },
 }

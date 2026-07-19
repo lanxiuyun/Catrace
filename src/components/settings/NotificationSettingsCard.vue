@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { NSelect, NInput, NButton, useMessage } from 'naive-ui'
+import { NSelect, NInput, useMessage } from 'naive-ui'
 import {
   getReminderMode,
   setReminderMode,
@@ -8,7 +8,6 @@ import {
   setReminderText,
   getFullscreenSettings,
   setFullscreenSettings,
-  testNotification,
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from './SettingRow.vue'
@@ -93,15 +92,6 @@ function handleBgFileChange(event: Event) {
 function clearBg() {
   fullscreen.value.bg = ''
 }
-
-async function notify() {
-  try {
-    await testNotification()
-    message.success(t('settings.messages.notifySent'))
-  } catch (e) {
-    message.error(t('settings.messages.notifyFailed'))
-  }
-}
 </script>
 
 <template>
@@ -164,12 +154,6 @@ async function notify() {
         size="small"
         style="width: 13.75rem;"
       />
-    </setting-row>
-
-    <div class="divider" />
-
-    <setting-row :title="t('settings.reminder.testNotifyTitle')" :desc="t('settings.reminder.testNotifyDesc')">
-      <n-button @click="notify">{{ t('settings.reminder.testNotifyBtn') }}</n-button>
     </setting-row>
   </div>
 </template>
