@@ -5,6 +5,7 @@ import router from './router'
 import i18n from './i18n'
 import { logFrontend } from './api/tauri'
 import { useEventHub } from './stores/eventHub'
+import { registerBuiltinPlugins } from './plugins/registerBuiltins'
 
 // 从 URL query 参数读取提醒类型（弹窗创建时传入）
 const url = new URL(window.location.href)
@@ -57,6 +58,7 @@ const isToastOrReminder =
   window.location.hash.includes('reminder-popup') ||
   window.location.hash.includes('reminder-fullscreen')
 if (!isToastOrReminder) {
+  registerBuiltinPlugins()
   useEventHub(pinia).startListening().catch((e) => {
     console.warn('[eventHub] startListening failed', e)
   })

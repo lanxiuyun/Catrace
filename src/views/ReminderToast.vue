@@ -24,7 +24,11 @@ import {
   getAgentSoundSettings,
   logFrontend,
   resolvePermission,
+  resolveEvent,
+  resolveEventAction,
+  getActiveEvents,
 } from '../api/tauri'
+import type { BusEvent } from '../types/event'
 import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
 import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
@@ -67,6 +71,8 @@ interface ToastItem {
   restStreak?: number
   isComplete?: boolean
   endTimer?: ReturnType<typeof setTimeout> | null
+  // Event Bus correlation
+  eventId?: string
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -80,6 +86,9 @@ let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenRestTimer: (() => void) | null = null
 let unlistenAgentSound: (() => void) | null = null
+let unlistenBusEvent: (() => void) | null = null
+/** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
+const seenBusEventIds = new Set<string>()
 
 // Agent 通知提示音：首次加载时缓存 data URL 与音量
 let agentSoundDataUrl: string | null | undefined = undefined
@@ -170,7 +179,19 @@ onMounted(async () => {
     loadAgentSound()
   })
 
-  // 暴露全局函数给 Rust 端 eval 调用
+  // Event Bus → Toast 统一渲染线（rest/water/eye 等 display_mode=toast 的 active 事件）
+  unlistenBusEvent = await listen<BusEvent>('catrace:event', (ev) => {
+    handleBusEvent(ev.payload)
+  })
+  // 晚到的 Toast 窗：拉一次 active events 补水合
+  try {
+    const active = await getActiveEvents()
+    for (const e of active) handleBusEvent(e)
+  } catch {
+    // ignore
+  }
+
+  // 暴露全局函数给 Rust 端 eval 调用（agent/update/permission 尚未迁 Bus）
   ;(window as any).addToastNotification = (payload: {
     kind?: ToastKind
     boundary?: number
@@ -253,6 +274,8 @@ onUnmounted(() => {
   unlistenRestTimer = null
   unlistenAgentSound?.()
   unlistenAgentSound = null
+  unlistenBusEvent?.()
+  unlistenBusEvent = null
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -473,6 +496,53 @@ function scheduleRemoveRestTimer() {
   }, REST_TIMER_REMOVE_DELAY_MS)
 }
 
+function handleBusEvent(event: BusEvent) {
+  if (!event?.id) return
+  if (event.display_mode && event.display_mode !== 'toast') return
+
+  if (event.status === 'resolved') {
+    seenBusEventIds.add(event.id)
+    const existing = notifications.value.find((n) => n.eventId === event.id)
+    if (existing) {
+      removeNotification(existing.id, true)
+    }
+    return
+  }
+
+  if (event.status && event.status !== 'active') return
+  if (seenBusEventIds.has(event.id)) return
+
+  // 仅内置 toast kinds 走 bus 渲染；agent/permission 仍走 eval
+  const kind = event.kind as ToastKind
+  if (kind !== 'rest' && kind !== 'water' && kind !== 'eye') {
+    return
+  }
+
+  seenBusEventIds.add(event.id)
+  const boundary =
+    typeof (event.payload as { boundary?: number } | null)?.boundary === 'number'
+      ? (event.payload as { boundary: number }).boundary
+      : 0
+
+  logFrontend('info', `[toast-fe] bus event kind=${kind} id=${event.id}`).catch(() => {})
+  addNotification({
+    kind,
+    boundary,
+    title: event.title || '',
+    body: event.body || '',
+    eventId: event.id,
+  })
+}
+
+function markEventResolved(eventId: string | undefined, actionId?: string) {
+  if (!eventId) return
+  seenBusEventIds.add(eventId)
+  const p = actionId
+    ? resolveEventAction(eventId, actionId).catch(() => null)
+    : resolveEvent(eventId, { kind: 'dismissed' }).catch(() => null)
+  void p
+}
+
 async function addNotification(payload: {
   kind: ToastKind
   boundary?: number
@@ -491,6 +561,7 @@ async function addNotification(payload: {
   requestId?: number
   toolName?: string
   toolInput?: unknown
+  eventId?: string
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -607,6 +678,7 @@ async function addNotification(payload: {
         }]
       : undefined,
     totalMs: autoHideMs,
+    eventId: payload.eventId,
   }
 
   // 新通知加到底部（数组末尾）
@@ -805,6 +877,7 @@ async function handleSnooze(item: ToastItem, minutes: number) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'snooze')
   removeNotification(item.id, true)
 }
 
@@ -815,6 +888,7 @@ async function handleSkip(item: ToastItem) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'skip')
   removeNotification(item.id, true)
 }
 
@@ -825,6 +899,7 @@ async function handleDrinkWater(item: ToastItem) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'drunk')
   removeNotification(item.id, true)
 }
 
@@ -835,6 +910,7 @@ async function handleWaterSnooze(item: ToastItem, minutes: number) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'snooze_5')
   removeNotification(item.id, true)
 }
 
@@ -845,6 +921,7 @@ async function handleWaterSkip(item: ToastItem) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'skip')
   removeNotification(item.id, true)
 }
 
@@ -855,6 +932,7 @@ async function handleEyeSnooze(item: ToastItem, minutes: number) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'snooze_5')
   removeNotification(item.id, true)
 }
 
@@ -865,6 +943,7 @@ async function handleEyeSkip(item: ToastItem) {
   } catch {
     // ignore
   }
+  markEventResolved(item.eventId, 'skip')
   removeNotification(item.id, true)
 }
 
@@ -914,6 +993,7 @@ async function handleClose(item: ToastItem) {
       // ignore
     }
   }
+  markEventResolved(item.eventId)
   removeNotification(item.id, true)
 }
 

@@ -39,8 +39,17 @@ export const usePluginRegistry = defineStore('pluginRegistry', () => {
   }
 
   function getPluginForKind(kind: string): PluginHandle | undefined {
-    const name = cardKindMap.value.get(kind) || cardKindMap.value.get(`kind:${kind}`)
-    return name ? pluginMap.value.get(name) : undefined
+    // kind 直接匹配，或 kind:xxx / event_type 前缀
+    const direct = cardKindMap.value.get(kind) || cardKindMap.value.get(`kind:${kind}`)
+    if (direct) return pluginMap.value.get(direct)
+    // fallback: scan manifests
+    for (const p of pluginMap.value.values()) {
+      if (p.manifest.events.includes(kind) || p.manifest.events.includes(`kind:${kind}`)) {
+        return p
+      }
+      if (p.manifest.name === kind) return p
+    }
+    return undefined
   }
 
   function getSettingsPlugins(): PluginHandle[] {

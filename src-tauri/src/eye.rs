@@ -1,7 +1,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::{db, reminder_toast, ReminderWindowStore};
+use crate::bus::EventBus;
+use crate::event::{
+    BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
+};
+use crate::db;
 
 /// 护眼提醒状态机（进程级，重启后重置）
 #[derive(Default)]
@@ -40,16 +44,59 @@ fn eye_notify_body(locale: &str) -> &'static str {
     }
 }
 
-// ---------- 通知 ----------
+fn eye_action_label(locale: &str, id: &str) -> String {
+    match (locale, id) {
+        ("zh-CN", "snooze_5") => "5 分钟后".into(),
+        (_, "snooze_5") => "Snooze 5m".into(),
+        ("zh-CN", "skip") => "跳过".into(),
+        (_, "skip") => "Skip".into(),
+        _ => id.into(),
+    }
+}
 
-pub fn show_eye_notification(
-    app_handle: &tauri::AppHandle,
-    locale: &str,
-    store: &ReminderWindowStore,
-) {
+// ---------- 通知（只走 Event Bus） ----------
+
+pub fn show_eye_notification(locale: &str, bus: &EventBus) {
     let title = eye_notify_title(locale).to_string();
     let body = eye_notify_body(locale).to_string();
-    reminder_toast::create_toast_window(app_handle, 0, &title, &body, "eye", store);
+
+    let event = BusEvent {
+        id: String::new(),
+        event_type: "reminder.eye.due".into(),
+        source: EventSource::Internal,
+        kind: "eye".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Info,
+        title,
+        body,
+        actions: vec![
+            EventAction {
+                id: "snooze_5".into(),
+                label: eye_action_label(locale, "snooze_5"),
+                payload: None,
+            },
+            EventAction {
+                id: "skip".into(),
+                label: eye_action_label(locale, "skip"),
+                payload: None,
+            },
+        ],
+        progress: None,
+        sticky: Some(false),
+        payload: serde_json::json!({}),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: None,
+        dedupe_key: Some("reminder.eye.due".into()),
+    };
+    if let Err(e) = bus.publish(event) {
+        crate::log_error!("eye", "bus.publish failed: {}", e);
+    }
 }
 
 // ---------- 命令 ----------
@@ -97,10 +144,9 @@ pub fn skip_eye_reminder(
 
 #[tauri::command]
 pub fn test_eye_notification(
-    app_handle: tauri::AppHandle,
     db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
     state: tauri::State<Arc<Mutex<EyeReminderState>>>,
+    bus: tauri::State<EventBus>,
 ) {
     let mut s = state.lock().unwrap();
     if !s.can_send_reminder() {
@@ -109,26 +155,19 @@ pub fn test_eye_notification(
     s.last_reminder_sent = Some(Instant::now());
     drop(s);
     let locale = db.get_setting("locale", "zh-CN");
-    show_eye_notification(&app_handle, &locale, &store);
+    show_eye_notification(&locale, &bus);
 }
 
 // ---------- 结算时检查 ----------
 
 /// 在每分钟结算时检查是否需要弹出护眼提醒。
 /// 调用方保证当前分钟处于活跃状态（休息时不会调用）。
-///
-/// 规则：连续用电脑满 interval 分钟弹一次；中途真正休息过
-/// （连续不活跃 >= break_minutes）就从休息结束重新计时。
-/// 实现上，计时起点取「上次提醒时间」和「上次真正休息结束时间」里更晚的那个；
-/// 实现上，计时起点取「上次提醒时间」和「上次真正休息结束时间」里更晚的那个；
-/// 两者都还没有（刚启动）时以现在为起点、本轮不弹，等满一个 interval 再说。
 pub fn check_and_notify(
     break_minutes: i64,
     db: &db::Db,
     eye_state: &Arc<Mutex<EyeReminderState>>,
-    app_handle: &tauri::AppHandle,
     locale: &str,
-    store: &ReminderWindowStore,
+    bus: &EventBus,
 ) {
     let eye_enabled = db.get_setting("eye_reminder_enabled", "true") == "true";
     if !eye_enabled {
@@ -153,7 +192,6 @@ pub fn check_and_notify(
         (Some(a), None) => a,
         (None, Some(b)) => b,
         (None, None) => {
-            // 首次启动无历史：以现在为计时起点，本轮不弹，等满一个 interval
             let _ = db.set_setting("eye_last_reminder_ts", &now_ts.to_string());
             return;
         }
@@ -166,7 +204,7 @@ pub fn check_and_notify(
             state.last_reminder_sent = Some(Instant::now());
             drop(state);
             let _ = db.set_setting("eye_last_reminder_ts", &now_ts.to_string());
-            show_eye_notification(app_handle, locale, store);
+            show_eye_notification(locale, bus);
         }
     }
 }

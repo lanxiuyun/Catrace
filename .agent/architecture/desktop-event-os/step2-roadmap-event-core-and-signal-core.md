@@ -30,12 +30,14 @@
 | **M2** Frontend Hub | Pinia upsert、revision、水合、主窗启动 | ✅ 骨架完成 | 不驱动 Toast |
 | **M3** Signal 骨架 + 落库 | `signal.rs`、三采样、`signal_minutes`、settle | ✅ 骨架完成 | legacy count 保留 |
 | **M4** 键序列隐私 | 开关、保留期、设置卡、purge | ✅ 骨架完成 | 默认关 |
-| **M5** Water 双写 | bus + 现有 toast | ✅ 骨架完成 | 无 resolve 薄桥（可选后续） |
+| **M5** Water 双写 | bus + 现有 toast | ✅ 已收敛 | 现仅 bus，无 eval |
 | **M6** 验收与文档 | 手测清单、知识沉淀 | 🔲 进行中 | 真机手测待做 |
-| **M7+** 更多生产者双写 | eye → rest → update → agent → permission | 📋 未开始 | permission 最后 |
-| **M8** Toast 消费 hub（可选） | 渲染适配层，去掉 eval 权威 | 🧊 暂缓 | Step 3 |
+| **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 骨架完成 | rest/water/eye |
+| **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 骨架完成 | agent 仍 eval |
+| **M7c** 内置插件注册 | pluginRegistry + settings 绑定 | ✅ 占位 | Card 组件未拆 |
+| **M8** Toast 消费 hub（可选） | 渲染适配层，去掉 eval 权威 | 🟡 部分 | rest/water/eye 完成；agent/update 仍 eval |
 | **M9** 外部 SDK / HTTP | 多语言 demo | 🧊 暂缓 | Phase 2 边界外 |
-| **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | `pluginRegistry` 仅占位 |
+| **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | 内置 registry 已占位 |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 
@@ -111,6 +113,7 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 
 ## 8. 一句话进度
 
-**M1–M5 代码骨架已落地并通过 cargo test / vue-tsc。**  
-下一步：真机手测 M6 → 按需修缺口 → M7 逐个生产者双写。  
+**M1–M5 完成；rest/water/eye 已只走 Event Bus → Toast 订阅渲染（无 eval 双弹）。**  
+Agent / update / permission 仍 eval。  
+下一步：真机验 rest/water/eye → 迁 agent → 设置页按插件 registry 渲染。  
 Desktop Event OS 长期愿景见本目录 [README.md](README.md)。

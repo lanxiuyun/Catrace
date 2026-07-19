@@ -114,10 +114,63 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
     });
 }
 
-/// 创建或复用 toast 通知窗口。
+/// 确保 Toast 窗口存在并显示（不向页面注入通知内容）。
+/// Event Bus 路径：内容由前端 listen `catrace:event` 渲染；此处只负责窗口生命周期。
+pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
+    let app = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let _guard = TOAST_MUTEX.lock().await;
+
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; if (!location.hash.includes('reminder-toast')) { location.hash = '#/reminder-toast'; }";
+            let _ = window.eval(route_js);
+            window_manager::show_reminder_no_activate(&app, &window);
+            return;
+        }
+
+        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            return;
+        }
+
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                let _ = position_toast_window(&window, &app);
+                window_manager::show_reminder_no_activate(&app, &window);
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
+            }
+            Err(e) => {
+                log_error!("toast-win", "build failed: {}", e);
+            }
+        }
+    });
+}
+
+/// 旧路径：创建或复用 toast 并通过 eval 注入通知（agent/update 等尚未迁 Bus 时使用）。
 /// - 窗口已存在时直接复用（优先）。
 /// - 窗口不存在时兜底创建。
 /// - 调试背景由前端 CSS 控制，Rust 侧窗口背景始终透明。
+#[allow(dead_code)]
 pub fn create_toast_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,

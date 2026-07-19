@@ -5,9 +5,10 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::event::{
-    now_ms, validate_event_shape, BusEvent, EventPatch, EventResolution, EventStatus,
+    now_ms, validate_event_shape, BusEvent, DisplayMode, EventPatch, EventResolution, EventStatus,
     ResolutionKind,
 };
+use crate::reminder_toast;
 
 static CHANNEL_CAPACITY: usize = 256;
 static MAX_RESOLVED_IN_REGISTRY: usize = 200;
@@ -196,6 +197,10 @@ impl EventBus {
             let mut reg = self.registry.write().map_err(|e| e.to_string())?;
             reg.publish(event)?
         };
+        // Toast 显示由前端订阅 bus；此处只保证窗口在位（不 eval 内容）。
+        if matches!(out.display_mode, DisplayMode::Toast) {
+            reminder_toast::ensure_toast_window_visible(&self.app_handle);
+        }
         self.emit_event(out.clone());
         Ok(out)
     }

@@ -5,7 +5,7 @@ use crate::bus::EventBus;
 use crate::event::{
     BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
 };
-use crate::{db, reminder_toast, ReminderWindowStore};
+use crate::db;
 
 /// 喝水提醒状态机（进程级，重启后重置）
 #[derive(Default)]
@@ -61,18 +61,12 @@ fn water_action_label(locale: &str, id: &str) -> String {
     }
 }
 
-// ---------- 通知 ----------
+// ---------- 通知（只走 Event Bus → Toast 订阅渲染） ----------
 
-pub fn show_water_notification(
-    app_handle: &tauri::AppHandle,
-    locale: &str,
-    store: &ReminderWindowStore,
-    bus: &EventBus,
-) {
+pub fn show_water_notification(locale: &str, bus: &EventBus) {
     let title = water_notify_title(locale).to_string();
     let body = water_notify_body(locale).to_string();
 
-    // Dual-write: Event bus (observe/lifecycle) + existing toast (authoritative UI).
     let event = BusEvent {
         id: String::new(),
         event_type: "reminder.water.due".into(),
@@ -80,8 +74,8 @@ pub fn show_water_notification(
         kind: "water".into(),
         display_mode: DisplayMode::Toast,
         level: EventLevel::Info,
-        title: title.clone(),
-        body: body.clone(),
+        title,
+        body,
         actions: vec![
             EventAction {
                 id: "drunk".into(),
@@ -115,8 +109,6 @@ pub fn show_water_notification(
     if let Err(e) = bus.publish(event) {
         crate::log_error!("water", "bus.publish failed: {}", e);
     }
-
-    reminder_toast::create_toast_window(app_handle, 0, &title, &body, "water", store);
 }
 
 // ---------- 命令 ----------
@@ -197,13 +189,11 @@ pub fn skip_water_reminder(
 
 #[tauri::command]
 pub fn test_water_notification(
-    app_handle: tauri::AppHandle,
     db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
     bus: tauri::State<EventBus>,
 ) {
     let locale = db.get_setting("locale", "zh-CN");
-    show_water_notification(&app_handle, &locale, &store, &bus);
+    show_water_notification(&locale, &bus);
 }
 
 // ---------- 结算时检查 ----------
@@ -213,9 +203,7 @@ pub fn test_water_notification(
 pub fn check_and_notify(
     db: &db::Db,
     water_state: &Arc<Mutex<WaterReminderState>>,
-    app_handle: &tauri::AppHandle,
     locale: &str,
-    store: &ReminderWindowStore,
     bus: &EventBus,
 ) {
     let water_enabled = db.get_setting("water_reminder_enabled", "true") == "true";
@@ -241,7 +229,7 @@ pub fn check_and_notify(
                 Instant::now() + Duration::from_secs((water_interval as u64) * 60),
             );
             drop(state);
-            show_water_notification(app_handle, locale, store, bus);
+            show_water_notification(locale, bus);
         }
     }
 }

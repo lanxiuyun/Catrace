@@ -770,6 +770,7 @@ fn test_notification(
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
+    bus: tauri::State<crate::bus::EventBus>,
 ) {
     let locale = db.get_setting("locale", "zh-CN");
 
@@ -808,6 +809,7 @@ fn test_notification(
         &db,
         &store,
         fullscreen_active.inner().clone(),
+        &bus,
     );
 }
 
@@ -820,6 +822,7 @@ fn start_notification_test(
     store: tauri::State<ReminderWindowStore>,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
     test_state: tauri::State<Arc<NotificationTestState>>,
+    bus: tauri::State<crate::bus::EventBus>,
 ) -> Result<(), String> {
     if interval_seconds == 0 {
         return Err("interval must be greater than 0".to_string());
@@ -835,6 +838,7 @@ fn start_notification_test(
     let store = store.inner().clone();
     let fullscreen_active = fullscreen_active.inner().clone();
     let test_state = test_state.inner().clone();
+    let bus = bus.inner().clone();
 
     tauri::async_runtime::spawn(async move {
         let mut interval = interval(Duration::from_secs(interval_seconds));
@@ -853,6 +857,7 @@ fn start_notification_test(
                 &db,
                 &store,
                 fullscreen_active.clone(),
+                &bus,
             );
         }
     });
@@ -878,6 +883,7 @@ fn show_notification(
     db: &db::Db,
     store: &ReminderWindowStore,
     fullscreen_active: Arc<AtomicBool>,
+    bus: &crate::bus::EventBus,
 ) {
     let mode = db.get_setting("reminder_mode", "toast");
 
@@ -925,8 +931,55 @@ fn show_notification(
             );
         }
         _ => {
-            // toast（默认）：使用右下角自定义 Vue 通知窗口
-            reminder_toast::create_toast_window(app_handle, boundary, &title, &body, "rest", store);
+            // toast（默认）：只 publish 到 Event Bus，由 Toast 窗订阅渲染
+            use crate::event::{
+                BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
+            };
+            let event = BusEvent {
+                id: String::new(),
+                event_type: "reminder.rest.due".into(),
+                source: EventSource::Internal,
+                kind: "rest".into(),
+                display_mode: DisplayMode::Toast,
+                level: EventLevel::Warning,
+                title: title.clone(),
+                body: body.clone(),
+                actions: vec![
+                    EventAction {
+                        id: "snooze".into(),
+                        label: if locale == "zh-CN" {
+                            "稍后".into()
+                        } else {
+                            "Snooze".into()
+                        },
+                        payload: None,
+                    },
+                    EventAction {
+                        id: "skip".into(),
+                        label: if locale == "zh-CN" {
+                            "跳过".into()
+                        } else {
+                            "Skip".into()
+                        },
+                        payload: None,
+                    },
+                ],
+                progress: None,
+                sticky: Some(false),
+                payload: serde_json::json!({ "boundary": boundary }),
+                created_at: 0,
+                updated_at: 0,
+                status: EventStatus::Active,
+                revision: 0,
+                resolved_at: None,
+                resolution: None,
+                expires_at: None,
+                correlation_id: None,
+                dedupe_key: Some(format!("reminder.rest.due:{boundary}")),
+            };
+            if let Err(e) = bus.publish(event) {
+                log_error!("rest", "bus.publish failed: {}", e);
+            }
         }
     }
 }
@@ -1347,6 +1400,7 @@ pub fn run() {
                                                 &db_clone,
                                                 &store_for_settle,
                                                 fullscreen_active_for_settle.clone(),
+                                                &event_bus_for_settle,
                                             );
                                             // 自动设置下次提醒间隔（默认3分钟）
                                             let interval_m: i64 = db_clone
@@ -1399,9 +1453,7 @@ pub fn run() {
                         water::check_and_notify(
                             &db_clone,
                             &water_state_for_settle,
-                            &app_handle,
                             &locale,
-                            &store_for_settle,
                             &event_bus_for_settle,
                         );
 
@@ -1410,9 +1462,8 @@ pub fn run() {
                             break_m,
                             &db_clone,
                             &eye_state_for_settle,
-                            &app_handle,
                             &locale,
-                            &store_for_settle,
+                            &event_bus_for_settle,
                         );
                     }
                 }
