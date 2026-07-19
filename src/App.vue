@@ -10,6 +10,7 @@ import {
   NLayoutContent,
   NMenu,
   NMessageProvider,
+  NDialogProvider,
   NPopover,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
@@ -65,42 +66,44 @@ watch(needsTransparentBg, (val) => {
 <template>
   <n-config-provider :theme-overrides="themeOverrides" :locale="naiveLocale">
     <n-message-provider>
-      <template v-if="isReminderRoute">
-        <ReminderPopup v-if="currentReminderType === 'popup'" />
-        <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen'" />
-        <ReminderToast v-else-if="currentReminderType === 'toast'" />
-        <RouterView v-else />
-      </template>
-      <n-layout v-else has-sider class="app-layout">
-        <n-layout-sider
-          bordered
-          :collapsed-width="64"
-          :width="180"
-          class="app-sider"
-        >
-          <div class="logo">Catrace</div>
-          <n-menu :value="route.path" :options="menuOptions" />
-          <n-popover trigger="hover" placement="right-start" :show-arrow="false" :delay="200">
-            <template #trigger>
-              <div class="sidebar-community">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <div class="sidebar-community-text">
-                  <span>QQ群</span>
-                  <span>468998176</span>
+      <n-dialog-provider>
+        <template v-if="isReminderRoute">
+          <ReminderPopup v-if="currentReminderType === 'popup'" />
+          <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen'" />
+          <ReminderToast v-else-if="currentReminderType === 'toast'" />
+          <RouterView v-else />
+        </template>
+        <n-layout v-else has-sider class="app-layout">
+          <n-layout-sider
+            bordered
+            :collapsed-width="64"
+            :width="180"
+            class="app-sider"
+          >
+            <div class="logo">Catrace</div>
+            <n-menu :value="route.path" :options="menuOptions" />
+            <n-popover trigger="hover" placement="right-start" :show-arrow="false" :delay="200">
+              <template #trigger>
+                <div class="sidebar-community">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <div class="sidebar-community-text">
+                    <span>QQ群</span>
+                    <span>468998176</span>
+                  </div>
                 </div>
-              </div>
-            </template>
-            <img :src="qqGroupQr" class="qq-qr-img" width="200" height="200" />
-          </n-popover>
-        </n-layout-sider>
-        <n-layout-content class="app-content" :native-scrollbar="false">
-          <RouterView v-slot="{ Component }">
-            <KeepAlive>
-              <component :is="Component" />
-            </KeepAlive>
-          </RouterView>
-        </n-layout-content>
-      </n-layout>
+              </template>
+              <img :src="qqGroupQr" class="qq-qr-img" width="200" height="200" />
+            </n-popover>
+          </n-layout-sider>
+          <n-layout-content class="app-content" :native-scrollbar="false">
+            <RouterView v-slot="{ Component }">
+              <KeepAlive>
+                <component :is="Component" />
+              </KeepAlive>
+            </RouterView>
+          </n-layout-content>
+        </n-layout>
+      </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
