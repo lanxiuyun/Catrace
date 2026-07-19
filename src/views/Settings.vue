@@ -13,16 +13,17 @@ import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
 import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
 import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
 import AgentSettingsCard from '../components/settings/AgentSettingsCard.vue'
+import SignalSettingsCard from '../components/settings/SignalSettingsCard.vue'
 
 const { t } = useI18n()
 const message = useMessage()
 
-const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water', 'eye', 'agent'] as const
+const GROUP_KEYS = ['reminder', 'media', 'system', 'notification', 'links', 'water', 'eye', 'agent', 'signal'] as const
 type GroupKey = typeof GROUP_KEYS[number]
-const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'eye', 'agent', 'system', 'links']
+const defaultGroupOrder: GroupKey[] = ['reminder', 'media', 'notification', 'water', 'eye', 'agent', 'signal', 'system', 'links']
 const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
 
-const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
+const cardComponents: Record<GroupKey, any> = {
   reminder: ReminderSettingsCard,
   media: MediaSettingsCard,
   system: SystemSettingsCard,
@@ -31,6 +32,7 @@ const cardComponents: Record<GroupKey, typeof ReminderSettingsCard> = {
   water: WaterSettingsCard,
   eye: EyeSettingsCard,
   agent: AgentSettingsCard,
+  signal: SignalSettingsCard,
 }
 
 let settingsStore: Store | null = null

@@ -1,6 +1,22 @@
 use rusqlite::{Connection, Result};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalMinuteRecord {
+    pub timestamp: i64,
+    pub dominant_process_name: String,
+    pub foreground_sample_count: i64,
+    pub foreground_counts_json: Option<String>,
+    pub key_count: i64,
+    pub key_sequence_json: Option<String>,
+    pub key_sequence_enabled: bool,
+    pub mouse_distance_px: f64,
+    pub mouse_sample_count: i64,
+    pub mouse_seconds_json: Option<String>,
+    pub collector_version: i32,
+}
 
 fn start_of_day_ts() -> i64 {
     chrono::Local::now()
@@ -45,9 +61,116 @@ impl Db {
             .ok();
         conn.execute("ALTER TABLE records ADD COLUMN category TEXT", [])
             .ok();
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS signal_minutes (
+                timestamp INTEGER PRIMARY KEY
+            )",
+            [],
+        )?;
+        for sql in [
+            "ALTER TABLE signal_minutes ADD COLUMN dominant_process_name TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN foreground_sample_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN foreground_counts_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN key_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN key_sequence_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN key_sequence_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_distance_px REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_sample_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_seconds_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN collector_version INTEGER NOT NULL DEFAULT 1",
+        ] {
+            let _ = conn.execute(sql, []);
+        }
+
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    pub fn upsert_signal_minute(&self, rec: &SignalMinuteRecord) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO signal_minutes (
+                timestamp, dominant_process_name, foreground_sample_count, foreground_counts_json,
+                key_count, key_sequence_json, key_sequence_enabled,
+                mouse_distance_px, mouse_sample_count, mouse_seconds_json, collector_version
+            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)
+            ON CONFLICT(timestamp) DO UPDATE SET
+                dominant_process_name=excluded.dominant_process_name,
+                foreground_sample_count=excluded.foreground_sample_count,
+                foreground_counts_json=excluded.foreground_counts_json,
+                key_count=excluded.key_count,
+                key_sequence_json=excluded.key_sequence_json,
+                key_sequence_enabled=excluded.key_sequence_enabled,
+                mouse_distance_px=excluded.mouse_distance_px,
+                mouse_sample_count=excluded.mouse_sample_count,
+                mouse_seconds_json=excluded.mouse_seconds_json,
+                collector_version=excluded.collector_version",
+            rusqlite::params![
+                rec.timestamp,
+                rec.dominant_process_name,
+                rec.foreground_sample_count,
+                rec.foreground_counts_json,
+                rec.key_count,
+                rec.key_sequence_json,
+                if rec.key_sequence_enabled { 1 } else { 0 },
+                rec.mouse_distance_px,
+                rec.mouse_sample_count,
+                rec.mouse_seconds_json,
+                rec.collector_version,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_recent_signal_minutes(&self, limit: i64) -> Result<Vec<SignalMinuteRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, dominant_process_name, foreground_sample_count, foreground_counts_json,
+                    key_count, key_sequence_json, key_sequence_enabled,
+                    mouse_distance_px, mouse_sample_count, mouse_seconds_json, collector_version
+             FROM signal_minutes
+             ORDER BY timestamp DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map([limit], |row| {
+            Ok(SignalMinuteRecord {
+                timestamp: row.get(0)?,
+                dominant_process_name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                foreground_sample_count: row.get(2)?,
+                foreground_counts_json: row.get(3)?,
+                key_count: row.get(4)?,
+                key_sequence_json: row.get(5)?,
+                key_sequence_enabled: row.get::<_, i64>(6)? != 0,
+                mouse_distance_px: row.get(7)?,
+                mouse_sample_count: row.get(8)?,
+                mouse_seconds_json: row.get(9)?,
+                collector_version: row.get(10)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Clear key_sequence_json older than retention_hours; keep key_count.
+    pub fn purge_key_sequences_older_than(&self, retention_hours: u64) -> Result<u64> {
+        let cutoff = chrono::Local::now().timestamp() - (retention_hours as i64) * 3600;
+        let conn = self.conn.lock().unwrap();
+        let n = conn.execute(
+            "UPDATE signal_minutes SET key_sequence_json = NULL
+             WHERE key_sequence_json IS NOT NULL AND timestamp < ?1",
+            [cutoff],
+        )?;
+        Ok(n as u64)
+    }
+
+    pub fn purge_all_key_sequences(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        let n = conn.execute(
+            "UPDATE signal_minutes SET key_sequence_json = NULL WHERE key_sequence_json IS NOT NULL",
+            [],
+        )?;
+        Ok(n as u64)
     }
 
     pub fn insert_record(&self, timestamp: i64, is_active: bool, process_name: &str) -> Result<()> {

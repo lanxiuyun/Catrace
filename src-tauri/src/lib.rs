@@ -1,11 +1,14 @@
 mod agent_hook;
+mod bus;
 mod db;
+mod event;
 mod eye;
 mod log;
 mod media_audio;
 mod reminder;
 mod reminder_toast;
 mod report;
+mod signal;
 mod water;
 mod window_manager;
 
@@ -18,7 +21,6 @@ use std::time::{Duration, Instant};
 use active_win_pos_rs::get_active_window;
 use base64::Engine;
 use chrono::Timelike;
-use device_query::{DeviceEvents, DeviceQuery, DeviceState, Keycode};
 use std::fs;
 use std::path::Path;
 use tauri::menu::{Menu, MenuItem};
@@ -58,52 +60,15 @@ fn request_accessibility_permission() -> bool {
     true
 }
 
-fn start_input_sampling(state: Arc<Mutex<ActivityState>>, started: Arc<AtomicBool>) {
-    if started.swap(true, Ordering::SeqCst) {
-        return;
-    }
-
-    // 键盘监听线程：所有平台统一使用 device_query 的事件回调
-    // rdev 在 Windows 上使用 SetWindowsHookEx(WH_KEYBOARD_LL)，其钩子链实现
-    // 有缺陷会导致 Ctrl 修饰键"卡住"——释放 Ctrl 后系统仍认为其按下，
-    // 致使用户滚轮滚动被错误解释为 Ctrl+Wheel 缩放。
-    // 在 macOS 上 rdev 调用 TISGetInputSourceProperty 会在非主线程/某些
-    // 输入法下崩溃（Narsil/rdev #103 #146）。device_query 避免以上问题。
-    {
-        let keyboard_state = state.clone();
-        thread::spawn(move || {
-            let device_state = DeviceState::new();
-            let _guard = device_state.on_key_down(move |_: &Keycode| {
-                let mut s = keyboard_state.lock().unwrap();
-                if s.key_debounce
-                    .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
-                {
-                    s.count += 1;
-                    s.key_debounce = Some(Instant::now());
-                }
-            });
-            loop {
-                thread::sleep(Duration::from_secs(60));
-            }
-        });
-    }
-
-    // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
-    thread::spawn(move || {
-        let device_state = DeviceState::new();
-        loop {
-            thread::sleep(Duration::from_secs(2));
-            let mouse = device_state.get_mouse();
-            let (x, y) = mouse.coords;
-            let mut s = state.lock().unwrap();
-            if (x, y) != s.last_cursor {
-                s.count += 1;
-                s.last_cursor = (x, y);
-            }
-        }
-    });
-
-    eprintln!("[accessibility] input sampling started");
+fn start_input_sampling(
+    state: Arc<Mutex<ActivityState>>,
+    signal_core: Arc<signal::SignalCore>,
+    started: Arc<AtomicBool>,
+) {
+    // 键盘/鼠标采集下沉到 signal 模块：
+    // - 保留 legacy ActivityState.count 的 2s 去重语义（休息判定不变）
+    // - 同时写入 Signal 分钟桶（键计数/可选序列、鼠标每秒位移）
+    signal::start_input_sampling(state, signal_core, started);
 }
 
 // ------------------------------------------------------------------
@@ -1189,6 +1154,15 @@ pub fn run() {
             let db_path = app_data_dir.join("catrace.db");
             let db = db::Db::new(&db_path).expect("Failed to initialize database");
 
+            // 初始化事件总线
+            let event_bus = crate::bus::EventBus::new(app.app_handle().clone());
+            app.manage(event_bus);
+
+            // Signal 采集内核（前台 1Hz 不依赖辅助功能；键鼠仍走 accessibility 门闩）
+            let signal_core = Arc::new(signal::SignalCore::new());
+            app.manage(signal_core.clone());
+            signal::start_foreground_sampling(signal_core.clone());
+
             // 加载媒体排除白名单（Windows 音频检测使用）
             let media_whitelist = Arc::new(Mutex::new(media_audio::load_whitelist(&db)));
             app.manage(media_whitelist.clone());
@@ -1220,19 +1194,28 @@ pub fn run() {
             app.manage(Arc::new(NotificationTestState::new()));
 
             if accessibility_permission_granted() {
-                start_input_sampling(state.clone(), input_sampling_started.clone());
+                start_input_sampling(
+                    state.clone(),
+                    signal_core.clone(),
+                    input_sampling_started.clone(),
+                );
             } else {
                 eprintln!(
                     "[accessibility] permission not granted; waiting to start input sampling"
                 );
                 let sampling_state = state.clone();
+                let sampling_signal = signal_core.clone();
                 let sampling_started = input_sampling_started.clone();
                 thread::spawn(move || loop {
                     if sampling_started.load(Ordering::SeqCst) {
                         break;
                     }
                     if accessibility_permission_granted() {
-                        start_input_sampling(sampling_state.clone(), sampling_started.clone());
+                        start_input_sampling(
+                            sampling_state.clone(),
+                            sampling_signal.clone(),
+                            sampling_started.clone(),
+                        );
                         break;
                     }
                     thread::sleep(Duration::from_secs(3));
@@ -1265,6 +1248,8 @@ pub fn run() {
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
+            let signal_for_settle = signal_core.clone();
+            let event_bus_for_settle = app.state::<crate::bus::EventBus>().inner().clone();
             tauri::async_runtime::spawn(async move {
                 // 计算距离下一个整分钟还有多少秒
                 let now = chrono::Local::now();
@@ -1275,7 +1260,8 @@ pub fn run() {
                 loop {
                     minute.tick().await;
                     // 在获取 settle_state 锁之前，先完成所有可能阻塞的系统调用。
-                    // 如果 is_media_active() 或 get_active_window() 卡住，不会阻塞键鼠计数线程。
+                    // 如果 is_media_active() 卡住，不会阻塞键鼠计数线程。
+                    // 前台应用改由 signal 1Hz 采样，settle 不再同步 get_active_window。
                     let media_enabled =
                         db_clone.get_setting("video_active_enabled", "true") == "true";
                     let media_active = if media_enabled {
@@ -1285,15 +1271,16 @@ pub fn run() {
                         false
                     };
                     let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
-                    let process_name = match get_active_window() {
-                        Ok(win) => std::path::Path::new(&win.process_path)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("unknown")
-                            .to_string(),
-                        Err(_) => "unknown".to_string(),
-                    };
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
+
+                    // Drain completed signal minutes; use dominant app for this settle row.
+                    let process_name = signal::persist_drained(
+                        &db_clone,
+                        &signal_for_settle,
+                        timestamp,
+                    )
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "unknown".to_string());
 
                     // 先短暂取出并清零键鼠计数，同时保存媒体/全屏快照，
                     // 后续写 DB、提醒、Toast 都不再持有 ActivityState 锁。
@@ -1415,6 +1402,7 @@ pub fn run() {
                             &app_handle,
                             &locale,
                             &store_for_settle,
+                            &event_bus_for_settle,
                         );
 
                         // 护眼提醒逻辑（仅在当前分钟活跃时检查）
@@ -1549,6 +1537,16 @@ pub fn run() {
             agent_hook::get_agent_sound_settings,
             agent_hook::set_agent_sound_settings,
             agent_hook::get_agent_sound_data_url,
+            crate::bus::publish_event,
+            crate::bus::update_event,
+            crate::bus::resolve_event,
+            crate::bus::resolve_event_action,
+            crate::bus::get_active_events,
+            signal::set_signal_key_sequence_enabled,
+            signal::set_signal_key_sequence_retention_hours,
+            signal::get_signal_runtime_config,
+            signal::purge_key_sequences,
+            signal::get_recent_signal_minutes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

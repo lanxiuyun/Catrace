@@ -1,6 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::bus::EventBus;
+use crate::event::{
+    BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
+};
 use crate::{db, reminder_toast, ReminderWindowStore};
 
 /// 喝水提醒状态机（进程级，重启后重置）
@@ -45,15 +49,73 @@ fn water_notify_body(locale: &str) -> &'static str {
     }
 }
 
+fn water_action_label(locale: &str, id: &str) -> String {
+    match (locale, id) {
+        ("zh-CN", "snooze_5") => "5 分钟后".into(),
+        (_, "snooze_5") => "Snooze 5m".into(),
+        ("zh-CN", "skip") => "跳过".into(),
+        (_, "skip") => "Skip".into(),
+        ("zh-CN", "drunk") => "已喝水".into(),
+        (_, "drunk") => "Done".into(),
+        _ => id.into(),
+    }
+}
+
 // ---------- 通知 ----------
 
 pub fn show_water_notification(
     app_handle: &tauri::AppHandle,
     locale: &str,
     store: &ReminderWindowStore,
+    bus: &EventBus,
 ) {
     let title = water_notify_title(locale).to_string();
     let body = water_notify_body(locale).to_string();
+
+    // Dual-write: Event bus (observe/lifecycle) + existing toast (authoritative UI).
+    let event = BusEvent {
+        id: String::new(),
+        event_type: "reminder.water.due".into(),
+        source: EventSource::Internal,
+        kind: "water".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Info,
+        title: title.clone(),
+        body: body.clone(),
+        actions: vec![
+            EventAction {
+                id: "drunk".into(),
+                label: water_action_label(locale, "drunk"),
+                payload: None,
+            },
+            EventAction {
+                id: "snooze_5".into(),
+                label: water_action_label(locale, "snooze_5"),
+                payload: None,
+            },
+            EventAction {
+                id: "skip".into(),
+                label: water_action_label(locale, "skip"),
+                payload: None,
+            },
+        ],
+        progress: None,
+        sticky: Some(false),
+        payload: serde_json::json!({}),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: None,
+        dedupe_key: Some("reminder.water.due".into()),
+    };
+    if let Err(e) = bus.publish(event) {
+        crate::log_error!("water", "bus.publish failed: {}", e);
+    }
+
     reminder_toast::create_toast_window(app_handle, 0, &title, &body, "water", store);
 }
 
@@ -138,9 +200,10 @@ pub fn test_water_notification(
     app_handle: tauri::AppHandle,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
+    bus: tauri::State<EventBus>,
 ) {
     let locale = db.get_setting("locale", "zh-CN");
-    show_water_notification(&app_handle, &locale, &store);
+    show_water_notification(&app_handle, &locale, &store, &bus);
 }
 
 // ---------- 结算时检查 ----------
@@ -153,6 +216,7 @@ pub fn check_and_notify(
     app_handle: &tauri::AppHandle,
     locale: &str,
     store: &ReminderWindowStore,
+    bus: &EventBus,
 ) {
     let water_enabled = db.get_setting("water_reminder_enabled", "true") == "true";
     if !water_enabled {
@@ -177,7 +241,7 @@ pub fn check_and_notify(
                 Instant::now() + Duration::from_secs((water_interval as u64) * 60),
             );
             drop(state);
-            show_water_notification(app_handle, locale, store);
+            show_water_notification(app_handle, locale, store, bus);
         }
     }
 }

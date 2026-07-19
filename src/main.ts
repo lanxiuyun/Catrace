@@ -1,8 +1,10 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import { logFrontend } from './api/tauri'
+import { useEventHub } from './stores/eventHub'
 
 // 从 URL query 参数读取提醒类型（弹窗创建时传入）
 const url = new URL(window.location.href)
@@ -41,6 +43,21 @@ function patchConsole() {
 patchConsole()
 
 const app = createApp(App)
+const pinia = createPinia()
+app.use(pinia)
 app.use(router)
 app.use(i18n)
 app.mount('#app')
+
+// Main window only: observe Event Bus (do not drive Toast rendering).
+const isToastOrReminder =
+  reminder === 'popup' ||
+  reminder === 'fullscreen' ||
+  window.location.hash.includes('reminder-toast') ||
+  window.location.hash.includes('reminder-popup') ||
+  window.location.hash.includes('reminder-fullscreen')
+if (!isToastOrReminder) {
+  useEventHub(pinia).startListening().catch((e) => {
+    console.warn('[eventHub] startListening failed', e)
+  })
+}

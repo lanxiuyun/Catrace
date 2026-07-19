@@ -438,3 +438,73 @@ export async function pickAgentSoundFile(): Promise<string | null> {
 export async function getAgentSoundDataUrl(): Promise<string | null> {
   return invoke('get_agent_sound_data_url')
 }
+
+// ---------- Event Bus ----------
+
+import type { BusEvent, EventPatch, EventResolution } from '../types/event'
+
+export async function publishEvent(event: Partial<BusEvent> & Pick<BusEvent, 'event_type' | 'kind' | 'title'>): Promise<BusEvent> {
+  return invoke('publish_event', { event })
+}
+
+export async function updateEvent(id: string, patch: EventPatch): Promise<BusEvent> {
+  return invoke('update_event', { id, patch })
+}
+
+export async function resolveEvent(id: string, resolution: EventResolution): Promise<BusEvent> {
+  return invoke('resolve_event', { id, resolution })
+}
+
+export async function resolveEventAction(
+  id: string,
+  actionId: string,
+  payload?: unknown,
+): Promise<BusEvent> {
+  return invoke('resolve_event_action', { id, actionId, payload })
+}
+
+export async function getActiveEvents(): Promise<BusEvent[]> {
+  return invoke('get_active_events')
+}
+
+// ---------- Signal ----------
+
+export interface SignalRuntimeConfig {
+  key_sequence_enabled: boolean
+  retention_hours: number
+  snapshot: Record<string, unknown>
+}
+
+export interface SignalMinuteRecord {
+  timestamp: number
+  dominant_process_name: string
+  foreground_sample_count: number
+  foreground_counts_json: string | null
+  key_count: number
+  key_sequence_json: string | null
+  key_sequence_enabled: boolean
+  mouse_distance_px: number
+  mouse_sample_count: number
+  mouse_seconds_json: string | null
+  collector_version: number
+}
+
+export async function setSignalKeySequenceEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_signal_key_sequence_enabled', { enabled })
+}
+
+export async function setSignalKeySequenceRetentionHours(hours: number): Promise<void> {
+  return invoke('set_signal_key_sequence_retention_hours', { hours })
+}
+
+export async function getSignalRuntimeConfig(): Promise<SignalRuntimeConfig> {
+  return invoke('get_signal_runtime_config')
+}
+
+export async function purgeKeySequences(): Promise<number> {
+  return invoke('purge_key_sequences')
+}
+
+export async function getRecentSignalMinutes(limit = 30): Promise<SignalMinuteRecord[]> {
+  return invoke('get_recent_signal_minutes', { limit })
+}

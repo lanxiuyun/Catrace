@@ -32,6 +32,9 @@ importers:
       naive-ui:
         specifier: ^2.44.1
         version: 2.44.1(vue@3.5.34(typescript@5.6.3))
+      pinia:
+        specifier: ^4.0.2
+        version: 4.0.2(@vue/devtools-api@6.6.4)(typescript@5.6.3)(vue@3.5.34(typescript@5.6.3))
       sortablejs:
         specifier: ^1.15.7
         version: 1.15.7
@@ -672,6 +675,9 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nostics@1.2.0:
+    resolution: {integrity: sha512-FGqEfhQjrvo1lL8KFifdTQiNwwQHJxC1jtYE1Rc54qF/jxONUNL+kC9gS1krX8Q65PgrQ5fCqH/I4NhWBvdSqg==}
+
   path-browserify@1.0.1:
     resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
@@ -681,6 +687,16 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  pinia@4.0.2:
+    resolution: {integrity: sha512-yKVVA7bSj5oRZFp/Ab9wLlmyb5gPUYEiIm4ryiWTe/xe7PtkRdMVOp1X1ggvq0c6Uj7Q0Du1HnV2mtAwM0Ks1g==}
+    peerDependencies:
+      '@vue/devtools-api': ^8.1.5
+      typescript: '>=5.6.0'
+      vue: ^3.5.11
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   postcss@8.5.15:
     resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
@@ -1276,11 +1292,21 @@ snapshots:
 
   nanoid@3.3.12: {}
 
+  nostics@1.2.0: {}
+
   path-browserify@1.0.1: {}
 
   picocolors@1.1.1: {}
 
   picomatch@4.0.4: {}
+
+  pinia@4.0.2(@vue/devtools-api@6.6.4)(typescript@5.6.3)(vue@3.5.34(typescript@5.6.3)):
+    dependencies:
+      '@vue/devtools-api': 6.6.4
+      nostics: 1.2.0
+      vue: 3.5.34(typescript@5.6.3)
+    optionalDependencies:
+      typescript: 5.6.3
 
   postcss@8.5.15:
     dependencies:

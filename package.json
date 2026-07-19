@@ -19,6 +19,7 @@
     "@tauri-apps/plugin-store": "^2.4.3",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "naive-ui": "^2.44.1",
+    "pinia": "^4.0.2",
     "sortablejs": "^1.15.7",
     "vue": "^3.5.13",
     "vue-i18n": "^9.14.5",

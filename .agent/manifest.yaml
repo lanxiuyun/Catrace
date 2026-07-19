@@ -77,6 +77,7 @@ features:
       - .agent/features/input-monitoring/README.md
     related:
       - platform-input
+      - desktop-event-os
   logging:
     docs:
       - .agent/features/logging/README.md
@@ -105,6 +106,7 @@ features:
       - toast-window
       - settings
       - i18n
+      - desktop-event-os
 
 architecture:
   project-structure:
@@ -136,11 +138,25 @@ architecture:
       - .agent/architecture/database/README.md
     related:
       - reminder
+      - desktop-event-os
   security:
     docs:
       - .agent/architecture/security/README.md
     related:
       - report
+  desktop-event-os:
+    docs:
+      - .agent/architecture/desktop-event-os/README.md
+      - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
+      - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
+      - .agent/architecture/desktop-event-os/signal-collection-schema-and-privacy.md
+    related:
+      - input-monitoring
+      - water-reminder
+      - toast-window
+      - agent-notification
+      - database
+      - settings
 
 reference:
   - .agent/reference/test-strategy.md
@@ -150,6 +166,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-19-continue-in-repo-desktop-event-os-not-rewrite.md
   - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md
   - .agent/decisions/gsmtcsm-removal.md
   - .agent/decisions/popup-removal-pending.md
@@ -172,6 +189,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-19-step2-event-core-and-signal-collection-scaffold.md
   - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
   - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
   - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
@@ -189,5 +207,6 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  phase: agent 通知 P6 稳固（挂起释放+并行HTTP+CORS）+ 卡面分层/title + 本地测试页；路线图见 features/agent-notification/roadmap-and-progress.md
-  next: P5 真机复测（S5/S6/并行Stop/真Claude title）后升版 → 重装 Hook 释放新 cjs → P7 交互小窗 → P6 二期（Codex/Kimi 审批）
+  plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
+  phase: Desktop Event OS Step2 — M1–M5 骨架已落地（Event Bus + Signal + water 双写）；M6 真机验收进行中
+  next: 真机手测 M6（喝水单卡、signal_minutes、休息回归、键序列隐私）→ 修缺口 → M7 按 eye/rest/update/agent 顺序双写；Agent 通知 P5/P7 路线图并行见 features/agent-notification/roadmap-and-progress.md
