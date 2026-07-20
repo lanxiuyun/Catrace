@@ -36,10 +36,12 @@ import RestToastCard from '../components/RestToastCard.vue'
 import WaterToastCard from '../components/WaterToastCard.vue'
 import UpdateToastCard from '../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../components/RestTimerToastCard.vue'
+import SdkToastCard from '../components/SdkToastCard.vue'
+import type { EventAction, EventLevel, EventProgress } from '../types/event'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission'
+type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission' | 'sdk'
 
 interface ToastItem {
   id: number
@@ -77,6 +79,10 @@ interface ToastItem {
   // Event Bus correlation
   eventId?: string
   dedupeKey?: string
+  // sdk generic card
+  level?: EventLevel | string
+  sdkActions?: EventAction[]
+  sdkProgress?: EventProgress | null
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -497,10 +503,9 @@ function handleBusEvent(event: BusEvent) {
   }
 
   if (event.status && event.status !== 'active') return
-  if (seenBusEventIds.has(event.id)) return
 
   const kind = event.kind as ToastKind
-  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update', 'rest-timer']
+  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update', 'rest-timer', 'sdk']
   if (!busKinds.includes(kind)) {
     return
   }
@@ -508,6 +513,37 @@ function handleBusEvent(event: BusEvent) {
   const p = (event.payload ?? {}) as Record<string, unknown>
   const boundary = typeof p.boundary === 'number' ? p.boundary : 0
   const dedupeKey = event.dedupe_key || undefined
+
+  // sdk / rest-timer: same event id may be updated (revision++); refresh in place.
+  if (kind === 'sdk') {
+    const existing = notifications.value.find((n) => n.eventId === event.id && !n.leaving)
+      || (dedupeKey
+        ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
+        : undefined)
+    if (existing) {
+      existing.eventId = event.id
+      existing.kind = 'sdk'
+      existing.title = event.title || ''
+      existing.body = event.body || ''
+      existing.level = event.level
+      existing.sdkActions = event.actions || []
+      existing.sdkProgress = event.progress ?? null
+      existing.sticky = !!event.sticky
+      existing.dedupeKey = dedupeKey
+      existing.visible = true
+      if (!event.sticky) {
+        existing.remainingMs = AUTO_HIDE_MS
+        existing.totalMs = AUTO_HIDE_MS
+        startTimer(existing)
+      } else {
+        stopTimer(existing)
+        existing.remainingMs = 0
+      }
+      seenBusEventIds.add(event.id)
+      void adjustWindowSize()
+      return
+    }
+  }
 
   // rest-timer: upsert in place by kind/dedupe; do not gate on seenBusEventIds
   // because backend update() keeps the same event id with rising revision.
@@ -546,8 +582,14 @@ function handleBusEvent(event: BusEvent) {
       existing.body = event.body || ''
       existing.boundary = boundary
       existing.visible = true
+      if (kind === 'sdk') {
+        existing.level = event.level
+        existing.sdkActions = event.actions || []
+        existing.sdkProgress = event.progress ?? null
+        existing.sticky = !!event.sticky
+      }
       // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
-      if (kind !== 'permission' && !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) && kind !== 'update') {
+      if (kind !== 'permission' && !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) && kind !== 'update' && !(kind === 'sdk' && event.sticky)) {
         const autoHideMs = kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
         existing.remainingMs = autoHideMs
         existing.totalMs = autoHideMs
@@ -583,6 +625,10 @@ function handleBusEvent(event: BusEvent) {
     requestId: typeof p.requestId === 'number' ? p.requestId : undefined,
     toolName: typeof p.toolName === 'string' ? p.toolName : undefined,
     toolInput: p.toolInput,
+    level: event.level,
+    sticky: !!event.sticky,
+    sdkActions: kind === 'sdk' ? (event.actions || []) : undefined,
+    sdkProgress: kind === 'sdk' ? (event.progress ?? null) : undefined,
   })
 }
 
@@ -615,6 +661,10 @@ async function addNotification(payload: {
   toolInput?: unknown
   eventId?: string
   dedupeKey?: string
+  level?: EventLevel | string
+  sticky?: boolean
+  sdkActions?: EventAction[]
+  sdkProgress?: EventProgress | null
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -697,6 +747,7 @@ async function addNotification(payload: {
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
+  const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
@@ -707,7 +758,7 @@ async function addNotification(payload: {
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: isUpdate || isAgentSticky ? 0 : autoHideMs,
+    remainingMs: isUpdate || isAgentSticky || isSdkSticky ? 0 : autoHideMs,
     closeTimer: null,
     lastStartAt: 0,
     version: payload.version || '',
@@ -719,7 +770,7 @@ async function addNotification(payload: {
     downloadReceived: 0,
     event: payload.event,
     agentState: payload.agentState,
-    sticky: isAgentSticky,
+    sticky: isAgentSticky || isSdkSticky,
     agentEntries: isAgent
       ? [{
           event: payload.event || '',
@@ -733,6 +784,9 @@ async function addNotification(payload: {
     totalMs: autoHideMs,
     eventId: payload.eventId,
     dedupeKey: payload.dedupeKey,
+    level: payload.level,
+    sdkActions: payload.sdkActions,
+    sdkProgress: payload.sdkProgress ?? null,
   }
 
   // 新通知加到底部（数组末尾）
@@ -746,7 +800,7 @@ async function addNotification(payload: {
     }
   })
 
-  if (!isUpdate && !isAgentSticky) {
+  if (!isUpdate && !isAgentSticky && !isSdkSticky) {
     startTimer(item)
   }
   await adjustWindowSize()
@@ -1038,6 +1092,11 @@ function dismissAgentSession(sessionId: string) {
   }
 }
 
+function handleSdkAction(item: ToastItem, actionId: string) {
+  markEventResolved(item.eventId, actionId)
+  removeNotification(item.id, true)
+}
+
 async function handleClose(item: ToastItem) {
   // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
   if (item.kind === 'rest-timer') {
@@ -1104,6 +1163,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-rest-timer': item.kind === 'rest-timer',
           'toast-card-agent': item.kind === 'agent',
           'toast-card-permission': item.kind === 'permission',
+          'toast-card-sdk': item.kind === 'sdk',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -1179,6 +1239,19 @@ async function handleUpdateInstall(item: ToastItem) {
           :rest-streak="item.restStreak"
           :break-minutes="item.breakMinutes"
           @close="handleClose(item)"
+        />
+
+        <SdkToastCard
+          v-else-if="item.kind === 'sdk'"
+          :title="item.title"
+          :body="item.body"
+          :level="item.level"
+          :is-hovered="item.isHovered"
+          :sticky="!!item.sticky"
+          :progress="item.sdkProgress"
+          :actions="item.sdkActions"
+          @close="handleClose(item)"
+          @action="(aid) => handleSdkAction(item, aid)"
         />
       </div>
     </div>
@@ -1270,7 +1343,8 @@ async function handleUpdateInstall(item: ToastItem) {
 
 /* Agent / permission / eye / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
 .toast-card-agent,
-.toast-card-permission {
+.toast-card-permission,
+.toast-card-sdk {
   min-height: auto;
 }
 

@@ -27,6 +27,7 @@ import {
   type SignalMinuteRecord,
   type SignalRuntimeConfig,
 } from '../api/tauri'
+import EventSdkSettingsCard from '../components/settings/EventSdkSettingsCard.vue'
 
 const { t } = useI18n()
 
@@ -189,6 +190,8 @@ onDeactivated(() => {
           >{{ t('debug.notificationTest.stop') }}</n-button>
         </n-space>
       </n-card>
+
+      <EventSdkSettingsCard />
 
       <n-card :title="t('debug.signal.title')" size="small">
         <n-space vertical :size="12">

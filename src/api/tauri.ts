@@ -467,6 +467,27 @@ export async function getActiveEvents(): Promise<BusEvent[]> {
   return invoke('get_active_events')
 }
 
+// ---------- Event SDK HTTP ----------
+
+export interface EventSdkStatus {
+  enabled: boolean
+  port: number
+  token: string
+  base_url: string
+}
+
+export async function getEventSdkStatus(): Promise<EventSdkStatus> {
+  return invoke('get_event_sdk_status')
+}
+
+export async function setEventSdkEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_event_sdk_enabled', { enabled })
+}
+
+export async function rotateEventSdkToken(): Promise<string> {
+  return invoke('rotate_event_sdk_token')
+}
+
 // ---------- Signal ----------
 
 export interface SignalRuntimeConfig {

@@ -1,7 +1,7 @@
 # Step 2 路线图：Event Core + Signal Core
 
 > **计划真源**。会话外 Claude Plan 副本仅作草稿；以本文 + 代码为准。  
-> 状态基准：2026-07-19（骨架已合入工作区，按里程碑继续打磨/验收）
+> 状态基准：2026-07-20（M6 已验收；M9 HTTP Event API 骨架合入，待真机手测）
 
 ## 0. 产品定位
 
@@ -31,12 +31,12 @@
 | **M3** Signal 骨架 + 落库 | `signal.rs`、三采样、`signal_minutes`、settle | ✅ 骨架完成 | legacy count 保留 |
 | **M4** 键序列隐私 | 开关、保留期、设置卡、purge | ✅ 骨架完成 | 默认关 |
 | **M5** Water 双写 | bus + 现有 toast | ✅ 已收敛 | 现仅 bus，无 eval |
-| **M6** 验收与文档 | 手测清单、知识沉淀 | 🔲 进行中 | 真机手测待做 |
+| **M6** 验收与文档 | 手测清单、知识沉淀 | ✅ 完成 | 用户已验收 |
 | **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 骨架完成 | rest/water/eye |
 | **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 骨架完成 | agent 仍 eval |
 | **M7c** 内置插件注册 | pluginRegistry + settingsSurface | ✅ 完成 | rest/agent 挂功能插件页；settings 面可挂未来插件；Card 组件未拆 |
 | **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；dismiss 改 emit；Card 组件已拆 |
-| **M9** 外部 SDK / HTTP | 多语言 demo | 🧊 暂缓 | Phase 2 边界外 |
+| **M9** 外部 SDK / HTTP | localhost HTTP + demo kit | ✅ 骨架完成 | 端口 23457，默认开；SSE/webhook 延后 M9.1 |
 | **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | 内置 registry 已占位 |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
@@ -52,7 +52,7 @@ M7 按优先级双写生产者（每次一个，双写规则不变）
     ↓
 Signal → 可选 Event 桥（如前台切换通知）—— 单独 ADR
     ↓
-Phase 3 插件 / Phase 2 外部 SDK
+M9 外部 HTTP（demo kit）→ M9.1 SSE/webhook → Phase 3 插件
 ```
 
 Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：  
@@ -78,10 +78,24 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 - [ ] `event_type` 协议名稳定；`kind` 对齐现有 toast kind
 - [ ] 有用户操作时再考虑 `resolve_*` 桥
 
+
+### M9 外部 Event HTTP（完成定义）
+
+- [x] 127.0.0.1:23457 loopback；Bearer token；默认启用
+- [x] POST/GET/PATCH /v1/events + POST .../resolve；GET /v1/health 无鉴权
+- [x] 强制 source=sdk / kind=sdk / display_mode=toast；拒绝保留 kind
+- [x] list/get/resolve 仅 sdk 事件；限流 10 req/s、5 publish/s
+- [x] 调试页卡片（开关/token/轮换）+ Toast 通用卡 + in-place 更新
+- [x] demo kit：	ools/event-sdk/（README + curl/node/python）
+- [ ] 真机手测：publish → toast → patch progress → resolve；401/403/503
+- [ ] **不做（M9.1）**：SSE、webhook、浏览器 CORS 演示
+
+参考：src-tauri/src/event_http.rs、	ools/event-sdk/README.md
+
 ## 5. 明确不做（本期）
 
 - 项目重写 / 独立 `desktop-event-os` 空仓
-- 插件市场、外部 HTTP Event SDK、正式 Python/Node 包
+- 插件市场、正式 npm/pypi SDK 包、SSE/webhook 回调（M9.1）
 - Toast 全面改走 bus / 去掉 eval
 - 光标坐标轨迹持久化
 - signal 进远程 report

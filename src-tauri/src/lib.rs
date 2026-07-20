@@ -2,6 +2,7 @@ mod agent_hook;
 mod bus;
 mod db;
 mod event;
+mod event_http;
 mod eye;
 mod log;
 mod media_audio;
@@ -1394,6 +1395,9 @@ pub fn run() {
 
             // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
             agent_hook::start_server(app.app_handle().clone(), db.clone());
+            // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
+            let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
+            event_http::start_server(event_bus_for_http, db.clone());
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1702,6 +1706,9 @@ pub fn run() {
             crate::bus::resolve_event,
             crate::bus::resolve_event_action,
             crate::bus::get_active_events,
+            event_http::get_event_sdk_status,
+            event_http::set_event_sdk_enabled,
+            event_http::rotate_event_sdk_token,
             signal::set_signal_key_sequence_enabled,
             signal::set_signal_key_sequence_retention_hours,
             signal::get_signal_runtime_config,

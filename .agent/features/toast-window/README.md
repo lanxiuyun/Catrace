@@ -59,6 +59,14 @@
 
 Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，方便排查布局/点击。
 
+
+## sdk 通用卡（M9）
+
+- `kind: 'sdk'` → `SdkToastCard.vue`
+- 外部 HTTP / 内部 publish 均可；渲染仍只听 `catrace:event`
+- 同 `event.id` 或 `dedupe_key` **原地更新** progress/title/actions（勿二次堆卡）
+- sticky sdk 不走 auto-hide；action → `resolve_event_action`
+
 ## 子文档
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
 

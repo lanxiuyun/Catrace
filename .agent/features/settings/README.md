@@ -30,6 +30,8 @@
 
 系统设置页核心卡（notification/media/signal/system/links）仍本地声明。
 
+**Event SDK 管理卡不在设置页**，在调试页（`Debug.vue` + `EventSdkSettingsCard.vue`），避免与产品配置拖拽网格混放。
+
 带 `SettingsComponent` 且 `settingsSurface === 'settings'` 的插件由 `usePluginRegistry().getSettingsPlugins('settings')` 动态挂载，并入拖拽排序键 `settings_group_order`。
 
 当前：

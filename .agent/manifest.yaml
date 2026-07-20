@@ -28,6 +28,7 @@ features:
       - fullscreen-reminder
       - window-manager
       - platform-input
+      - event-sdk
   fullscreen-reminder:
     docs:
       - .agent/features/fullscreen-reminder/README.md
@@ -110,6 +111,15 @@ features:
       - i18n
       - desktop-event-os
 
+  event-sdk:
+    docs:
+      - .agent/features/event-sdk/README.md
+      - .agent/features/event-sdk/外部脚本如何发一条-sdk-Toast-与进度更新.md
+    related:
+      - toast-window
+      - desktop-event-os
+      - agent-notification
+
 architecture:
   project-structure:
     docs:
@@ -149,6 +159,7 @@ architecture:
   desktop-event-os:
     docs:
       - .agent/architecture/desktop-event-os/README.md
+      - .agent/architecture/desktop-event-os/m9-event-http-api.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
@@ -159,6 +170,7 @@ architecture:
       - water-reminder
       - toast-window
       - agent-notification
+      - event-sdk
       - database
       - settings
 
@@ -170,6 +182,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md
   - .agent/decisions/2026-07-19-continue-in-repo-desktop-event-os-not-rewrite.md
   - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md
   - .agent/decisions/gsmtcsm-removal.md
@@ -195,6 +208,8 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-20-M9本机Event-HTTP与调试页管理卡.md
+  - .agent/devlog/2026-07-20-rest-timer-bus收敛与-debug-signal展示.md
   - .agent/devlog/2026-07-20-signal-cpu修复与久坐toast连点限流.md
   - .agent/devlog/2026-07-19-toast-content-fully-via-event-bus-including-agent.md
   - .agent/devlog/2026-07-19-step2-event-core-and-signal-collection-scaffold.md
@@ -216,5 +231,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: Desktop Event OS — Toast Card 拆分 + dismissAgentSession 改 emit
-  next: 真机回归 Toast 各 kind 与 Agent 自动销项 → water/eye UI / Toast 无限连点延后
+  phase: M9 external Event HTTP done (loopback :23457 + progress path hand-test); management UI on Debug
+  next: optional 401/403/503 checks → M9.1 SSE/webhook or M10 plugins

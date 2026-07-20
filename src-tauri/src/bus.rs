@@ -179,7 +179,6 @@ impl EventRegistry {
         list
     }
 
-    #[allow(dead_code)]
     pub fn get(&self, id: &str) -> Option<BusEvent> {
         self.events.get(id).cloned()
     }
@@ -288,6 +287,11 @@ impl EventBus {
     pub fn active_events(&self) -> Result<Vec<BusEvent>, String> {
         let reg = self.registry.read().map_err(|e| e.to_string())?;
         Ok(reg.active_events())
+    }
+
+    pub fn get(&self, id: &str) -> Result<Option<BusEvent>, String> {
+        let reg = self.registry.read().map_err(|e| e.to_string())?;
+        Ok(reg.get(id))
     }
 
     pub fn find_active_by_dedupe_key(&self, key: &str) -> Result<Option<BusEvent>, String> {
