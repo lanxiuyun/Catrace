@@ -29,7 +29,8 @@ async function refreshExternal() {
   loading.value = true
   try {
     externalList.value = await listExternalPlugins()
-    await loadExternalPlugins()
+    // force: user clicked refresh / toggled enable — rebuild Card blobs.
+    await loadExternalPlugins({ force: true })
   } catch (e) {
     console.warn('[plugins page] refresh failed', e)
   } finally {
@@ -121,8 +122,9 @@ async function onTestExternal(p: ExternalPluginInfo) {
   if (!p.enabled || p.error || testingId.value) return
   testingId.value = p.id
   try {
-    // Ensure toast window registry has this plugin's card before the event lands.
-    await loadExternalPlugins()
+    // Do NOT call loadExternalPlugins here: toast window has its own Pinia and already
+    // loads on mount. Re-scanning + revoking Blob URLs under a live card freezes the
+    // toast WebView; publish alone is enough (same path as rest test + bus).
     await publishEvent({
       id: '',
       event_type: `${p.id}.tick`,
@@ -141,6 +143,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
       payload: {},
       dedupe_key: `${p.id}.test`,
     })
+    // Same 1s throttle as RestPluginPanel — avoid hammering ensure_toast + resize.
+    await new Promise<void>((r) => setTimeout(r, 1000))
   } catch (e) {
     console.warn('[plugins page] test publish failed', e)
   } finally {

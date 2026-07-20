@@ -530,6 +530,12 @@ function handleBusEvent(event: BusEvent) {
 
   if (event.status === 'resolved') {
     seenBusEventIds.add(event.id)
+    // Superseded = same dedupe_key was replaced by a newer publish. Keep the visible
+    // card; the following active event will upsert in place. Removing here causes
+    // unmount+remount of PluginHostCard (Blob re-import) and freezes toast on rapid test.
+    if (event.resolution?.kind === 'superseded') {
+      return
+    }
     const existing = notifications.value.find((n) => n.eventId === event.id)
     if (existing) {
       removeNotification(existing.id, true)
@@ -562,13 +568,16 @@ function handleBusEvent(event: BusEvent) {
       ? (event.source as { name: string }).name
       : undefined)
 
-  // sdk / plugin / rest-timer: same event id may be updated (revision++); refresh in place.
+  // sdk / plugin: same event id OR same dedupe_key → refresh in place (never remount card).
   if (kind === 'sdk' || isPluginEvent) {
     const existing = notifications.value.find((n) => n.eventId === event.id && !n.leaving)
       || (dedupeKey
         ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
         : undefined)
     if (existing) {
+      if (existing.eventId && existing.eventId !== event.id) {
+        seenBusEventIds.add(existing.eventId)
+      }
       existing.eventId = event.id
       existing.kind = kind
       existing.title = event.title || ''
@@ -580,7 +589,8 @@ function handleBusEvent(event: BusEvent) {
       existing.dedupeKey = dedupeKey
       existing.busEvent = event
       existing.pluginId = pluginId
-      existing.uiUrl = pluginHandle?.uiUrl
+      // Keep prior uiUrl if registry momentarily empty — avoids card reload thrash.
+      if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       existing.visible = true
       if (!event.sticky) {
         existing.remainingMs = AUTO_HIDE_MS
@@ -591,7 +601,7 @@ function handleBusEvent(event: BusEvent) {
         existing.remainingMs = 0
       }
       seenBusEventIds.add(event.id)
-      void adjustWindowSize()
+      void nextTick(() => adjustWindowSize())
       return
     }
   }
@@ -640,7 +650,7 @@ function handleBusEvent(event: BusEvent) {
         existing.sticky = !!event.sticky
         existing.busEvent = event
         existing.pluginId = pluginId
-        existing.uiUrl = pluginHandle?.uiUrl
+        if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       }
       // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
       const stickyPlugin = isPluginEvent && !!event.sticky

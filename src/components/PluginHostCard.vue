@@ -29,6 +29,9 @@ const emit = defineEmits<{
 
 const registry = usePluginRegistry()
 
+/** Process-wide: never re-defineAsyncComponent for the same plugin in one toast session. */
+const cardCache = new Map<string, Component>()
+
 function renderSdkFallback(message: string, level: string = 'warning') {
   return h(SdkToastCard, {
     title: props.event.title || 'Plugin',
@@ -74,11 +77,31 @@ async function loadFromPluginId(id: string): Promise<Component> {
   return loadFromBlobUrl(blobUrl)
 }
 
+function cacheKey(): string {
+  const pid =
+    props.pluginId ||
+    (props.event.source &&
+    typeof props.event.source === 'object' &&
+    (props.event.source as { type?: string; name?: string }).type === 'plugin'
+      ? (props.event.source as { name: string }).name
+      : '') ||
+    props.event.kind
+  return pid || props.event.kind
+}
+
 function resolveCard(): Component {
+  const key = cacheKey()
+  const cached = cardCache.get(key)
+  if (cached) return cached
+
   const registered =
     registry.getCardComponent(props.event.kind) ||
     registry.getCardComponent(props.event.event_type)
-  if (registered) return markRaw(registered)
+  if (registered) {
+    const c = markRaw(registered)
+    cardCache.set(key, c)
+    return c
+  }
 
   const url = props.uiUrl
   const pid =
@@ -90,7 +113,7 @@ function resolveCard(): Component {
       : undefined)
 
   if (url || pid) {
-    return markRaw(
+    const asyncCard = markRaw(
       defineAsyncComponent({
         loader: async () => {
           try {
@@ -124,18 +147,16 @@ function resolveCard(): Component {
         }) as Component,
       }),
     )
+    cardCache.set(key, asyncCard)
+    return asyncCard
   }
 
   return FallbackCard
 }
 
 const cardComp = shallowRef<Component>(resolveCard())
-const cardKey = computed(
-  () =>
-    `${props.event.kind}|${props.uiUrl || ''}|${props.pluginId || ''}|${
-      registry.getPluginForKind(props.event.kind)?.manifest.name || ''
-    }`,
-)
+/** Only remount when the plugin identity changes — not on every event revision/id. */
+const cardKey = computed(() => cacheKey())
 
 watch(
   cardKey,

@@ -191,6 +191,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-21-插件测试连点卡死-toast-supersede卸载与blob重挂载.md
   - .agent/bugs/2026-07-20-插件ui动态import-file-asset失败改blob加载.md
   - .agent/bugs/2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md
   - .agent/bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md
@@ -210,6 +211,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-21-插件测试连点卡死修复-supersede与Blob卡缓存.md
   - .agent/devlog/2026-07-20-M10本地外部插件与自定义Toast卡手测通过.md
   - .agent/devlog/2026-07-20-M9本机Event-HTTP与调试页管理卡.md
   - .agent/devlog/2026-07-20-rest-timer-bus收敛与-debug-signal展示.md
@@ -234,5 +236,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: M10 local external plugins hand-tested (manifest + Blob UI + plugin_id HTTP + Plugins test button)
-  next: optional M10.2 iframe/ACL; or M9.1 SSE/webhook; or polish action-resolve / disable-403 regression pass
+  phase: M10 plugins hand-tested + rapid test-click freeze fixed (supersede keep-card + Blob cache)
+  next: optional M10.2 iframe/ACL; or M9.1 SSE/webhook; commit remaining freeze-fix if not yet committed

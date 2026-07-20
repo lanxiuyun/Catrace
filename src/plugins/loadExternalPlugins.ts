@@ -25,21 +25,32 @@ function ensurePluginVueRuntime() {
 }
 
 const blobUrlByPlugin = new Map<string, string>()
+/** Single-flight: concurrent callers share one scan (toast + main + refresh). */
+let inflight: Promise<ExternalPluginInfo[]> | null = null
+/** Skip full rebuild when list fingerprint matches last successful load. */
+let lastFingerprint = ''
+
+function fingerprint(list: ExternalPluginInfo[]): string {
+  return list
+    .filter((p) => !p.error && p.enabled)
+    .map((p) => `${p.id}@${p.version}:${p.main || ''}:${p.hasUi ? 1 : 0}`)
+    .sort()
+    .join('|')
+}
 
 async function buildCardFromSource(pluginId: string, source: string): Promise<Component> {
-  // Revoke previous blob for this plugin (reload path).
+  const blob = new Blob([source], { type: 'text/javascript' })
+  const blobUrl = URL.createObjectURL(blob)
   const prev = blobUrlByPlugin.get(pluginId)
-  if (prev) {
+  blobUrlByPlugin.set(pluginId, blobUrl)
+  // Revoke AFTER swapping the map entry so a brief race still has a valid URL if needed.
+  if (prev && prev !== blobUrl) {
     try {
       URL.revokeObjectURL(prev)
     } catch {
       /* ignore */
     }
   }
-
-  const blob = new Blob([source], { type: 'text/javascript' })
-  const blobUrl = URL.createObjectURL(blob)
-  blobUrlByPlugin.set(pluginId, blobUrl)
 
   return markRaw(
     defineAsyncComponent({
@@ -59,14 +70,7 @@ async function buildCardFromSource(pluginId: string, source: string): Promise<Co
   )
 }
 
-/**
- * Discover local plugins via Rust, register enabled ones (with optional Card) into pluginRegistry.
- * Safe to call from main + toast windows (each has its own Pinia).
- *
- * UI loading strategy: read ui.mjs text from Rust → Blob URL → dynamic import.
- * Avoids asset:// / file:// ESM import failures in Tauri WebView.
- */
-export async function loadExternalPlugins(): Promise<ExternalPluginInfo[]> {
+async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
   ensurePluginVueRuntime()
   const registry = usePluginRegistry()
   let list: ExternalPluginInfo[] = []
@@ -77,7 +81,12 @@ export async function loadExternalPlugins(): Promise<ExternalPluginInfo[]> {
     return []
   }
 
-  // Drop previously registered external plugins before re-adding.
+  const fp = fingerprint(list)
+  if (!force && fp === lastFingerprint && fp !== '') {
+    // Registry already holds the same enabled set — avoid revoke/reimport thrash.
+    return list
+  }
+
   for (const name of registry.listExternalNames()) {
     registry.unregister(name)
   }
@@ -117,5 +126,23 @@ export async function loadExternalPlugins(): Promise<ExternalPluginInfo[]> {
     registry.register(handle)
   }
 
+  lastFingerprint = fp
   return list
+}
+
+/**
+ * Discover local plugins via Rust, register enabled ones (with optional Card) into pluginRegistry.
+ * Safe to call from main + toast windows (each has its own Pinia).
+ *
+ * UI loading: Rust reads ui.mjs → Blob URL → dynamic import (not file/asset).
+ * Concurrent calls coalesce; unchanged enabled set skips Blob rebuild.
+ */
+export async function loadExternalPlugins(
+  opts: { force?: boolean } = {},
+): Promise<ExternalPluginInfo[]> {
+  if (inflight) return inflight
+  inflight = loadExternalPluginsInner(!!opts.force).finally(() => {
+    inflight = null
+  })
+  return inflight
 }

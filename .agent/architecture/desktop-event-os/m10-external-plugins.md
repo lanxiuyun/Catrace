@@ -66,7 +66,21 @@ export default {
 2. 前端 `Blob` + `URL.createObjectURL` → `import(blobUrl)`
 3. 组件 `markRaw` 后写入 `pluginRegistry`（防 Pinia deep reactive 警告）
 4. Toast 窗 `onMounted` **先** `await loadExternalPlugins()` 再 listen bus
-5. `PluginHostCard` 可按 `pluginId` 兜底再拉一次 source
+5. `PluginHostCard` 按 **plugin id 缓存**组件；勿用 event id 当 `:key` / cardKey
+6. `loadExternalPlugins`：single-flight；enabled fingerprint 未变跳过重建；刷新/开关才 `force`
+
+## Toast 与 dedupe / supersede（连点必读）
+
+同 `dedupe_key` 再次 publish 时 Bus 会：`resolve(Superseded)` 旧事件 → 再 publish **新 id**。
+
+| 规则 | 说明 |
+|------|------|
+| `resolution.kind === 'superseded'` | Toast **不要**卸载可见卡；等后续 active 原地 upsert |
+| sdk / plugin 路径 | 同 `eventId` **或** 同 `dedupe_key` → 改字段，禁止 remove+add |
+| Plugins「测试通知」 | 只 `publishEvent` + 1s 限流；**禁止**每次 `loadExternalPlugins` |
+| 热路径 | 禁止 revoke 仍被显示卡引用的 Blob URL |
+
+踩坑详见：[[bugs]] `2026-07-21-插件测试连点卡死-toast-supersede卸载与blob重挂载.md`
 
 ## 事件入口
 
@@ -83,8 +97,9 @@ list/get/patch/resolve 允许 `Sdk | Plugin` 源。
 
 ### 进程内（Plugins 页测试按钮）
 
-`publish_event` invoke：`source: { type: 'plugin', name }` + `kind: <id>`。  
-`BusEvent.id` 有 `#[serde(default)]`，可空，由 bus 填 UUID。
+`publish_event` invoke：`source: { type: 'plugin', name }` + `kind: <id>` + 稳定 `dedupe_key`（如 `<id>.test`）。  
+`BusEvent.id` 有 `#[serde(default)]`，可空，由 bus 填 UUID。  
+连点应表现为**同一张卡刷新**，不是叠多张、更不能卡死。
 
 ## 宿主链路
 
