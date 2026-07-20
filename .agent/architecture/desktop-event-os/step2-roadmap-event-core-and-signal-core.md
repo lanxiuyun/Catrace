@@ -35,7 +35,7 @@
 | **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 骨架完成 | rest/water/eye |
 | **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 骨架完成 | agent 仍 eval |
 | **M7c** 内置插件注册 | pluginRegistry + settingsSurface | ✅ 完成 | rest/agent 挂功能插件页；settings 面可挂未来插件；Card 组件未拆 |
-| **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；仅 dismissAgentSession 仍 eval |
+| **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；dismiss 改 emit；Card 组件已拆 |
 | **M9** 外部 SDK / HTTP | 多语言 demo | 🧊 暂缓 | Phase 2 边界外 |
 | **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | 内置 registry 已占位 |
 
@@ -114,6 +114,6 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 ## 8. 一句话进度
 
 **Toast 内容路径已全部经 Event Bus：rest/water/eye/agent/permission/update/rest-timer。**  
-仅 `dismissAgentSession` 仍用专用通道。  
-下一步：真机验功能插件页 Agent 详情 → 可选拆 Toast Card 组件；water/eye UI 与无限 Toast 连点延后。  
+agent 会话销项改 `catrace:dismiss-agent-session` emit；Toast 卡片已拆组件。  
+下一步：真机回归 Toast 各 kind + Agent 自动销项；water/eye UI 与无限 Toast 连点延后。  
 Desktop Event OS 长期愿景见本目录 [README.md](README.md)。

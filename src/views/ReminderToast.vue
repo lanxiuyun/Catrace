@@ -29,10 +29,13 @@ import {
   getActiveEvents,
 } from '../api/tauri'
 import type { BusEvent } from '../types/event'
-import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
 import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
 import PermissionToastCard, { type PermissionItem } from '../components/PermissionToastCard.vue'
+import RestToastCard from '../components/RestToastCard.vue'
+import WaterToastCard from '../components/WaterToastCard.vue'
+import UpdateToastCard from '../components/UpdateToastCard.vue'
+import RestTimerToastCard from '../components/RestTimerToastCard.vue'
 
 const { t } = useI18n()
 
@@ -87,6 +90,7 @@ let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
 let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
+let unlistenDismissAgent: (() => void) | null = null
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -180,10 +184,10 @@ onMounted(async () => {
     // ignore
   }
 
-  // 暴露全局函数：agent 会话销项仍由 Rust eval 调用（非内容注入）
-  ;(window as any).dismissAgentSession = (sessionId: string) => {
-    dismissAgentSession(sessionId)
-  }
+  // Agent 会话销项：Rust emit，不再 eval window.dismissAgentSession
+  unlistenDismissAgent = await listen<string>('catrace:dismiss-agent-session', (ev) => {
+    dismissAgentSession(ev.payload)
+  })
 
   // 监听内容高度变化，自动调整窗口尺寸
   await nextTick()
@@ -213,13 +217,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  delete (window as any).dismissAgentSession
   unlistenDebug?.()
   unlistenDebug = null
   unlistenAgentSound?.()
   unlistenAgentSound = null
   unlistenBusEvent?.()
   unlistenBusEvent = null
+  unlistenDismissAgent?.()
+  unlistenDismissAgent = null
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -1134,102 +1139,47 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
         />
 
-        <!-- Header -->
-        <div v-if="item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="header">
-          <div class="header-left">
-            <div class="pulse-dot" />
-            <h2 v-if="item.kind === 'update'" class="title">
-              {{ $t('settings.update.newVersion', { version: item.version }) }}
-            </h2>
-            <h2 v-else class="title">{{ item.title }}</h2>
-          </div>
-          <button
-            v-if="!(item.kind === 'update' && item.updateInstalling)"
-            class="close-btn"
-            @click="handleClose(item)"
-            aria-label="关闭"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / agent / permission / sticky cards) -->
-        <div
-          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && item.kind !== 'permission' && !item.sticky"
-          class="progress-bar"
-          :class="{ paused: item.isHovered }"
+        <RestToastCard
+          v-else-if="item.kind === 'rest'"
+          :title="item.title"
+          :body="item.body"
+          :is-hovered="item.isHovered"
+          @close="handleClose(item)"
+          @snooze="(m) => handleSnooze(item, m)"
+          @skip="handleSkip(item)"
         />
 
-        <!-- Rest timer liquid ball -->
-        <div v-if="item.kind === 'rest-timer'" class="rest-timer-visual">
-          <div class="liquid-ball">
-            <RestTimerBall
-              :rest-streak="item.restStreak || 0"
-              :break-minutes="item.breakMinutes || 1"
-            />
-          </div>
-        </div>
+        <WaterToastCard
+          v-else-if="item.kind === 'water'"
+          :title="item.title"
+          :body="item.body"
+          :is-hovered="item.isHovered"
+          @close="handleClose(item)"
+          @drank="handleDrinkWater(item)"
+          @snooze="(m) => handleWaterSnooze(item, m)"
+          @skip="handleWaterSkip(item)"
+        />
 
-        <!-- Body -->
-        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="body-text">{{ item.body }}</p>
+        <UpdateToastCard
+          v-else-if="item.kind === 'update'"
+          :version="item.version"
+          :update-body="item.updateBody"
+          :show-update-body="item.showUpdateBody"
+          :update-installing="item.updateInstalling"
+          :download-progress="item.downloadProgress"
+          @close="handleClose(item)"
+          @toggle-details="toggleUpdateDetails(item)"
+          @install="handleUpdateInstall(item)"
+        />
 
-        <!-- Update changelog -->
-        <div
-          v-if="item.kind === 'update' && item.showUpdateBody && item.updateBody"
-          class="update-body"
-        >
-          {{ item.updateBody }}
-        </div>
-
-        <!-- Update download progress -->
-        <div v-if="item.kind === 'update' && item.updateInstalling" class="update-progress">
-          <div class="update-progress-track">
-            <div
-              class="update-progress-fill"
-              :style="{ width: `${item.downloadProgress}%` }"
-            />
-          </div>
-          <div class="update-progress-text">{{ item.downloadProgress }}%</div>
-        </div>
-
-        <!-- Actions -->
-        <div v-if="item.kind === 'update'" class="actions">
-          <button class="btn btn-secondary" @click="toggleUpdateDetails(item)">
-            {{ item.showUpdateBody ? $t('settings.update.hideDetails') : $t('settings.update.viewDetails') }}
-          </button>
-          <button
-            class="btn btn-primary"
-            :disabled="item.updateInstalling"
-            @click="handleUpdateInstall(item)"
-          >
-            {{ item.updateInstalling ? $t('settings.update.downloading') : $t('settings.update.updateNow') }}
-          </button>
-        </div>
-        <div v-else-if="item.kind === 'rest'" class="actions">
-          <button class="btn btn-secondary" @click="handleSnooze(item, 5)">
-            {{ $t('reminder.snooze5') }}
-          </button>
-          <button class="btn btn-secondary" @click="handleSnooze(item, 10)">
-            {{ $t('reminder.snooze10') }}
-          </button>
-          <button class="btn btn-primary" @click="handleSkip(item)">
-            {{ $t('reminder.skip') }}
-          </button>
-        </div>
-        <div v-else-if="item.kind === 'rest-timer'" class="actions"></div>
-        <div v-else-if="item.kind === 'water'" class="actions">
-          <button class="btn btn-water" @click="handleDrinkWater(item)">
-            {{ $t('water.drank') }}
-          </button>
-          <button class="btn btn-secondary" @click="handleWaterSnooze(item, 5)">
-            {{ $t('reminder.snooze5') }}
-          </button>
-          <button class="btn btn-primary" @click="handleWaterSkip(item)">
-            {{ $t('water.skip') }}
-          </button>
-        </div>
+        <RestTimerToastCard
+          v-else-if="item.kind === 'rest-timer'"
+          :title="item.title"
+          :body="item.body"
+          :rest-streak="item.restStreak"
+          :break-minutes="item.breakMinutes"
+          @close="handleClose(item)"
+        />
       </div>
     </div>
 
@@ -1313,99 +1263,9 @@ async function handleUpdateInstall(item: ToastItem) {
   opacity: 1;
 }
 
-/* Water reminder theming — unified with WaterWidget / Dashboard */
-.toast-card-water .pulse-dot {
-  background: #3B82F6;
-}
-
-.toast-card-water .progress-bar {
-  background: linear-gradient(90deg, #2563EB, #60A5FA);
-}
-
-.toast-card-water .title {
-  color: #1E40AF;
-}
-
-.toast-card-water .close-btn:hover {
-  background: #EFF6FF;
-  color: #2563EB;
-}
-
-.toast-card-water .body-text {
-  color: #3B82F6;
-}
-
-.toast-card-water .btn-secondary {
-  background: #EFF6FF;
-  color: #2563EB;
-}
-.toast-card-water .btn-secondary:hover {
-  background: #DBEAFE;
-}
-
-.toast-card-water .btn-primary {
-  background: #2563EB;
-}
-.toast-card-water .btn-primary:hover {
-  background: #1D4ED8;
-}
-
 /* Eye reminder: keep wrapper sizing minimal */
 .toast-card-eye {
   min-height: auto;
-}
-
-/* Rest timer theming — calm wellness style */
-.toast-card-rest-timer .pulse-dot {
-  background: #059669;
-}
-
-.toast-card-rest-timer .title {
-  color: #065F46;
-}
-
-.toast-card-rest-timer .close-btn:hover {
-  background: #ECFDF5;
-  color: #059669;
-}
-
-.toast-card-rest-timer .body-text {
-  text-align: center;
-  color: #047857;
-  margin-bottom: 0.5rem;
-}
-
-.rest-timer-visual {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0.375rem 0 0.5rem;
-}
-
-.liquid-ball {
-  width: 5.25rem;
-  height: 5.25rem;
-  border-radius: 50%;
-  position: relative;
-  overflow: hidden;
-  flex-shrink: 0;
-  animation: rest-ball-float 4s ease-in-out infinite;
-  box-shadow: 0 0.25rem 0.75rem rgba(5, 150, 105, 0.22);
-}
-
-@keyframes rest-ball-float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-0.375rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .liquid-ball {
-    animation: none;
-  }
 }
 
 /* Agent / permission / eye / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
@@ -1444,95 +1304,6 @@ async function handleUpdateInstall(item: ToastItem) {
     0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);
 }
 
-/* Update reminder theming — matches reference image orange accent */
-.toast-card-update .pulse-dot {
-  background: #F59E0B;
-}
-
-.toast-card-update .title {
-  color: #92400E;
-}
-
-.toast-card-update .close-btn:hover {
-  background: #FFFBEB;
-  color: #D97706;
-}
-
-.toast-card-update .body-text {
-  color: #B45309;
-}
-
-.toast-card-update {
-  min-height: auto;
-}
-
-.toast-card-update .btn-secondary {
-  background: #FFFBEB;
-  color: #D97706;
-  border: 0.0625rem solid #FCD34D;
-}
-.toast-card-update .btn-secondary:hover {
-  background: #FEF3C7;
-}
-
-.toast-card-update .btn-primary {
-  background: #F59E0B;
-}
-.toast-card-update .btn-primary:hover {
-  background: #D97706;
-}
-
-.toast-card-update .btn-primary:disabled {
-  background: #FCD34D;
-  cursor: not-allowed;
-}
-
-.update-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: 10rem;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: #78350F;
-  background: #FFFBEB;
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  margin: 0 0 0.625rem 0;
-}
-
-.update-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.625rem;
-}
-
-.update-progress-track {
-  flex: 1;
-  height: 0.375rem;
-  background: #F3F4F6;
-  border-radius: 0.25rem;
-  overflow: hidden;
-}
-
-.update-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #F59E0B, #FBBF24);
-  border-radius: 0.25rem;
-  transition: width 0.2s ease;
-}
-
-.update-progress-text {
-  font-size: 0.75rem;
-  color: #92400E;
-  font-variant-numeric: tabular-nums;
-  min-width: 2.5em;
-  text-align: right;
-}
-
 .debug-panel {
   position: fixed;
   top: 0.5rem;
@@ -1550,153 +1321,5 @@ async function handleUpdateInstall(item: ToastItem) {
 
 .debug-error {
   color: #f44;
-}
-
-/* Header */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.pulse-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: #EF4444;
-  animation: pulse 1.5s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.3); }
-}
-
-.title {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #2E1065;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Progress bar */
-.progress-bar {
-  width: 100%;
-  height: 0.125rem;
-  background: linear-gradient(90deg, #7C3AED, #A78BFA);
-  border-radius: 0.0625rem;
-  margin: 0.375rem 0 0.5rem;
-  animation: progress-shrink var(--toast-auto-hide-ms) linear forwards;
-}
-
-.progress-bar.paused {
-  animation-play-state: paused;
-}
-
-@keyframes progress-shrink {
-  from { width: 100%; }
-  to { width: 0%; }
-}
-
-.close-btn {
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #9C8DB5;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  padding: 0;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-.close-btn:hover {
-  background: #F5F3FF;
-  color: #7C3AED;
-}
-.close-btn:active {
-  transform: scale(0.95);
-}
-
-/* Body */
-.body-text {
-  font-size: 0.8125rem;
-  color: #6B5B8A;
-  line-height: 1.5;
-  margin: 0 0 0.625rem 0;
-  word-break: break-word;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* Actions */
-.actions {
-  display: flex;
-  gap: 0.375rem;
-  margin-top: auto;
-}
-
-.btn {
-  flex: 1;
-  height: 1.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-}
-
-.btn-secondary {
-  background: #F8F7FB;
-  color: #7C3AED;
-}
-.btn-secondary:hover {
-  background: #EDE9FE;
-}
-
-.btn-primary {
-  background: #7C3AED;
-  color: #ffffff;
-}
-.btn-primary:hover {
-  background: #6D28D9;
-}
-
-.btn-primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-water {
-  background: #3B82F6;
-  color: #ffffff;
-}
-.btn-water:hover {
-  background: #2563EB;
-}
-
-.btn:active {
-  transform: scale(0.97);
 }
 </style>

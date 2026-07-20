@@ -20,13 +20,14 @@ Producer (water/eye/rest/agent/update)
 | `ReminderToast` | 唯一内容渲染；水合 active events |
 | 主窗 `eventHub` | 调试/观察，**禁止**再弹一张卡 |
 
-## 仍非 Bus 的通道（有意保留）
+## 仍非 Bus 的通道
 
 | 通道 | 用途 |
 |------|------|
-| `catrace-rest-timer` | 休息进度球（分钟 settle 推送） |
-| `window.dismissAgentSession` eval | UserPromptSubmit 后销 sticky/permission UI |
+| `catrace:dismiss-agent-session` emit | UserPromptSubmit / 同 session 审批顶替后销 sticky+permission UI（**已非 eval**） |
 | popup / fullscreen | 久坐非 toast 模式，不经 bus |
+
+> rest-timer 内容路径已迁 Bus（`reminder.rest.timer` upsert）；进度仍由 settle 驱动。
 
 ## 防双弹
 
@@ -38,6 +39,7 @@ Producer (water/eye/rest/agent/update)
 
 1. 新内容类型优先加 BusEvent + handleBusEvent 映射
 2. 不要恢复 `addToastNotification` 全局函数做主路径
-3. dismiss 类副作用可继续 eval，但应只传 id，不传整卡 UI 数据
+3. dismiss 类副作用用专用 emit（如 `catrace:dismiss-agent-session`），只传 id，不传整卡 UI 数据
+4. 卡片 UI：`Rest/Water/Update/RestTimer/Eye/Agent/PermissionToastCard`；`ReminderToast` 只管堆叠、尺寸、总线映射
 
 相关：[[toast-window]] · [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md)

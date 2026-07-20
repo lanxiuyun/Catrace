@@ -274,25 +274,14 @@ pub fn create_toast_window(
 }
 
 /// 自动销项：用户已回到某 agent 会话时，从前端 sticky 待办卡 + 该 session 的审批卡里移除。
-/// 通过 eval 调 `window.dismissAgentSession`；窗口不存在则无需处理。
+/// 经 `catrace:dismiss-agent-session` emit（不再 eval window.dismissAgentSession）。
 /// 注意：后端挂起的 /permission 必须由调用方先 timeout 决策（见 agent_hook），这里只管 UI。
 pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &str) {
     if session_id.is_empty() || session_id == "unknown" {
         return;
     }
-    let app = app_handle.clone();
-    let payload = serde_json::json!(session_id);
-    let js = format!(
-        "if (window.dismissAgentSession) {{ window.dismissAgentSession({}); }}",
-        payload
-    );
-
-    tauri::async_runtime::spawn(async move {
-        let _guard = TOAST_MUTEX.lock().await;
-        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
-            let _ = window.eval(&js);
-        }
-    });
+    use tauri::Emitter;
+    let _ = app_handle.emit("catrace:dismiss-agent-session", session_id.to_string());
 }
 
 fn try_publish_toast_event(app_handle: &tauri::AppHandle, event: crate::event::BusEvent) -> bool {

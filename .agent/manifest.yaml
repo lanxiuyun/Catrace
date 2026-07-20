@@ -152,6 +152,7 @@ architecture:
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
+      - .agent/architecture/desktop-event-os/toast-card-split-and-dismiss-agent-session-emit.md
       - .agent/architecture/desktop-event-os/signal-collection-schema-and-privacy.md
     related:
       - input-monitoring
@@ -215,5 +216,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: Desktop Event OS — 功能插件页 registry 挂载 rest/agent；rest-timer 经 Bus；Debug Signal 分钟桶
-  next: 真机验功能插件页 Agent 详情 → 可选 Toast Card 拆分；water/eye UI 与 Toast 无限连点延后
+  phase: Desktop Event OS — Toast Card 拆分 + dismissAgentSession 改 emit
+  next: 真机回归 Toast 各 kind 与 Agent 自动销项 → water/eye UI / Toast 无限连点延后
