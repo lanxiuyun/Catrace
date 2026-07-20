@@ -1,8 +1,8 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 /**
- * Minimal Catrace Event SDK publisher (Node, no deps).
+ * Publish a demo-timer plugin event via Event HTTP.
  * Usage:
- *   node publish.mjs --token <t> --title "Hi" [--body "..."] [--level info]
+ *   node publish.mjs --token <t> [--title "..."] [--body "..."]
  * Env: CATRACE_EVENT_TOKEN, CATRACE_EVENT_BASE
  */
 const args = process.argv.slice(2);
@@ -13,13 +13,8 @@ function flag(name, fallback) {
 }
 const base = (flag("base", process.env.CATRACE_EVENT_BASE || "http://127.0.0.1:23457")).replace(/\/$/, "");
 const token = flag("token", process.env.CATRACE_EVENT_TOKEN || "");
-const title = flag("title", "Hello from Event SDK");
-const body = flag("body", "");
-const level = flag("level", "info");
-const dedupe = flag("dedupe-key", "");
-const pluginId = flag("plugin-id", "");
-const kind = flag("kind", "");
-const eventType = flag("event-type", "");
+const title = flag("title", "Demo Timer");
+const body = flag("body", "Hello from the demo-timer plugin card.");
 const sticky = args.includes("--sticky");
 
 if (!token) {
@@ -28,14 +23,19 @@ if (!token) {
 }
 
 const payload = {
+  plugin_id: "demo-timer",
+  kind: "demo-timer",
+  event_type: "demo-timer.tick",
   title,
-  body: body || undefined,
-  level,
+  body,
+  level: "success",
   sticky: sticky || undefined,
-  dedupe_key: dedupe || undefined,
-  plugin_id: pluginId || undefined,
-  kind: kind || undefined,
-  event_type: eventType || undefined,
+  progress: { current: 3, total: 10, label: "3 / 10 ticks" },
+  actions: [
+    { id: "snooze", label: "Snooze" },
+    { id: "done", label: "Done" },
+  ],
+  dedupe_key: "demo-timer.main",
 };
 
 const res = await fetch(`${base}/v1/events`, {

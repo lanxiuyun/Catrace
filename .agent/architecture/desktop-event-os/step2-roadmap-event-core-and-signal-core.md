@@ -1,7 +1,7 @@
 # Step 2 路线图：Event Core + Signal Core
 
 > **计划真源**。会话外 Claude Plan 副本仅作草稿；以本文 + 代码为准。  
-> 状态基准：2026-07-20（M6 已验收；M9 HTTP Event API 骨架合入，待真机手测）
+> 状态基准：2026-07-20（M10 外部插件首版合入：本地 manifest + Card + HTTP plugin_id）
 
 ## 0. 产品定位
 
@@ -37,7 +37,7 @@
 | **M7c** 内置插件注册 | pluginRegistry + settingsSurface | ✅ 完成 | rest/agent 挂功能插件页；settings 面可挂未来插件；Card 组件未拆 |
 | **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；dismiss 改 emit；Card 组件已拆 |
 | **M9** 外部 SDK / HTTP | localhost HTTP + demo kit | ✅ 骨架完成 | 端口 23457，默认开；SSE/webhook 延后 M9.1 |
-| **M10** 插件生态 | manifest + Card 注册 | 🧊 Phase 3 | 内置 registry 已占位 |
+| **M10** 插件生态 | 本地 manifest + Card 注册 + HTTP `plugin_id` | ✅ 骨架完成 | 无市场；见 `m10-external-plugins.md`；M10.2 iframe/ACL |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 

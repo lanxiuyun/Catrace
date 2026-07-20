@@ -8,14 +8,15 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：Event Core + Signal Core + **Toast 内容全量经 Bus** + **M9 本机 Event HTTP（:23457）**；SSE/webhook 与插件市场仍属后续（M9.1 / M10）。
+当前：Event Core + Signal Core + **Toast 内容全量经 Bus** + **M9 本机 Event HTTP（:23457）** + **M10 本地外部插件（manifest + Card，手测通过）**。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）仍属后续。**不做插件市场。**
 
 ## 模块布局
 
 ```
 src-tauri/src/
 ├── event.rs / bus.rs     # 协议 + Registry + publish/update/resolve
-├── event_http.rs         # M9 外部 Event API 127.0.0.1:23457
+├── event_http.rs         # M9/M10 外部 Event API 127.0.0.1:23457（plugin_id）
+├── plugins.rs            # M10 本地 plugins 扫描 / 启用 / UI source
 ├── signal.rs / db.rs     # 行为采集 + signal_minutes
 ├── water.rs / eye.rs     # 生产者：只 bus.publish
 ├── reminder_toast.rs     # ensure 窗口 + agent/update/permission → bus
@@ -23,15 +24,24 @@ src-tauri/src/
 └── lib.rs                # rest toast 模式 → bus；settle 组合；启动两 HTTP
 
 src/
-├── views/ReminderToast.vue   # 唯一内容渲染：listen catrace:event（含 kind=sdk）
-├── views/Debug.vue           # Event SDK 管理卡（n-card）
-├── components/SdkToastCard.vue
+├── views/ReminderToast.vue   # 唯一内容渲染：listen catrace:event（sdk + plugin）
+├── views/Plugins.vue         # 内置 + 外部插件列表 / 启用 / 测试通知
+├── components/SdkToastCard.vue / PluginHostCard.vue
 ├── stores/eventHub.ts        # 主窗观察（不渲 Toast）
 ├── stores/pluginRegistry.ts
-├── plugins/registerBuiltins.ts
+├── plugins/registerBuiltins.ts / loadExternalPlugins.ts  # Blob 加载 ui.mjs
 ├── types/event.ts
-└── tools/event-sdk/          # 仓库根 demo kit（路径示意）
+tools/event-sdk/              # M9 generic publish
+tools/plugin-demo/            # M10 demo-timer 包
 ```
+
+## 文档索引
+
+- [m9-event-http-api.md](m9-event-http-api.md) — 外部 Event HTTP
+- [m10-external-plugins.md](m10-external-plugins.md) — 本地外部插件（加载策略、合同、信任模型）
+- [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 里程碑真源
+- [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md)
+- [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md)
 
 ## 两条线
 

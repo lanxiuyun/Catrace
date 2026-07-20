@@ -6,6 +6,7 @@ mod event_http;
 mod eye;
 mod log;
 mod media_audio;
+mod plugins;
 mod reminder;
 mod reminder_toast;
 mod report;
@@ -1326,6 +1327,11 @@ pub fn run() {
             let event_bus = crate::bus::EventBus::new(app.app_handle().clone());
             app.manage(event_bus);
 
+            // External plugins (local app_data_dir/plugins)
+            let plugin_mgr = plugins::PluginManager::new();
+            plugins::initial_scan(app.app_handle(), &db, &plugin_mgr);
+            app.manage(plugin_mgr);
+
             // Signal 采集内核（前台 1Hz 不依赖辅助功能；键鼠仍走 accessibility 门闩）
             let signal_core = Arc::new(signal::SignalCore::new());
             app.manage(signal_core.clone());
@@ -1397,7 +1403,8 @@ pub fn run() {
             agent_hook::start_server(app.app_handle().clone(), db.clone());
             // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
-            event_http::start_server(event_bus_for_http, db.clone());
+            let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
+            event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1709,6 +1716,12 @@ pub fn run() {
             event_http::get_event_sdk_status,
             event_http::set_event_sdk_enabled,
             event_http::rotate_event_sdk_token,
+            plugins::list_external_plugins,
+            plugins::set_external_plugin_enabled,
+            plugins::get_plugin_ui_url,
+            plugins::get_plugin_ui_source,
+            plugins::open_plugins_dir,
+            plugins::get_plugins_dir,
             signal::set_signal_key_sequence_enabled,
             signal::set_signal_key_sequence_retention_hours,
             signal::get_signal_runtime_config,

@@ -488,6 +488,51 @@ export async function rotateEventSdkToken(): Promise<string> {
   return invoke('rotate_event_sdk_token')
 }
 
+// ---------- External plugins ----------
+
+export interface ExternalPluginInfo {
+  id: string
+  name: string
+  version: string
+  description: string
+  main?: string | null
+  events: string[]
+  permissions: string[]
+  enabled: boolean
+  enabledByDefault: boolean
+  dir: string
+  hasUi: boolean
+  error?: string | null
+}
+
+export async function listExternalPlugins(): Promise<ExternalPluginInfo[]> {
+  return invoke('list_external_plugins')
+}
+
+export async function setExternalPluginEnabled(
+  id: string,
+  enabled: boolean,
+): Promise<ExternalPluginInfo> {
+  return invoke('set_external_plugin_enabled', { id, enabled })
+}
+
+export async function getPluginUiUrl(id: string): Promise<string> {
+  return invoke('get_plugin_ui_url', { id })
+}
+
+/** Read plugin ui.mjs source text (host loads via Blob URL). */
+export async function getPluginUiSource(id: string): Promise<string> {
+  return invoke('get_plugin_ui_source', { id })
+}
+
+export async function openPluginsDir(): Promise<void> {
+  return invoke('open_plugins_dir')
+}
+
+export async function getPluginsDir(): Promise<string> {
+  return invoke('get_plugins_dir')
+}
+
 // ---------- Signal ----------
 
 export interface SignalRuntimeConfig {

@@ -37,11 +37,36 @@ import WaterToastCard from '../components/WaterToastCard.vue'
 import UpdateToastCard from '../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../components/RestTimerToastCard.vue'
 import SdkToastCard from '../components/SdkToastCard.vue'
+import PluginHostCard from '../components/PluginHostCard.vue'
 import type { EventAction, EventLevel, EventProgress } from '../types/event'
+import { usePluginRegistry } from '../stores/pluginRegistry'
+import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
+const pluginRegistry = usePluginRegistry()
 
-type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission' | 'sdk'
+const BUILTIN_TOAST_KINDS = [
+  'rest',
+  'water',
+  'eye',
+  'update',
+  'rest-timer',
+  'agent',
+  'permission',
+  'sdk',
+] as const
+type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
+/** Builtin kinds plus external plugin kinds (string). */
+type ToastKind = BuiltinToastKind | string
+
+function isBuiltinKind(kind: string): kind is BuiltinToastKind {
+  return (BUILTIN_TOAST_KINDS as readonly string[]).includes(kind)
+}
+
+function isPluginKind(kind: string): boolean {
+  if (isBuiltinKind(kind)) return false
+  return !!pluginRegistry.getPluginForKind(kind)
+}
 
 interface ToastItem {
   id: number
@@ -83,6 +108,10 @@ interface ToastItem {
   level?: EventLevel | string
   sdkActions?: EventAction[]
   sdkProgress?: EventProgress | null
+  // external plugin card
+  busEvent?: BusEvent
+  pluginId?: string
+  uiUrl?: string
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -160,6 +189,12 @@ const debugInfo = ref({
 
 onMounted(async () => {
   loadAgentSound()
+  // Card map must be ready before bus events (incl. plugin test from main window).
+  try {
+    await loadExternalPlugins()
+  } catch (e) {
+    console.warn('[toast] loadExternalPlugins failed', e)
+  }
 
   // 读取初始调试模式状态
   try {
@@ -505,24 +540,37 @@ function handleBusEvent(event: BusEvent) {
   if (event.status && event.status !== 'active') return
 
   const kind = event.kind as ToastKind
-  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update', 'rest-timer', 'sdk']
-  if (!busKinds.includes(kind)) {
+  const sourceIsPlugin =
+    !!event.source &&
+    typeof event.source === 'object' &&
+    (event.source as { type?: string }).type === 'plugin'
+  const pluginHit =
+    isPluginKind(kind) || isPluginKind(event.event_type) || sourceIsPlugin
+  if (!isBuiltinKind(kind) && !pluginHit) {
     return
   }
 
   const p = (event.payload ?? {}) as Record<string, unknown>
   const boundary = typeof p.boundary === 'number' ? p.boundary : 0
   const dedupeKey = event.dedupe_key || undefined
+  const pluginHandle =
+    pluginRegistry.getPluginForKind(kind) || pluginRegistry.getPluginForKind(event.event_type)
+  const isPluginEvent = !!pluginHandle?.external || sourceIsPlugin
+  const pluginId =
+    pluginHandle?.manifest.name ||
+    (sourceIsPlugin && typeof (event.source as { name?: string }).name === 'string'
+      ? (event.source as { name: string }).name
+      : undefined)
 
-  // sdk / rest-timer: same event id may be updated (revision++); refresh in place.
-  if (kind === 'sdk') {
+  // sdk / plugin / rest-timer: same event id may be updated (revision++); refresh in place.
+  if (kind === 'sdk' || isPluginEvent) {
     const existing = notifications.value.find((n) => n.eventId === event.id && !n.leaving)
       || (dedupeKey
         ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
         : undefined)
     if (existing) {
       existing.eventId = event.id
-      existing.kind = 'sdk'
+      existing.kind = kind
       existing.title = event.title || ''
       existing.body = event.body || ''
       existing.level = event.level
@@ -530,6 +578,9 @@ function handleBusEvent(event: BusEvent) {
       existing.sdkProgress = event.progress ?? null
       existing.sticky = !!event.sticky
       existing.dedupeKey = dedupeKey
+      existing.busEvent = event
+      existing.pluginId = pluginId
+      existing.uiUrl = pluginHandle?.uiUrl
       existing.visible = true
       if (!event.sticky) {
         existing.remainingMs = AUTO_HIDE_MS
@@ -582,14 +633,24 @@ function handleBusEvent(event: BusEvent) {
       existing.body = event.body || ''
       existing.boundary = boundary
       existing.visible = true
-      if (kind === 'sdk') {
+      if (kind === 'sdk' || isPluginEvent) {
         existing.level = event.level
         existing.sdkActions = event.actions || []
         existing.sdkProgress = event.progress ?? null
         existing.sticky = !!event.sticky
+        existing.busEvent = event
+        existing.pluginId = pluginId
+        existing.uiUrl = pluginHandle?.uiUrl
       }
       // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
-      if (kind !== 'permission' && !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) && kind !== 'update' && !(kind === 'sdk' && event.sticky)) {
+      const stickyPlugin = isPluginEvent && !!event.sticky
+      if (
+        kind !== 'permission' &&
+        !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) &&
+        kind !== 'update' &&
+        !(kind === 'sdk' && event.sticky) &&
+        !stickyPlugin
+      ) {
         const autoHideMs = kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
         existing.remainingMs = autoHideMs
         existing.totalMs = autoHideMs
@@ -627,8 +688,11 @@ function handleBusEvent(event: BusEvent) {
     toolInput: p.toolInput,
     level: event.level,
     sticky: !!event.sticky,
-    sdkActions: kind === 'sdk' ? (event.actions || []) : undefined,
-    sdkProgress: kind === 'sdk' ? (event.progress ?? null) : undefined,
+    sdkActions: kind === 'sdk' || isPluginEvent ? (event.actions || []) : undefined,
+    sdkProgress: kind === 'sdk' || isPluginEvent ? (event.progress ?? null) : undefined,
+    busEvent: isPluginEvent ? event : undefined,
+    pluginId,
+    uiUrl: pluginHandle?.uiUrl,
   })
 }
 
@@ -665,6 +729,9 @@ async function addNotification(payload: {
   sticky?: boolean
   sdkActions?: EventAction[]
   sdkProgress?: EventProgress | null
+  busEvent?: BusEvent
+  pluginId?: string
+  uiUrl?: string
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -748,6 +815,7 @@ async function addNotification(payload: {
   const isUpdate = payload.kind === 'update'
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
+  const isPluginSticky = !!payload.pluginId && !!payload.sticky
   const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
@@ -758,7 +826,7 @@ async function addNotification(payload: {
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: isUpdate || isAgentSticky || isSdkSticky ? 0 : autoHideMs,
+    remainingMs: isUpdate || isAgentSticky || isSdkSticky || isPluginSticky ? 0 : autoHideMs,
     closeTimer: null,
     lastStartAt: 0,
     version: payload.version || '',
@@ -770,7 +838,7 @@ async function addNotification(payload: {
     downloadReceived: 0,
     event: payload.event,
     agentState: payload.agentState,
-    sticky: isAgentSticky || isSdkSticky,
+    sticky: isAgentSticky || isSdkSticky || isPluginSticky,
     agentEntries: isAgent
       ? [{
           event: payload.event || '',
@@ -787,6 +855,9 @@ async function addNotification(payload: {
     level: payload.level,
     sdkActions: payload.sdkActions,
     sdkProgress: payload.sdkProgress ?? null,
+    busEvent: payload.busEvent,
+    pluginId: payload.pluginId,
+    uiUrl: payload.uiUrl,
   }
 
   // 新通知加到底部（数组末尾）
@@ -800,7 +871,7 @@ async function addNotification(payload: {
     }
   })
 
-  if (!isUpdate && !isAgentSticky && !isSdkSticky) {
+  if (!isUpdate && !isAgentSticky && !isSdkSticky && !isPluginSticky) {
     startTimer(item)
   }
   await adjustWindowSize()
@@ -1097,6 +1168,11 @@ function handleSdkAction(item: ToastItem, actionId: string) {
   removeNotification(item.id, true)
 }
 
+function handlePluginAction(item: ToastItem, actionId: string) {
+  markEventResolved(item.eventId, actionId)
+  removeNotification(item.id, true)
+}
+
 async function handleClose(item: ToastItem) {
   // 休息计时卡片关闭时同步通知后端清理 break_timer_active，避免卡片反复出现
   if (item.kind === 'rest-timer') {
@@ -1164,6 +1240,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-agent': item.kind === 'agent',
           'toast-card-permission': item.kind === 'permission',
           'toast-card-sdk': item.kind === 'sdk',
+          'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -1241,8 +1318,32 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
         />
 
+        <PluginHostCard
+          v-else-if="item.busEvent && (item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'))"
+          :event="item.busEvent"
+          :is-hovered="item.isHovered"
+          :ui-url="item.uiUrl"
+          :plugin-id="item.pluginId"
+          @close="handleClose(item)"
+          @action="(aid) => handlePluginAction(item, aid)"
+        />
+
         <SdkToastCard
           v-else-if="item.kind === 'sdk'"
+          :title="item.title"
+          :body="item.body"
+          :level="item.level"
+          :is-hovered="item.isHovered"
+          :sticky="!!item.sticky"
+          :progress="item.sdkProgress"
+          :actions="item.sdkActions"
+          @close="handleClose(item)"
+          @action="(aid) => handleSdkAction(item, aid)"
+        />
+
+        <!-- Plugin event without custom UI: fall back to SdkToastCard -->
+        <SdkToastCard
+          v-else-if="!isBuiltinKind(item.kind)"
           :title="item.title"
           :body="item.body"
           :level="item.level"

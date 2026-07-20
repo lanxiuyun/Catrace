@@ -94,6 +94,8 @@ pub struct EventProgress {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BusEvent {
+    /// Empty on publish — bus assigns a UUID.
+    #[serde(default)]
     pub id: String,
     pub event_type: String,
     #[serde(default)]

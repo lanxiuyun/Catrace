@@ -15,6 +15,7 @@ use crate::event::{
     BusEvent, DisplayMode, EventAction, EventLevel, EventPatch, EventProgress, EventResolution,
     EventSource, EventStatus, ResolutionKind,
 };
+use crate::plugins::{PluginManager, RESERVED_KINDS as PLUGIN_RESERVED};
 use crate::{log_error, log_info};
 
 pub const EVENT_HTTP_PORT: u16 = 23457;
@@ -29,7 +30,8 @@ static SERVER_STARTED: AtomicBool = AtomicBool::new(false);
 static SERVER_ENABLED: AtomicBool = AtomicBool::new(true);
 static TOKEN: Mutex<Option<String>> = Mutex::new(None);
 
-/// Reserved toast kinds owned by internal producers — external SDK cannot impersonate them.
+/// Reserved toast kinds owned by internal producers — external SDK/plugin cannot impersonate them.
+/// Includes `sdk` so plugins cannot claim the generic SDK kind; plain M9 SDK path still forces kind=sdk.
 const RESERVED_KINDS: &[&str] = &[
     "rest",
     "water",
@@ -38,6 +40,7 @@ const RESERVED_KINDS: &[&str] = &[
     "permission",
     "update",
     "rest-timer",
+    "sdk",
 ];
 
 struct RateLimiter {
@@ -126,12 +129,12 @@ fn token_matches(header_val: Option<&str>) -> bool {
     }
 }
 
-fn is_sdk_source(source: &EventSource) -> bool {
-    matches!(source, EventSource::Sdk)
+fn is_external_source(source: &EventSource) -> bool {
+    matches!(source, EventSource::Sdk | EventSource::Plugin { .. })
 }
 
 /// Start localhost Event HTTP API (127.0.0.1:23457). Safe to call once per process.
-pub fn start_server(bus: EventBus, db: Db) {
+pub fn start_server(bus: EventBus, db: Db, plugins: PluginManager) {
     if SERVER_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
@@ -156,14 +159,16 @@ pub fn start_server(bus: EventBus, db: Db) {
         log_info!("event-http", "listening on http://{}/v1", addr);
         for request in server.incoming_requests() {
             let bus = bus.clone();
+            let plugins = plugins.clone();
             let limiter = limiter.clone();
-            thread::spawn(move || handle_request(bus, limiter, request));
+            thread::spawn(move || handle_request(bus, plugins, limiter, request));
         }
     });
 }
 
 fn handle_request(
     bus: EventBus,
+    plugins: PluginManager,
     limiter: Arc<Mutex<RateLimiter>>,
     mut request: tiny_http::Request,
 ) {
@@ -219,15 +224,15 @@ fn handle_request(
     let result = match (method.as_str(), path.as_str()) {
         ("POST", "/v1/events") => {
             let body = read_body(&mut request);
-            body.and_then(|b| publish_from_body(&bus, &b))
+            body.and_then(|b| publish_from_body(&bus, &plugins, &b))
         }
-        ("GET", "/v1/events") => list_sdk_active(&bus),
+        ("GET", "/v1/events") => list_external_active(&bus),
         ("GET", p) if p.starts_with("/v1/events/") => {
             let id = &p["/v1/events/".len()..];
             if id.is_empty() || id.contains('/') {
                 Err(HttpErr::new(404, "not found"))
             } else {
-                get_sdk_event(&bus, id)
+                get_external_event(&bus, id)
             }
         }
         ("PATCH", p) if p.starts_with("/v1/events/") => {
@@ -236,7 +241,7 @@ fn handle_request(
                 Err(HttpErr::new(404, "not found"))
             } else {
                 let body = read_body(&mut request);
-                body.and_then(|b| patch_sdk_event(&bus, rest, &b))
+                body.and_then(|b| patch_external_event(&bus, rest, &b))
             }
         }
         ("POST", p) if p.starts_with("/v1/events/") && p.ends_with("/resolve") => {
@@ -246,7 +251,7 @@ fn handle_request(
                 Err(HttpErr::new(404, "not found"))
             } else {
                 let body = read_body(&mut request);
-                body.and_then(|b| resolve_sdk_event(&bus, id, &b))
+                body.and_then(|b| resolve_external_event(&bus, id, &b))
             }
         }
         _ => Err(HttpErr::new(404, "not found")),
@@ -330,28 +335,104 @@ struct PublishBody {
     expires_at: Option<i64>,
     #[serde(default)]
     correlation_id: Option<String>,
-    /// Accepted only to reject reserved values; always forced to "sdk".
+    /// Without plugin_id: forced to "sdk". With plugin_id: plugin's custom kind.
     #[serde(default)]
     kind: Option<String>,
+    /// When set, event is attributed to an installed+enabled local plugin.
+    #[serde(default)]
+    plugin_id: Option<String>,
 }
 
-fn publish_from_body(bus: &EventBus, raw: &str) -> Result<(u16, serde_json::Value), HttpErr> {
+fn publish_from_body(
+    bus: &EventBus,
+    plugins: &PluginManager,
+    raw: &str,
+) -> Result<(u16, serde_json::Value), HttpErr> {
     let body: PublishBody =
         serde_json::from_str(raw).map_err(|e| HttpErr::new(400, format!("invalid json: {e}")))?;
     if body.title.trim().is_empty() {
         return Err(HttpErr::new(400, "title is required"));
     }
-    if let Some(k) = body.kind.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if RESERVED_KINDS.contains(&k) {
+
+    let plugin_id = body
+        .plugin_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    if let Some(pid) = plugin_id.as_deref() {
+        // --- Plugin path ---
+        let kind = body
+            .kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(pid)
+            .to_string();
+
+        if RESERVED_KINDS.contains(&kind.as_str()) || PLUGIN_RESERVED.contains(&kind.as_str()) {
             return Err(HttpErr::new(
                 403,
-                format!("kind '{k}' is reserved for internal producers"),
+                format!("kind '{kind}' is reserved for internal producers"),
             ));
         }
+
+        let event_type = body
+            .event_type
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&kind)
+            .to_string();
+
+        plugins
+            .allows_event(pid, &kind, &event_type)
+            .map_err(|e| HttpErr::new(403, e))?;
+
+        let event = BusEvent {
+            id: String::new(),
+            event_type,
+            source: EventSource::Plugin {
+                name: pid.to_string(),
+            },
+            kind,
+            display_mode: DisplayMode::Toast,
+            level: body.level.unwrap_or(EventLevel::Info),
+            title: body.title,
+            body: body.body.unwrap_or_default(),
+            actions: body.actions.unwrap_or_default(),
+            progress: body.progress,
+            sticky: body.sticky,
+            payload: body.payload.unwrap_or(json!({})),
+            created_at: 0,
+            updated_at: 0,
+            status: EventStatus::Active,
+            revision: 1,
+            resolved_at: None,
+            resolution: None,
+            expires_at: body.expires_at,
+            correlation_id: body.correlation_id,
+            dedupe_key: body.dedupe_key,
+        };
+
+        let out = bus.publish(event).map_err(bus_err)?;
+        return Ok((201, serde_json::to_value(out).unwrap_or(json!({}))));
+    }
+
+    // --- M9 SDK path (no plugin_id) ---
+    if let Some(k) = body.kind.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        // Allow only omitting kind or kind=sdk; reject reserved and other custom kinds without plugin_id.
         if k != "sdk" {
+            if RESERVED_KINDS.contains(&k) {
+                return Err(HttpErr::new(
+                    403,
+                    format!("kind '{k}' is reserved for internal producers"),
+                ));
+            }
             return Err(HttpErr::new(
                 400,
-                "external events must use kind 'sdk' (or omit kind)",
+                "external events without plugin_id must use kind 'sdk' (or omit kind)",
             ));
         }
     }
@@ -392,32 +473,35 @@ fn publish_from_body(bus: &EventBus, raw: &str) -> Result<(u16, serde_json::Valu
     Ok((201, serde_json::to_value(out).unwrap_or(json!({}))))
 }
 
-fn list_sdk_active(bus: &EventBus) -> Result<(u16, serde_json::Value), HttpErr> {
+fn list_external_active(bus: &EventBus) -> Result<(u16, serde_json::Value), HttpErr> {
     let list = bus.active_events().map_err(bus_err)?;
-    let sdk: Vec<_> = list.into_iter().filter(|e| is_sdk_source(&e.source)).collect();
-    Ok((200, serde_json::to_value(sdk).unwrap_or(json!([]))))
+    let external: Vec<_> = list
+        .into_iter()
+        .filter(|e| is_external_source(&e.source))
+        .collect();
+    Ok((200, serde_json::to_value(external).unwrap_or(json!([]))))
 }
 
-fn get_sdk_event(bus: &EventBus, id: &str) -> Result<(u16, serde_json::Value), HttpErr> {
+fn get_external_event(bus: &EventBus, id: &str) -> Result<(u16, serde_json::Value), HttpErr> {
     let event = bus
         .get(id)
         .map_err(bus_err)?
         .ok_or_else(|| HttpErr::new(404, format!("event not found: {id}")))?;
-    if !is_sdk_source(&event.source) {
+    if !is_external_source(&event.source) {
         return Err(HttpErr::new(403, "forbidden"));
     }
     Ok((200, serde_json::to_value(event).unwrap_or(json!({}))))
 }
 
-fn patch_sdk_event(
+fn patch_external_event(
     bus: &EventBus,
     id: &str,
     raw: &str,
 ) -> Result<(u16, serde_json::Value), HttpErr> {
-    ensure_sdk_active(bus, id)?;
+    ensure_external_active(bus, id)?;
     let patch: EventPatch =
         serde_json::from_str(raw).map_err(|e| HttpErr::new(400, format!("invalid json: {e}")))?;
-    // Keep display_mode locked to toast for sdk events.
+    // Keep display_mode locked to toast for external events.
     let mut patch = patch;
     if patch.display_mode.is_some() {
         patch.display_mode = Some(DisplayMode::Toast);
@@ -436,12 +520,12 @@ struct ResolveBody {
     payload: Option<serde_json::Value>,
 }
 
-fn resolve_sdk_event(
+fn resolve_external_event(
     bus: &EventBus,
     id: &str,
     raw: &str,
 ) -> Result<(u16, serde_json::Value), HttpErr> {
-    ensure_sdk_active(bus, id)?;
+    ensure_external_active(bus, id)?;
     let body: ResolveBody = if raw.trim().is_empty() {
         ResolveBody {
             kind: None,
@@ -474,12 +558,12 @@ fn resolve_sdk_event(
     Ok((200, serde_json::to_value(out).unwrap_or(json!({}))))
 }
 
-fn ensure_sdk_active(bus: &EventBus, id: &str) -> Result<(), HttpErr> {
+fn ensure_external_active(bus: &EventBus, id: &str) -> Result<(), HttpErr> {
     let event = bus
         .get(id)
         .map_err(bus_err)?
         .ok_or_else(|| HttpErr::new(404, format!("event not found: {id}")))?;
-    if !is_sdk_source(&event.source) {
+    if !is_external_source(&event.source) {
         return Err(HttpErr::new(403, "forbidden"));
     }
     if event.status != EventStatus::Active {
