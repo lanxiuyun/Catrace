@@ -11,7 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use active_win_pos_rs::get_active_window;
-use device_query::{DeviceEvents, DeviceQuery, DeviceState, Keycode};
+use device_query::{DeviceQuery, DeviceState, Keycode};
 use serde::{Deserialize, Serialize};
 
 use crate::db::{self, SignalMinuteRecord};
@@ -19,6 +19,9 @@ use crate::ActivityState;
 
 const COLLECTOR_VERSION: i32 = 1;
 const MOUSE_GAP_RESET_SECS: f64 = 5.0;
+/// device_query::DeviceEvents polls GetAsyncKeyState every 100us on Windows
+/// (~10k/s, and also starts a useless mouse poller). Drive key edges ourselves.
+const KEY_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const UNKNOWN_APP: &str = "unknown";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -328,24 +331,30 @@ pub fn start_input_sampling(
         return;
     }
 
-    // Keyboard
+    // Keyboard: edge-detect via get_keys at KEY_POLL_INTERVAL.
+    // Do NOT use DeviceEvents: its Windows backend busy-polls at 100us.
     {
         let activity = activity.clone();
         let signal = signal.clone();
         thread::spawn(move || {
             let device_state = DeviceState::new();
-            let _guard = device_state.on_key_down(move |key: &Keycode| {
-                signal.record_key(key);
-                let mut s = activity.lock().unwrap();
-                if s.key_debounce
-                    .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
-                {
-                    s.count += 1;
-                    s.key_debounce = Some(Instant::now());
-                }
-            });
+            let mut prev_keys: Vec<Keycode> = Vec::new();
             loop {
-                thread::sleep(Duration::from_secs(60));
+                thread::sleep(KEY_POLL_INTERVAL);
+                let keys = device_state.get_keys();
+                for key in &keys {
+                    if !prev_keys.contains(key) {
+                        signal.record_key(key);
+                        let mut s = activity.lock().unwrap();
+                        if s.key_debounce
+                            .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
+                        {
+                            s.count += 1;
+                            s.key_debounce = Some(Instant::now());
+                        }
+                    }
+                }
+                prev_keys = keys;
             }
         });
     }
