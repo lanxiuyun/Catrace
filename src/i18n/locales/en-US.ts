@@ -350,7 +350,7 @@ export default {
   },
   plugins: {
     pageTitle: 'Feature Plugins',
-    pageSubtitle: 'Manage Catrace health reminder features',
+    pageSubtitle: 'Manage Catrace feature plugins and integrations',
     listHeading: 'Features',
     rest: {
       name: 'Sitting Reminder',
@@ -369,6 +369,14 @@ export default {
       previewDefaultTitle: 'Rest Reminder',
       previewDefaultBody: 'This is a test notification',
       testBtn: 'Send test reminder',
+    },
+    agent: {
+      name: 'Agent Notifications',
+      subtitle: 'AI assistant status and permission toasts',
+      listSubtitle: 'Hooks, event modes, and sounds',
+      badge: 'Integration',
+      switchAria: 'Agent status notification toggle',
+      disabledHint: 'Agent status notifications are off. Turn on the switch to configure hooks, event modes, and sounds.',
     },
   },
 }

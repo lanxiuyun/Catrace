@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { computed, ref, onMounted, nextTick, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
@@ -9,22 +9,65 @@ import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
 import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
 import SignalSettingsCard from '../components/settings/SignalSettingsCard.vue'
+import { usePluginRegistry } from '../stores/pluginRegistry'
 
 const { t } = useI18n()
 const message = useMessage()
+const pluginRegistry = usePluginRegistry()
 
-const GROUP_KEYS = ['notification', 'media', 'signal', 'system', 'links'] as const
-type GroupKey = (typeof GROUP_KEYS)[number]
-const defaultGroupOrder: GroupKey[] = ['notification', 'media', 'signal', 'system', 'links']
-const groupOrder = ref<GroupKey[]>([...defaultGroupOrder])
+/** Built-in system cards (not product plugins). */
+const CORE_GROUP_KEYS = ['notification', 'media', 'signal', 'system', 'links'] as const
+type CoreGroupKey = (typeof CORE_GROUP_KEYS)[number]
 
-const cardComponents: Record<GroupKey, any> = {
+const coreCardComponents: Record<CoreGroupKey, Component> = {
   notification: NotificationSettingsCard,
   media: MediaSettingsCard,
   signal: SignalSettingsCard,
   system: SystemSettingsCard,
   links: LinksSettingsCard,
 }
+
+interface SettingsCardSlot {
+  key: string
+  component: Component
+  source: 'core' | 'plugin'
+}
+
+const pluginSettingsCards = computed<SettingsCardSlot[]>(() =>
+  pluginRegistry.getSettingsPlugins('settings').map((p) => ({
+    key: p.settingsKey || p.manifest.name,
+    component: p.SettingsComponent as Component,
+    source: 'plugin' as const,
+  })),
+)
+
+const defaultGroupOrder = computed(() => {
+  const pluginKeys = pluginSettingsCards.value.map((c) => c.key)
+  // Future settings-surface plugins insert after notification, before media
+  const insertAt = 1
+  const core = [...CORE_GROUP_KEYS]
+  return [...core.slice(0, insertAt), ...pluginKeys, ...core.slice(insertAt)]
+})
+
+const groupOrder = ref<string[]>([])
+
+const cardByKey = computed(() => {
+  const map = new Map<string, SettingsCardSlot>()
+  for (const k of CORE_GROUP_KEYS) {
+    map.set(k, { key: k, component: coreCardComponents[k], source: 'core' })
+  }
+  for (const p of pluginSettingsCards.value) {
+    map.set(p.key, p)
+  }
+  return map
+})
+
+const orderedCards = computed(() => {
+  const map = cardByKey.value
+  return groupOrder.value
+    .map((k) => map.get(k))
+    .filter((c): c is SettingsCardSlot => !!c)
+})
 
 let settingsStore: Store | null = null
 let sortable: Sortable | null = null
@@ -36,17 +79,17 @@ async function getSettingsStore() {
   return settingsStore
 }
 
-function normalizeGroupOrder(saved: unknown): GroupKey[] {
-  const allowed = new Set<string>(GROUP_KEYS)
-  const out: GroupKey[] = []
+function normalizeGroupOrder(saved: unknown): string[] {
+  const allowed = new Set(defaultGroupOrder.value)
+  const out: string[] = []
   if (Array.isArray(saved)) {
     for (const k of saved) {
-      if (typeof k === 'string' && allowed.has(k) && !out.includes(k as GroupKey)) {
-        out.push(k as GroupKey)
+      if (typeof k === 'string' && allowed.has(k) && !out.includes(k)) {
+        out.push(k)
       }
     }
   }
-  for (const k of defaultGroupOrder) {
+  for (const k of defaultGroupOrder.value) {
     if (!out.includes(k)) out.push(k)
   }
   return out
@@ -58,12 +101,13 @@ async function loadGroupOrder() {
     const saved = await store.get('settings_group_order')
     const normalized = normalizeGroupOrder(saved)
     groupOrder.value = normalized
-    // Persist migration when old 9-card order was filtered
+    // Persist migration when keys were filtered/added (e.g. settings-surface plugins)
     if (JSON.stringify(saved) !== JSON.stringify(normalized)) {
       await store.set('settings_group_order', normalized)
     }
   } catch (e) {
     console.error('Failed to load settings group order', e)
+    groupOrder.value = [...defaultGroupOrder.value]
   }
 }
 
@@ -80,19 +124,21 @@ async function saveGroupOrder() {
 function initSortable() {
   const grid = document.querySelector('.settings-grid')
   if (!grid || sortable) return
+  const allowed = () => new Set(defaultGroupOrder.value)
   sortable = Sortable.create(grid as HTMLElement, {
     forceFallback: true,
     animation: 200,
     ghostClass: 'dragging',
     dragClass: 'drag-over',
     handle: '.drag-handle',
-    filter: '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, input, textarea, select, button, a',
+    filter:
+      '.n-slider, .n-switch, .n-button, .n-select, .n-input, .link-item, .fs-btn, input, textarea, select, button, a',
     preventOnFilter: false,
     onEnd: () => {
       const keys = Array.from(grid.children)
-        .map((child) => child.getAttribute('data-group-key') as GroupKey | null)
-        .filter((k): k is GroupKey => !!k && GROUP_KEYS.includes(k))
-      if (keys.length === GROUP_KEYS.length) {
+        .map((child) => child.getAttribute('data-group-key'))
+        .filter((k): k is string => !!k && allowed().has(k))
+      if (keys.length === allowed().size) {
         groupOrder.value = keys
         saveGroupOrder()
       }
@@ -114,13 +160,14 @@ onMounted(async () => {
 
     <div class="settings-grid">
       <div
-        v-for="key in groupOrder"
-        :key="key"
+        v-for="card in orderedCards"
+        :key="card.key"
         class="settings-card-wrapper"
-        :data-group-key="key"
+        :data-group-key="card.key"
+        :data-card-source="card.source"
       >
         <KeepAlive>
-          <component :is="cardComponents[key]" />
+          <component :is="card.component" />
         </KeepAlive>
         <div class="drag-handle" :aria-label="t('settings.dragHandle')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

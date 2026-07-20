@@ -1,30 +1,46 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
+import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
+import { usePluginRegistry } from '../stores/pluginRegistry'
 
 const { t } = useI18n()
+const pluginRegistry = usePluginRegistry()
 
-/** Product catalog — not full registry (water/eye/agent stay registered for bus). */
-const VISIBLE_PLUGIN_IDS = ['rest'] as const
+/**
+ * Product-visible catalog allowlist.
+ * Full registry still holds water/eye/agent for bus; surface filters who appears where.
+ */
+const VISIBLE_PLUGIN_IDS = ['rest', 'agent'] as const
 type VisiblePluginId = (typeof VISIBLE_PLUGIN_IDS)[number]
 
 const selectedId = ref<VisiblePluginId>('rest')
 
 const plugins = computed(() =>
-  VISIBLE_PLUGIN_IDS.map((id) => ({
-    id,
-    name: t(`plugins.${id}.name`),
-    subtitle: t(`plugins.${id}.listSubtitle`),
-    badge: t(`plugins.${id}.badge`),
-  })),
+  VISIBLE_PLUGIN_IDS.map((id) => {
+    const handle = pluginRegistry.getPlugin(id)
+    return {
+      id,
+      name: t(`plugins.${id}.name`),
+      subtitle: t(`plugins.${id}.listSubtitle`),
+      badge: t(`plugins.${id}.badge`),
+      registered: !!handle,
+    }
+  }),
 )
 
-const detailComponents: Record<VisiblePluginId, typeof RestPluginPanel> = {
+/** Fallback map if registry not ready; prefer SettingsComponent from registry. */
+const fallbackDetail: Record<VisiblePluginId, Component> = {
   rest: RestPluginPanel,
+  agent: AgentPluginPanel,
 }
 
-const ActiveDetail = computed(() => detailComponents[selectedId.value])
+const ActiveDetail = computed(() => {
+  const handle = pluginRegistry.getPlugin(selectedId.value)
+  if (handle?.SettingsComponent) return handle.SettingsComponent
+  return fallbackDetail[selectedId.value]
+})
 </script>
 
 <template>
@@ -50,6 +66,15 @@ const ActiveDetail = computed(() => detailComponents[selectedId.value])
             <svg v-if="p.id === 'rest'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
+            </svg>
+          
+            <svg v-else-if="p.id === 'agent'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8V4H8" />
+              <rect width="16" height="12" x="4" y="8" rx="2" />
+              <path d="M2 14h2" />
+              <path d="M20 14h2" />
+              <path d="M15 13v2" />
+              <path d="M9 13v2" />
             </svg>
           </div>
           <div class="item-text">

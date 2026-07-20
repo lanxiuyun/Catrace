@@ -12,12 +12,22 @@ export interface PluginManifest {
   builtin?: boolean
 }
 
+/** Where a plugin's SettingsComponent should be mounted. */
+export type PluginSettingsSurface = 'settings' | 'plugins' | 'none'
+
 export interface PluginHandle {
   manifest: PluginManifest
   onEvent: (event: BusEvent) => void
   CardComponent?: Component
   SettingsComponent?: Component
+  /** Stable key used in settings drag-order store (`settings_group_order`). */
   settingsKey?: string
+  /**
+   * - settings: appear as a card on the system Settings page
+   * - plugins: detail panel on the Plugins page only
+   * - none: registered for bus/events but no UI surface yet
+   */
+  settingsSurface?: PluginSettingsSurface
 }
 
 export const usePluginRegistry = defineStore('pluginRegistry', () => {
@@ -52,9 +62,12 @@ export const usePluginRegistry = defineStore('pluginRegistry', () => {
     return undefined
   }
 
-  function getSettingsPlugins(): PluginHandle[] {
-    return Array.from(pluginMap.value.values())
-      .filter(p => p.SettingsComponent)
+  function getSettingsPlugins(surface: PluginSettingsSurface = 'settings'): PluginHandle[] {
+    return Array.from(pluginMap.value.values()).filter((p) => {
+      if (!p.SettingsComponent) return false
+      const s = p.settingsSurface ?? 'settings'
+      return s === surface
+    })
   }
 
   function getCardComponent(kind: string): Component | undefined {

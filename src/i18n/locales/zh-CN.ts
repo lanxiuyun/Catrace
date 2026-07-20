@@ -350,7 +350,7 @@ export default {
   },
   plugins: {
     pageTitle: '功能插件',
-    pageSubtitle: '管理 Catrace 提供的健康提醒功能',
+    pageSubtitle: '管理 Catrace 功能插件与集成',
     listHeading: '功能列表',
     rest: {
       name: '久坐提醒',
@@ -369,6 +369,14 @@ export default {
       previewDefaultTitle: '休息提醒',
       previewDefaultBody: '这是一条测试提醒',
       testBtn: '发送测试提醒',
+    },
+    agent: {
+      name: 'Agent 通知',
+      subtitle: 'AI 助手状态与权限审批通知',
+      listSubtitle: 'Hook 安装、事件模式与提示音',
+      badge: '集成',
+      switchAria: 'Agent 状态通知开关',
+      disabledHint: '已关闭 Agent 状态通知。打开右上角开关后可配置 Hook、事件模式与提示音。',
     },
   },
 }

@@ -49,6 +49,7 @@ features:
   settings:
     docs:
       - .agent/features/settings/README.md
+      - .agent/features/settings/设置页按-plugin-registry-挂载插件设置卡.md
     related:
       - media-audio
       - i18n
@@ -214,5 +215,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: Desktop Event OS — rest-timer 经 Bus upsert；Debug Signal 分钟桶展示；久坐测试 1s 限流；M6 久坐主路径手测已通过
-  next: Signal 分钟桶真机验收（≥2min 落库/键序列开关）→ 可选 rest-timer 手测 → water/eye UI 与 Toast 无限连点延后
+  phase: Desktop Event OS — 功能插件页 registry 挂载 rest/agent；rest-timer 经 Bus；Debug Signal 分钟桶
+  next: 真机验功能插件页 Agent 详情 → 可选 Toast Card 拆分；water/eye UI 与 Toast 无限连点延后
