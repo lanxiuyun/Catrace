@@ -117,11 +117,21 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
 /// 确保 Toast 窗口存在并显示（不向页面注入通知内容）。
 /// Event Bus 路径：内容由前端 listen `catrace:event` 渲染；此处只负责窗口生命周期。
 pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
+    // 已可见：连点堆叠时不必反复抢 mutex / Win32 show / eval
+    if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
+        if window.is_visible().unwrap_or(false) {
+            return;
+        }
+    }
+
     let app = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         let _guard = TOAST_MUTEX.lock().await;
 
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            if window.is_visible().unwrap_or(false) {
+                return;
+            }
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; if (!location.hash.includes('reminder-toast')) { location.hash = '#/reminder-toast'; }";
             let _ = window.eval(route_js);
             window_manager::show_reminder_no_activate(&app, &window);

@@ -26,8 +26,40 @@ impl EventRegistry {
         }
     }
 
-    pub fn publish(&mut self, mut event: BusEvent) -> Result<BusEvent, String> {
+    pub fn publish(&mut self, mut event: BusEvent) -> Result<(Vec<BusEvent>, BusEvent), String> {
         validate_event_shape(&event)?;
+
+        // Same dedupe_key replaces any active event (emit superseded first).
+        let mut superseded = Vec::new();
+        if let Some(key) = event
+            .dedupe_key
+            .as_ref()
+            .map(|k| k.trim())
+            .filter(|k| !k.is_empty())
+        {
+            let ids: Vec<String> = self
+                .events
+                .values()
+                .filter(|e| {
+                    e.status == EventStatus::Active
+                        && e.dedupe_key.as_deref() == Some(key)
+                        && (event.id.trim().is_empty() || e.id != event.id)
+                })
+                .map(|e| e.id.clone())
+                .collect();
+            for id in ids {
+                if let Ok(resolved) = self.resolve(
+                    &id,
+                    EventResolution {
+                        kind: ResolutionKind::Superseded,
+                        action_id: None,
+                        payload: None,
+                    },
+                ) {
+                    superseded.push(resolved);
+                }
+            }
+        }
 
         let now = now_ms();
         if event.id.trim().is_empty() {
@@ -45,7 +77,7 @@ impl EventRegistry {
         // Replacing an existing id is allowed (explicit republish).
         self.events.insert(event.id.clone(), event.clone());
         self.prune_resolved();
-        Ok(event)
+        Ok((superseded, event))
     }
 
     pub fn update(&mut self, id: &str, patch: EventPatch) -> Result<BusEvent, String> {
@@ -193,10 +225,14 @@ impl EventBus {
     }
 
     pub fn publish(&self, event: BusEvent) -> Result<BusEvent, String> {
-        let out = {
+        let (superseded, out) = {
             let mut reg = self.registry.write().map_err(|e| e.to_string())?;
             reg.publish(event)?
         };
+        // Notify FE to drop replaced cards before the new one arrives.
+        for old in superseded {
+            self.emit_event(old);
+        }
         // Toast 显示由前端订阅 bus；此处只保证窗口在位（不 eval 内容）。
         if matches!(out.display_mode, DisplayMode::Toast) {
             reminder_toast::ensure_toast_window_visible(&self.app_handle);
@@ -334,7 +370,7 @@ mod tests {
     #[test]
     fn publish_assigns_id_and_revision() {
         let mut reg = EventRegistry::new();
-        let e = reg.publish(sample_event()).unwrap();
+        let (_superseded, e) = reg.publish(sample_event()).unwrap();
         assert!(!e.id.is_empty());
         assert_eq!(e.revision, 1);
         assert_eq!(e.status, EventStatus::Active);
@@ -344,7 +380,7 @@ mod tests {
     #[test]
     fn update_bumps_revision() {
         let mut reg = EventRegistry::new();
-        let e = reg.publish(sample_event()).unwrap();
+        let (_superseded, e) = reg.publish(sample_event()).unwrap();
         let updated = reg
             .update(
                 &e.id,
@@ -361,7 +397,7 @@ mod tests {
     #[test]
     fn resolve_action_requires_known_action() {
         let mut reg = EventRegistry::new();
-        let e = reg.publish(sample_event()).unwrap();
+        let (_superseded, e) = reg.publish(sample_event()).unwrap();
         assert!(reg.resolve_action(&e.id, "missing", None).is_err());
         let resolved = reg.resolve_action(&e.id, "ok", None).unwrap();
         assert_eq!(resolved.status, EventStatus::Resolved);
@@ -374,7 +410,7 @@ mod tests {
     #[test]
     fn cannot_update_resolved() {
         let mut reg = EventRegistry::new();
-        let e = reg.publish(sample_event()).unwrap();
+        let (_superseded, e) = reg.publish(sample_event()).unwrap();
         reg.resolve(
             &e.id,
             EventResolution {
@@ -398,8 +434,8 @@ mod tests {
     #[test]
     fn active_events_excludes_resolved() {
         let mut reg = EventRegistry::new();
-        let a = reg.publish(sample_event()).unwrap();
-        let b = reg.publish(sample_event()).unwrap();
+        let (_s1, a) = reg.publish(sample_event()).unwrap();
+        let (_s2, b) = reg.publish(sample_event()).unwrap();
         reg.resolve(
             &a.id,
             EventResolution {
@@ -409,6 +445,31 @@ mod tests {
             },
         )
         .unwrap();
+        let active = reg.active_events();
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].id, b.id);
+    }
+
+    #[test]
+    fn publish_dedupe_key_supersedes_active() {
+        let mut reg = EventRegistry::new();
+        let mut first = sample_event();
+        first.dedupe_key = Some("reminder.rest.due:0".into());
+        first.title = "A".into();
+        let (_s, a) = reg.publish(first).unwrap();
+
+        let mut second = sample_event();
+        second.dedupe_key = Some("reminder.rest.due:0".into());
+        second.title = "B".into();
+        let (superseded, b) = reg.publish(second).unwrap();
+
+        assert_eq!(superseded.len(), 1);
+        assert_eq!(superseded[0].id, a.id);
+        assert_eq!(
+            superseded[0].resolution.as_ref().unwrap().kind,
+            ResolutionKind::Superseded
+        );
+        assert_eq!(b.title, "B");
         let active = reg.active_events();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].id, b.id);

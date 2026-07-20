@@ -73,6 +73,7 @@ interface ToastItem {
   endTimer?: ReturnType<typeof setTimeout> | null
   // Event Bus correlation
   eventId?: string
+  dedupeKey?: string
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -250,8 +251,30 @@ function calcWindowHeight(count: number): number {
   return PADDING * 2 + count * CARD_HEIGHT + (count - 1) * CARD_GAP
 }
 
+let adjustInFlight: Promise<void> | null = null
+let adjustQueued = false
+
 async function adjustWindowSize() {
-  if (isAnimating.value) return
+  if (adjustInFlight) {
+    adjustQueued = true
+    return adjustInFlight
+  }
+  adjustInFlight = runAdjustWindowSize().finally(() => {
+    adjustInFlight = null
+    if (adjustQueued) {
+      adjustQueued = false
+      void adjustWindowSize()
+    }
+  })
+  return adjustInFlight
+}
+
+async function runAdjustWindowSize() {
+  if (isAnimating.value) {
+    // 动画中不要丢请求，结束后再量一次
+    adjustQueued = true
+    return
+  }
 
   const count = notifications.value.length
   if (count === 0) return
@@ -478,14 +501,44 @@ function handleBusEvent(event: BusEvent) {
   seenBusEventIds.add(event.id)
   const p = (event.payload ?? {}) as Record<string, unknown>
   const boundary = typeof p.boundary === 'number' ? p.boundary : 0
+  const dedupeKey = event.dedupe_key || undefined
 
   logFrontend('info', `[toast-fe] bus event kind=${kind} id=${event.id}`).catch(() => {})
+
+  // 同 dedupe_key：原地刷新已有卡（不 remove+add），连点只重置内容/计时，不抖窗口
+  if (dedupeKey) {
+    const existing = notifications.value.find(
+      (n) => n.dedupeKey === dedupeKey && !n.leaving,
+    )
+    if (existing) {
+      if (existing.eventId && existing.eventId !== event.id) {
+        seenBusEventIds.add(existing.eventId)
+      }
+      existing.eventId = event.id
+      existing.kind = kind
+      existing.title = event.title || ''
+      existing.body = event.body || ''
+      existing.boundary = boundary
+      existing.visible = true
+      // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
+      if (kind !== 'permission' && !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) && kind !== 'update') {
+        const autoHideMs = kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
+        existing.remainingMs = autoHideMs
+        existing.totalMs = autoHideMs
+        startTimer(existing)
+      }
+      void adjustWindowSize()
+      return
+    }
+  }
+
   addNotification({
     kind,
     boundary,
     title: event.title || '',
     body: event.body || '',
     eventId: event.id,
+    dedupeKey,
     version: typeof p.version === 'string' ? p.version : undefined,
     updateBody: typeof p.updateBody === 'string' ? p.updateBody : undefined,
     event: typeof p.event === 'string' ? p.event : undefined,
@@ -535,6 +588,7 @@ async function addNotification(payload: {
   toolName?: string
   toolInput?: unknown
   eventId?: string
+  dedupeKey?: string
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -652,6 +706,7 @@ async function addNotification(payload: {
       : undefined,
     totalMs: autoHideMs,
     eventId: payload.eventId,
+    dedupeKey: payload.dedupeKey,
   }
 
   // 新通知加到底部（数组末尾）

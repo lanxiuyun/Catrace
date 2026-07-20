@@ -87,6 +87,8 @@ async function sendTest() {
     await refreshPreviewText()
     await testNotification()
     message.success(t('settings.messages.notifySent'))
+    // 先限流 1s，避免连点打爆 toast 窗口路径
+    await new Promise<void>((r) => setTimeout(r, 1000))
   } catch {
     message.error(t('settings.messages.notifyFailed'))
   } finally {

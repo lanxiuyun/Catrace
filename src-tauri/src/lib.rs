@@ -32,6 +32,8 @@ use tokio::time::interval;
 
 // 启动时自动检查更新，整个生命周期只执行一次
 static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
+/// 手动「发送测试」防抖：先限流稳住连点，后续再做无限制堆叠加固。
+static LAST_TEST_NOTIFICATION_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
 #[cfg(target_os = "macos")]
 pub(crate) fn accessibility_permission_granted() -> bool {
@@ -772,15 +774,38 @@ fn test_notification(
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
     bus: tauri::State<crate::bus::EventBus>,
 ) {
+    {
+        let mut last = LAST_TEST_NOTIFICATION_AT.lock().unwrap();
+        if let Some(t) = *last {
+            if t.elapsed() < Duration::from_secs(1) {
+                return;
+            }
+        }
+        *last = Some(Instant::now());
+    }
+
     let locale = db.get_setting("locale", "zh-CN");
 
-    // 仅在 Toast 模式下追加一张绿色休息计时测试卡片
+    // Toast 模式：先走统一通知入口（bus 会 ensure 窗口），再补休息计时卡。
+    // 不再在这里额外 show，避免与 bus 的 ensure_toast 并发抢 Win32 show。
+    show_notification(
+        &app_handle,
+        0,
+        test_notify_msg(&locale),
+        state.inner().clone(),
+        &locale,
+        &db,
+        &store,
+        fullscreen_active.inner().clone(),
+        &bus,
+    );
+
+    // 仅在 Toast 模式下追加/刷新绿色休息计时测试卡片（窗口由上面 bus publish ensure）
     let reminder_mode = db.get_setting("reminder_mode", "toast");
     if reminder_mode == "toast" {
         let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
         let now_ts = chrono::Local::now().timestamp();
         let rest_start_ts = (now_ts / 60) * 60;
-        // 使用与实际逻辑一致的 rest_streak，避免 rest_streak > break_m 时 is_complete 与进度球矛盾
         let rest_streak: i64 = std::cmp::min(3, break_m);
         let remaining_minutes = (break_m - rest_streak).max(0);
         let is_complete = rest_streak >= break_m;
@@ -796,21 +821,8 @@ fn test_notification(
                     "is_complete": is_complete,
                 }),
             );
-            window_manager::show_reminder_no_activate(&app_handle, &window);
         }
     }
-
-    show_notification(
-        &app_handle,
-        0,
-        test_notify_msg(&locale),
-        state.inner().clone(),
-        &locale,
-        &db,
-        &store,
-        fullscreen_active.inner().clone(),
-        &bus,
-    );
 }
 
 #[tauri::command]
@@ -975,7 +987,12 @@ fn show_notification(
                 resolution: None,
                 expires_at: None,
                 correlation_id: None,
-                dedupe_key: Some(format!("reminder.rest.due:{boundary}")),
+                // 测试 boundary=0 允许堆叠；真实结算同 boundary 去重替换
+                dedupe_key: if boundary == 0 {
+                    None
+                } else {
+                    Some(format!("reminder.rest.due:{boundary}"))
+                },
             };
             if let Err(e) = bus.publish(event) {
                 log_error!("rest", "bus.publish failed: {}", e);
