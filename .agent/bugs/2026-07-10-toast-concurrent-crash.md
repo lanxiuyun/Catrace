@@ -29,3 +29,7 @@
 ## 相关
 
 - [[toast-window]]
+
+## 后续同类
+
+- [2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md](2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md) — rest 测试连点；TOAST_MUTEX 仍不够，需限流 + resize 单飞 + ensure 短路

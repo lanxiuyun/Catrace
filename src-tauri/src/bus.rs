@@ -184,6 +184,18 @@ impl EventRegistry {
         self.events.get(id).cloned()
     }
 
+    /// First active event with matching non-empty dedupe_key.
+    pub fn find_active_by_dedupe_key(&self, key: &str) -> Option<BusEvent> {
+        let key = key.trim();
+        if key.is_empty() {
+            return None;
+        }
+        self.events
+            .values()
+            .find(|e| e.status == EventStatus::Active && e.dedupe_key.as_deref() == Some(key))
+            .cloned()
+    }
+
     fn prune_resolved(&mut self) {
         let mut resolved: Vec<_> = self
             .events
@@ -276,6 +288,40 @@ impl EventBus {
     pub fn active_events(&self) -> Result<Vec<BusEvent>, String> {
         let reg = self.registry.read().map_err(|e| e.to_string())?;
         Ok(reg.active_events())
+    }
+
+    pub fn find_active_by_dedupe_key(&self, key: &str) -> Result<Option<BusEvent>, String> {
+        let reg = self.registry.read().map_err(|e| e.to_string())?;
+        Ok(reg.find_active_by_dedupe_key(key))
+    }
+
+    /// Publish when no active event shares `dedupe_key`; otherwise patch title/body/payload/progress.
+    /// Avoids supersede flicker for high-frequency status cards (e.g. rest-timer).
+    pub fn upsert_by_dedupe_key(&self, event: BusEvent) -> Result<BusEvent, String> {
+        let key = event
+            .dedupe_key
+            .as_ref()
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty());
+        if let Some(key) = key {
+            if let Some(existing) = self.find_active_by_dedupe_key(&key)? {
+                return self.update(
+                    existing.id,
+                    EventPatch {
+                        title: Some(event.title),
+                        body: Some(event.body),
+                        level: Some(event.level),
+                        display_mode: Some(event.display_mode),
+                        actions: Some(event.actions),
+                        progress: Some(event.progress),
+                        sticky: Some(event.sticky),
+                        payload: Some(event.payload),
+                        expires_at: Some(event.expires_at),
+                    },
+                );
+            }
+        }
+        self.publish(event)
     }
 
     #[allow(dead_code)]
@@ -448,6 +494,39 @@ mod tests {
         let active = reg.active_events();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].id, b.id);
+    }
+
+    #[test]
+    fn upsert_by_dedupe_key_updates_without_new_id() {
+        let mut reg = EventRegistry::new();
+        let mut first = sample_event();
+        first.dedupe_key = Some("reminder.rest.timer".into());
+        first.title = "a".into();
+        let (_s, a) = reg.publish(first).unwrap();
+
+        // Simulate EventBus upsert: find + update
+        let found = reg.find_active_by_dedupe_key("reminder.rest.timer").unwrap();
+        assert_eq!(found.id, a.id);
+        let updated = reg
+            .update(
+                &found.id,
+                EventPatch {
+                    title: Some("b".into()),
+                    body: None,
+                    level: None,
+                    display_mode: None,
+                    actions: None,
+                    progress: None,
+                    sticky: None,
+                    payload: Some(serde_json::json!({"n": 1})),
+                    expires_at: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(updated.id, a.id);
+        assert_eq!(updated.title, "b");
+        assert_eq!(updated.revision, 2);
+        assert_eq!(reg.active_events().len(), 1);
     }
 
     #[test]

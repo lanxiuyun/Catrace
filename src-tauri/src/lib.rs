@@ -441,9 +441,23 @@ fn snooze_reminder(
 #[tauri::command]
 fn dismiss_rest_timer(
     state: tauri::State<Arc<Mutex<ReminderState>>>,
+    bus: tauri::State<crate::bus::EventBus>,
 ) -> Result<(), String> {
     let mut s = state.lock().unwrap();
     s.break_timer_active = false;
+    drop(s);
+    // Clear sticky rest-timer card on bus if present
+    if let Ok(Some(ev)) = bus.find_active_by_dedupe_key("reminder.rest.timer") {
+        use crate::event::{EventResolution, ResolutionKind};
+        let _ = bus.resolve(
+            ev.id,
+            EventResolution {
+                kind: ResolutionKind::Dismissed,
+                action_id: None,
+                payload: None,
+            },
+        );
+    }
     Ok(())
 }
 
@@ -765,6 +779,93 @@ fn close_reminder_window(
     Ok(())
 }
 
+
+/// Rest-timer toast via Event Bus (stable dedupe_key; upsert avoids flicker).
+fn emit_rest_timer_event(
+    bus: &crate::bus::EventBus,
+    locale: &str,
+    break_minutes: i64,
+    rest_start_ts: i64,
+    rest_streak: i64,
+    remaining_minutes: i64,
+    is_complete: bool,
+) {
+    use crate::event::{
+        BusEvent, DisplayMode, EventLevel, EventProgress, EventSource, EventStatus,
+    };
+
+    let (title, body) = if is_complete {
+        if locale == "zh-CN" {
+            (
+                "休息已完成".to_string(),
+                format!("已连续休息 {rest_streak} 分钟"),
+            )
+        } else {
+            (
+                "Break Complete".to_string(),
+                format!("Rested for {rest_streak} minutes"),
+            )
+        }
+    } else if locale == "zh-CN" {
+        (
+            "休息计时".to_string(),
+            format!("已连续休息 {rest_streak} 分钟，还需 {remaining_minutes} 分钟"),
+        )
+    } else {
+        (
+            "Rest Timer".to_string(),
+            format!("Rested for {rest_streak} minutes, {remaining_minutes} minutes to go"),
+        )
+    };
+
+    let progress = if break_minutes > 0 {
+        Some(EventProgress {
+            current: rest_streak as f64,
+            total: break_minutes as f64,
+            label: None,
+        })
+    } else {
+        None
+    };
+
+    let event = BusEvent {
+        id: String::new(),
+        event_type: "reminder.rest.timer".into(),
+        source: EventSource::Internal,
+        kind: "rest-timer".into(),
+        display_mode: DisplayMode::Toast,
+        level: if is_complete {
+            EventLevel::Success
+        } else {
+            EventLevel::Info
+        },
+        title,
+        body,
+        actions: vec![],
+        progress,
+        sticky: Some(true),
+        payload: serde_json::json!({
+            "break_minutes": break_minutes,
+            "rest_start_ts": rest_start_ts,
+            "rest_streak": rest_streak,
+            "remaining_minutes": remaining_minutes,
+            "is_complete": is_complete,
+        }),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: None,
+        dedupe_key: Some("reminder.rest.timer".into()),
+    };
+    if let Err(e) = bus.upsert_by_dedupe_key(event) {
+        log_error!("rest-timer", "bus upsert failed: {}", e);
+    }
+}
+
 #[tauri::command]
 fn test_notification(
     app_handle: tauri::AppHandle,
@@ -800,7 +901,7 @@ fn test_notification(
         &bus,
     );
 
-    // 仅在 Toast 模式下追加/刷新绿色休息计时测试卡片（窗口由上面 bus publish ensure）
+    // 仅在 Toast 模式下追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
     let reminder_mode = db.get_setting("reminder_mode", "toast");
     if reminder_mode == "toast" {
         let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
@@ -809,19 +910,15 @@ fn test_notification(
         let rest_streak: i64 = std::cmp::min(3, break_m);
         let remaining_minutes = (break_m - rest_streak).max(0);
         let is_complete = rest_streak >= break_m;
-        if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-            let _ = app_handle.emit_to(
-                window_manager::TOAST_WINDOW_LABEL,
-                "catrace-rest-timer",
-                serde_json::json!({
-                    "break_minutes": break_m,
-                    "rest_start_ts": rest_start_ts,
-                    "rest_streak": rest_streak,
-                    "remaining_minutes": remaining_minutes,
-                    "is_complete": is_complete,
-                }),
-            );
-        }
+        emit_rest_timer_event(
+            &bus,
+            &locale,
+            break_m,
+            rest_start_ts,
+            rest_streak,
+            remaining_minutes,
+            is_complete,
+        );
     }
 }
 
@@ -1441,26 +1538,21 @@ pub fn run() {
                         let mut r = reminder_state_for_settle.lock().unwrap();
                         r.snooze_until = None;
 
-                        // 如果正在等待有效休息，推送倒计时状态到 Toast 窗口
+                        // 如果正在等待有效休息，推送倒计时状态到 Event Bus → Toast
                         if r.break_timer_active {
                             drop(r);
                             if let Ok((rest_streak, rest_start_ts)) = db_clone.get_current_rest_streak() {
                                 let remaining = (break_m - rest_streak as i64).max(0);
                                 let is_complete = rest_streak as i64 >= break_m;
-                                if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-                                    let _ = app_handle.emit_to(
-                                        window_manager::TOAST_WINDOW_LABEL,
-                                        "catrace-rest-timer",
-                                        serde_json::json!({
-                                            "break_minutes": break_m,
-                                            "rest_start_ts": rest_start_ts,
-                                            "rest_streak": rest_streak,
-                                            "remaining_minutes": remaining,
-                                            "is_complete": is_complete,
-                                        }),
-                                    );
-                                    window_manager::show_reminder_no_activate(&app_handle, &window);
-                                }
+                                emit_rest_timer_event(
+                                    &event_bus_for_settle,
+                                    &locale,
+                                    break_m,
+                                    rest_start_ts,
+                                    rest_streak as i64,
+                                    remaining,
+                                    is_complete,
+                                );
                             }
                         }
                     }

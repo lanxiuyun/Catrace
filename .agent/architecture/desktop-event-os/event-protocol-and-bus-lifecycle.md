@@ -9,6 +9,15 @@
 - `resolution.kind`：completed | dismissed | action | expired | superseded
 - kind 专属字段放 `payload`（如 boundary、sessionId、requestId、version）
 
+## dedupe_key 行为（2026-07-20）
+
+- `publish` 时若 `dedupe_key` 非空：将 registry 内**同 key 且 Active** 的事件 `resolve(Superseded)`，先 emit 这些 resolved，再入库并 emit 新事件
+- 前端 Toast：`status === resolved` 时按 `eventId` 撤卡；新 active 若本地已有同 `dedupeKey` 可**原地刷新**
+- 约定示例：
+  - 真实久坐：`reminder.rest.due:{boundary}`（`boundary != 0`）
+  - 测试久坐：`boundary == 0` 时生产者可**不设** key，允许堆叠（当前另有 1s 测试限流）
+  - agent permission / update：既有 key 格式不变（`agent.permission:{request_id}` 等）
+
 ## Commands
 
 | Command | 作用 |
@@ -47,3 +56,7 @@
 4. 可选：`registerBuiltins` 登记 event_type 与设置卡
 
 相关：[toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) · [[toast-window]] · [[agent-notification]]
+
+## rest-timer
+
+- 走 `EventBus::upsert_by_dedupe_key`，`dedupe_key=reminder.rest.timer`，同卡 `update` 升 revision，避免 supersede 闪烁。

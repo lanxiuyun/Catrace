@@ -32,7 +32,10 @@
 
 - 新卡片右侧滑入，关闭时 FLIP 动画让下方卡片上移
 - 普通卡片 8 秒自动消失，hover 暂停，离开恢复
-- 同类提醒不去重：护眼/喝水等卡片按普通 Toast 入栈，统一受 `MAX_NOTIFICATIONS` 上限约束；快速点测试按钮会堆叠多张，超出上限时丢最旧
+- **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
+- **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
+- 无 dedupe 的 kind（如多数 water/eye）仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
+- `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
 - 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
 
 ## 卡片类型（按 `kind` 区分主题）
@@ -57,6 +60,9 @@
 Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，方便排查布局/点击。
 
 ## 子文档
+- [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
 
 - [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍
 - [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
+
+- [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道

@@ -85,7 +85,6 @@ const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
-let unlistenRestTimer: (() => void) | null = null
 let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
@@ -164,17 +163,6 @@ onMounted(async () => {
     showDebug.value = event.payload
   })
 
-  // 监听休息计时事件
-  unlistenRestTimer = await listen<{
-    break_minutes: number
-    rest_start_ts: number
-    rest_streak: number
-    remaining_minutes: number
-    is_complete: boolean
-  }>('catrace-rest-timer', (event) => {
-    updateRestTimer(event.payload)
-  })
-
   // 监听提示音设置变更，重新加载 data URL
   unlistenAgentSound = await listen('catrace-agent-sound-changed', () => {
     loadAgentSound()
@@ -228,8 +216,6 @@ onUnmounted(() => {
   delete (window as any).dismissAgentSession
   unlistenDebug?.()
   unlistenDebug = null
-  unlistenRestTimer?.()
-  unlistenRestTimer = null
   unlistenAgentSound?.()
   unlistenAgentSound = null
   unlistenBusEvent?.()
@@ -351,6 +337,10 @@ function updateRestTimer(payload: {
   rest_streak: number
   remaining_minutes: number
   is_complete: boolean
+  title?: string
+  body?: string
+  eventId?: string
+  dedupeKey?: string
 }) {
   // 取消已有的延迟关闭定时器（如果用户在延迟期间恢复休息）
   const existing = notifications.value.find((n) => n.kind === 'rest-timer')
@@ -359,21 +349,29 @@ function updateRestTimer(payload: {
     existing.endTimer = null
   }
 
-  const title = payload.is_complete
-    ? t('reminder.restTimerDone')
-    : t('reminder.restTimerTitle')
-  const body = payload.is_complete
-    ? t('reminder.restTimerDoneBody', { n: payload.rest_streak })
-    : t('reminder.restTimerBody', {
-        n: payload.rest_streak,
-        m: payload.remaining_minutes,
-      })
+  const title =
+    payload.title ||
+    (payload.is_complete ? t('reminder.restTimerDone') : t('reminder.restTimerTitle'))
+  const body =
+    payload.body ||
+    (payload.is_complete
+      ? t('reminder.restTimerDoneBody', { n: payload.rest_streak })
+      : t('reminder.restTimerBody', {
+          n: payload.rest_streak,
+          m: payload.remaining_minutes,
+        }))
 
   if (existing) {
+    if (existing.eventId && payload.eventId && existing.eventId !== payload.eventId) {
+      seenBusEventIds.add(existing.eventId)
+    }
+    existing.eventId = payload.eventId ?? existing.eventId
+    existing.dedupeKey = payload.dedupeKey ?? existing.dedupeKey
     existing.title = title
     existing.body = body
     existing.restStreak = payload.rest_streak
     existing.breakMinutes = payload.break_minutes
+    existing.restStartTs = payload.rest_start_ts
     existing.isComplete = payload.is_complete
     existing.visible = true
   } else {
@@ -394,6 +392,8 @@ function updateRestTimer(payload: {
       restStreak: payload.rest_streak,
       isComplete: payload.is_complete,
       totalMs: 0,
+      eventId: payload.eventId,
+      dedupeKey: payload.dedupeKey ?? 'reminder.rest.timer',
     }
     notifications.value.push(item)
     requestAnimationFrame(() => {
@@ -470,9 +470,11 @@ function scheduleRemoveRestTimer() {
 
   existing.endTimer = setTimeout(() => {
     const item = notifications.value.find((n) => n.kind === 'rest-timer')
-    if (item) {
-      removeNotification(item.id, true)
-    }
+    if (!item) return
+    // 恢复活跃：清后端 break_timer_active + bus，避免 active 事件水合后重新冒出
+    void dismissRestTimer().catch(() => {})
+    markEventResolved(item.eventId)
+    removeNotification(item.id, true)
   }, REST_TIMER_REMOVE_DELAY_MS)
 }
 
@@ -493,15 +495,34 @@ function handleBusEvent(event: BusEvent) {
   if (seenBusEventIds.has(event.id)) return
 
   const kind = event.kind as ToastKind
-  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update']
+  const busKinds: ToastKind[] = ['rest', 'water', 'eye', 'agent', 'permission', 'update', 'rest-timer']
   if (!busKinds.includes(kind)) {
     return
   }
 
-  seenBusEventIds.add(event.id)
   const p = (event.payload ?? {}) as Record<string, unknown>
   const boundary = typeof p.boundary === 'number' ? p.boundary : 0
   const dedupeKey = event.dedupe_key || undefined
+
+  // rest-timer: upsert in place by kind/dedupe; do not gate on seenBusEventIds
+  // because backend update() keeps the same event id with rising revision.
+  if (kind === 'rest-timer') {
+    updateRestTimer({
+      break_minutes: typeof p.break_minutes === 'number' ? p.break_minutes : 0,
+      rest_start_ts: typeof p.rest_start_ts === 'number' ? p.rest_start_ts : 0,
+      rest_streak: typeof p.rest_streak === 'number' ? p.rest_streak : 0,
+      remaining_minutes: typeof p.remaining_minutes === 'number' ? p.remaining_minutes : 0,
+      is_complete: Boolean(p.is_complete),
+      title: event.title || undefined,
+      body: event.body || undefined,
+      eventId: event.id,
+      dedupeKey: dedupeKey ?? 'reminder.rest.timer',
+    })
+    return
+  }
+
+  if (seenBusEventIds.has(event.id)) return
+  seenBusEventIds.add(event.id)
 
   logFrontend('info', `[toast-fe] bus event kind=${kind} id=${event.id}`).catch(() => {})
 
