@@ -113,7 +113,7 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 
 ## 8. 一句话进度
 
-**Toast 内容路径已全部经 Event Bus：rest/water/eye/agent/permission/update。**  
-仅 `dismissAgentSession` 与 `rest-timer` 仍用专用通道。  
-下一步：真机验 agent/permission → 设置页按 registry 挂载 → 可选拆 Card 组件。  
+**Toast 内容路径已全部经 Event Bus：rest/water/eye/agent/permission/update/rest-timer。**  
+仅 `dismissAgentSession` 仍用专用通道。  
+下一步：真机验 agent/permission → Signal 分钟桶手测 → 设置页按 registry 挂载 → 可选拆 Card 组件。  
 Desktop Event OS 长期愿景见本目录 [README.md](README.md)。

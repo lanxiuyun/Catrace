@@ -20,6 +20,7 @@ features:
       - .agent/features/toast-window/development-notes.md
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
+      - .agent/features/toast-window/连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md
     related:
       - reminder
       - water-reminder
@@ -174,6 +175,8 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md
+  - .agent/bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md
   - .agent/bugs/2026-07-18-permission-card-disappears-on-mouse-leave.md
   - .agent/bugs/2026-07-18-permission-hang-on-session-change.md
   - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
@@ -190,6 +193,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-20-signal-cpu修复与久坐toast连点限流.md
   - .agent/devlog/2026-07-19-toast-content-fully-via-event-bus-including-agent.md
   - .agent/devlog/2026-07-19-step2-event-core-and-signal-collection-scaffold.md
   - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
@@ -210,5 +214,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: Desktop Event OS — Toast 内容全量走 Event Bus（含 agent/permission/update）；rest-timer 与 dismissAgentSession 仍专用通道
-  next: 真机验 agent 通知与 permission 卡 → 设置页按 pluginRegistry 挂载 → 可选拆 CardComponent
+  phase: Desktop Event OS — rest-timer 经 Bus upsert；Debug Signal 分钟桶展示；久坐测试 1s 限流；M6 久坐主路径手测已通过
+  next: Signal 分钟桶真机验收（≥2min 落库/键序列开关）→ 可选 rest-timer 手测 → water/eye UI 与 Toast 无限连点延后

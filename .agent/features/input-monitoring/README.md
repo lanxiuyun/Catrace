@@ -13,17 +13,22 @@
 - `src-tauri/src/lib.rs` — `ActivityState`、settle、启动门闩（accessibility）
 - `src-tauri/src/reminder_toast.rs` — 仅用 `DeviceQuery::get_mouse()` 获取屏幕尺寸计算 Toast 窗口位置
 
-## 键盘监听
+## 键盘监听（2026-07-20 起）
 
-所有平台统一使用 `device_query::DeviceState::on_key_down()` 事件回调。  
-对 **活跃判定**：2 秒去重，同一窗口内多次按键只计 1 次活动。  
-对 **Signal**：每次 keydown 增加 `key_count`；键序列需设置 opt-in。
+**不要**用 `device_query::DeviceEvents` / `on_key_down` 做常驻监听：Windows 上约 100µs 轮询，空闲 CPU 过高。  
+见 [2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md](../../bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md)。
+
+当前实现：
+
+- `DeviceState::get_keys()` + **`KEY_POLL_INTERVAL = 50ms`** 自管边沿（刚出现的 keycode）
+- **活跃判定**：2 秒去重，同一窗口内多次按键只计 1 次活动（`ActivityState.count`）
+- **Signal**：每次边沿 `key_count++`；键序列需设置 opt-in
 
 ## 鼠标采样
 
 约 1Hz 采坐标算欧氏位移（只落距离）。  
 对 **活跃判定**：仍按约 2 秒窗口「是否发生过移动」最多 +1，避免提高 `count>=3` 灵敏度。
 
-## 子文档
+## 子文档 / 决策
 
-- （历史）device_query 选择见 decisions `2026-07-07-drop-rdev-for-device-query`
+- 历史：弃 rdev 选 device_query — [2026-07-07-drop-rdev-for-device-query](../../decisions/2026-07-07-drop-rdev-for-device-query.md)（API 选型仍成立；**轮询粒度**必须自管）

@@ -22,6 +22,10 @@ import {
   setToastDebugMode,
   startNotificationTest,
   stopNotificationTest,
+  getRecentSignalMinutes,
+  getSignalRuntimeConfig,
+  type SignalMinuteRecord,
+  type SignalRuntimeConfig,
 } from '../api/tauri'
 
 const { t } = useI18n()
@@ -32,6 +36,9 @@ const errorMsg = ref<string | null>(null)
 const toastDebugMode = ref(false)
 const testRunning = ref(false)
 const testInterval = ref(15)
+const signalMinutes = ref<SignalMinuteRecord[]>([])
+const signalRuntime = ref<SignalRuntimeConfig | null>(null)
+const signalError = ref<string | null>(null)
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -70,11 +77,44 @@ async function stopTest() {
   }
 }
 
+function formatMinuteTs(ts: number): string {
+  // signal_minutes.timestamp = bucket_start + 60 (bucket end)
+  const d = new Date(ts * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function mouseSlotsFilled(json: string | null): string {
+  if (!json) return '—'
+  try {
+    const arr = JSON.parse(json) as Array<number | null>
+    if (!Array.isArray(arr)) return '—'
+    const filled = arr.filter((v) => v !== null && v !== undefined).length
+    return `${filled}/60`
+  } catch {
+    return '—'
+  }
+}
+
+function formatDistance(px: number): string {
+  if (!Number.isFinite(px)) return '—'
+  if (px >= 1000) return `${(px / 1000).toFixed(1)}k`
+  return String(Math.round(px))
+}
+
 async function refresh(manual = false) {
   if (manual) loading.value = true
   errorMsg.value = null
+  signalError.value = null
   try {
-    data.value = await getMediaDebugInfo()
+    const [media, minutes, runtime] = await Promise.all([
+      getMediaDebugInfo(),
+      getRecentSignalMinutes(12),
+      getSignalRuntimeConfig(),
+    ])
+    data.value = media
+    signalMinutes.value = minutes
+    signalRuntime.value = runtime
   } catch (e: any) {
     errorMsg.value = e?.message || String(e)
     console.error(e)
@@ -147,6 +187,69 @@ onDeactivated(() => {
             type="error"
             @click="stopTest"
           >{{ t('debug.notificationTest.stop') }}</n-button>
+        </n-space>
+      </n-card>
+
+      <n-card :title="t('debug.signal.title')" size="small">
+        <n-space vertical :size="12">
+          <n-alert v-if="signalError" type="warning" :show-icon="true">
+            {{ signalError }}
+          </n-alert>
+
+          <n-descriptions v-if="signalRuntime" :column="3" size="small" bordered>
+            <n-descriptions-item :label="t('debug.signal.keySeq')">
+              <n-tag :type="signalRuntime.key_sequence_enabled ? 'warning' : 'default'" size="small">
+                {{ signalRuntime.key_sequence_enabled ? t('debug.yes') : t('debug.no') }}
+              </n-tag>
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('debug.signal.retention')">
+              {{ signalRuntime.retention_hours }}h
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('debug.signal.pending')">
+              {{ (signalRuntime.snapshot?.pending_buckets as number) ?? 0 }}
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('debug.signal.curMinute')">
+              {{ signalRuntime.snapshot?.minute_ts ? formatMinuteTs(Number(signalRuntime.snapshot.minute_ts) + 60) : '—' }}
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('debug.signal.curKeys')">
+              {{ signalRuntime.snapshot?.key_count ?? 0 }}
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('debug.signal.curMouse')">
+              {{ formatDistance(Number(signalRuntime.snapshot?.mouse_distance_px ?? 0)) }} px
+            </n-descriptions-item>
+          </n-descriptions>
+
+          <n-table v-if="signalMinutes.length > 0" :single-line="false" size="small">
+            <thead>
+              <tr>
+                <th>{{ t('debug.signal.colTime') }}</th>
+                <th>{{ t('debug.signal.colApp') }}</th>
+                <th>{{ t('debug.signal.colFg') }}</th>
+                <th>{{ t('debug.signal.colKeys') }}</th>
+                <th>{{ t('debug.signal.colSeq') }}</th>
+                <th>{{ t('debug.signal.colMouse') }}</th>
+                <th>{{ t('debug.signal.colSlots') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in signalMinutes" :key="row.timestamp">
+                <td>{{ formatMinuteTs(row.timestamp) }}</td>
+                <td class="signal-app">{{ row.dominant_process_name || '—' }}</td>
+                <td>{{ row.foreground_sample_count }}</td>
+                <td>{{ row.key_count }}</td>
+                <td>
+                  <n-tag v-if="row.key_sequence_json" type="warning" size="small">
+                    {{ t('debug.signal.seqOn') }}
+                  </n-tag>
+                  <n-tag v-else size="small">{{ t('debug.signal.seqOff') }}</n-tag>
+                </td>
+                <td>{{ formatDistance(row.mouse_distance_px) }}</td>
+                <td>{{ mouseSlotsFilled(row.mouse_seconds_json) }}</td>
+              </tr>
+            </tbody>
+          </n-table>
+          <n-empty v-else :description="t('debug.signal.empty')" size="small" />
+          <n-text depth="3" class="signal-hint">{{ t('debug.signal.hint') }}</n-text>
         </n-space>
       </n-card>
 
@@ -274,5 +377,16 @@ onDeactivated(() => {
   font-size: 0.75rem;
   color: #8b7aab;
   margin-bottom: 0.375rem;
+}
+
+.signal-app {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-hint {
+  font-size: 0.75rem;
 }
 </style>

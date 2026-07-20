@@ -29,3 +29,10 @@
 
 - 删除 `rdev` crate 依赖及相关间接依赖（cocoa、core-graphics 0.19/0.21、x11 等）
 - 移除 `#[cfg]` 条件编译分支，键盘监听代码统一为一份
+
+## 修订备注（2026-07-20）
+
+统一用 `device_query` **crate** 的决策仍成立（避免 rdev 全局钩子）。  
+但 **`DeviceEvents`/`on_key_down` 不适合常驻**：Windows 100µs 轮询导致空闲 CPU 过高。  
+常驻键盘改为 `get_keys()` 自管 50ms 边沿采样，见 bug `2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md`。
+
