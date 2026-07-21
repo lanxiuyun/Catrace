@@ -282,25 +282,22 @@ pub(crate) fn test_notification(
         &bus,
     );
 
-    // 仅在 Toast 模式下追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
-    let reminder_mode = db.get_setting("reminder_mode", "toast");
-    if reminder_mode == "toast" {
-        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-        let now_ts = chrono::Local::now().timestamp();
-        let rest_start_ts = (now_ts / 60) * 60;
-        let rest_streak: i64 = std::cmp::min(3, break_m);
-        let remaining_minutes = (break_m - rest_streak).max(0);
-        let is_complete = rest_streak >= break_m;
-        emit_rest_timer_event(
-            &bus,
-            &locale,
-            break_m,
-            rest_start_ts,
-            rest_streak,
-            remaining_minutes,
-            is_complete,
-        );
-    }
+    // 追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
+    let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
+    let now_ts = chrono::Local::now().timestamp();
+    let rest_start_ts = (now_ts / 60) * 60;
+    let rest_streak: i64 = std::cmp::min(3, break_m);
+    let remaining_minutes = (break_m - rest_streak).max(0);
+    let is_complete = rest_streak >= break_m;
+    emit_rest_timer_event(
+        &bus,
+        &locale,
+        break_m,
+        rest_start_ts,
+        rest_streak,
+        remaining_minutes,
+        is_complete,
+    );
 }
 
 #[tauri::command]
@@ -361,22 +358,20 @@ pub(crate) fn stop_notification_test(test_state: tauri::State<Arc<NotificationTe
 }
 
 // ------------------------------------------------------------------
-// 通知：统一入口（支持 toast / popup / fullscreen）
+// 通知入口：当前版本久坐插件仅支持 toast（popup/fullscreen 暂不启用）
 // ------------------------------------------------------------------
 
 fn show_notification(
-    app_handle: &tauri::AppHandle,
+    _app_handle: &tauri::AppHandle,
     boundary: i64,
     default_body: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
+    _reminder_state: Arc<Mutex<ReminderState>>,
     locale: &str,
     db: &db::Db,
-    store: &ReminderWindowStore,
-    fullscreen_active: Arc<AtomicBool>,
+    _store: &ReminderWindowStore,
+    _fullscreen_active: Arc<AtomicBool>,
     bus: &crate::bus::EventBus,
 ) {
-    let mode = db.get_setting("reminder_mode", "toast");
-
     // 优先使用用户自定义文本，空则回退到 i18n 默认值
     let custom_title = db.get_setting("reminder_title", "");
     let custom_body = db.get_setting("reminder_body", "");
@@ -391,91 +386,59 @@ fn show_notification(
         custom_body
     };
 
-    match mode.as_str() {
-        "popup" => {
-            crate::create_popup_window(app_handle, boundary, &title, &body, reminder_state, store);
-        }
-        "fullscreen" => {
-            let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-            let fullscreen_bg_raw = db.get_setting("fullscreen_bg_image", "");
-            let fullscreen_bg_opt = crate::resolve_bg_for_frontend(&fullscreen_bg_raw);
-            let fullscreen_opacity: i64 = db
-                .get_setting("fullscreen_opacity", "80")
-                .parse()
-                .unwrap_or(80);
-            let fullscreen_fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
-            let fullscreen_element_transforms = db.get_setting("fullscreen_element_transforms", "");
-            crate::create_fullscreen_window(
-                app_handle,
-                boundary,
-                &title,
-                &body,
-                break_m,
-                fullscreen_bg_opt,
-                fullscreen_opacity,
-                fullscreen_fit_mode,
-                fullscreen_element_transforms,
-                reminder_state,
-                store,
-                fullscreen_active,
-            );
-        }
-        _ => {
-            // toast（默认）：只 publish 到 Event Bus，由 Toast 窗订阅渲染
-            use crate::event::{
-                BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
-            };
-            let event = BusEvent {
-                id: String::new(),
-                event_type: "reminder.rest.due".into(),
-                source: EventSource::Internal,
-                kind: "rest".into(),
-                display_mode: DisplayMode::Toast,
-                level: EventLevel::Warning,
-                title: title.clone(),
-                body: body.clone(),
-                actions: vec![
-                    EventAction {
-                        id: "snooze".into(),
-                        label: if locale == "zh-CN" {
-                            "稍后".into()
-                        } else {
-                            "Snooze".into()
-                        },
-                        payload: None,
-                    },
-                    EventAction {
-                        id: "skip".into(),
-                        label: if locale == "zh-CN" {
-                            "跳过".into()
-                        } else {
-                            "Skip".into()
-                        },
-                        payload: None,
-                    },
-                ],
-                progress: None,
-                sticky: Some(false),
-                payload: serde_json::json!({ "boundary": boundary }),
-                created_at: 0,
-                updated_at: 0,
-                status: EventStatus::Active,
-                revision: 0,
-                resolved_at: None,
-                resolution: None,
-                expires_at: None,
-                correlation_id: None,
-                // 测试 boundary=0 允许堆叠；真实结算同 boundary 去重替换
-                dedupe_key: if boundary == 0 {
-                    None
+    // toast：只 publish 到 Event Bus，由 Toast 窗订阅渲染
+    use crate::event::{
+        BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
+    };
+    let event = BusEvent {
+        id: String::new(),
+        event_type: "reminder.rest.due".into(),
+        source: EventSource::Internal,
+        kind: "rest".into(),
+        display_mode: DisplayMode::Toast,
+        level: EventLevel::Warning,
+        title,
+        body,
+        actions: vec![
+            EventAction {
+                id: "snooze".into(),
+                label: if locale == "zh-CN" {
+                    "稍后".into()
                 } else {
-                    Some(format!("reminder.rest.due:{boundary}"))
+                    "Snooze".into()
                 },
-            };
-            if let Err(e) = bus.publish(event) {
-                log_error!("rest", "bus.publish failed: {}", e);
-            }
-        }
+                payload: None,
+            },
+            EventAction {
+                id: "skip".into(),
+                label: if locale == "zh-CN" {
+                    "跳过".into()
+                } else {
+                    "Skip".into()
+                },
+                payload: None,
+            },
+        ],
+        progress: None,
+        sticky: Some(false),
+        payload: serde_json::json!({ "boundary": boundary }),
+        created_at: 0,
+        updated_at: 0,
+        status: EventStatus::Active,
+        revision: 0,
+        resolved_at: None,
+        resolution: None,
+        expires_at: None,
+        correlation_id: None,
+        // 测试 boundary=0 允许堆叠；真实结算同 boundary 去重替换
+        dedupe_key: if boundary == 0 {
+            None
+        } else {
+            Some(format!("reminder.rest.due:{boundary}"))
+        },
+    };
+    if let Err(e) = bus.publish(event) {
+        log_error!("rest", "bus.publish failed: {}", e);
     }
 }
 

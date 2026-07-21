@@ -411,11 +411,23 @@ fn set_locale(locale: String, db: tauri::State<db::Db>) -> Result<(), String> {
 
 #[tauri::command]
 fn get_reminder_mode(db: tauri::State<db::Db>) -> String {
-    db.get_setting("reminder_mode", "toast")
+    // 当前久坐插件仅支持 toast；遗留 popup/fullscreen 读时归一
+    let mode = db.get_setting("reminder_mode", "toast");
+    if mode == "toast" {
+        mode
+    } else {
+        "toast".to_string()
+    }
 }
 
 #[tauri::command]
 fn set_reminder_mode(mode: String, db: tauri::State<db::Db>) -> Result<(), String> {
+    // 当前版本只持久化 toast；其它模式写入时钳制，避免再次启用全屏/弹窗
+    let mode = if mode == "toast" {
+        mode
+    } else {
+        "toast".into()
+    };
     db.set_setting("reminder_mode", &mode)
         .map_err(|e| e.to_string())
 }
