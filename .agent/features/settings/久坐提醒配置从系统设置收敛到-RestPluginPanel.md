@@ -14,10 +14,12 @@
 ## RestPluginPanel 区块
 
 1. **节奏** — `window_minutes` / `break_minutes` / `snooze_interval_minutes`
-2. **方式** — `reminder_mode`：`toast` | `fullscreen`（遗留 `popup` 读到即迁 `toast`）
-3. **内容** — `reminder_title` / `reminder_body`
-4. **全屏** — 背景图、透明度、fit（仅 fullscreen 时相关）
-5. **测试** — `testNotification`；测试按钮位于提醒内容卡片外部，不渲染通知预览
+2. **内容** — `reminder_title` / `reminder_body`
+3. **测试** — `testNotification`；测试按钮位于提醒内容卡片外部，不渲染通知预览
+
+> 2026-07-21：当前版本久坐插件**仅支持 toast 通知提醒**。UI 不再提供模式选择/全屏配置；
+> 后端 `show_notification` 固定走 Event Bus toast；`get/set_reminder_mode` 将非 toast 钳制为 toast。
+> 全屏/popup 窗口基础设施仍保留，待后续重新接入。
 
 插件 UI 开关仍用前端 Store：`plugin_rest_ui_enabled`（非业务核心，不进 SQLite）。
 

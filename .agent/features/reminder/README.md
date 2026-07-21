@@ -5,8 +5,8 @@
 ## 涉及文件
 
 - `src-tauri/src/db.rs` — block 切分算法 `compute_time_blocks` + 提醒判定 `should_notify`
-- `src-tauri/src/lib.rs` — 每分钟结算时调用提醒检查，触发通知
-- `src-tauri/src/reminder.rs` — 提醒状态机 `ReminderState`（snooze / skip）
+- `src-tauri/src/rest_plugin.rs` — 内置久坐插件：`ReminderState`、结算入口、toast 通知与 timer 事件
+- `src-tauri/src/lib.rs` — 分钟循环回调 `rest_plugin::on_minute_settled`；mode API 钳制
 - `src/utils/timeBlocks.ts` — 前端 block 切分（概览视图使用）
 
 ## 核心算法
@@ -53,11 +53,15 @@
 
 - **功能插件 → 久坐**：`src/components/plugins/RestPluginPanel.vue`
   - 节奏：`window_minutes` / `break_minutes` / `snooze_interval_minutes`
-  - 方式：`reminder_mode`（toast / fullscreen）
   - 文案：`reminder_title` / `reminder_body`
-  - 全屏背景与测试通知
+  - 测试通知（内容区外按钮）
+- **当前仅 toast**：不提供 mode / 全屏配置；运行时强制 Event Bus toast
 - **不再**放在系统设置通知卡（`NotificationSettingsCard` 已删除）
 - 详见 [[settings]] 与 [久坐提醒配置从系统设置收敛到-RestPluginPanel.md](../settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md)
+
+## 子文档
+
+- [久坐插件当前仅toast-运行时与配置钳制.md](久坐插件当前仅toast-运行时与配置钳制.md) — toast-only 契约与重启用 checklist
 
 ## 配置
 

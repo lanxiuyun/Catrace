@@ -15,7 +15,7 @@
 - `src/components/settings/EyeSettingsCard.vue` — 护眼提醒（同上）
 - `src/components/settings/AgentSettingsCard.vue` — Agent 旧设置卡壳（逻辑已迁 `AgentPluginPanel`）
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
-- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 方式 / 内容 / 测试）
+- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 内容 / 测试；当前仅 toast）
 
 ## 卡片规范
 
@@ -29,7 +29,7 @@
 | 面 | 内容 |
 |----|------|
 | 系统设置 core | `media` / `signal` / `system` / `links` |
-| 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen 方式、全屏背景、测试通知 |
+| 功能插件 `rest` | 多久提醒、提醒文案、测试通知（**当前仅 toast**；fullscreen 暂不提供 UI） |
 | 功能插件 `agent` | Hook / 事件模式 / 提示音 |
 | 调试页 | Event SDK（不进设置拖拽网格） |
 

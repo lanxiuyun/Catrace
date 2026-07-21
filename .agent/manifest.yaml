@@ -2,12 +2,14 @@ features:
   reminder:
     docs:
       - .agent/features/reminder/README.md
+      - .agent/features/reminder/久坐插件当前仅toast-运行时与配置钳制.md
     related:
       - water-reminder
       - toast-window
       - fullscreen-reminder
       - database
       - settings
+      - desktop-event-os
   water-reminder:
     docs:
       - .agent/features/water-reminder/README.md
@@ -187,6 +189,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md
   - .agent/decisions/2026-07-21-久坐提醒配置归功能插件不进系统设置.md
   - .agent/decisions/2026-07-21-debug启动自动junction链接plugin-demo.md
   - .agent/decisions/2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md
@@ -217,6 +220,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
   - .agent/devlog/2026-07-21-久坐提醒插件设置去掉通知预览并外置测试按钮.md
   - .agent/devlog/2026-07-21-久坐配置收敛到插件与-debug自动链接plugin-demo.md
   - .agent/devlog/2026-07-21-插件测试连点卡死修复-supersede与Blob卡缓存.md
@@ -244,5 +248,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: M10 local plugins + rest settings in RestPluginPanel + debug plugin-demo auto-link
-  next: optional commit of rest-panel/dev-link changes; M10.2 iframe/ACL or M9.1 SSE/webhook
+  phase: rest plugin toast-only; M10 local plugins + RestPluginPanel settings
+  next: optional split commits for toast-only rest; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook

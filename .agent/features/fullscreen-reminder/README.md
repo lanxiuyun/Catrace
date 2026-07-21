@@ -2,6 +2,11 @@
 
 双层背景 + 自定义元素变换的全屏休息提醒模式。
 
+> **2026-07-21**：产品侧久坐插件**暂不启用**全屏提醒，只走 toast。  
+> 本目录描述的窗口 / 配置 / 变换能力**代码仍保留**，但 `RestPluginPanel` 无入口，  
+> `show_notification` 不再分支到 fullscreen。详见 [[reminder]] toast-only 子文档与  
+> [popup-removal-pending.md](../../decisions/popup-removal-pending.md)。
+
 ## 涉及文件
 
 - `src/views/ReminderFullscreen.vue` — 全屏提醒窗口
