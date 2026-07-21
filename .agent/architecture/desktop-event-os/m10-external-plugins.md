@@ -31,7 +31,7 @@
 }
 ```
 
-- `events`：允许的 `event_type` / `kind` / `kind:xxx`；**不得**占用保留 kind：  
+- `events`：允许的 `event_type` / `kind` / `kind:xxx`；**不得**占用保留 kind：
   `rest|water|eye|agent|permission|update|rest-timer|sdk`
 - `main`：相对路径，必须在插件目录内（防 path escape）
 - 无 `main`：事件可降级 `SdkToastCard`
@@ -97,8 +97,8 @@ list/get/patch/resolve 允许 `Sdk | Plugin` 源。
 
 ### 进程内（Plugins 页测试按钮）
 
-`publish_event` invoke：`source: { type: 'plugin', name }` + `kind: <id>` + 稳定 `dedupe_key`（如 `<id>.test`）。  
-`BusEvent.id` 有 `#[serde(default)]`，可空，由 bus 填 UUID。  
+`publish_event` invoke：`source: { type: 'plugin', name }` + `kind: <id>` + 稳定 `dedupe_key`（如 `<id>.test`）。
+`BusEvent.id` 有 `#[serde(default)]`，可空，由 bus 填 UUID。
 连点应表现为**同一张卡刷新**，不是叠多张、更不能卡死。
 
 ## 宿主链路
@@ -115,22 +115,45 @@ list/get/patch/resolve 允许 `Sdk | Plugin` 源。
 
 ## 信任模型
 
-本地插件 ≈ VS Code 本地扩展：代码跑在应用 WebView。**仅安装信任的包。**  
-首版：保留 kind 拒绝 + enable 门闩 + 无远程 `main`。  
+本地插件 ≈ VS Code 本地扩展：代码跑在应用 WebView。**仅安装信任的包。**
+首版：保留 kind 拒绝 + enable 门闩 + 无远程 `main`。
 M10.2 可选：iframe sandbox、invoke ACL。
 
 ## 手测清单（已过）
 
-1. ✅ 拷贝 `tools/plugin-demo/demo-timer` → plugins 目录 → 刷新 → 启用  
-2. ✅ Plugins 页 **发送测试通知** → 青绿 DEMO 徽章自定义卡  
-3. 点 Done → 事件 resolved、卡消失  
-4. 禁用插件 → HTTP publish 403  
-5. `kind=agent` + `plugin_id` → 403  
-6. 无 `plugin_id` 的 M9 sdk 路径仍可用  
+1. ✅ 拷贝 `tools/plugin-demo/demo-timer` → plugins 目录 → 刷新 → 启用
+2. ✅ Plugins 页 **发送测试通知** → 青绿 DEMO 徽章自定义卡
+3. 点 Done → 事件 resolved、卡消失
+4. 禁用插件 → HTTP publish 403
+5. `kind=agent` + `plugin_id` → 403
+6. 无 `plugin_id` 的 M9 sdk 路径仍可用
 
 ## Demo
 
 见 [`tools/plugin-demo/README.md`](../../../tools/plugin-demo/README.md)。
+
+
+## Dev 自动 link（debug only）
+
+开发时不必每次拷贝 demo 插件。`initial_scan` 在 **debug 构建**下会先跑 `ensure_dev_plugin_links`：
+
+| 项 | 说明 |
+|----|------|
+| 源 | 仓库 `tools/plugin-demo/<id>/`（须含 `manifest.json`） |
+| 目标 | `app_data/plugins/<id>` |
+| Windows | `mklink /J` junction（无管理员）；失败再尝试 symlink |
+| Unix | symlink |
+| 已正确指向源 | 跳过 |
+| 目标已是实目录/其他链接 | **不覆盖** |
+| release | 整段编译剔除 |
+
+实现：`src-tauri/src/plugins.rs`。
+
+手测可改为：debug 启动 → Plugins 刷新 → 见 demo-timer → 启用。仍可用手动 junction：
+
+```bat
+mklink /J "%APPDATA%\com.lanxiuyun.catrace\plugins\demo-timer" "C:\work_sapce\Catrace\tools\plugin-demo\demo-timer"
+```
 
 ## 相关
 

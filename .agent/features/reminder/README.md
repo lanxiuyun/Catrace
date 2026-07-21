@@ -48,6 +48,17 @@
 | 活跃 40min 进行中 | 不提醒 |
 | 全天休息 | 不提醒 |
 
+
+## UI 入口
+
+- **功能插件 → 久坐**：`src/components/plugins/RestPluginPanel.vue`
+  - 节奏：`window_minutes` / `break_minutes` / `snooze_interval_minutes`
+  - 方式：`reminder_mode`（toast / fullscreen）
+  - 文案：`reminder_title` / `reminder_body`
+  - 全屏背景与测试通知
+- **不再**放在系统设置通知卡（`NotificationSettingsCard` 已删除）
+- 详见 [[settings]] 与 [久坐提醒配置从系统设置收敛到-RestPluginPanel.md](../settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md)
+
 ## 配置
 
 | 配置名 | 说明 | 默认值 |

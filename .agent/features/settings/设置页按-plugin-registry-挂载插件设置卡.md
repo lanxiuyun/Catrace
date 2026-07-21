@@ -1,4 +1,4 @@
-﻿# 设置页按 plugin registry 挂载插件设置卡
+# 设置页按 plugin registry 挂载插件设置卡
 
 ## 目标
 
@@ -25,3 +25,10 @@ M7c：内置插件注册后，设置页不再写死 agent/water/eye 导入列表
 1. 功能插件列表出现久坐 + Agent；点 Agent 进入详情（开关/Hook/事件模式/提示音）
 2. 系统设置**无** Agent 卡；无喝水/护眼卡
 3. 系统设置拖拽排序仅核心卡，重启后顺序保留
+
+## 久坐配置归属（2026-07-21）
+
+- 提醒节奏 / 模式 / 文案 / 全屏背景 / 测试 → `RestPluginPanel`（功能插件）
+- 系统设置 core 卡：`media` / `signal` / `system` / `links`（已移除 `notification`）
+- 原 `NotificationSettingsCard.vue` 已删除
+- 后端键仍为 `reminder_mode` / `reminder_title` / `reminder_body` / fullscreen_*（仅入口收敛）

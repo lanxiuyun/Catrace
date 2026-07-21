@@ -1,17 +1,29 @@
-# Popup 提醒：待决策移除
+# popup 提醒模式删除（待执行）
 
-## 当前状态
+## 状态
 
-前端设置页已隐藏「弹窗提醒」选项（`NotificationSettingsCard.vue` 中注释掉 popup 选项）。仅保留 toast / fullscreen 两种模式。
+Pending — 代码路径尚未彻底删除
 
-## 待后续评估
+## 背景
 
-若 toast / fullscreen 两种模式足够，可彻底删除 popup 相关代码：
+历史提醒模式含 `popup`。产品已收敛为：
 
-- 前端：`src/views/ReminderPopup.vue`、router 中 `/reminder-popup` 路由
-- Rust：`lib.rs` 中 `reminder_mode == "popup"` 分支、`window_manager` 中 popup 相关逻辑
-- i18n：`zh-CN.ts` / `en-US.ts` 中 popup 翻译键
+- `toast` — 默认
+- `fullscreen` — 全屏休息
 
-## 决策
+UI 入口在功能插件 `RestPluginPanel`（不再经系统设置通知卡）。
 
-**先保留代码，仅隐藏入口**。避免后续反悔需要回滚。
+## 已做
+
+- 设置/插件 UI 不再提供 popup 选项
+- 读到 `reminder_mode === 'popup'` 时自动写成 `toast`（`RestPluginPanel` load 路径）
+
+## 仍待
+
+- 后端/前端残留 popup 分支与字符串清理
+- 确认无迁移用户依赖后再删存储兼容
+
+## 相关
+
+- [[settings]] RestPluginPanel 收敛
+- [[reminder]]

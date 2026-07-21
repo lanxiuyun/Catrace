@@ -6,7 +6,6 @@ import { load, type Store } from '@tauri-apps/plugin-store'
 import Sortable from 'sortablejs'
 import MediaSettingsCard from '../components/settings/MediaSettingsCard.vue'
 import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
-import NotificationSettingsCard from '../components/settings/NotificationSettingsCard.vue'
 import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
 import SignalSettingsCard from '../components/settings/SignalSettingsCard.vue'
 import { usePluginRegistry } from '../stores/pluginRegistry'
@@ -16,11 +15,10 @@ const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
 /** Built-in system cards (not product plugins). */
-const CORE_GROUP_KEYS = ['notification', 'media', 'signal', 'system', 'links'] as const
+const CORE_GROUP_KEYS = ['media', 'signal', 'system', 'links'] as const
 type CoreGroupKey = (typeof CORE_GROUP_KEYS)[number]
 
 const coreCardComponents: Record<CoreGroupKey, Component> = {
-  notification: NotificationSettingsCard,
   media: MediaSettingsCard,
   signal: SignalSettingsCard,
   system: SystemSettingsCard,
@@ -43,8 +41,8 @@ const pluginSettingsCards = computed<SettingsCardSlot[]>(() =>
 
 const defaultGroupOrder = computed(() => {
   const pluginKeys = pluginSettingsCards.value.map((c) => c.key)
-  // Future settings-surface plugins insert after notification, before media
-  const insertAt = 1
+  // Future settings-surface plugins insert at the front of the grid
+  const insertAt = 0
   const core = [...CORE_GROUP_KEYS]
   return [...core.slice(0, insertAt), ...pluginKeys, ...core.slice(insertAt)]
 })

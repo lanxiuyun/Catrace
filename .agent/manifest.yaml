@@ -7,6 +7,7 @@ features:
       - toast-window
       - fullscreen-reminder
       - database
+      - settings
   water-reminder:
     docs:
       - .agent/features/water-reminder/README.md
@@ -51,10 +52,12 @@ features:
     docs:
       - .agent/features/settings/README.md
       - .agent/features/settings/设置页按-plugin-registry-挂载插件设置卡.md
+      - .agent/features/settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md
     related:
       - media-audio
       - i18n
       - water-reminder
+      - reminder
   media-audio:
     docs:
       - .agent/features/media-audio/README.md
@@ -183,6 +186,8 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-21-久坐提醒配置归功能插件不进系统设置.md
+  - .agent/decisions/2026-07-21-debug启动自动junction链接plugin-demo.md
   - .agent/decisions/2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md
   - .agent/decisions/2026-07-19-continue-in-repo-desktop-event-os-not-rewrite.md
   - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md
@@ -211,6 +216,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-21-久坐配置收敛到插件与-debug自动链接plugin-demo.md
   - .agent/devlog/2026-07-21-插件测试连点卡死修复-supersede与Blob卡缓存.md
   - .agent/devlog/2026-07-20-M10本地外部插件与自定义Toast卡手测通过.md
   - .agent/devlog/2026-07-20-M9本机Event-HTTP与调试页管理卡.md
@@ -236,5 +242,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: M10 plugins hand-tested + rapid test-click freeze fixed (supersede keep-card + Blob cache)
-  next: optional M10.2 iframe/ACL; or M9.1 SSE/webhook; commit remaining freeze-fix if not yet committed
+  phase: M10 local plugins + rest settings in RestPluginPanel + debug plugin-demo auto-link
+  next: optional commit of rest-panel/dev-link changes; M10.2 iframe/ACL or M9.1 SSE/webhook

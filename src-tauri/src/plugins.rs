@@ -402,7 +402,143 @@ pub fn get_plugins_dir(app: AppHandle) -> Result<String, String> {
 
 /// Called from setup after PluginManager is managed.
 pub fn initial_scan(app: &AppHandle, db: &Db, mgr: &PluginManager) {
+    #[cfg(debug_assertions)]
+    ensure_dev_plugin_links(app);
+
     if let Err(e) = mgr.rescan(app, db) {
         log_error!("plugins", "initial scan failed: {e}");
+    }
+}
+
+/// Dev-only: if repo demo plugins are not linked into app_data/plugins, junction/symlink them.
+/// Release builds skip this entirely.
+#[cfg(debug_assertions)]
+fn ensure_dev_plugin_links(app: &AppHandle) {
+    let Ok(root) = plugins_root(app) else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(&root) {
+        log_warn!("plugins", "dev link: create plugins dir failed: {e}");
+        return;
+    }
+
+    // src-tauri/ -> repo root -> tools/plugin-demo
+    let demo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("tools")
+        .join("plugin-demo");
+    let Ok(demo_root) = fs::canonicalize(&demo_root) else {
+        log_warn!(
+            "plugins",
+            "dev link: plugin-demo not found at {}",
+            demo_root.display()
+        );
+        return;
+    };
+
+    let Ok(entries) = fs::read_dir(&demo_root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if !src.is_dir() {
+            continue;
+        }
+        let Some(name) = src.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        // Only link plugin packages (must contain manifest.json).
+        if !src.join("manifest.json").is_file() {
+            continue;
+        }
+        let dst = root.join(name);
+        match ensure_dir_link(&src, &dst) {
+            Ok(DevLinkResult::AlreadyLinked) => {
+                log_info!("plugins", "dev link ok: {name} already linked");
+            }
+            Ok(DevLinkResult::Created) => {
+                log_info!(
+                    "plugins",
+                    "dev link created: {} -> {}",
+                    dst.display(),
+                    src.display()
+                );
+            }
+            Ok(DevLinkResult::SkippedExisting) => {
+                log_info!(
+                    "plugins",
+                    "dev link skip: {} exists and is not our link",
+                    dst.display()
+                );
+            }
+            Err(e) => log_warn!("plugins", "dev link failed for {name}: {e}"),
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+enum DevLinkResult {
+    AlreadyLinked,
+    Created,
+    SkippedExisting,
+}
+
+#[cfg(debug_assertions)]
+fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
+    let src_canon = fs::canonicalize(src).map_err(|e| format!("canonicalize src: {e}"))?;
+
+    if dst.exists() || is_symlink_like(dst) {
+        if let Ok(dst_canon) = fs::canonicalize(dst) {
+            if dst_canon == src_canon {
+                return Ok(DevLinkResult::AlreadyLinked);
+            }
+        }
+        // Real directory / foreign link — do not clobber user installs.
+        return Ok(DevLinkResult::SkippedExisting);
+    }
+
+    create_dir_link(&src_canon, dst)?;
+    Ok(DevLinkResult::Created)
+}
+
+#[cfg(debug_assertions)]
+fn is_symlink_like(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+#[cfg(debug_assertions)]
+fn create_dir_link(src: &Path, dst: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+
+        // Prefer cmd mklink /J (no admin). Falls back to std symlink_dir.
+        let status = Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(dst.as_os_str())
+            .arg(src.as_os_str())
+            .status()
+            .map_err(|e| format!("mklink spawn: {e}"))?;
+        if status.success() {
+            return Ok(());
+        }
+
+        std::os::windows::fs::symlink_dir(src, dst).map_err(|e| {
+            format!(
+                "junction/symlink failed (mklink exit {:?}): {e}",
+                status.code()
+            )
+        })
+    }
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(src, dst).map_err(|e| format!("symlink: {e}"))
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = (src, dst);
+        Err("dev plugin link unsupported on this platform".into())
     }
 }
