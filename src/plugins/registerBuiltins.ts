@@ -1,6 +1,7 @@
 ﻿import type { Component } from 'vue'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
+import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
 import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
 import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
 import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
@@ -30,6 +31,15 @@ export function registerBuiltinPlugins() {
       // Full detail panel lives on Plugins page, not the compact Settings grid.
       settingsSurface: 'plugins',
       SettingsComponent: RestPluginPanel,
+    },
+    {
+      name: 'timer',
+      displayName: '定时提醒',
+      description: '自定义间隔或定点提醒',
+      events: ['reminder.timer.due', 'kind:timer'],
+      settingsKey: 'timer',
+      settingsSurface: 'plugins',
+      SettingsComponent: TimerPluginPanel,
     },
     {
       name: 'water',

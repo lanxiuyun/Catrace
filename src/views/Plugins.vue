@@ -357,7 +357,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 <style scoped>
 .plugins-page {
   display: flex;
-  height: 100%;
+  height: 100vh;
   min-height: 0;
   background: #f8fafc;
   box-sizing: border-box;
@@ -570,7 +570,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
   min-height: 100%;
   box-sizing: border-box;
   padding: 1.5rem 2rem 2rem;
-  max-width: 72rem;
 }
 
 /* external detail */

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catrace - 定时提醒插件</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex overflow-hidden select-none">
+
+    <!-- 1. 左侧主导航栏 -->
+    <aside class="w-16 md:w-52 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0">
+        <div>
+            <!-- Logo -->
+            <div class="h-16 flex items-center px-4 border-b border-slate-100 gap-3">
+                <div class="w-8 h-8 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shadow-brand-200">C</div>
+                <span class="font-bold text-lg text-slate-800 hidden md:inline">Catrace</span>
+            </div>
+            <!-- 主菜单 -->
+            <nav class="p-3 space-y-1">
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium hidden md:inline">概览</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-brand-50 text-brand-700 font-semibold transition">
+                    <i data-lucide="puzzle" class="w-5 h-5 text-brand-600"></i>
+                    <span class="text-sm hidden md:inline">功能插件</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium hidden md:inline">系统设置</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                    <i data-lucide="terminal" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium hidden md:inline">调试控制台</span>
+                </a>
+            </nav>
+        </div>
+        <!-- 底部群信息 -->
+        <div class="p-3 border-t border-slate-100 hidden md:block">
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+                <i data-lucide="message-square" class="w-4 h-4"></i>
+                <span>QQ群 468998176</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 2. 二级插件导航栏 -->
+    <div class="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0">
+        <div class="h-16 px-4 flex items-center justify-between border-b border-slate-100">
+            <h2 class="font-bold text-slate-800 text-base">功能插件</h2>
+            <button class="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-600" title="刷新列表">
+                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="p-2 space-y-1 overflow-y-auto flex-1">
+            <a href="#" class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition text-slate-700">
+                <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="armchair" class="w-5 h-5"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="text-sm font-medium truncate">久坐提醒</div>
+                    <div class="text-xs text-slate-400 truncate">连续久坐后提醒起身...</div>
+                </div>
+            </a>
+            
+            <a href="#" class="flex items-center gap-3 p-2.5 rounded-lg bg-brand-50/70 border border-brand-100 transition text-slate-800">
+                <div class="w-9 h-9 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="text-sm font-bold text-brand-700 truncate">定时提醒</div>
+                    <div class="text-xs text-brand-500 truncate">喝水、护眼等自定义...</div>
+                </div>
+            </a>
+
+            <a href="#" class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition text-slate-700">
+                <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="text-sm font-medium truncate">Agent 通知</div>
+                    <div class="text-xs text-slate-400 truncate">Hook 安装、事件模式...</div>
+                </div>
+            </a>
+
+            <a href="#" class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition text-slate-700">
+                <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="timer" class="w-5 h-5"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="text-sm font-medium truncate">Demo Timer <span class="text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded">v0.1.0</span></div>
+                    <div class="text-xs text-slate-400 truncate">Sample external plugin</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 3. 主内容区域 -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-50/60 overflow-y-auto relative">
+        <!-- 顶部功能标题栏 -->
+        <header class="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-10 shadow-2xs">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center">
+                    <i data-lucide="alarm-clock" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-xl font-bold text-slate-800">定时提醒</h1>
+                        <span id="activeCountBadge" class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            已启用 2 条规则
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">灵活配置固定时间间隔或每日特定时刻的周期性消息通知</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- 插件总开关 -->
+                <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg mr-2 border border-slate-200">
+                    <span class="text-xs font-medium text-slate-600">插件状态</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked class="sr-only peer" id="masterToggle">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                    </label>
+                </div>
+
+                <button onclick="openModal()" class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition active:scale-95">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>添加提醒规则</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="p-8 max-w-6xl mx-auto w-full space-y-6">
+            
+            <!-- 快捷预设区域（解决用户不知如何配置的痛点） -->
+            <div class="bg-gradient-to-r from-brand-500/10 via-purple-500/5 to-transparent p-4 rounded-xl border border-brand-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-white rounded-lg shadow-xs text-brand-600">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-800">快捷添加推荐模板</h3>
+                        <p class="text-xs text-slate-500">点击下方常用健康与工作提醒规则，一键快速应用</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="addPreset('drink')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 shadow-2xs transition">
+                        <span>🚰 喝水提醒</span>
+                        <span class="text-slate-400">(20分钟/次)</span>
+                    </button>
+                    <button onclick="addPreset('eye')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 shadow-2xs transition">
+                        <span>👁️ 远眺放松</span>
+                        <span class="text-slate-400">(45分钟/次)</span>
+                    </button>
+                    <button onclick="addPreset('stand')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 shadow-2xs transition">
+                        <span>🚶 站立活动</span>
+                        <span class="text-slate-400">(60分钟/次)</span>
+                    </button>
+                    <button onclick="addPreset('offwork')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 shadow-2xs transition">
+                        <span>📝 每日下班总结</span>
+                        <span class="text-slate-400">(18:00)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 规则列表 -->
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">生效中的规则列表 (<span id="ruleCount">2</span>)</h2>
+                    <span class="text-xs text-slate-400">离开电脑时会自动暂停间隔倒计时</span>
+                </div>
+
+                <!-- 规则容器 -->
+                <div id="rulesContainer" class="space-y-3">
+                    <!-- Rules dynamically inserted via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 4. 添加/编辑规则 Modal 弹窗 -->
+    <div id="ruleModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform scale-95 transition-transform duration-200" id="modalCard">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm" id="modalIcon">
+                        ⏰
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-base" id="modalTitle">添加提醒规则</h3>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/50 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <form id="ruleForm" onsubmit="saveRule(event)" class="p-6 space-y-4">
+                <input type="hidden" id="ruleId">
+
+                <!-- 规则名称 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">规则名称</label>
+                    <input type="text" id="ruleName" required placeholder="如：喝水提醒、定时休息" class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition">
+                </div>
+
+                <!-- 提醒类型 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">提醒类型</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg text-xs font-medium">
+                        <button type="button" id="typeIntervalBtn" onclick="setTriggerType('interval')" class="py-2 rounded-md bg-white text-slate-800 shadow-2xs font-semibold text-center transition">固定时间间隔</button>
+                        <button type="button" id="typeFixedBtn" onclick="setTriggerType('fixed')" class="py-2 rounded-md text-slate-500 hover:text-slate-800 text-center transition">每天特定时刻</button>
+                    </div>
+                </div>
+
+                <!-- 触发条件配置: 间隔模式 -->
+                <div id="intervalConfig" class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold text-slate-700">提醒间隔时间</label>
+                        <span class="text-xs font-bold text-brand-600"><span id="intervalValDisplay">20</span> 分钟</span>
+                    </div>
+                    <input type="range" id="ruleInterval" min="1" max="180" value="20" oninput="document.getElementById('intervalValDisplay').innerText = this.value" class="w-full accent-brand-600 cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+                        <span>1分钟</span>
+                        <span>60分钟</span>
+                        <span>180分钟</span>
+                    </div>
+                </div>
+
+                <!-- 触发条件配置: 定点模式 -->
+                <div id="fixedConfig" class="hidden space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">设定提醒时间</label>
+                        <input type="time" id="ruleTime" value="18:00" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                </div>
+
+                <!-- 生效条件与限制 -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">生效时间段</label>
+                        <select id="ruleActiveHours" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="all">全天 24 小时</option>
+                            <option value="work" selected>工作时间内 (09:00 - 18:00)</option>
+                            <option value="custom">自定义时间段</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">活跃检测</label>
+                        <select id="ruleActiveMode" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="activeOnly">仅电脑活跃时计时</option>
+                            <option value="always">忽略电脑状态 (强制提示)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 提醒文案 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">提醒通知文案</label>
+                    <textarea id="ruleMessage" rows="2" placeholder="留空则使用默认文案..." class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition resize-none"></textarea>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button type="button" onclick="testCurrentModalRule()" class="px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5">
+                        <i data-lucide="bell-ring" class="w-3.5 h-3.5"></i>
+                        <span>预览此弹窗</span>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+                        <button type="submit" class="px-4 py-2 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition shadow-xs">保存规则</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 模拟系统通知区域 -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // 示例数据状态
+        let rules = [
+            {
+                id: '1',
+                name: '喝水提醒',
+                type: 'interval',
+                interval: 20,
+                time: '18:00',
+                activeHours: 'work',
+                activeMode: 'activeOnly',
+                message: '喝杯水吧，保持身体水分充足！',
+                enabled: true
+            },
+            {
+                id: '2',
+                name: '久坐站立提醒',
+                type: 'interval',
+                interval: 45,
+                time: '18:00',
+                activeHours: 'work',
+                activeMode: 'activeOnly',
+                message: '起来活动一下肩膀，做个拉伸吧。',
+                enabled: true
+            },
+            {
+                id: '3',
+                name: '每日下班日志总结',
+                type: 'fixed',
+                interval: 30,
+                time: '18:00',
+                activeHours: 'all',
+                activeMode: 'always',
+                message: '别忘了整理今天的 Task 进展并填报工作日志！',
+                enabled: false
+            }
+        ];
+
+        let currentTriggerType = 'interval';
+
+        // 初始化渲染
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderRules();
+        });
+
+        function renderRules() {
+            const container = document.getElementById('rulesContainer');
+            const activeCount = rules.filter(r => r.enabled).length;
+            
+            document.getElementById('ruleCount').innerText = rules.length;
+            document.getElementById('activeCountBadge').innerHTML = `
+                <span class="w-1.5 h-1.5 rounded-full ${activeCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+                已启用 ${activeCount} 条规则
+            `;
+
+            if (rules.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-12 text-center border border-dashed border-slate-200">
+                        <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="bell-off" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-slate-700">暂无提醒规则</h3>
+                        <p class="text-xs text-slate-400 mt-1">点击上方“添加提醒规则”或通过模板快速创建</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = rules.map(rule => {
+                const isInterval = rule.type === 'interval';
+                const timeTag = isInterval 
+                    ? `每 ${rule.interval} 分钟` 
+                    : `每天 ${rule.time}`;
+                
+                const icon = rule.name.includes('水') ? '🚰' 
+                           : rule.name.includes('站') || rule.name.includes('坐') ? '🚶' 
+                           : rule.name.includes('眼') ? '👁️' 
+                           : '⏰';
+
+                return `
+                    <div class="bg-white rounded-xl border ${rule.enabled ? 'border-slate-200/80 shadow-2xs' : 'border-slate-200/50 opacity-60'} hover:border-brand-200 transition p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 group">
+                        
+                        <!-- 规则基本信息 -->
+                        <div class="flex items-start gap-3.5 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-brand-50 text-slate-700 group-hover:text-brand-600 flex items-center justify-center text-lg shrink-0 transition">
+                                ${icon}
+                            </div>
+                            <div class="space-y-1 overflow-hidden">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="font-bold text-slate-800 text-sm truncate">${rule.name}</h3>
+                                    <span class="px-2 py-0.5 text-[11px] font-semibold ${isInterval ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-amber-50 text-amber-700 border border-amber-100'} rounded-md">
+                                        ${timeTag}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                        ${rule.activeHours === 'work' ? '工作日 9:00-18:00' : '全天生效'}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-500 truncate max-w-xl">${rule.message || '（使用系统默认提醒文案）'}</p>
+                            </div>
+                        </div>
+
+                        <!-- 规则操作区 -->
+                        <div class="flex items-center justify-end w-full md:w-auto gap-3 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 shrink-0">
+                            <!-- 开关 -->
+                            <label class="relative inline-flex items-center cursor-pointer mr-1">
+                                <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${rule.id}')" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                            </label>
+
+                            <div class="h-4 w-px bg-slate-200"></div>
+
+                            <!-- 测试按钮 -->
+                            <button onclick="triggerToast('${rule.name}', '${rule.message}')" class="px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 rounded-lg transition flex items-center gap-1">
+                                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                                <span>测试</span>
+                            </button>
+
+                            <!-- 编辑按钮 -->
+                            <button onclick="editRule('${rule.id}')" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition" title="编辑">
+                                <i data-lucide="file-pen-line" class="w-4 h-4"></i>
+                            </button>
+
+                            <!-- 删除按钮 -->
+                            <button onclick="deleteRule('${rule.id}')" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="删除">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function toggleRule(id) {
+            const rule = rules.find(r => r.id === id);
+            if (rule) {
+                rule.enabled = !rule.enabled;
+                renderRules();
+            }
+        }
+
+        function deleteRule(id) {
+            rules = rules.filter(r => r.id !== id);
+            renderRules();
+        }
+
+        function addPreset(type) {
+            const presets = {
+                drink: { name: '喝水提醒', type: 'interval', interval: 20, time: '18:00', activeHours: 'work', activeMode: 'activeOnly', message: '喝水时间到啦！补充 200ml 温水，保持好状态。', enabled: true },
+                eye: { name: '远眺护眼', type: 'interval', interval: 45, time: '18:00', activeHours: 'work', activeMode: 'activeOnly', message: '眼睛该休息了！转头向窗外远眺 20 秒吧。', enabled: true },
+                stand: { name: '站立活动', type: 'interval', interval: 60, time: '18:00', activeHours: 'work', activeMode: 'activeOnly', message: '连续坐太久了，站起来拉伸一下身体吧！', enabled: true },
+                offwork: { name: '下班总结', type: 'fixed', interval: 30, time: '18:00', activeHours: 'all', activeMode: 'always', message: '下班时间快到了，记得提交今天的工作记录哦。', enabled: true }
+            };
+
+            if (presets[type]) {
+                const newRule = { ...presets[type], id: Date.now().toString() };
+                rules.unshift(newRule);
+                renderRules();
+                triggerToast('快捷预设已添加', `成功创建 "${newRule.name}" 提醒。`);
+            }
+        }
+
+        // Modal 操作
+        function openModal(isEdit = false) {
+            const modal = document.getElementById('ruleModal');
+            const modalCard = document.getElementById('modalCard');
+            if(!isEdit) {
+                document.getElementById('ruleForm').reset();
+                document.getElementById('ruleId').value = '';
+                document.getElementById('modalTitle').innerText = '添加提醒规则';
+                setTriggerType('interval');
+            }
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-95');
+            modalCard.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('ruleModal');
+            const modalCard = document.getElementById('modalCard');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+        }
+
+        function setTriggerType(type) {
+            currentTriggerType = type;
+            const intervalBtn = document.getElementById('typeIntervalBtn');
+            const fixedBtn = document.getElementById('typeFixedBtn');
+            const intervalConfig = document.getElementById('intervalConfig');
+            const fixedConfig = document.getElementById('fixedConfig');
+
+            if (type === 'interval') {
+                intervalBtn.className = 'py-2 rounded-md bg-white text-slate-800 shadow-2xs font-semibold text-center transition';
+                fixedBtn.className = 'py-2 rounded-md text-slate-500 hover:text-slate-800 text-center transition';
+                intervalConfig.classList.remove('hidden');
+                fixedConfig.classList.add('hidden');
+            } else {
+                fixedBtn.className = 'py-2 rounded-md bg-white text-slate-800 shadow-2xs font-semibold text-center transition';
+                intervalBtn.className = 'py-2 rounded-md text-slate-500 hover:text-slate-800 text-center transition';
+                fixedConfig.classList.remove('hidden');
+                intervalConfig.classList.add('hidden');
+            }
+        }
+
+        function editRule(id) {
+            const rule = rules.find(r => r.id === id);
+            if (!rule) return;
+
+            document.getElementById('ruleId').value = rule.id;
+            document.getElementById('ruleName').value = rule.name;
+            document.getElementById('ruleInterval').value = rule.interval || 20;
+            document.getElementById('intervalValDisplay').innerText = rule.interval || 20;
+            document.getElementById('ruleTime').value = rule.time || '18:00';
+            document.getElementById('ruleActiveHours').value = rule.activeHours;
+            document.getElementById('ruleActiveMode').value = rule.activeMode;
+            document.getElementById('ruleMessage').value = rule.message;
+            document.getElementById('modalTitle').innerText = '编辑提醒规则';
+
+            setTriggerType(rule.type);
+            openModal(true);
+        }
+
+        function saveRule(e) {
+            e.preventDefault();
+            const id = document.getElementById('ruleId').value;
+            const name = document.getElementById('ruleName').value;
+            const interval = parseInt(document.getElementById('ruleInterval').value);
+            const time = document.getElementById('ruleTime').value;
+            const activeHours = document.getElementById('ruleActiveHours').value;
+            const activeMode = document.getElementById('ruleActiveMode').value;
+            const message = document.getElementById('ruleMessage').value;
+
+            if (id) {
+                // 编辑现有
+                const idx = rules.findIndex(r => r.id === id);
+                if (idx !== -1) {
+                    rules[idx] = { ...rules[idx], name, type: currentTriggerType, interval, time, activeHours, activeMode, message };
+                }
+            } else {
+                // 新建
+                rules.unshift({
+                    id: Date.now().toString(),
+                    name,
+                    type: currentTriggerType,
+                    interval,
+                    time,
+                    activeHours,
+                    activeMode,
+                    message,
+                    enabled: true
+                });
+            }
+
+            renderRules();
+            closeModal();
+            triggerToast('已保存规则', `规则 "${name}" 已成功更新并生效。`);
+        }
+
+        function testCurrentModalRule() {
+            const name = document.getElementById('ruleName').value || '未命名提醒';
+            const msg = document.getElementById('ruleMessage').value || '这是一条模拟提醒通知内容。';
+            triggerToast(name, msg);
+        }
+
+        function triggerToast(title, body) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl rounded-xl p-4 w-80 toast-enter flex items-start gap-3 text-slate-800';
+            toast.innerHTML = `
+                <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-xs text-slate-800 truncate">${title || '定时提醒'}</h4>
+                        <span class="text-[10px] text-slate-400">刚刚</span>
+                    </div>
+                    <p class="text-xs text-slate-600 mt-1 leading-relaxed">${body || '提示内容为空'}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ mod rest_plugin;
 mod reminder_toast;
 mod report;
 mod signal;
+mod timer_plugin;
 mod water;
 mod window_manager;
 
@@ -146,6 +147,7 @@ async fn get_activity_snapshot(
 
 use eye::EyeReminderState;
 use rest_plugin::ReminderState;
+use timer_plugin::TimerRuntimeState;
 use water::WaterReminderState;
 
 // ---------- 提醒窗口数据 ----------
@@ -842,12 +844,14 @@ pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
     let water_state = Arc::new(Mutex::new(WaterReminderState::default()));
+    let timer_state = Arc::new(Mutex::new(TimerRuntimeState::default()));
     let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
     let water_state_clone = water_state.clone();
     let eye_state = Arc::new(Mutex::new(EyeReminderState::default()));
     let eye_state_clone = eye_state.clone();
+    let timer_state_clone = timer_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
@@ -920,6 +924,7 @@ pub fn run() {
             app.manage(reminder_state_clone.clone());
             app.manage(water_state_clone.clone());
             app.manage(eye_state_clone.clone());
+            app.manage(timer_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
@@ -981,6 +986,7 @@ pub fn run() {
             let reminder_state_for_settle = reminder_state_clone.clone();
             let water_state_for_settle = water_state_clone.clone();
             let eye_state_for_settle = eye_state_clone.clone();
+            let timer_state_for_settle = timer_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
@@ -1064,6 +1070,15 @@ pub fn run() {
                             &event_bus_for_settle,
                         );
                     }
+
+                    // 定时提醒：interval 仅活跃分钟；daily 到点必弹
+                    timer_plugin::on_minute_tick(
+                        active,
+                        &db_clone,
+                        &timer_state_for_settle,
+                        &locale,
+                        &event_bus_for_settle,
+                    );
                 }
             });
 
@@ -1173,6 +1188,12 @@ pub fn run() {
             water::delete_last_water,
             water::snooze_water_reminder,
             water::skip_water_reminder,
+            timer_plugin::get_timer_settings,
+            timer_plugin::set_timer_settings,
+            timer_plugin::test_timer_notification,
+            timer_plugin::snooze_timer_reminder,
+            timer_plugin::ack_timer_reminder,
+            timer_plugin::skip_timer_reminder,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
             agent_hook::get_agent_event_modes,

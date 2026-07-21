@@ -86,60 +86,72 @@ const activeCount = computed(() => settings.value.rules.filter((r) => r.enabled)
 
 type PresetKey = 'drink' | 'eye' | 'stand' | 'offwork'
 
-const presets = computed(() => [
+type Preset = {
+  key: PresetKey
+  label: string
+  hint: string
+  icon: string
+  rule: Omit<TimerRule, 'id' | 'last_fired_at' | 'last_daily_keys'>
+}
+
+const presets = computed(<() => Preset[]>(() => [
   {
-    key: 'drink' as PresetKey,
+    key: 'drink',
     label: t('plugins.timer.presetDrink'),
     hint: t('plugins.timer.presetDrinkHint'),
+    icon: '💧',
     rule: {
       title: t('plugins.timer.presetDrink'),
       body: t('plugins.timer.presetDrinkBody'),
-      mode: 'interval' as TimerMode,
+      mode: 'interval',
       interval_minutes: 20,
-      daily_times: [] as string[],
+      daily_times: [],
       enabled: true,
     },
   },
   {
-    key: 'eye' as PresetKey,
+    key: 'eye',
     label: t('plugins.timer.presetEye'),
     hint: t('plugins.timer.presetEyeHint'),
+    icon: '👁️',
     rule: {
       title: t('plugins.timer.presetEye'),
       body: t('plugins.timer.presetEyeBody'),
-      mode: 'interval' as TimerMode,
+      mode: 'interval',
       interval_minutes: 45,
-      daily_times: [] as string[],
+      daily_times: [],
       enabled: true,
     },
   },
   {
-    key: 'stand' as PresetKey,
+    key: 'stand',
     label: t('plugins.timer.presetStand'),
     hint: t('plugins.timer.presetStandHint'),
+    icon: '🚶',
     rule: {
       title: t('plugins.timer.presetStand'),
       body: t('plugins.timer.presetStandBody'),
-      mode: 'interval' as TimerMode,
+      mode: 'interval',
       interval_minutes: 60,
-      daily_times: [] as string[],
+      daily_times: [],
       enabled: true,
     },
   },
   {
-    key: 'offwork' as PresetKey,
+    key: 'offwork',
     label: t('plugins.timer.presetOffwork'),
     hint: t('plugins.timer.presetOffworkHint'),
+    icon: '📝',
     rule: {
       title: t('plugins.timer.presetOffwork'),
       body: t('plugins.timer.presetOffworkBody'),
-      mode: 'daily' as TimerMode,
+      mode: 'daily',
       interval_minutes: 60,
       daily_times: ['18:00'],
       enabled: true,
     },
   },
-])
+]))
 
 function patchSettings(mutator: (s: TimerSettings) => void) {
   const next: TimerSettings = {
@@ -160,12 +172,14 @@ function setEnabled(v: boolean) {
   })
 }
 
-function ruleIcon(title: string): string {
-  if (/水|drink|water/i.test(title)) return '🚰'
-  if (/站|坐|stand|stretch/i.test(title)) return '🚶'
-  if (/眼|eye|远眺/i.test(title)) return '👁️'
-  if (/班|总结|log|off/i.test(title)) return '📝'
-  return '⏰'
+type RuleIcon = 'water' | 'eye' | 'stand' | 'work' | 'default'
+
+function ruleIconType(title: string): RuleIcon {
+  if (/水|drink|water/i.test(title)) return 'water'
+  if (/眼|eye|远眺/i.test(title)) return 'eye'
+  if (/站|坐|stand|stretch/i.test(title)) return 'stand'
+  if (/班|总结|log|off/i.test(title)) return 'work'
+  return 'default'
 }
 
 function scheduleTag(rule: TimerRule): string {
@@ -415,6 +429,7 @@ function focusNameInput() {
           :disabled="!settings.enabled || settings.rules.length >= MAX_RULES"
           @click="addPreset(p.key)"
         >
+          <span class="chip-icon" aria-hidden="true">{{ p.icon }}</span>
           <span class="chip-label">{{ p.label }}</span>
           <span class="chip-hint">{{ p.hint }}</span>
         </button>
@@ -450,7 +465,30 @@ function focusNameInput() {
           :class="{ muted: !settings.enabled || !rule.enabled }"
         >
           <div class="rule-main">
-            <div class="rule-emoji" aria-hidden="true">{{ ruleIcon(rule.title) }}</div>
+          <div class="rule-emoji" :class="`icon-${ruleIconType(rule.title)}`" aria-hidden="true">
+            <svg v-if="ruleIconType(rule.title) === 'water'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+            </svg>
+            <svg v-else-if="ruleIconType(rule.title) === 'eye'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <svg v-else-if="ruleIconType(rule.title) === 'stand'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="2" />
+              <path d="M10 10h4l2 6-3 8-3-8z" />
+            </svg>
+            <svg v-else-if="ruleIconType(rule.title) === 'work'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" x2="8" y1="13" y2="13" />
+              <line x1="16" x2="8" y1="17" y2="17" />
+              <line x1="10" x2="8" y1="9" y2="9" />
+            </svg>
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
             <div class="rule-body">
               <div class="rule-name-row">
                 <h4 class="rule-name">{{ rule.title || t('plugins.timer.untitled') }}</h4>
@@ -727,6 +765,32 @@ function focusNameInput() {
   line-height: 1.4;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.master-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  background: #f1f5f9;
+  border: 0.0625rem solid #e2e8f0;
+  border-radius: 0.625rem;
+  flex-shrink: 0;
+}
+
+.master-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .empty-state {
   text-align: center;
   padding: 2.5rem 1rem;
@@ -811,7 +875,7 @@ function focusNameInput() {
 .preset-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   padding: 0.4rem 0.7rem;
   border-radius: 0.625rem;
   border: 0.0625rem solid #e2e8f0;
@@ -821,6 +885,12 @@ function focusNameInput() {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+  margin-right: 0.1rem;
 }
 
 .preset-chip:hover:not(:disabled) {
@@ -911,17 +981,31 @@ function focusNameInput() {
   height: 2.5rem;
   border-radius: 0.75rem;
   background: #f1f5f9;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.15rem;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .rule-card:hover .rule-emoji {
   background: #ede9fe;
+  color: #7c3aed;
 }
+
+.rule-emoji.icon-water { color: #3b82f6; }
+.rule-card:hover .rule-emoji.icon-water { background: #dbeafe; color: #2563eb; }
+
+.rule-emoji.icon-eye { color: #06b6d4; }
+.rule-card:hover .rule-emoji.icon-eye { background: #cffafe; color: #0891b2; }
+
+.rule-emoji.icon-stand { color: #f59e0b; }
+.rule-card:hover .rule-emoji.icon-stand { background: #fef3c7; color: #d97706; }
+
+.rule-emoji.icon-work { color: #8b5cf6; }
+.rule-card:hover .rule-emoji.icon-work { background: #ede9fe; color: #7c3aed; }
 
 .rule-body {
   min-width: 0;
@@ -975,9 +1059,9 @@ function focusNameInput() {
 }
 
 .rule-ops {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 
@@ -985,19 +1069,19 @@ function focusNameInput() {
   width: 0.0625rem;
   height: 1rem;
   background: #e2e8f0;
-  margin: 0 0.15rem;
+  margin: 0 0.1rem;
 }
 
 .op-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   border: none;
   background: transparent;
   color: #7c3aed;
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.3rem 0.45rem;
+  padding: 0.25rem 0.35rem;
   border-radius: 0.5rem;
   cursor: pointer;
 }
@@ -1015,8 +1099,8 @@ function focusNameInput() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border: none;
   background: transparent;
   color: #94a3b8;

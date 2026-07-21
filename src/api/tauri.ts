@@ -172,6 +172,49 @@ export async function skipWaterReminder(): Promise<void> {
   return invoke('skip_water_reminder')
 }
 
+export type TimerMode = 'interval' | 'daily'
+
+export interface TimerRule {
+  id: string
+  enabled: boolean
+  title: string
+  body: string
+  mode: TimerMode
+  interval_minutes: number
+  daily_times: string[]
+  last_fired_at?: number | null
+  last_daily_keys?: string[]
+}
+
+export interface TimerSettings {
+  enabled: boolean
+  rules: TimerRule[]
+}
+
+export async function getTimerSettings(): Promise<TimerSettings> {
+  return invoke('get_timer_settings')
+}
+
+export async function setTimerSettings(settings: TimerSettings): Promise<TimerSettings> {
+  return invoke('set_timer_settings', { settings })
+}
+
+export async function testTimerNotification(ruleId?: string): Promise<void> {
+  return invoke('test_timer_notification', { ruleId: ruleId ?? null })
+}
+
+export async function snoozeTimerReminder(ruleId: string, minutes: number): Promise<void> {
+  return invoke('snooze_timer_reminder', { ruleId, minutes })
+}
+
+export async function ackTimerReminder(ruleId: string): Promise<void> {
+  return invoke('ack_timer_reminder', { ruleId })
+}
+
+export async function skipTimerReminder(ruleId: string): Promise<void> {
+  return invoke('skip_timer_reminder', { ruleId })
+}
+
 export interface AudioSessionInfo {
   pid: number
   process_name: string
