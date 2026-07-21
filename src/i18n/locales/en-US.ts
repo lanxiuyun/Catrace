@@ -384,7 +384,6 @@ export default {
       breakDesc: 'How many consecutive rest minutes count as a valid break',
       snoozeTitle: 'Repeat reminder',
       snoozeDesc: 'How often to remind again after the active window is reached',
-      previewSection: 'Notification preview',
       previewDefaultTitle: 'Rest Reminder',
       previewDefaultBody: 'This is a test notification',
       testBtn: 'Send test reminder',

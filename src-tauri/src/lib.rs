@@ -7,7 +7,7 @@ mod eye;
 mod log;
 mod media_audio;
 mod plugins;
-mod reminder;
+mod rest_plugin;
 mod reminder_toast;
 mod report;
 mod signal;
@@ -34,9 +34,6 @@ use tokio::time::interval;
 
 // 启动时自动检查更新，整个生命周期只执行一次
 static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
-/// 手动「发送测试」防抖：先限流稳住连点，后续再做无限制堆叠加固。
-static LAST_TEST_NOTIFICATION_AT: Mutex<Option<Instant>> = Mutex::new(None);
-
 #[cfg(target_os = "macos")]
 pub(crate) fn accessibility_permission_granted() -> bool {
     macos_accessibility_client::accessibility::application_is_trusted()
@@ -148,7 +145,7 @@ async fn get_activity_snapshot(
 }
 
 use eye::EyeReminderState;
-use reminder::ReminderState;
+use rest_plugin::ReminderState;
 use water::WaterReminderState;
 
 // ---------- 提醒窗口数据 ----------
@@ -168,59 +165,7 @@ pub struct ReminderWindowData {
 
 pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
-/// Debug 页通知循环测试状态
-pub struct NotificationTestState {
-    running: AtomicBool,
-}
-
-impl NotificationTestState {
-    pub fn new() -> Self {
-        Self {
-            running: AtomicBool::new(false),
-        }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.running.load(Ordering::SeqCst)
-    }
-
-    pub fn start(&self) {
-        self.running.store(true, Ordering::SeqCst);
-    }
-
-    pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
-    }
-}
-
-impl Default for NotificationTestState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 // ---------- i18n helpers ----------
-
-fn notify_title(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "休息提醒",
-        _ => "Rest Reminder",
-    }
-}
-
-fn notify_body(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
-        _ => "Stand up, drink some water, stretch your neck and back.",
-    }
-}
-
-fn test_notify_msg(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "这是一条测试提醒",
-        _ => "This is a test notification",
-    }
-}
 
 fn tray_show(locale: &str) -> &'static str {
     match locale {
@@ -380,87 +325,6 @@ fn set_toast_debug_mode(
     // 通过 Tauri 事件广播状态变更，Toast 窗口前端监听并实时更新背景
     app.emit("catrace-toast-debug-changed", enabled)
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_config(db: tauri::State<db::Db>) -> serde_json::Value {
-    let window: i64 = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
-    let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-    let snooze_interval: i64 = db
-        .get_setting("snooze_interval_minutes", "3")
-        .parse()
-        .unwrap_or(3);
-    serde_json::json!({ "window_minutes": window, "break_minutes": break_m, "snooze_interval_minutes": snooze_interval })
-}
-
-#[tauri::command]
-fn set_config(config: serde_json::Value, db: tauri::State<db::Db>) -> Result<(), String> {
-    if let Some(v) = config.get("window_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("window_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(v) = config.get("break_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("break_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(v) = config
-        .get("snooze_interval_minutes")
-        .and_then(|v| v.as_i64())
-    {
-        db.set_setting("snooze_interval_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-fn skip_reminder(
-    boundary: i64,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-) {
-    let mut s = state.lock().unwrap();
-    s.skip_until_boundary = Some(boundary);
-    s.snooze_until = None;
-    s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
-}
-
-#[tauri::command]
-fn snooze_reminder(
-    minutes: u64,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-) {
-    let mut s = state.lock().unwrap();
-    s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
-    s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
-}
-
-#[tauri::command]
-fn dismiss_rest_timer(
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    bus: tauri::State<crate::bus::EventBus>,
-) -> Result<(), String> {
-    let mut s = state.lock().unwrap();
-    s.break_timer_active = false;
-    drop(s);
-    // Clear sticky rest-timer card on bus if present
-    if let Ok(Some(ev)) = bus.find_active_by_dedupe_key("reminder.rest.timer") {
-        use crate::event::{EventResolution, ResolutionKind};
-        let _ = bus.resolve(
-            ev.id,
-            EventResolution {
-                kind: ResolutionKind::Dismissed,
-                action_id: None,
-                payload: None,
-            },
-        );
-    }
-    Ok(())
 }
 
 #[tauri::command]
@@ -670,7 +534,7 @@ fn file_path_to_data_url(file_path: &str) -> Option<String> {
 }
 
 /// 将 DB 中存储的 bg 值（文件路径或 data URL）解析为 data URL
-fn resolve_bg_for_frontend(raw: &str) -> Option<String> {
+pub(crate) fn resolve_bg_for_frontend(raw: &str) -> Option<String> {
     if raw.is_empty() {
         None
     } else if raw.starts_with("data:") {
@@ -782,325 +646,7 @@ fn close_reminder_window(
 }
 
 
-/// Rest-timer toast via Event Bus (stable dedupe_key; upsert avoids flicker).
-fn emit_rest_timer_event(
-    bus: &crate::bus::EventBus,
-    locale: &str,
-    break_minutes: i64,
-    rest_start_ts: i64,
-    rest_streak: i64,
-    remaining_minutes: i64,
-    is_complete: bool,
-) {
-    use crate::event::{
-        BusEvent, DisplayMode, EventLevel, EventProgress, EventSource, EventStatus,
-    };
-
-    let (title, body) = if is_complete {
-        if locale == "zh-CN" {
-            (
-                "休息已完成".to_string(),
-                format!("已连续休息 {rest_streak} 分钟"),
-            )
-        } else {
-            (
-                "Break Complete".to_string(),
-                format!("Rested for {rest_streak} minutes"),
-            )
-        }
-    } else if locale == "zh-CN" {
-        (
-            "休息计时".to_string(),
-            format!("已连续休息 {rest_streak} 分钟，还需 {remaining_minutes} 分钟"),
-        )
-    } else {
-        (
-            "Rest Timer".to_string(),
-            format!("Rested for {rest_streak} minutes, {remaining_minutes} minutes to go"),
-        )
-    };
-
-    let progress = if break_minutes > 0 {
-        Some(EventProgress {
-            current: rest_streak as f64,
-            total: break_minutes as f64,
-            label: None,
-        })
-    } else {
-        None
-    };
-
-    let event = BusEvent {
-        id: String::new(),
-        event_type: "reminder.rest.timer".into(),
-        source: EventSource::Internal,
-        kind: "rest-timer".into(),
-        display_mode: DisplayMode::Toast,
-        level: if is_complete {
-            EventLevel::Success
-        } else {
-            EventLevel::Info
-        },
-        title,
-        body,
-        actions: vec![],
-        progress,
-        sticky: Some(true),
-        payload: serde_json::json!({
-            "break_minutes": break_minutes,
-            "rest_start_ts": rest_start_ts,
-            "rest_streak": rest_streak,
-            "remaining_minutes": remaining_minutes,
-            "is_complete": is_complete,
-        }),
-        created_at: 0,
-        updated_at: 0,
-        status: EventStatus::Active,
-        revision: 0,
-        resolved_at: None,
-        resolution: None,
-        expires_at: None,
-        correlation_id: None,
-        dedupe_key: Some("reminder.rest.timer".into()),
-    };
-    if let Err(e) = bus.upsert_by_dedupe_key(event) {
-        log_error!("rest-timer", "bus upsert failed: {}", e);
-    }
-}
-
-#[tauri::command]
-fn test_notification(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-    bus: tauri::State<crate::bus::EventBus>,
-) {
-    {
-        let mut last = LAST_TEST_NOTIFICATION_AT.lock().unwrap();
-        if let Some(t) = *last {
-            if t.elapsed() < Duration::from_secs(1) {
-                return;
-            }
-        }
-        *last = Some(Instant::now());
-    }
-
-    let locale = db.get_setting("locale", "zh-CN");
-
-    // Toast 模式：先走统一通知入口（bus 会 ensure 窗口），再补休息计时卡。
-    // 不再在这里额外 show，避免与 bus 的 ensure_toast 并发抢 Win32 show。
-    show_notification(
-        &app_handle,
-        0,
-        test_notify_msg(&locale),
-        state.inner().clone(),
-        &locale,
-        &db,
-        &store,
-        fullscreen_active.inner().clone(),
-        &bus,
-    );
-
-    // 仅在 Toast 模式下追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
-    let reminder_mode = db.get_setting("reminder_mode", "toast");
-    if reminder_mode == "toast" {
-        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-        let now_ts = chrono::Local::now().timestamp();
-        let rest_start_ts = (now_ts / 60) * 60;
-        let rest_streak: i64 = std::cmp::min(3, break_m);
-        let remaining_minutes = (break_m - rest_streak).max(0);
-        let is_complete = rest_streak >= break_m;
-        emit_rest_timer_event(
-            &bus,
-            &locale,
-            break_m,
-            rest_start_ts,
-            rest_streak,
-            remaining_minutes,
-            is_complete,
-        );
-    }
-}
-
-#[tauri::command]
-fn start_notification_test(
-    interval_seconds: u64,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-    test_state: tauri::State<Arc<NotificationTestState>>,
-    bus: tauri::State<crate::bus::EventBus>,
-) -> Result<(), String> {
-    if interval_seconds == 0 {
-        return Err("interval must be greater than 0".to_string());
-    }
-    if test_state.is_running() {
-        return Ok(());
-    }
-    test_state.start();
-
-    let app_handle = app_handle.clone();
-    let state = state.inner().clone();
-    let db = db.inner().clone();
-    let store = store.inner().clone();
-    let fullscreen_active = fullscreen_active.inner().clone();
-    let test_state = test_state.inner().clone();
-    let bus = bus.inner().clone();
-
-    tauri::async_runtime::spawn(async move {
-        let mut interval = interval(Duration::from_secs(interval_seconds));
-        loop {
-            interval.tick().await;
-            if !test_state.is_running() {
-                break;
-            }
-            let locale = db.get_setting("locale", "zh-CN");
-            show_notification(
-                &app_handle,
-                0,
-                test_notify_msg(&locale),
-                state.clone(),
-                &locale,
-                &db,
-                &store,
-                fullscreen_active.clone(),
-                &bus,
-            );
-        }
-    });
-
-    Ok(())
-}
-
-#[tauri::command]
-fn stop_notification_test(test_state: tauri::State<Arc<NotificationTestState>>) {
-    test_state.stop();
-}
-
-// ------------------------------------------------------------------
-// 通知：统一入口（支持 toast / popup / fullscreen）
-// ------------------------------------------------------------------
-
-fn show_notification(
-    app_handle: &tauri::AppHandle,
-    boundary: i64,
-    default_body: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
-    db: &db::Db,
-    store: &ReminderWindowStore,
-    fullscreen_active: Arc<AtomicBool>,
-    bus: &crate::bus::EventBus,
-) {
-    let mode = db.get_setting("reminder_mode", "toast");
-
-    // 优先使用用户自定义文本，空则回退到 i18n 默认值
-    let custom_title = db.get_setting("reminder_title", "");
-    let custom_body = db.get_setting("reminder_body", "");
-    let title = if custom_title.is_empty() {
-        notify_title(locale).to_string()
-    } else {
-        custom_title
-    };
-    let body = if custom_body.is_empty() {
-        default_body.to_string()
-    } else {
-        custom_body
-    };
-
-    match mode.as_str() {
-        "popup" => {
-            create_popup_window(app_handle, boundary, &title, &body, reminder_state, store);
-        }
-        "fullscreen" => {
-            let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-            let fullscreen_bg_raw = db.get_setting("fullscreen_bg_image", "");
-            let fullscreen_bg_opt = resolve_bg_for_frontend(&fullscreen_bg_raw);
-            let fullscreen_opacity: i64 = db
-                .get_setting("fullscreen_opacity", "80")
-                .parse()
-                .unwrap_or(80);
-            let fullscreen_fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
-            let fullscreen_element_transforms = db.get_setting("fullscreen_element_transforms", "");
-            create_fullscreen_window(
-                app_handle,
-                boundary,
-                &title,
-                &body,
-                break_m,
-                fullscreen_bg_opt,
-                fullscreen_opacity,
-                fullscreen_fit_mode,
-                fullscreen_element_transforms,
-                reminder_state,
-                store,
-                fullscreen_active,
-            );
-        }
-        _ => {
-            // toast（默认）：只 publish 到 Event Bus，由 Toast 窗订阅渲染
-            use crate::event::{
-                BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
-            };
-            let event = BusEvent {
-                id: String::new(),
-                event_type: "reminder.rest.due".into(),
-                source: EventSource::Internal,
-                kind: "rest".into(),
-                display_mode: DisplayMode::Toast,
-                level: EventLevel::Warning,
-                title: title.clone(),
-                body: body.clone(),
-                actions: vec![
-                    EventAction {
-                        id: "snooze".into(),
-                        label: if locale == "zh-CN" {
-                            "稍后".into()
-                        } else {
-                            "Snooze".into()
-                        },
-                        payload: None,
-                    },
-                    EventAction {
-                        id: "skip".into(),
-                        label: if locale == "zh-CN" {
-                            "跳过".into()
-                        } else {
-                            "Skip".into()
-                        },
-                        payload: None,
-                    },
-                ],
-                progress: None,
-                sticky: Some(false),
-                payload: serde_json::json!({ "boundary": boundary }),
-                created_at: 0,
-                updated_at: 0,
-                status: EventStatus::Active,
-                revision: 0,
-                resolved_at: None,
-                resolution: None,
-                expires_at: None,
-                correlation_id: None,
-                // 测试 boundary=0 允许堆叠；真实结算同 boundary 去重替换
-                dedupe_key: if boundary == 0 {
-                    None
-                } else {
-                    Some(format!("reminder.rest.due:{boundary}"))
-                },
-            };
-            if let Err(e) = bus.publish(event) {
-                log_error!("rest", "bus.publish failed: {}", e);
-            }
-        }
-    }
-}
-
-fn create_popup_window(
+pub(crate) fn create_popup_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
     title: &str,
@@ -1183,7 +729,7 @@ fn create_popup_window(
     });
 }
 
-fn create_fullscreen_window(
+pub(crate) fn create_fullscreen_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
     title: &str,
@@ -1365,7 +911,7 @@ pub fn run() {
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
-            app.manage(Arc::new(NotificationTestState::new()));
+            app.manage(Arc::new(rest_plugin::NotificationTestState::new()));
 
             if accessibility_permission_granted() {
                 start_input_sampling(
@@ -1481,92 +1027,12 @@ pub fn run() {
                         log_error!("db", "Failed to write to database: {}", e);
                     }
 
-                    // 读取配置
-                    let window: i64 = db_clone
-                        .get_setting("window_minutes", "45")
-                        .parse()
-                        .unwrap_or(45);
-                    let break_m: i64 = db_clone
-                        .get_setting("break_minutes", "5")
-                        .parse()
-                        .unwrap_or(5);
+                    let break_m: i64 = db_clone.get_setting("break_minutes", "5").parse().unwrap_or(5);
                     let locale = db_clone.get_setting("locale", "zh-CN");
-
-                    // 提醒逻辑：
-                    // 1. 当前分钟在休息 → 不提醒，同时清除 snooze
-                    //    （用户已经开始自然休息，不需要再催）
-                    // 2. 当前分钟在活跃 → 检查 should_notify，再经过 ReminderState 过滤：
-                    //    · skip_until_boundary：用户点了「跳过本次」
-                    //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
-                    if active {
-                        // 休息被打断，结束休息计时（前端 poll 已自行隐藏卡片，此处只清状态）
-                        {
-                            let mut r = reminder_state_for_settle.lock().unwrap();
-                            r.break_timer_active = false;
-                        }
-
-                        match db_clone.check_should_notify(window, break_m) {
-                            Ok((should_notify, boundary)) => {
-                                let mut r = reminder_state_for_settle.lock().unwrap();
-
-                                if should_notify {
-                                    if let Some(b) = boundary {
-                                        if r.is_skipped(b) || r.is_snoozed() {
-                                            // 被用户操作过滤，不提醒，也不进入休息计时等待
-                                            r.break_timer_active = false;
-                                        } else {
-                                            drop(r);
-                                            show_notification(
-                                                &app_handle,
-                                                b,
-                                                notify_body(&locale),
-                                                reminder_state_for_settle.clone(),
-                                                &locale,
-                                                &db_clone,
-                                                &store_for_settle,
-                                                fullscreen_active_for_settle.clone(),
-                                                &event_bus_for_settle,
-                                            );
-                                            // 自动设置下次提醒间隔（默认3分钟）
-                                            let interval_m: i64 = db_clone
-                                                .get_setting("snooze_interval_minutes", "3")
-                                                .parse()
-                                                .unwrap_or(3);
-                                            let mut rs = reminder_state_for_settle.lock().unwrap();
-                                            rs.snooze_until = Some(
-                                                Instant::now()
-                                                    + Duration::from_secs((interval_m * 60) as u64),
-                                            );
-                                            rs.break_timer_active = true;
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => log_error!("notify", "Notification check failed: {}", e),
-                        }
-                    } else {
-                        // 当前分钟在休息 → 清除 snooze，不提醒
-                        let mut r = reminder_state_for_settle.lock().unwrap();
-                        r.snooze_until = None;
-
-                        // 如果正在等待有效休息，推送倒计时状态到 Event Bus → Toast
-                        if r.break_timer_active {
-                            drop(r);
-                            if let Ok((rest_streak, rest_start_ts)) = db_clone.get_current_rest_streak() {
-                                let remaining = (break_m - rest_streak as i64).max(0);
-                                let is_complete = rest_streak as i64 >= break_m;
-                                emit_rest_timer_event(
-                                    &event_bus_for_settle,
-                                    &locale,
-                                    break_m,
-                                    rest_start_ts,
-                                    rest_streak as i64,
-                                    remaining,
-                                    is_complete,
-                                );
-                            }
-                        }
-                    }
+                    rest_plugin::on_minute_settled(
+                        active, &app_handle, &reminder_state_for_settle, &locale, break_m,
+                        &db_clone, &store_for_settle, &fullscreen_active_for_settle, &event_bus_for_settle,
+                    );
 
                     // 喝水提醒逻辑（仅在当前分钟活跃时检查）
                     if active {
@@ -1640,10 +1106,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config,
-            set_config,
-            skip_reminder,
-            snooze_reminder,
+            rest_plugin::get_config,
+            rest_plugin::set_config,
+            rest_plugin::skip_reminder,
+            rest_plugin::snooze_reminder,
             get_silent_start,
             set_silent_start,
             get_hide_stats,
@@ -1666,9 +1132,9 @@ pub fn run() {
             get_today_stats,
             get_today_records,
             get_app_stats,
-            test_notification,
-            start_notification_test,
-            stop_notification_test,
+            rest_plugin::test_notification,
+            rest_plugin::start_notification_test,
+            rest_plugin::stop_notification_test,
             water::test_water_notification,
             eye::get_eye_settings,
             eye::set_eye_settings,
@@ -1677,7 +1143,7 @@ pub fn run() {
             eye::skip_eye_reminder,
             get_media_debug_info,
             get_activity_snapshot,
-            dismiss_rest_timer,
+            rest_plugin::dismiss_rest_timer,
             get_reminder_mode,
             set_reminder_mode,
             get_reminder_text,

@@ -168,6 +168,7 @@ architecture:
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
       - .agent/architecture/desktop-event-os/toast-card-split-and-dismiss-agent-session-emit.md
+      - .agent/architecture/desktop-event-os/rest-reminder-builtin-plugin-boundary.md
       - .agent/architecture/desktop-event-os/signal-collection-schema-and-privacy.md
     related:
       - input-monitoring
@@ -216,6 +217,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-21-久坐提醒插件设置去掉通知预览并外置测试按钮.md
   - .agent/devlog/2026-07-21-久坐配置收敛到插件与-debug自动链接plugin-demo.md
   - .agent/devlog/2026-07-21-插件测试连点卡死修复-supersede与Blob卡缓存.md
   - .agent/devlog/2026-07-20-M10本地外部插件与自定义Toast卡手测通过.md

@@ -384,7 +384,6 @@ export default {
       breakDesc: '连续休息多少分钟算一次有效休息',
       snoozeTitle: '重复提醒',
       snoozeDesc: '活跃满后每隔多久再提醒一次',
-      previewSection: '通知预览',
       previewDefaultTitle: '休息提醒',
       previewDefaultBody: '这是一条测试提醒',
       testBtn: '发送测试提醒',

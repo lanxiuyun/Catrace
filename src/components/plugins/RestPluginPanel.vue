@@ -145,12 +145,6 @@ const fullscreenFitOptions = computed(() => [
   { label: t('plugins.rest.fitFill'), value: 'fill' },
 ])
 
-const previewTitle = computed(
-  () => customTitle.value.trim() || t('plugins.rest.previewDefaultTitle'),
-)
-const previewBody = computed(
-  () => customBody.value.trim() || t('plugins.rest.previewDefaultBody'),
-)
 
 const testing = ref(false)
 
@@ -323,22 +317,7 @@ async function sendTest() {
           />
         </setting-row>
       </div>
-    </section>
-
-    <section class="panel-section">
-      <h3 class="section-title">{{ t('plugins.rest.previewSection') }}</h3>
-      <div class="preview-card">
-        <div class="preview-accent" />
-        <div class="preview-body">
-          <div class="preview-header">
-            <span class="preview-dot" />
-            <span class="preview-title">{{ previewTitle }}</span>
-            <span class="preview-mode">{{ reminderMode === 'fullscreen' ? t('plugins.rest.modeFullscreen') : t('plugins.rest.modeToast') }}</span>
-          </div>
-          <p class="preview-text">{{ previewBody }}</p>
-        </div>
-      </div>
-      <div class="preview-actions">
+      <div class="test-actions">
         <n-button type="primary" :loading="testing" @click="sendTest">
           {{ t('plugins.rest.testBtn') }}
         </n-button>
@@ -537,77 +516,10 @@ async function sendTest() {
   color: #8b7aab;
 }
 
-.preview-card {
-  display: flex;
-  background: #fff;
-  border: 0.0625rem solid #ebe6f2;
-  border-radius: 0.875rem;
-  overflow: hidden;
-  box-shadow: 0 0.25rem 1rem rgba(109, 40, 217, 0.06);
-}
-
-.preview-accent {
-  width: 0.25rem;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
-}
-
-.preview-body {
-  padding: 0.875rem 1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.375rem;
-}
-
-.preview-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: #7c3aed;
-  box-shadow: 0 0 0 0.1875rem rgba(124, 58, 237, 0.15);
-  flex-shrink: 0;
-}
-
-.preview-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #2e1065;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.preview-mode {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: #6d28d9;
-  background: #ede9fe;
-  border-radius: 999px;
-  padding: 0.125rem 0.5rem;
-}
-
-.preview-text {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: #6b7280;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.preview-actions {
+.test-actions {
   display: flex;
   justify-content: flex-start;
-  margin-top: 0.125rem;
+  padding: 0.75rem 0.25rem 0;
 }
 
 .fade-slide-enter-active,
