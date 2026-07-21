@@ -174,7 +174,7 @@ async function handlePickSoundFile() {
 </script>
 
 <template>
-  <div class="agent-panel">
+  <div class="agent-panel" :class="{ 'is-disabled': !enabled }">
     <header class="panel-header">
       <div class="header-left">
         <div class="icon-badge" aria-hidden="true">
@@ -192,12 +192,15 @@ async function handlePickSoundFile() {
           <p class="panel-subtitle">{{ t('plugins.agent.subtitle') }}</p>
         </div>
       </div>
-      <n-switch
-        :value="enabled"
-        :loading="enabledLoading"
-        :aria-label="t('plugins.agent.switchAria')"
-        @update:value="toggleEnabled"
-      />
+      <div class="master-switch">
+        <span class="master-label">{{ t('plugins.agent.pluginStatus') }}</span>
+        <n-switch
+          :value="enabled"
+          :loading="enabledLoading"
+          :aria-label="t('plugins.agent.switchAria')"
+          @update:value="toggleEnabled"
+        />
+      </div>
     </header>
 
     <template v-if="enabled">
@@ -299,7 +302,11 @@ async function handlePickSoundFile() {
       </section>
     </template>
 
-    <p v-else class="disabled-hint">{{ t('plugins.agent.disabledHint') }}</p>
+    <div v-else class="empty-state">
+      <div class="empty-icon" aria-hidden="true">🔕</div>
+      <h4>{{ t('plugins.agent.name') }}</h4>
+      <p>{{ t('plugins.agent.disabledHint') }}</p>
+    </div>
   </div>
 </template>
 
@@ -310,11 +317,16 @@ async function handlePickSoundFile() {
   gap: 1.25rem;
 }
 
+.agent-panel.is-disabled .empty-state {
+  opacity: 1;
+}
+
 .panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .header-left {
@@ -329,7 +341,7 @@ async function handlePickSoundFile() {
   height: 2.75rem;
   border-radius: 0.75rem;
   background: #ede9fe;
-  color: #6d28d9;
+  color: #7c3aed;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,43 +356,59 @@ async function handlePickSoundFile() {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #2e1065;
+  color: #1e1b4b;
   line-height: 1.3;
 }
 
 .panel-subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
-  color: #8b7aab;
+  color: #64748b;
   line-height: 1.4;
+}
+
+.master-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  background: #f1f5f9;
+  border: 0.0625rem solid #e2e8f0;
+  border-radius: 0.625rem;
+}
+
+.master-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
 }
 
 .panel-section {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
 
 .section-title {
   margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #8b7aab;
-  text-transform: uppercase;
-  letter-spacing: 0.03rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.02rem;
 }
 
 .section-card {
-  background: #faf8ff;
-  border: 0.0625rem solid #ebe6f2;
-  border-radius: 0.75rem;
+  background: #fff;
+  border: 0.0625rem solid #e2e8f0;
+  border-radius: 0.875rem;
   padding: 0.75rem 1rem;
+  box-shadow: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.03);
 }
 
 .section-desc {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
-  color: #8b7aab;
+  color: #94a3b8;
   line-height: 1.4;
 }
 
@@ -393,12 +421,12 @@ async function handlePickSoundFile() {
 }
 
 .event-row + .event-row {
-  border-top: 0.0625rem solid #f0ebf7;
+  border-top: 0.0625rem solid #f1f5f9;
 }
 
 .event-name {
   font-size: 0.8125rem;
-  color: #555;
+  color: #334155;
 }
 
 .sound-path-row {
@@ -423,7 +451,7 @@ async function handlePickSoundFile() {
 
 .volume-value {
   font-size: 0.75rem;
-  color: #666;
+  color: #64748b;
   min-width: 2.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -436,10 +464,28 @@ async function handlePickSoundFile() {
   min-width: 0;
 }
 
-.disabled-hint {
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  border-radius: 1rem;
+  border: 0.0625rem dashed #e2e8f0;
+  background: #fff;
+}
+
+.empty-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state h4 {
   margin: 0;
-  font-size: 0.8125rem;
-  color: #8b7aab;
-  line-height: 1.5;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.empty-state p {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 </style>
