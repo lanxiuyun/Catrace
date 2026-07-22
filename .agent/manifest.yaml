@@ -185,6 +185,7 @@ architecture:
       - .agent/architecture/desktop-event-os/m9-event-http-api.md
       - .agent/architecture/desktop-event-os/m10-external-plugins.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
+      - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
       - .agent/architecture/desktop-event-os/toast-card-split-and-dismiss-agent-session-emit.md
@@ -207,6 +208,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md
   - .agent/decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md
   - .agent/decisions/2026-07-21-久坐提醒配置归功能插件不进系统设置.md
   - .agent/decisions/2026-07-21-debug启动自动junction链接plugin-demo.md
@@ -238,6 +240,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
   - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
   - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
   - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
@@ -267,6 +270,6 @@ devlog:
   - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
-  plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: plugin center status sorting and unified plugin detail headers complete; rest plugin toast-only; M10 local plugins
-  next: validate plugin center interactions visually; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook
+  plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
+  phase: Step2 Event/Signal Core done (M1-M10); Step3 Plugin Runtime roadmap drafted, runtime selection decided (hidden WebView window per plugin)
+  next: confirm plugin timer precision need (minute vs second); implement M11 plugin_window.rs + plugin_commands.rs invoke set + manifest v2 + demo-timer background script
