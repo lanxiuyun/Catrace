@@ -132,6 +132,15 @@ architecture:
     related:
       - theme
       - database
+      - app-shell
+  app-shell:
+    docs:
+      - .agent/architecture/app-shell/README.md
+      - .agent/architecture/app-shell/覆盖式滚动条不能影响-Toast-窗口尺寸测量.md
+    related:
+      - project-structure
+      - dashboard
+      - toast-window
   window-manager:
     docs:
       - .agent/features/window-manager/README.md
@@ -220,6 +229,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
   - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
   - .agent/devlog/2026-07-21-久坐提醒插件设置去掉通知预览并外置测试按钮.md
   - .agent/devlog/2026-07-21-久坐配置收敛到插件与-debug自动链接plugin-demo.md
