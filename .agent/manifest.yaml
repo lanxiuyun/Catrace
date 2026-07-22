@@ -1,4 +1,12 @@
 ﻿features:
+  plugin-center:
+    docs:
+      - .agent/features/plugin-center/README.md
+      - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
+    related:
+      - app-shell
+      - settings
+      - event-sdk
   reminder:
     docs:
       - .agent/features/reminder/README.md
@@ -230,6 +238,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
   - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
   - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
   - .agent/devlog/2026-07-21-久坐提醒插件设置去掉通知预览并外置测试按钮.md
@@ -259,5 +268,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: app shell and plugin center layout complete; rest plugin toast-only; M10 local plugins
-  next: optional split commits for toast-only rest; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook
+  phase: plugin center status sorting and unified plugin detail headers complete; rest plugin toast-only; M10 local plugins
+  next: validate plugin center interactions visually; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook
