@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { load, type Store } from '@tauri-apps/plugin-store'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
 import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
@@ -11,6 +12,8 @@ import {
   setExternalPluginEnabled,
   openPluginsDir,
   publishEvent,
+  getTimerSettings,
+  getAgentNotificationEnabled,
   type ExternalPluginInfo,
 } from '../api/tauri'
 import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
@@ -27,6 +30,44 @@ const loading = ref(false)
 const toggleBusy = ref<string | null>(null)
 const testingId = ref<string | null>(null)
 const searchQuery = ref('')
+const builtinEnabled = ref<Record<VisiblePluginId, boolean>>({
+  rest: true,
+  timer: false,
+  agent: false,
+})
+
+let settingsStore: Store | null = null
+async function getSettingsStore() {
+  if (!settingsStore) {
+    settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
+  }
+  return settingsStore
+}
+
+function onBuiltinPluginEnabledChanged() {
+  void refreshBuiltinEnabled()
+}
+
+async function refreshBuiltinEnabled() {
+  try {
+    const store = await getSettingsStore()
+    const rest = await store.get<boolean>('plugin_rest_ui_enabled')
+    builtinEnabled.value.rest = rest ?? true
+  } catch {
+    builtinEnabled.value.rest = false
+  }
+  try {
+    const timer = await getTimerSettings()
+    builtinEnabled.value.timer = timer.enabled
+  } catch {
+    builtinEnabled.value.timer = false
+  }
+  try {
+    builtinEnabled.value.agent = await getAgentNotificationEnabled()
+  } catch {
+    builtinEnabled.value.agent = false
+  }
+}
 
 async function refreshExternal() {
   loading.value = true
@@ -42,7 +83,13 @@ async function refreshExternal() {
 }
 
 onMounted(() => {
+  void refreshBuiltinEnabled()
   void refreshExternal()
+  window.addEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
 const plugins = computed(() => {
@@ -55,7 +102,7 @@ const plugins = computed(() => {
       badge: t(`plugins.${id}.badge`),
       registered: !!handle,
       external: false as const,
-      enabled: true,
+      enabled: builtinEnabled.value[id],
       version: handle?.manifest.version,
       error: null as string | null,
       tone: id as string,
@@ -75,7 +122,10 @@ const plugins = computed(() => {
     error: p.error ?? null,
     tone: 'external',
   }))
-  return [...builtins, ...externals]
+  return [...builtins, ...externals].sort((a, b) => {
+    if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  })
 })
 
 const filteredPlugins = computed(() => {
@@ -417,7 +467,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
 /* ---- left rail ---- */
 .plugin-rail {
   width: 15rem;
-  flex-shrink: 0;
+  min-width: 15rem;
+  flex: 0 0 15rem;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -964,7 +1015,9 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 @media (max-width: 56.25rem) {
   .plugin-rail {
-    width: 13rem;
+    width: 15rem;
+    min-width: 15rem;
+    flex-basis: 15rem;
   }
 
   .plugin-detail {

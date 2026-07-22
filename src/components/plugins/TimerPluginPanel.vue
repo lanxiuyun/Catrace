@@ -83,8 +83,6 @@ const form = ref({
   daily_times: [] as string[],
 })
 
-const activeCount = computed(() => settings.value.rules.filter((r) => r.enabled).length)
-
 type PresetKey = 'drink' | 'eye' | 'stand' | 'offwork'
 
 type Preset = {
@@ -171,6 +169,7 @@ function setEnabled(v: boolean) {
   patchSettings((s) => {
     s.enabled = v
   })
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
 }
 
 type RuleIcon = 'water' | 'eye' | 'stand' | 'work' | 'default'
@@ -377,41 +376,35 @@ function focusNameInput() {
           </svg>
         </div>
         <div class="header-text">
-          <div class="title-row">
-            <h2 class="panel-title">{{ t('plugins.timer.name') }}</h2>
-            <span class="active-badge" :class="{ off: activeCount === 0 }">
-              <span class="dot" />
-              {{ t('plugins.timer.activeBadge', { n: activeCount }) }}
-            </span>
-          </div>
+          <h2 class="panel-title">{{ t('plugins.timer.name') }}</h2>
           <p class="panel-subtitle">{{ t('plugins.timer.subtitle') }}</p>
         </div>
       </div>
 
-      <div class="header-actions">
-        <div class="master-switch">
-          <span class="master-label">{{ t('plugins.timer.pluginStatus') }}</span>
-          <n-switch
-            :value="settings.enabled"
-            :loading="loading"
-            :aria-label="t('plugins.timer.switchAria')"
-            @update:value="setEnabled"
-          />
-        </div>
-        <n-button type="primary" :disabled="!settings.enabled || settings.rules.length >= MAX_RULES" @click="openCreateModal">
-          <template #icon>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </template>
-          {{ t('plugins.timer.addRule') }}
-        </n-button>
+      <div class="master-switch">
+        <span class="master-label">{{ t('plugins.timer.pluginStatus') }}</span>
+        <n-switch
+          :value="settings.enabled"
+          :loading="loading"
+          :aria-label="t('plugins.timer.switchAria')"
+          @update:value="setEnabled"
+        />
       </div>
     </header>
 
     <div class="panel-content">
       <OverlayScrollbar>
         <div class="panel-body">
+          <div class="panel-actions">
+            <n-button type="primary" :disabled="!settings.enabled || settings.rules.length >= MAX_RULES" @click="openCreateModal">
+              <template #icon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </template>
+              {{ t('plugins.timer.addRule') }}
+            </n-button>
+          </div>
           <section class="preset-banner">
             <div class="preset-intro">
         <div class="preset-icon" aria-hidden="true">
@@ -694,6 +687,11 @@ function focusNameInput() {
   padding: 1rem 1.5rem;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .panel-content {

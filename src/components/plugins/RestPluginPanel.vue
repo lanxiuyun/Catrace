@@ -143,29 +143,29 @@ async function sendTest() {
         </div>
       </div>
 
-      <div class="header-actions">
-        <div class="master-switch">
-          <span class="master-label">{{ t('plugins.rest.pluginStatus') }}</span>
-          <n-switch
-            :value="uiEnabled"
-            :aria-label="t('plugins.rest.switchAria')"
-            @update:value="uiEnabled = $event"
-          />
-        </div>
-        <n-button type="primary" :loading="testing" :disabled="!uiEnabled" @click="sendTest">
-          <template #icon>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </template>
-          {{ t('plugins.rest.testBtn') }}
-        </n-button>
+      <div class="master-switch">
+        <span class="master-label">{{ t('plugins.rest.pluginStatus') }}</span>
+        <n-switch
+          :value="uiEnabled"
+          :aria-label="t('plugins.rest.switchAria')"
+          @update:value="uiEnabled = $event; window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))"
+        />
       </div>
     </header>
 
     <div class="panel-content">
       <OverlayScrollbar>
         <div class="panel-body">
+          <div class="panel-actions">
+            <n-button type="primary" :loading="testing" :disabled="!uiEnabled" @click="sendTest">
+              <template #icon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </template>
+              {{ t('plugins.rest.testBtn') }}
+            </n-button>
+          </div>
           <template v-if="uiEnabled">
       <section class="panel-section">
         <h3 class="section-title">{{ t('plugins.rest.timingSection') }}</h3>
@@ -265,6 +265,11 @@ async function sendTest() {
   padding: 1rem 1.5rem;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .panel-content {

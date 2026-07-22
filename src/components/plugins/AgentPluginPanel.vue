@@ -99,6 +99,7 @@ async function toggleEnabled(val: boolean) {
   try {
     await setAgentNotificationEnabled(val)
     enabled.value = val
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
     message.success(t('settings.messages.saved'))
   } catch {
     message.error(t('settings.messages.saveFailed'))
