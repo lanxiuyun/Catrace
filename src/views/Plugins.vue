@@ -426,7 +426,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .rail-header {
-  padding: 0.875rem;
+  padding: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -447,8 +447,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  }
 
 .plugin-count {
   min-width: 1.25rem;
