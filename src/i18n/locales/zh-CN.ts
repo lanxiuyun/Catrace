@@ -375,7 +375,7 @@ export default {
     searchPlaceholder: '查找已安装插件...',
     searchEmpty: '没有找到匹配的插件',
     exploreMore: '探索更多插件',
-    community: '交流群',
+    community: 'QQ群',
     communityNumber: '468998176',
     rest: {
       name: '久坐提醒',
@@ -420,7 +420,7 @@ export default {
     timer: {
       name: '定时提醒',
       subtitle: '按间隔或定点自动弹出提醒，支持喝水、护眼、站立等场景',
-      listSubtitle: '喝水、护眼等自定义定时',
+      listSubtitle: '按间隔或定点弹出提醒',
       badge: '健康提醒',
       switchAria: '定时提醒总开关',
       pluginStatus: '插件状态',
@@ -487,7 +487,7 @@ export default {
     agent: {
       name: 'Agent 通知',
       subtitle: 'AI 助手状态与权限审批通知',
-      listSubtitle: 'Hook 安装、事件模式与提示音',
+      listSubtitle: 'Agent Hooks 通知',
       badge: '集成',
       switchAria: 'Agent 状态通知开关',
       pluginStatus: '插件状态',
