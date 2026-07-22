@@ -12,8 +12,9 @@ App.vue
     └── OverlayScrollbar
         └── RouterView + KeepAlive
             └── Plugins.vue
-                ├── plugin-rail + OverlayScrollbar
-                └── plugin-main + OverlayScrollbar
+                ├── plugin-rail（标题、搜索、插件列表）+ OverlayScrollbar
+                └── plugin-main
+                    └── 插件 Panel（固定顶栏 + OverlayScrollbar 内容区）
 ```
 
 ## Data flow
@@ -29,7 +30,14 @@ App.vue
 - 同一滚动区域只保留一个滚动容器；接入 `OverlayScrollbar` 后，外层容器应使用 `overflow: hidden`。
 - 覆盖式滑块默认隐藏，仅在 hover 或拖动时显示，不占内容布局宽度。
 - 插件页面保持左右分栏；窄窗口只收窄左栏，不改为上下堆叠。
-- Header 的间距是固定值，不根据窗口宽度动态修改：左 padding 为 `0.75rem`。
+- Header 的间距是固定值，不根据窗口宽度动态修改：高度为 `3rem`，左 padding 为 `0.75rem`。
+- 应用级辅助信息放在全局顶栏右侧；插件侧栏顶栏只保留插件上下文和刷新操作。
+- 内置插件详情的标题与总开关固定，只有配置内容区滚动。
+
+## Sub-docs
+
+- [覆盖式滚动条不能影响-Toast-窗口尺寸测量.md](覆盖式滚动条不能影响-Toast-窗口尺寸测量.md) — 覆盖式滚动条与 Reminder 窗口的隔离边界。
+- [插件页左侧插件中心与右侧固定顶栏的布局约定.md](插件页左侧插件中心与右侧固定顶栏的布局约定.md) — 插件页侧栏、搜索、状态与详情滚动结构。
 
 ## Change points
 

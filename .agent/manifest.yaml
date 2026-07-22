@@ -137,6 +137,7 @@ architecture:
     docs:
       - .agent/architecture/app-shell/README.md
       - .agent/architecture/app-shell/覆盖式滚动条不能影响-Toast-窗口尺寸测量.md
+      - .agent/architecture/app-shell/插件页左侧插件中心与右侧固定顶栏的布局约定.md
     related:
       - project-structure
       - dashboard
@@ -258,5 +259,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: rest plugin toast-only; M10 local plugins + RestPluginPanel settings
+  phase: app shell and plugin center layout complete; rest plugin toast-only; M10 local plugins
   next: optional split commits for toast-only rest; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook
