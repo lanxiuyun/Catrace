@@ -37,7 +37,7 @@
 | **M7c** 内置插件注册 | pluginRegistry + settingsSurface | ✅ 完成 | rest/agent 挂功能插件页；settings 面可挂未来插件；Card 组件未拆 |
 | **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；dismiss 改 emit；Card 组件已拆 |
 | **M9** 外部 SDK / HTTP | localhost HTTP + demo kit | ✅ 骨架完成 | 端口 23457，默认开；SSE/webhook 延后 M9.1 |
-| **M10** 插件生态 | 本地 manifest + Card 注册 + HTTP `plugin_id` | ✅ 骨架完成 | 无市场；见 `m10-external-plugins.md`；M10.2 iframe/ACL |
+| **M10** 插件生态 | 本地 manifest + Card 注册 + HTTP `plugin_id` | ✅ 骨架完成 | 无市场；见 `m10-external-plugins.md`；M10.2 iframe/ACL；Step 3 继续 Plugin Runtime 见 `step3-roadmap-plugin-runtime.md` |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 
@@ -52,7 +52,7 @@ M7 按优先级双写生产者（每次一个，双写规则不变）
     ↓
 Signal → 可选 Event 桥（如前台切换通知）—— 单独 ADR
     ↓
-M9 外部 HTTP（demo kit）→ M9.1 SSE/webhook → Phase 3 插件
+M9 外部 HTTP（demo kit）→ M9.1 SSE/webhook → Step 3 Plugin Runtime
 ```
 
 Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：  

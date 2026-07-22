@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：Event Core + Signal Core + **Toast 内容全量经 Bus** + **M9 本机 Event HTTP（:23457）** + **M10 本地外部插件（manifest + Card，手测通过）**。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）仍属后续。**不做插件市场。**
+当前：Event Core + Signal Core + **Toast 内容全量经 Bus** + **M9 本机 Event HTTP（:23457）** + **M10 本地外部插件（manifest + Card，手测通过）**。Step 3 进入 **Plugin Runtime**：让用户脚本随应用启动在后台运行，调用受控宿主能力。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）仍属后续。**不做插件市场。**
 
 ## 模块布局
 
@@ -62,7 +62,8 @@ tools/plugin-demo/            # M10 demo-timer 包
 
 ## 子文档
 
-- [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 开发计划真源
+- [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 第二阶段开发计划真源
+- [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — 第三阶段：Plugin Runtime 路线图
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) — Toast 订阅线与例外通道
 - [signal-collection-schema-and-privacy.md](signal-collection-schema-and-privacy.md) — Signal / 隐私
