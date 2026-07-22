@@ -371,6 +371,12 @@ export default {
     pageTitle: 'Feature Plugins',
     pageSubtitle: 'Manage Catrace feature plugins and integrations',
     listHeading: 'Features',
+    centerTitle: 'Plugin Center',
+    searchPlaceholder: 'Search installed plugins...',
+    searchEmpty: 'No matching plugins found',
+    exploreMore: 'Explore more plugins',
+    community: 'Community',
+    communityNumber: '468998176',
     rest: {
       name: 'Sitting Reminder',
       subtitle: 'Take healthier breaks after focused work',

@@ -81,6 +81,15 @@ watch(needsTransparentBg, (val) => {
               </RouterLink>
             </nav>
 
+            <div class="global-header-actions">
+              <span class="community-tag" :title="t('plugins.community')">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                </svg>
+                <span>{{ t('plugins.community') }}</span>
+                <strong>{{ t('plugins.communityNumber') }}</strong>
+              </span>
+            </div>
           </header>
 
           <main class="app-workspace">
@@ -138,14 +147,15 @@ html.reminder-transparent #app {
 }
 
 .global-header {
-  height: 3.5rem;
+  height: 3rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 2rem;
   padding: 0 1.25rem 0 0.75rem;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
   color: #1e293b;
 }
 
@@ -163,7 +173,7 @@ html.reminder-transparent #app {
 }
 
 .brand-copy {
-  gap: 0.4rem;
+  gap: 0.375rem;
   white-space: nowrap;
 }
 
@@ -173,53 +183,81 @@ html.reminder-transparent #app {
 }
 
 .brand-copy span {
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.25rem;
-  background: #f1f5f9;
-  color: #94a3b8;
+  padding: 0.125rem 0.375rem;
+  border-radius: 999px;
+  background: #f5f3ff;
+  color: #7c3aed;
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.global-nav {
+  gap: 0.25rem;
+}
+
+.global-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.community-tag {
+  height: 1.625rem;
+  padding: 0 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid #ddd6fe;
+  border-radius: 999px;
+  background: #f5f3ff;
+  color: #7c3aed;
+  font-size: 0.6875rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.community-tag svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.community-tag strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.625rem;
   font-weight: 600;
 }
 
-.global-nav {
-  align-self: stretch;
-  gap: 0.25rem;
-}
-
 .nav-link {
-  position: relative;
-  gap: 0.45rem;
-  padding: 0 0.75rem;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
   color: #64748b;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.nav-link::after {
-  content: '';
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0;
-  left: 0.75rem;
-  height: 0.125rem;
-  border-radius: 999px 999px 0 0;
-  background: transparent;
+.nav-link:hover {
+  color: #1e293b;
+  background: #f1f5f9;
 }
 
-.nav-link:hover,
 .nav-link.router-link-active {
-  color: #7c3aed;
-}
-
-.nav-link.router-link-active::after {
-  background: #7c3aed;
+  color: #6d28d9;
+  background: #f5f3ff;
+  font-weight: 600;
 }
 
 .nav-link svg {
-  width: 1rem;
-  height: 1rem;
+  width: 0.875rem;
+  height: 0.875rem;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;

@@ -12,6 +12,7 @@ import {
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SliderControl from '../settings/SliderControl.vue'
+import OverlayScrollbar from '../OverlayScrollbar.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -408,8 +409,11 @@ function focusNameInput() {
       </div>
     </header>
 
-    <section class="preset-banner">
-      <div class="preset-intro">
+    <div class="panel-content">
+      <OverlayScrollbar>
+        <div class="panel-body">
+          <section class="preset-banner">
+            <div class="preset-intro">
         <div class="preset-icon" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 6.9 18.2 8.8 12.4 4 8.8h6.1L12 3z" />
@@ -550,7 +554,10 @@ function focusNameInput() {
           </div>
         </article>
       </div>
-    </section>
+          </section>
+        </div>
+      </OverlayScrollbar>
+    </div>
 
     <n-modal
       v-model:show="modalOpen"
@@ -666,9 +673,10 @@ function focusNameInput() {
 <style scoped>
 .timer-panel {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 1.25rem;
   min-width: 0;
+  min-height: 0;
 }
 
 .timer-panel.is-disabled .rules-list,
@@ -682,6 +690,28 @@ function focusNameInput() {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  flex: none;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 64rem;
+  min-height: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .header-left {

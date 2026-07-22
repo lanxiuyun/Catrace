@@ -16,6 +16,7 @@ import {
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from '../settings/SettingRow.vue'
 import SliderControl from '../settings/SliderControl.vue'
+import OverlayScrollbar from '../OverlayScrollbar.vue'
 
 const STORE_KEY = 'plugin_rest_ui_enabled'
 
@@ -162,7 +163,10 @@ async function sendTest() {
       </div>
     </header>
 
-    <template v-if="uiEnabled">
+    <div class="panel-content">
+      <OverlayScrollbar>
+        <div class="panel-body">
+          <template v-if="uiEnabled">
       <section class="panel-section">
         <h3 class="section-title">{{ t('plugins.rest.timingSection') }}</h3>
         <div class="section-card">
@@ -225,12 +229,15 @@ async function sendTest() {
           </setting-row>
         </div>
       </section>
-    </template>
+          </template>
 
-    <div v-else class="empty-state">
-      <div class="empty-icon" aria-hidden="true">🔕</div>
-      <h4>{{ t('plugins.rest.name') }}</h4>
-      <p>{{ t('plugins.rest.disabledHint') || t('plugins.agent.disabledHint') }}</p>
+          <div v-else class="empty-state">
+            <div class="empty-icon" aria-hidden="true">🔕</div>
+            <h4>{{ t('plugins.rest.name') }}</h4>
+            <p>{{ t('plugins.rest.disabledHint') || t('plugins.agent.disabledHint') }}</p>
+          </div>
+        </div>
+      </OverlayScrollbar>
     </div>
   </div>
 </template>
@@ -238,8 +245,10 @@ async function sendTest() {
 <style scoped>
 .rest-panel {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 1.25rem;
+  min-width: 0;
+  min-height: 0;
 }
 
 .rest-panel.is-disabled .panel-section {
@@ -252,6 +261,28 @@ async function sendTest() {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  flex: none;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 64rem;
+  min-height: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .header-left {

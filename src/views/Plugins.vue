@@ -26,6 +26,7 @@ const externalList = ref<ExternalPluginInfo[]>([])
 const loading = ref(false)
 const toggleBusy = ref<string | null>(null)
 const testingId = ref<string | null>(null)
+const searchQuery = ref('')
 
 async function refreshExternal() {
   loading.value = true
@@ -75,6 +76,17 @@ const plugins = computed(() => {
     tone: 'external',
   }))
   return [...builtins, ...externals]
+})
+
+const filteredPlugins = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return plugins.value
+
+  return plugins.value.filter((plugin) =>
+    [plugin.name, plugin.subtitle, plugin.id].some((value) =>
+      value.toLocaleLowerCase().includes(query),
+    ),
+  )
 })
 
 const fallbackDetail: Record<VisiblePluginId, Component> = {
@@ -163,99 +175,128 @@ async function onTestExternal(p: ExternalPluginInfo) {
     <!-- 二级插件导航 -->
     <aside class="plugin-rail" :aria-label="t('plugins.listHeading')">
       <div class="rail-header">
-        <h1 class="rail-title">{{ t('plugins.pageTitle') }}</h1>
-        <div class="rail-actions">
-          <button
-            type="button"
-            class="icon-btn"
-            :title="t('plugins.external.refresh')"
-            :disabled="loading"
-            @click="refreshExternal"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              :class="{ spin: loading }"
-            >
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <polyline points="21 3 21 9 15 9" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="icon-btn"
-            :title="t('plugins.external.openDir')"
-            @click="onOpenDir"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            </svg>
-          </button>
+        <div class="rail-heading">
+          <h1 class="rail-title">{{ t('plugins.centerTitle') }}</h1>
+          <span class="plugin-count">{{ plugins.length }}</span>
         </div>
+        <button
+          type="button"
+          class="icon-btn"
+          :title="t('plugins.external.refresh')"
+          :disabled="loading"
+          @click="refreshExternal"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            :class="{ spin: loading }"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="rail-search">
+        <label class="search-field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="search"
+            :placeholder="t('plugins.searchPlaceholder')"
+          />
+        </label>
       </div>
 
       <div class="rail-list">
         <OverlayScrollbar>
           <div class="rail-list-content">
             <button
-          v-for="p in plugins"
-          :key="p.id"
-          type="button"
-          class="plugin-item"
-          :class="[`tone-${p.tone}`, { active: selectedId === p.id, disabled: !!p.error }]"
-          :aria-current="selectedId === p.id ? 'page' : undefined"
-          @click="selectedId = p.id"
-        >
-          <div class="item-icon" aria-hidden="true">
-            <!-- rest: armchair -->
-            <svg v-if="p.id === 'rest'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
-              <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
-              <path d="M5 18v2" />
-              <path d="M19 18v2" />
-            </svg>
-            <!-- timer: clock -->
-            <svg v-else-if="p.id === 'timer'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <!-- agent: bot -->
-            <svg v-else-if="p.id === 'agent'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 8V4H8" />
-              <rect width="16" height="12" x="4" y="8" rx="2" />
-              <path d="M2 14h2" />
-              <path d="M20 14h2" />
-              <path d="M15 13v2" />
-              <path d="M9 13v2" />
-            </svg>
-            <!-- external: timer -->
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="13" r="8" />
-              <path d="M12 9v4l2 2" />
-              <path d="M5 3 2 6" />
-              <path d="m22 6-3-3" />
-              <path d="M6.38 18.7 4 21" />
-              <path d="M17.64 18.67 20 21" />
-            </svg>
-          </div>
-          <div class="item-text">
-            <div class="item-name">
-              {{ p.name }}
-              <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
-            </div>
-            <div class="item-sub">{{ p.subtitle }}</div>
-          </div>
-        </button>
+              v-for="p in filteredPlugins"
+              :key="p.id"
+              type="button"
+              class="plugin-item"
+              :class="[`tone-${p.tone}`, { active: selectedId === p.id, disabled: !!p.error }]"
+              :aria-current="selectedId === p.id ? 'page' : undefined"
+              @click="selectedId = p.id"
+            >
+              <div class="item-icon" aria-hidden="true">
+                <!-- rest: armchair -->
+                <svg v-if="p.id === 'rest'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+                  <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
+                  <path d="M5 18v2" />
+                  <path d="M19 18v2" />
+                </svg>
+                <!-- timer: clock -->
+                <svg v-else-if="p.id === 'timer'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <!-- agent: bot -->
+                <svg v-else-if="p.id === 'agent'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 8V4H8" />
+                  <rect width="16" height="12" x="4" y="8" rx="2" />
+                  <path d="M2 14h2" />
+                  <path d="M20 14h2" />
+                  <path d="M15 13v2" />
+                  <path d="M9 13v2" />
+                </svg>
+                <!-- external: timer -->
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="13" r="8" />
+                  <path d="M12 9v4l2 2" />
+                  <path d="M5 3 2 6" />
+                  <path d="m22 6-3-3" />
+                  <path d="M6.38 18.7 4 21" />
+                  <path d="M17.64 18.67 20 21" />
+                </svg>
+              </div>
+              <div class="item-text">
+                <div class="item-name">
+                  {{ p.name }}
+                  <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
+                </div>
+                <div class="item-sub">{{ p.subtitle }}</div>
+              </div>
+              <span
+                class="status-dot"
+                :class="{
+                  enabled: p.enabled && !p.error && p.registered,
+                  error: !!p.error,
+                }"
+                aria-hidden="true"
+              />
+            </button>
 
-            <p v-if="!externalList.length && !loading" class="list-hint">
-              {{ t('plugins.external.emptyHint') }}
+            <p v-if="!filteredPlugins.length" class="list-hint">
+              {{ t('plugins.searchEmpty') }}
             </p>
+
+            <div v-if="!searchQuery" class="explore-wrap">
+              <button
+                type="button"
+                class="explore-btn"
+                :title="t('plugins.external.openDir')"
+                @click="onOpenDir"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
+                {{ t('plugins.exploreMore') }}
+              </button>
+            </div>
           </div>
         </OverlayScrollbar>
       </div>
@@ -263,13 +304,10 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
     <!-- 主内容 -->
     <main class="plugin-main">
-      <OverlayScrollbar>
-        <div class="plugin-detail">
-          <component v-if="ActiveDetail" :is="ActiveDetail" :key="selectedId" />
+      <component v-if="ActiveDetail" :is="ActiveDetail" :key="selectedId" />
 
-
-          <div v-else-if="selectedExternal" class="external-detail">
-          <header class="ext-header">
+      <div v-else-if="selectedExternal" class="external-detail">
+        <header class="ext-header">
             <div class="ext-heading">
               <div class="ext-icon" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -300,9 +338,11 @@ async function onTestExternal(p: ExternalPluginInfo) {
                 <span class="slider" />
               </label>
             </div>
-          </header>
+        </header>
 
-          <div class="external-body">
+        <div class="external-content">
+          <OverlayScrollbar>
+            <div class="external-body plugin-detail">
             <p v-if="selectedExternal.error" class="ext-error">
               {{ selectedExternal.error }}
             </p>
@@ -349,15 +389,17 @@ async function onTestExternal(p: ExternalPluginInfo) {
               </span>
             </div>
 
-            <p class="ext-trust">{{ t('plugins.external.trustNote') }}</p>
-          </div>
+              <p class="ext-trust">{{ t('plugins.external.trustNote') }}</p>
+            </div>
+          </OverlayScrollbar>
         </div>
+      </div>
 
-          <div v-else class="external-detail">
-            <p class="ext-desc">{{ t('plugins.external.selectHint') }}</p>
-          </div>
+      <div v-else class="external-detail empty-detail">
+        <div class="plugin-detail">
+          <p class="ext-desc">{{ t('plugins.external.selectHint') }}</p>
         </div>
-      </OverlayScrollbar>
+      </div>
     </main>
   </div>
 </template>
@@ -384,8 +426,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .rail-header {
-  height: 4rem;
-  padding: 0 1rem;
+  padding: 0.875rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -393,16 +434,32 @@ async function onTestExternal(p: ExternalPluginInfo) {
   flex-shrink: 0;
 }
 
-.rail-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1e293b;
+.rail-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
-.rail-actions {
-  display: flex;
-  gap: 0.15rem;
+.rail-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.plugin-count {
+  min-width: 1.25rem;
+  padding: 0.125rem 0.35rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.625rem;
+  line-height: 1rem;
+  text-align: center;
 }
 
 .icon-btn {
@@ -436,6 +493,50 @@ async function onTestExternal(p: ExternalPluginInfo) {
   to { transform: rotate(360deg); }
 }
 
+.rail-search {
+  flex: none;
+  padding: 0.5rem;
+  border-bottom: 0.0625rem solid #f1f5f9;
+}
+
+.search-field {
+  height: 2rem;
+  padding: 0 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0.0625rem solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  color: #94a3b8;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.search-field:focus-within {
+  border-color: #c4b5fd;
+  box-shadow: 0 0 0 0.125rem #ede9fe;
+  background: #fff;
+}
+
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.search-field input::placeholder {
+  color: #94a3b8;
+}
+
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
 .rail-list {
   flex: 1;
   min-height: 0;
@@ -451,22 +552,23 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .list-hint {
-  margin: 0.5rem 0.5rem 0;
+  margin: 1rem 0.5rem;
   font-size: 0.75rem;
   color: #94a3b8;
   line-height: 1.4;
+  text-align: center;
 }
 
 .plugin-item {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.625rem;
   text-align: left;
   border: 0.0625rem solid transparent;
   background: transparent;
   border-radius: 0.625rem;
-  padding: 0.625rem 0.7rem;
+  padding: 0.625rem;
   cursor: pointer;
   color: #334155;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -476,7 +578,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: #f8fafc;
 }
 
-.plugin-item:focus-visible {
+.plugin-item:focus-visible,
+.explore-btn:focus-visible {
   outline: 0.125rem solid #7c3aed;
   outline-offset: 0.125rem;
 }
@@ -537,12 +640,13 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .item-text {
+  flex: 1;
   min-width: 0;
 }
 
 .item-name {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #1e293b;
   line-height: 1.3;
   display: flex;
@@ -562,7 +666,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .item-sub {
   margin-top: 0.15rem;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: #94a3b8;
   line-height: 1.35;
   overflow: hidden;
@@ -570,26 +674,88 @@ async function onTestExternal(p: ExternalPluginInfo) {
   white-space: nowrap;
 }
 
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: #cbd5e1;
+  box-shadow: 0 0 0 0.125rem #f1f5f9;
+}
+
+.status-dot.enabled {
+  background: #22c55e;
+  box-shadow: 0 0 0 0.125rem #dcfce7;
+}
+
+.status-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 0 0.125rem #fee2e2;
+}
+
+.explore-wrap {
+  padding-top: 0.25rem;
+}
+
+.explore-btn {
+  width: 100%;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0.0625rem dashed #cbd5e1;
+  border-radius: 0.625rem;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.explore-btn:hover {
+  border-color: #a78bfa;
+  background: #faf5ff;
+  color: #7c3aed;
+}
+
 /* ---- main ---- */
 .plugin-main {
   flex: 1;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: rgba(248, 250, 252, 0.7);
 }
 
 .plugin-detail {
+  width: 100%;
+  max-width: 64rem;
   min-height: 100%;
   box-sizing: border-box;
+  margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
 }
 
 /* external detail */
 .external-detail {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 1.25rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.external-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.empty-detail {
+  overflow: hidden;
 }
 
 .ext-header {
@@ -598,11 +764,10 @@ async function onTestExternal(p: ExternalPluginInfo) {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
-  padding-bottom: 1rem;
-  border-bottom: 0.0625rem solid #e2e8f0;
-  background: transparent;
-  margin: 0;
-  padding: 0 0 1rem;
+  flex: none;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
 }
 
 .ext-heading {
@@ -808,8 +973,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   }
 
   .ext-header {
-    margin: 0;
-    padding: 0 0 1rem;
+    padding: 1rem 1.25rem;
   }
 }
 </style>

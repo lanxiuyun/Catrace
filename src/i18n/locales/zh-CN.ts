@@ -371,6 +371,12 @@ export default {
     pageTitle: '功能插件',
     pageSubtitle: '管理 Catrace 功能插件与集成',
     listHeading: '功能列表',
+    centerTitle: '插件中心',
+    searchPlaceholder: '查找已安装插件...',
+    searchEmpty: '没有找到匹配的插件',
+    exploreMore: '探索更多插件',
+    community: '交流群',
+    communityNumber: '468998176',
     rest: {
       name: '久坐提醒',
       subtitle: '在专注工作后提醒你休息',

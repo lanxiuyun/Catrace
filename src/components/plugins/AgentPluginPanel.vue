@@ -18,6 +18,7 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
+import OverlayScrollbar from '../OverlayScrollbar.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -203,7 +204,10 @@ async function handlePickSoundFile() {
       </div>
     </header>
 
-    <template v-if="enabled">
+    <div class="panel-content">
+      <OverlayScrollbar>
+        <div class="panel-body">
+          <template v-if="enabled">
       <section class="panel-section">
         <h3 class="section-title">{{ t('settings.agent.hookTitle') }}</h3>
         <div class="section-card">
@@ -300,12 +304,15 @@ async function handlePickSoundFile() {
           </div>
         </div>
       </section>
-    </template>
+          </template>
 
-    <div v-else class="empty-state">
-      <div class="empty-icon" aria-hidden="true">🔕</div>
-      <h4>{{ t('plugins.agent.name') }}</h4>
-      <p>{{ t('plugins.agent.disabledHint') }}</p>
+          <div v-else class="empty-state">
+            <div class="empty-icon" aria-hidden="true">🔕</div>
+            <h4>{{ t('plugins.agent.name') }}</h4>
+            <p>{{ t('plugins.agent.disabledHint') }}</p>
+          </div>
+        </div>
+      </OverlayScrollbar>
     </div>
   </div>
 </template>
@@ -313,8 +320,10 @@ async function handlePickSoundFile() {
 <style scoped>
 .agent-panel {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 1.25rem;
+  min-width: 0;
+  min-height: 0;
 }
 
 .agent-panel.is-disabled .empty-state {
@@ -327,6 +336,28 @@ async function handlePickSoundFile() {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  flex: none;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 64rem;
+  min-height: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .header-left {
