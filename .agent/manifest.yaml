@@ -1,4 +1,4 @@
-features:
+﻿features:
   reminder:
     docs:
       - .agent/features/reminder/README.md

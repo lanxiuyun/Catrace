@@ -1,23 +1,18 @@
 <script setup lang="ts">
-import { h, computed, watch } from 'vue'
-import qqGroupQr from './assets/qq-group.jpg'
+import { computed, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   NConfigProvider,
-  NLayout,
-  NLayoutSider,
-  NLayoutContent,
-  NMenu,
   NMessageProvider,
   NDialogProvider,
-  NPopover,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
 import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
 import ReminderPopup from './views/ReminderPopup.vue'
 import ReminderFullscreen from './views/ReminderFullscreen.vue'
 import ReminderToast from './views/ReminderToast.vue'
+import OverlayScrollbar from './components/OverlayScrollbar.vue'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -25,25 +20,6 @@ const { t, locale } = useI18n()
 const naiveLocale = computed(() => {
   return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS
 })
-
-const menuOptions = computed(() => [
-  {
-    label: () => h(RouterLink, { to: '/dashboard' }, { default: () => t('nav.overview') }),
-    key: '/dashboard',
-  },
-  {
-    label: () => h(RouterLink, { to: '/plugins' }, { default: () => t('nav.plugins') }),
-    key: '/plugins',
-  },
-  {
-    label: () => h(RouterLink, { to: '/settings' }, { default: () => t('nav.systemSettings') }),
-    key: '/settings',
-  },
-  {
-    label: () => h(RouterLink, { to: '/debug' }, { default: () => t('nav.debug') }),
-    key: '/debug',
-  },
-])
 
 const isReminderRoute = computed(() => {
   return ['/reminder-popup', '/reminder-fullscreen', '/reminder-toast'].includes(route.path)
@@ -64,7 +40,6 @@ const needsTransparentBg = computed(() => {
 watch(needsTransparentBg, (val) => {
   document.documentElement.classList.toggle('reminder-transparent', val)
 }, { immediate: true })
-
 </script>
 
 <template>
@@ -77,36 +52,47 @@ watch(needsTransparentBg, (val) => {
           <ReminderToast v-else-if="currentReminderType === 'toast'" />
           <RouterView v-else />
         </template>
-        <n-layout v-else has-sider class="app-layout">
-          <n-layout-sider
-            bordered
-            :collapsed-width="64"
-            :width="180"
-            class="app-sider"
-          >
-            <div class="logo">Catrace</div>
-            <n-menu :value="route.path" :options="menuOptions" />
-            <n-popover trigger="hover" placement="right-start" :show-arrow="false" :delay="200">
-              <template #trigger>
-                <div class="sidebar-community">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  <div class="sidebar-community-text">
-                    <span>QQ群</span>
-                    <span>468998176</span>
-                  </div>
-                </div>
-              </template>
-              <img :src="qqGroupQr" class="qq-qr-img" width="200" height="200" />
-            </n-popover>
-          </n-layout-sider>
-          <n-layout-content class="app-content" :native-scrollbar="false">
-            <RouterView v-slot="{ Component }">
-              <KeepAlive>
-                <component :is="Component" />
-              </KeepAlive>
-            </RouterView>
-          </n-layout-content>
-        </n-layout>
+
+        <div v-else class="app-shell">
+          <header class="global-header">
+            <div class="brand-block">
+              <div class="brand-copy">
+                <strong>Catrace</strong>
+                <span>v26.7.18</span>
+              </div>
+            </div>
+
+            <nav class="global-nav" aria-label="Primary navigation">
+              <RouterLink to="/dashboard" class="nav-link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                {{ t('nav.overview') }}
+              </RouterLink>
+              <RouterLink to="/plugins" class="nav-link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v3" /><path d="M16 3v3" /><path d="M7 6h10a2 2 0 0 1 2 2v3a7 7 0 0 1-14 0V8a2 2 0 0 1 2-2Z" /><path d="M12 18v3" /></svg>
+                {{ t('nav.plugins') }}
+              </RouterLink>
+              <RouterLink to="/debug" class="nav-link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5" /><path d="M8 17v-6" /><path d="M12 17V7" /><path d="M16 17v-3" /><path d="M20 17V9" /></svg>
+                {{ t('nav.debug') }}
+              </RouterLink>
+              <RouterLink to="/settings" class="nav-link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-3v-.08a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 7 14.7a1.7 1.7 0 0 0-1.56-1.03H5v-3h.44A1.7 1.7 0 0 0 7 9.64a1.7 1.7 0 0 0-.34-1.88L6.6 7.7l2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 11.7 4.4V4h3v.4a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H21v3h-.05A1.7 1.7 0 0 0 19.4 15Z" /></svg>
+                {{ t('nav.systemSettings') }}
+              </RouterLink>
+            </nav>
+
+          </header>
+
+          <main class="app-workspace">
+            <OverlayScrollbar>
+              <RouterView v-slot="{ Component }">
+                <KeepAlive>
+                  <component :is="Component" />
+                </KeepAlive>
+              </RouterView>
+            </OverlayScrollbar>
+          </main>
+        </div>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -117,12 +103,17 @@ html, body, #app {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #f7f5fa;
+  background: #f8fafc;
 }
 
 * {
   -webkit-user-select: none;
   user-select: none;
+}
+
+.app-shell,
+.app-shell * {
+  box-sizing: border-box;
 }
 
 input,
@@ -138,89 +129,108 @@ html.reminder-transparent #app {
   background: transparent !important;
 }
 
-.app-layout {
+.app-shell {
   height: 100vh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  background: #f7f5fa;
+  background: #f8fafc;
 }
 
-.app-content {
-  height: 100vh;
+.global-header {
+  height: 3.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.25rem 0 0.75rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
 }
 
-.app-content :deep(.n-layout-scroll-container) {
-  overflow-y: auto;
-  overflow-x: hidden;
+.brand-block,
+.brand-copy,
+.global-nav,
+.nav-link {
+  display: flex;
+  align-items: center;
 }
 
-.app-sider {
-  background: #ffffff !important;
-  border-right-color: #ebe6f2 !important;
-  position: relative;
+.brand-block {
+  gap: 0.625rem;
+  flex-shrink: 0;
 }
 
-.app-sider :deep(.n-layout-sider-scroll-container) {
-  background: #FFFFFF;
+.brand-copy {
+  gap: 0.4rem;
+  white-space: nowrap;
 }
 
-.logo {
-  padding: 1.5rem 1rem 1.25rem;
-  font-size: 1.125rem;
-  font-weight: 700;
-  text-align: center;
-  color: #6d28d9;
+.brand-copy strong {
+  font-size: 1rem;
   letter-spacing: -0.02em;
 }
 
-.app-sider :deep(.n-menu-item-content) {
-  border-radius: 0.625rem;
-  margin: 0.125rem 0.5rem;
+.brand-copy span {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 0.625rem;
+  font-weight: 600;
 }
 
-.app-sider :deep(.n-menu-item-content::before) {
-  border-radius: 0.625rem !important;
-  left: 0.5rem !important;
-  right: 0.5rem !important;
+.global-nav {
+  align-self: stretch;
+  gap: 0.25rem;
 }
 
-.app-sider :deep(.n-menu .router-link-active) {
-  color: inherit;
-  text-decoration: none;
-}
-
-.sidebar-community {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  color: #8b5cf6;
+.nav-link {
+  position: relative;
+  gap: 0.45rem;
+  padding: 0 0.75rem;
+  color: #64748b;
   font-size: 0.8125rem;
-  border-top: 0.0625rem solid #ebe6f2;
-  background: #fff;
-  transition: background 0.2s;
-  z-index: 10;
-  box-sizing: border-box;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
 
-.sidebar-community:hover {
-  background: #f5f3ff;
-  text-decoration: underline;
+.nav-link::after {
+  content: '';
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0;
+  left: 0.75rem;
+  height: 0.125rem;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
 }
 
-.sidebar-community-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
+.nav-link:hover,
+.nav-link.router-link-active {
+  color: #7c3aed;
 }
 
-.qq-qr-img {
-  width: 12.5rem;
-  height: auto;
-  border-radius: 0.375rem;
+.nav-link.router-link-active::after {
+  background: #7c3aed;
 }
+
+.nav-link svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app-workspace {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 </style>

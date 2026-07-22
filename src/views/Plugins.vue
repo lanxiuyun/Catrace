@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
 import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
 import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
+import OverlayScrollbar from '../components/OverlayScrollbar.vue'
 import { usePluginRegistry } from '../stores/pluginRegistry'
 import {
   listExternalPlugins,
@@ -200,7 +201,9 @@ async function onTestExternal(p: ExternalPluginInfo) {
       </div>
 
       <div class="rail-list">
-        <button
+        <OverlayScrollbar>
+          <div class="rail-list-content">
+            <button
           v-for="p in plugins"
           :key="p.id"
           type="button"
@@ -250,18 +253,22 @@ async function onTestExternal(p: ExternalPluginInfo) {
           </div>
         </button>
 
-        <p v-if="!externalList.length && !loading" class="list-hint">
-          {{ t('plugins.external.emptyHint') }}
-        </p>
+            <p v-if="!externalList.length && !loading" class="list-hint">
+              {{ t('plugins.external.emptyHint') }}
+            </p>
+          </div>
+        </OverlayScrollbar>
       </div>
     </aside>
 
     <!-- 主内容 -->
     <main class="plugin-main">
-      <div class="plugin-detail">
-        <component v-if="ActiveDetail" :is="ActiveDetail" :key="selectedId" />
+      <OverlayScrollbar>
+        <div class="plugin-detail">
+          <component v-if="ActiveDetail" :is="ActiveDetail" :key="selectedId" />
 
-        <div v-else-if="selectedExternal" class="external-detail">
+
+          <div v-else-if="selectedExternal" class="external-detail">
           <header class="ext-header">
             <div class="ext-heading">
               <div class="ext-icon" aria-hidden="true">
@@ -346,10 +353,11 @@ async function onTestExternal(p: ExternalPluginInfo) {
           </div>
         </div>
 
-        <div v-else class="external-detail">
-          <p class="ext-desc">{{ t('plugins.external.selectHint') }}</p>
+          <div v-else class="external-detail">
+            <p class="ext-desc">{{ t('plugins.external.selectHint') }}</p>
+          </div>
         </div>
-      </div>
+      </OverlayScrollbar>
     </main>
   </div>
 </template>
@@ -357,7 +365,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 <style scoped>
 .plugins-page {
   display: flex;
-  height: 100vh;
+  height: 100%;
   min-height: 0;
   background: #f8fafc;
   box-sizing: border-box;
@@ -366,7 +374,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 /* ---- left rail ---- */
 .plugin-rail {
-  width: 14rem;
+  width: 15rem;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -430,7 +438,12 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .rail-list {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rail-list-content {
+  min-height: 100%;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -562,7 +575,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   background: rgba(248, 250, 252, 0.7);
 }
 
@@ -786,16 +799,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 @media (max-width: 56.25rem) {
-  .plugins-page {
-    flex-direction: column;
-    overflow: auto;
-  }
-
   .plugin-rail {
-    width: 100%;
-    border-right: none;
-    border-bottom: 0.0625rem solid #e2e8f0;
-    max-height: 14rem;
+    width: 13rem;
   }
 
   .plugin-detail {
