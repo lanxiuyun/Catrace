@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：**第二阶段已于 2026-07-23 完成 A～E 真机验收**，覆盖 Event Core、Signal Core、Toast 内容全量经 Bus、M9 本机 Event HTTP（:23457）和 M10 本地外部插件（manifest + Card）。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）属于后续增量。**不做插件市场。**
+当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 限流属于后续增量。**不做插件市场。**
 
 ## 模块布局
 
@@ -16,7 +16,9 @@ Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  → 
 src-tauri/src/
 ├── event.rs / bus.rs     # 协议 + Registry + publish/update/resolve
 ├── event_http.rs         # M9/M10 外部 Event API 127.0.0.1:23457（plugin_id）
-├── plugins.rs            # M10 本地 plugins 扫描 / 启用 / UI source
+├── plugins.rs            # M10/M11 manifest 扫描、启用、UI/background source
+├── plugin_window.rs      # 每插件隐藏 WebView 生命周期与非阻塞同步
+├── plugin_commands.rs    # publish/activity/storage/logger 权限门闩
 ├── signal.rs / db.rs     # 行为采集 + signal_minutes
 ├── water.rs / eye.rs     # 生产者：只 bus.publish
 ├── reminder_toast.rs     # ensure 窗口 + agent/update/permission → bus
@@ -26,6 +28,7 @@ src-tauri/src/
 src/
 ├── views/ReminderToast.vue   # 唯一内容渲染：listen catrace:event（sdk + plugin）
 ├── views/Plugins.vue         # 内置 + 外部插件列表 / 启用 / 测试通知
+├── views/PluginHost.vue      # plugin-bg-<id> 宿主页，Blob import background.mjs
 ├── components/SdkToastCard.vue / PluginHostCard.vue
 ├── stores/eventHub.ts        # 主窗观察（不渲 Toast）
 ├── stores/pluginRegistry.ts
@@ -59,6 +62,8 @@ tools/plugin-demo/            # M10 demo-timer 包
 5. 仍用专用通道：`catrace-rest-timer`、`dismissAgentSession`（eval 仅销项）
 6. 键序列默认关；休息判定用 legacy `count`
 7. **外部写入走 Event HTTP（:23457）**，禁止冒充内部 kind；管理入口在调试页
+8. **插件窗口同步不得阻塞主循环**：禁止在 `setup()` 或 `run_on_main_thread()` 中执行包含 `WebviewWindowBuilder::build()` 的完整同步；统一调用 `PluginWindowManager::schedule_sync()`
+9. **后台插件身份由窗口 label 推导**：只接受 `plugin-bg-<id>` 调用者，权限和 storage namespace 均按该 id 校验
 
 ## 子文档
 

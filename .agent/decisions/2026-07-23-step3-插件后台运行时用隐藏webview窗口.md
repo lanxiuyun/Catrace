@@ -35,9 +35,11 @@ Step 3（Plugin Runtime）要让用户写的插件脚本随应用启动在后台
 - **卡片（ui.mjs，Toast 窗口）**：渲染 + 用户即时交互（复制验证码当场 `fetch`/剪贴板闭环）。
 - **不需要 action 回传到后台**：交互在卡片内闭环。这是和最初设想的重要修正——最初以为必须把按钮点击传回后台脚本，确认「全部交互逻辑在卡片」后，回传通道降为可选增强（M11 不做）。
 
-## 已知坑（待验证）
+## 已验证的运行时约束
 
-隐藏/后台 WebView 页面的 `setInterval` 会被浏览器节流（降到 ~1 分钟）。分钟级计时（喝水提醒）误差可接受；秒级需实现时关闭插件窗口节流。详见 [[step3-roadmap-plugin-runtime]] §14.1。
+- 当前 Windows 真机上，隐藏窗口的 10 秒 `setInterval` 可以持续发布 Toast；长期后台、系统休眠/恢复后的精度仍需观察。
+- `WebviewWindowBuilder::build()` 不能在 `setup()` 尚未返回时同步执行，也不能把包含 `build()` 的整段同步塞进 `run_on_main_thread()`，否则可能阻塞 Windows 主事件循环。
+- 正确做法是先完成 state manage，让 setup/invoke 返回，再由 `tauri::async_runtime::spawn_blocking()` 调用带 `sync_lock` 的窗口同步。
 
 ## 相关
 
