@@ -5,6 +5,7 @@ async function tick() {
   const activity = await invoke('plugin_get_activity')
   const previous = await invoke('plugin_storage_get', { key: 'tickCount' })
   const count = Number(previous || 0) + 1
+  const code = String(count).padStart(6, '0')
   await invoke('plugin_storage_set', { key: 'tickCount', value: count })
   await invoke('plugin_log', {
     level: 'info',
@@ -18,7 +19,7 @@ async function tick() {
       title: 'Demo Timer',
       body: `Background trigger #${count}; currently ${activity.active ? 'active' : 'inactive'}`,
       dedupeKey: 'demo-timer:tick',
-      payload: { count, activity },
+      payload: { count, code, activity },
     },
   })
 }

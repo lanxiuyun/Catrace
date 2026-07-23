@@ -275,5 +275,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 M11 lifecycle accepted on device; demo-timer startup, disable/re-enable, and 10-second Toast verified
-  next: add clipboard interaction to complete M11; then implement M11.1 publish rate limiting and permission tightening
+  phase: Step3 M11 complete; background lifecycle, 10-second Toast, and clipboard interaction accepted on device
+  next: implement M11.1 per-plugin publish rate limiting and permission tightening

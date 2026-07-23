@@ -864,6 +864,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -1259,6 +1260,7 @@ pub fn run() {
             plugin_commands::plugin_storage_get,
             plugin_commands::plugin_storage_set,
             plugin_commands::plugin_log,
+            plugin_commands::plugin_write_clipboard,
             signal::set_signal_key_sequence_enabled,
             signal::set_signal_key_sequence_retention_hours,
             signal::get_signal_runtime_config,

@@ -3,6 +3,7 @@
  * Contract: props.event (BusEvent), props.isHovered?; emits close / action(actionId)
  */
 const { h } = globalThis.__CATRACE_VUE__ || {}
+const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args)
 if (typeof h !== 'function') {
   throw new Error('Catrace plugin Vue runtime missing (__CATRACE_VUE__.h)')
 }
@@ -54,6 +55,13 @@ const CSS = `
 .demo-timer .btn.ghost { background: var(--bg); color: var(--title); }
 .demo-timer .btn.primary { background: var(--accent); color: #fff; }
 .demo-timer .btn:hover { filter: brightness(0.97); }
+.demo-timer .copy-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.625rem; }
+.demo-timer .code {
+  flex: 1; min-width: 0; padding: 0.375rem 0.5rem; border-radius: 0.375rem;
+  background: var(--bg); color: var(--title); font-family: ui-monospace, monospace;
+  font-size: 0.8125rem; letter-spacing: 0.08em; text-align: center;
+}
+.demo-timer .copy-status { margin-top: 0.25rem; font-size: 0.75rem; color: var(--body); }
 `
 
 function ensureStyles() {
@@ -79,6 +87,30 @@ export default {
     isHovered: { type: Boolean, default: false },
   },
   emits: ['close', 'action'],
+  data() {
+    return { copyState: 'idle' }
+  },
+  methods: {
+    async copyCode(code) {
+      const source = this.event && this.event.source
+      const pluginId = source && source.type === 'plugin' ? source.name : ''
+      if (!pluginId || !this.event.id) {
+        this.copyState = 'error'
+        return
+      }
+      try {
+        await invoke('plugin_write_clipboard', {
+          pluginId,
+          eventId: this.event.id,
+          text: code,
+        })
+        this.copyState = 'copied'
+      } catch (error) {
+        console.error('[demo-timer] copy failed', error)
+        this.copyState = 'error'
+      }
+    },
+  },
   created() {
     ensureStyles()
   },
@@ -86,6 +118,9 @@ export default {
     const event = this.event || {}
     const progress = progressOf(event)
     const actions = event.actions || []
+    const code = event.payload && typeof event.payload.code === 'string'
+      ? event.payload.code
+      : ''
 
     const children = [
       h('div', { class: 'hdr' }, [
@@ -134,6 +169,26 @@ export default {
           ),
         ]),
       )
+    }
+
+    if (code) {
+      children.push(
+        h('div', { class: 'copy-row' }, [
+          h('code', { class: 'code' }, code),
+          h(
+            'button',
+            {
+              class: ['btn', 'primary'],
+              type: 'button',
+              onClick: () => this.copyCode(code),
+            },
+            this.copyState === 'copied' ? 'Copied' : 'Copy code',
+          ),
+        ]),
+      )
+      if (this.copyState === 'error') {
+        children.push(h('div', { class: 'copy-status' }, 'Copy failed'))
+      }
     }
 
     if (actions.length) {

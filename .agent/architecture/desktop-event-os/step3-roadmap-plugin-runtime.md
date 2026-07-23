@@ -294,7 +294,7 @@ const t = await invoke('plugin_clipboard_read', {})
 - [x] `demo-timer` 由隐藏 WebView 窗口里的 `background.mjs` 驱动，`setInterval` + `plugin_publish_event` 发通知（真机已确认启用后 10 秒成功弹出 Toast）。
 - [x] 插件能读活跃数据（`plugin_get_activity`）、读写私有存储（`plugin_storage_*`）。
 - [x] 启用/禁用插件时后台窗口创建/销毁；background 文件元数据或版本变化时重建（真机已确认关闭/重新启用正常）。
-- [ ] 卡片点按钮能完成即时交互（如复制验证码），无需回传后台。
+- [x] 卡片点按钮能完成即时交互（demo-timer 复制验证码），无需回传后台；Rust 校验 Toast 调用窗口、事件 source、插件启用状态和 `clipboard` 权限（真机已确认复制成功）。
 - [x] `cargo check` / `pnpm vue-tsc --noEmit` / `pnpm build` 通过。
 
 ### M11.1 完成定义

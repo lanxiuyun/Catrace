@@ -1,7 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{Manager, State};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::bus::EventBus;
 use crate::db::Db;
@@ -61,6 +62,21 @@ fn require_permission(
     let id = caller_id(window)?;
     plugins.has_permission(&id, permission)?;
     Ok(id)
+}
+
+fn require_plugin_card_caller(label: &str) -> Result<(), String> {
+    if label != "reminder-toast" {
+        return Err("plugin card command is only available in reminder-toast".into());
+    }
+    Ok(())
+}
+
+fn require_plugin_event(event: &BusEvent, plugin_id: &str) -> Result<(), String> {
+    match &event.source {
+        EventSource::Plugin { name } if name == plugin_id => Ok(()),
+        EventSource::Plugin { .. } => Err("event source does not match plugin".into()),
+        _ => Err("event is not owned by a plugin".into()),
+    }
 }
 
 #[tauri::command]
@@ -160,6 +176,34 @@ pub fn plugin_storage_set(
 }
 
 #[tauri::command]
+pub fn plugin_write_clipboard(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    bus: State<'_, EventBus>,
+    plugin_id: String,
+    event_id: String,
+    text: String,
+) -> Result<(), String> {
+    require_plugin_card_caller(window.label())?;
+    plugins.has_permission(&plugin_id, "clipboard")?;
+    if text.as_bytes().len() > 64 * 1024 {
+        return Err("clipboard text too large (>64KiB)".into());
+    }
+    if text.is_empty() {
+        return Err("clipboard text cannot be empty".into());
+    }
+    let event = bus
+        .get(&event_id)?
+        .ok_or_else(|| format!("event not found: {event_id}"))?;
+    require_plugin_event(&event, &plugin_id)?;
+    window
+        .app_handle()
+        .clipboard()
+        .write_text(text)
+        .map_err(|e| format!("write clipboard: {e}"))
+}
+
+#[tauri::command]
 pub fn plugin_log(
     window: tauri::WebviewWindow,
     plugins: State<'_, PluginManager>,
@@ -190,6 +234,47 @@ fn storage_key(id: &str, key: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::{require_plugin_card_caller, require_plugin_event};
+    use crate::event::{BusEvent, EventSource};
+
+    #[test]
+    fn plugin_card_caller_is_restricted() {
+        assert!(require_plugin_card_caller("reminder-toast").is_ok());
+        assert!(require_plugin_card_caller("main").is_err());
+        assert!(require_plugin_card_caller("plugin-bg-demo-timer").is_err());
+    }
+
+    #[test]
+    fn plugin_card_event_source_must_match() {
+        let mut event = BusEvent {
+            id: "event-1".into(),
+            event_type: "demo-timer.tick".into(),
+            source: EventSource::Plugin { name: "demo-timer".into() },
+            kind: "demo-timer".into(),
+            display_mode: Default::default(),
+            level: Default::default(),
+            title: "Demo".into(),
+            body: String::new(),
+            actions: Vec::new(),
+            progress: None,
+            sticky: None,
+            payload: serde_json::Value::Null,
+            created_at: 0,
+            updated_at: 0,
+            status: Default::default(),
+            revision: 1,
+            resolved_at: None,
+            resolution: None,
+            expires_at: None,
+            correlation_id: None,
+            dedupe_key: None,
+        };
+        assert!(require_plugin_event(&event, "demo-timer").is_ok());
+        assert!(require_plugin_event(&event, "other-plugin").is_err());
+        event.source = EventSource::Internal;
+        assert!(require_plugin_event(&event, "demo-timer").is_err());
+    }
+
     use super::{storage_key, validate_storage_key};
 
     #[test]
