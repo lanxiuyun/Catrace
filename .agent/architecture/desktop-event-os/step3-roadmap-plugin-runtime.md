@@ -26,6 +26,7 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 - 插件后台脚本是标准浏览器 JS：`setInterval` / `fetch` / `WebSocket` / ESM 模块均可用；napcat 等外部服务直接 `WebSocket`/`fetch` 连。
 - 插件通过 **Tauri invoke** 调用宿主能力：发通知（publishEvent）、读活跃数据、读写自己的私有存储、剪贴板等。
 - 插件可提供 `ui.mjs`（Toast 卡片，走 M10 现有 Blob 加载）和 `settings.mjs`（设置面板）。
+- **信任模型**：用户手动安装并启用本地插件，即视为信任该插件；普通宿主能力不要求 manifest 权限声明，也不做逐项授权弹窗。
 - **职责划分**：background = 调度/计时 + 发通知 + 读活跃数据 + 持久化；卡片 = 渲染 + 用户即时交互（复制验证码、调外部 API）。
 
 ### 1.2 不是什么
@@ -33,14 +34,15 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 - 不是真 Node：插件后台跑在 WebView（浏览器 JS），无 `require('fs')` / `child_process` / 直接 `npm install`。文件、剪贴板等靠 invoke 补。
 - 不做插件市场 / 远程下载 / 自动更新。
 - 不做浏览器扩展兼容层。
-- 不做无权限沙箱逃逸。
+- 不做浏览器扩展式的细粒度权限申请、逐项授权弹窗或“允许一次/永久允许”流程。
+- 不把“自由调用宿主能力”等同于取消边界：调用方身份、插件启用状态、Event 所有权、Storage/文件命名空间、输入大小和防失控限制仍由 Rust 强制。
 
 ## 2. 里程碑
 
 | 里程碑 | 内容 | 状态 |
 |--------|------|------|
 | **M11** Plugin Background Window | 每插件一个隐藏 WebView 窗口；manifest 扩展 `background`；宿主 invoke 能力（publishEvent、activity 读取、plugin storage、logger）；启停生命周期 | ✅ 真机验收通过 |
-| **M11.1** 资源与权限 | 定时器最小间隔 clamp、publish 限流（对齐 HTTP 10/s、5 publish/s）、权限声明 + 运行时门闩 | 📋 规划 |
+| **M11.1** 资源与隔离边界 | 取消普通 invoke 的 manifest 权限硬门闩；保留身份/所有权/私有命名空间；增加 publish 防失控限制 | 📋 规划 |
 | **M12** 更多宿主能力 | 打开 URL/应用、读取前台窗口信息、写文件（受限目录）、napcat 类外部服务对接（WebSocket 由插件自己连，宿主不感知） | 📋 规划 |
 | **M13** External Settings Surface | 外部插件可注册 `settings.mjs`；Plugins.vue 详情页加载外部设置组件；与 background 共享 storage | 📋 规划 |
 | **M14** Built-in plugins migration | 将 timer/water/eye/rest 的定时/通知逻辑逐步迁到插件 runtime 模型 | 🧊 暂缓 |
@@ -100,7 +102,6 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
   "main": "ui.mjs",
   "settings": "settings.mjs",
   "events": ["my-timer", "kind:my-timer"],
-  "permissions": ["notification", "storage", "activity", "logger", "clipboard"],
   "enabledByDefault": false
 }
 ```
@@ -110,13 +111,14 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 | `background` | 后台脚本相对路径，声明则创建后台窗口 |
 | `main` | Toast 卡片（M10 已有） |
 | `settings` | 设置面板脚本，可选（M13） |
-| `permissions` | 宿主能力白名单，未声明的 invoke 调用被拒绝 |
+
+`permissions` 不再作为普通宿主能力的运行时硬门闩。若为兼容已有 manifest 暂时保留该字段，它只作为插件详情页的能力说明元数据；插件未声明某项能力时，宿主不会仅因此拒绝 invoke。
 
 ## 5. 宿主能力（invoke 命令集）
 
-插件后台脚本通过 `window.__TAURI__.invoke(...)`（或注入的 `catrace.*` 薄封装）调用。**每个命令在 Rust 侧校验调用方插件身份 + 权限**。
+插件后台脚本通过 `window.__TAURI__.invoke(...)`（或注入的 `catrace.*` 薄封装）调用。普通能力默认对已启用插件开放；Rust 侧校验的是**调用方身份、插件启用状态、对象所有权、命名空间和输入边界**，而不是 manifest 是否列出某个权限字符串。
 
-### 5.1 发通知（notification 权限）
+### 5.1 发通知
 
 ```js
 await invoke('plugin_publish_event', {
@@ -133,7 +135,7 @@ await invoke('plugin_publish_event', {
 - **进程内也强制 `allows_event` 校验**：`kind`/`event_type` 必须在 manifest `events` 白名单，不得占用 `RESERVED_KINDS`。
 - Toast 卡片渲染走 M10 现有链路，无需改。
 
-### 5.2 读活跃数据（activity 权限）
+### 5.2 读活跃数据
 
 插件要读 Catrace 已有的活跃信息。复用/扩展现有 command：
 
@@ -150,7 +152,7 @@ const win = await invoke('plugin_get_active_window', {})
 - 数据来源：宿主分钟 settle 的 `ActivityState` 快照 + `active_win_pos_rs`（与 Debug 页同源）。
 - 只读，不暴露键序列/坐标。
 
-### 5.3 插件私有存储（storage 权限）
+### 5.3 插件私有存储
 
 per-plugin 隔离 KV，落 SQLite `plugin_storage:<id>:<key>`：
 
@@ -162,7 +164,7 @@ const v = await invoke('plugin_storage_get', { key: 'lastDrinkAt' })
 - **与 settings 面板共享同一份**：settings 面板（M13）用同一组 invoke 读写，background 下次 `get` 即读到。
 - value 存 JSON 字符串。
 
-### 5.4 日志（logger 权限）
+### 5.4 日志
 
 ```js
 await invoke('plugin_log', { level: 'info', message: 'tick', data: { n: 1 } })
@@ -170,7 +172,7 @@ await invoke('plugin_log', { level: 'info', message: 'tick', data: { n: 1 } })
 
 统一写进 Catrace 日志文件，带插件 id 前缀。
 
-### 5.5 剪贴板（clipboard 权限）
+### 5.5 剪贴板
 
 ```js
 await invoke('plugin_clipboard_write', { text: '123456' })
@@ -179,14 +181,20 @@ const t = await invoke('plugin_clipboard_read', {})
 
 - Rust 端 `#[cfg]` 隔离平台；读取返回最近内容，不监听键盘。
 
-## 6. 身份识别与权限门闩
+## 6. 信任模型与强制隔离边界
 
-**关键问题**：多个插件的 invoke 都从 WebView 发出，Rust 怎么知道是哪个插件调的？
+Catrace 采用 **Trusted Local Plugin Model**：用户手动安装并启用插件，即视为允许它使用已公开的普通宿主 API，不做细粒度 manifest 权限授权。
 
-- Tauri invoke 可从 `WebviewWindow` 拿到调用方窗口 label。
-- 插件后台窗口 label = `plugin-bg-<id>`，从 label 解析出 plugin id。
-- Toast 卡片 / settings 面板在主窗/Toast 窗，label 不同 → 用另一组 identity（见 §7）。
-- Rust 侧每个 `plugin_*` command 先解析窗口 label 得 plugin id，再查 manifest `permissions`，未授权返回 `Err("permission denied: <perm>")`。
+这不等于完全信任插件提交的身份和资源参数。Rust 必须强制以下边界：
+
+- Tauri invoke 从 `WebviewWindow` 获取调用方窗口 label；插件不能通过参数自报或伪造 id。
+- 插件后台窗口 label = `plugin-bg-<id>`，从 label 解析 plugin id，并确认插件存在、有效且仍处于启用状态。
+- Toast 卡片 / settings 面板在主窗或 Toast 窗，不能从 label 直接得到插件身份，必须把显式 `plugin_id` 与当前 Event source/所属插件交叉校验（见 §7）。
+- Event 的 `source` 由 Rust 填写；插件不得冒充内置 kind/source，也不得操作其他插件的 Event。
+- Storage 与未来文件能力按 plugin id 隔离；插件不能访问其他插件的数据或宿主任意路径。
+- 所有命令保留输入大小、合法值和明显失控行为限制。
+
+`permissions` 若继续存在，仅用于能力展示，不参与上述身份与所有权判断。真正危险且当前没有明确需求的能力（例如读剪贴板、任意文件、任意 shell）优先选择“不开放”，而不是先开放再依赖插件自行声明权限。
 
 ## 7. 卡片（ui.mjs）与后台的关系
 
@@ -194,7 +202,7 @@ const t = await invoke('plugin_clipboard_read', {})
 
 - **后台 → 卡片**：通过事件 `payload` 单向传数据（publishEvent 时塞进去，卡片 `props.event.payload` 读到）。
 - **卡片即时交互**（复制验证码、调外部 API）：卡片跑在 Toast 窗口（WebView），可直接 `fetch` 外部 API，或调剪贴板 invoke。
-- **卡片要调宿主能力时**：Toast 窗口 label 不是 `plugin-bg-*`，需另一种身份识别——卡片调 `plugin_*` invoke 时显式传 `plugin_id`（来自 `props.event.source`），Rust 校验该插件确有此权限。
+- **卡片要调宿主能力时**：Toast 窗口 label 不是 `plugin-bg-*`，需另一种身份识别——卡片调 `plugin_*` invoke 时显式传 `plugin_id`（来自 `props.event.source`），Rust 校验当前 Event 确实属于该插件且插件仍启用。
 - **不需要 action 回传到后台**：交互在卡片内闭环（点按钮当场调剪贴板/外部 API），后台无需感知。`resolve_event_action` 维持现状（只记生命周期）。
 
 > 若未来出现「按钮点击要改变后台计时状态」的场景，再补一条卡片→后台的轻量通道（如 `plugin_notify_background` invoke + 后台窗口监听 event）。**M11 不做，记为可选增强。**
@@ -207,22 +215,28 @@ const t = await invoke('plugin_clipboard_read', {})
 - 插件脚本抛错 → 捕获写日志，窗口保留（WebView 内 JS 错误不致命）；如需重启策略后续迭代。
 - 应用退出 → 统一关闭所有插件窗口。
 
-## 9. M11.1 资源与权限收紧
+## 9. M11.1 资源与隔离边界
 
-| 限制 | 策略 |
+M11.1 不建设浏览器扩展式权限系统。目标是让正常插件自由调用，同时防止身份伪造、跨插件访问和明显失控。
+
+| 边界 | 策略 |
 |------|------|
-| 定时器最小间隔 | 宿主侧不强制（WebView 管不了 `setInterval`），但在文档约定 ≥1s；publish 端限流兜底 |
-| 单插件 publish 限流 | 对齐 HTTP：≤ 10 req/s、≤ 5 publish/s，超限拒绝 |
-| 权限门闩 | 未声明权限的 invoke 一律拒绝 |
+| manifest 权限 | 取消普通 invoke 对 `permissions` 的硬依赖；字段仅可作为能力展示元数据 |
+| 调用方身份 | 后台窗口从 label 推导 plugin id；卡片调用与 Event source 交叉校验；插件禁用后拒绝残留调用 |
+| Event 所有权 | Rust 强制 source；保留 `allows_event` 与保留 kind 拒绝，不能冒充内置或其他插件 |
+| 私有数据 | Storage 与未来文件目录按 plugin id 隔离，不能跨插件或越界访问 |
+| 输入边界 | Storage、剪贴板、Event payload、日志等保留合理大小和格式校验 |
+| 定时器间隔 | 宿主不 monkey-patch `setInterval`；文档建议 ≥1s，由 publish 防失控机制兜底 |
+| publish 防失控 | 按插件隔离；正常提醒不受影响，仅在明显突发或持续失控时拒绝/合并并记录 warning，具体阈值实现时以真机体验确定 |
 | 窗口数量 | 每插件最多 1 个后台窗口 |
 
 ## 10. M12 更多宿主能力
 
-| 能力 | invoke | 权限 |
-|------|--------|------|
-| 打开 URL / 应用 / 路径 | `plugin_open` | `system` |
-| 读前台窗口信息 | `plugin_get_active_window`（M11 已有基础） | `activity` |
-| 受限写文件（插件自己目录内） | `plugin_write_file` | `file` |
+| 能力 | invoke | 固定宿主边界 |
+|------|--------|----------------|
+| 打开 URL / 应用 / 路径 | `plugin_open` | 协议/目标白名单；不接受任意 shell 字符串 |
+| 读前台窗口信息 | `plugin_get_active_window`（M11 已有基础） | 仅结构化快照，不暴露键序列/坐标 |
+| 受限写文件（插件自己目录内） | `plugin_write_file` | 只能写 `<plugin-data>/<plugin-id>/`，路径由 Rust 归一化校验 |
 | napcat 类外部服务 | 插件自己 `WebSocket`/`fetch` 连，**宿主不感知** | 无需宿主权限（网络在 WebView 内） |
 
 > QQ/微信快速回复：走 napcat（OneBot 协议，WebSocket/HTTP）。插件后台窗口里直接 `new WebSocket('ws://napcat:3001')` 即可，**不依赖宿主新增能力**。这条线 M12 起一个官方示例插件验证。
@@ -241,13 +255,13 @@ const t = await invoke('plugin_clipboard_read', {})
 
 ## 12. 实现顺序建议
 
-1. 扩展 `PluginManifestFile` 解析 `background` / `settings` / `permissions`。
+1. 扩展 `PluginManifestFile` 解析 `background` / `settings`；`permissions` 如保留仅作能力说明元数据。
 2. 新建 `src-tauri/src/plugin_window.rs`：`PluginWindowManager`，创建/销毁插件后台窗口（参照 `reminder_toast.rs` 隐藏窗口模式）。
-3. 实现 `plugin_*` invoke 命令集：publishEvent（含进程内 `allows_event` 校验）、activity、storage、log、clipboard；从窗口 label 解析 plugin id + 权限门闩。
+3. 实现 `plugin_*` invoke 命令集：publishEvent（含进程内 `allows_event` 校验）、activity、storage、log、clipboard；从窗口 label 解析 plugin id，并强制启用状态、所有权和命名空间边界。
 4. 后台页面加载：单宿主窗口 `plugin-host.html` + Blob import 插件脚本。
 5. 改造 `tools/plugin-demo/demo-timer`：`background.mjs` 用 `setInterval` + `plugin_publish_event` 每 10 秒发通知，`plugin_storage` 记次数。
 6. 接入 `setup()`：启动扫描并创建启用插件的后台窗口；禁用关闭；版本变化重建。
-7. **M11.1**：publish 限流 + 权限收紧。
+7. **M11.1**：取消 manifest 权限硬门闩，补齐身份/所有权/私有命名空间测试和 publish 防失控机制。
 8. 手测：启动 → 启用 demo-timer → 每 10 秒收通知 → 卡片点按钮复制验证码 → 禁用后后台停止。
 9. M12/M13 按里程碑推进。
 
@@ -256,7 +270,7 @@ const t = await invoke('plugin_clipboard_read', {})
 | 路径 | 角色 |
 |------|------|
 | `src-tauri/src/plugin_window.rs` | 插件后台窗口管理器（创建/销毁/重建） |
-| `src-tauri/src/plugin_commands.rs` | `plugin_*` invoke 命令集 + 身份解析 + 权限门闩 |
+| `src-tauri/src/plugin_commands.rs` | `plugin_*` invoke 命令集 + 身份解析 + 所有权/输入边界 |
 | `src-tauri/src/plugin_storage.rs` | per-plugin KV 存储（SQLite） |
 | `src-tauri/src/plugins.rs` | 扩展 manifest 解析；`allows_event` 进程内校验；与窗口管理联动 |
 | `src-tauri/src/lib.rs` | `setup()` 接入 PluginWindowManager；注册 invoke |
@@ -273,7 +287,7 @@ const t = await invoke('plugin_clipboard_read', {})
 | 多插件挤一个窗口相互干扰 | 先单窗口，出问题拆每插件一窗（隔离粒度实现时定） |
 | 插件脚本死循环/高 CPU | publish 限流兜底；WebView 级 CPU 超限后续迭代 |
 | **隐藏窗口定时器节流** | 见 §14.1，分钟级计时可接受；秒级需在实现时关闭 WebView 节流 |
-| 权限滥用（clipboard/file/system） | manifest 显式声明 + Rust 运行时门闩 |
+| 敏感能力滥用（clipboard/file/system） | 普通能力默认开放；高风险能力按需求最小化提供，并在 Rust 固定协议、路径、对象和输入边界 |
 | 进程内 publish 绕过事件白名单 | 复用 `allows_event` 强制校验 |
 | 身份伪造（卡片冒充别的插件调 invoke） | 后台窗口 label 解析；卡片显式传 id 且校验事件 source 一致性 |
 | 与内置 timer 冲突 | 保留内置兜底，官方插件「让权」开关 |
@@ -294,13 +308,16 @@ const t = await invoke('plugin_clipboard_read', {})
 - [x] `demo-timer` 由隐藏 WebView 窗口里的 `background.mjs` 驱动，`setInterval` + `plugin_publish_event` 发通知（真机已确认启用后 10 秒成功弹出 Toast）。
 - [x] 插件能读活跃数据（`plugin_get_activity`）、读写私有存储（`plugin_storage_*`）。
 - [x] 启用/禁用插件时后台窗口创建/销毁；background 文件元数据或版本变化时重建（真机已确认关闭/重新启用正常）。
-- [x] 卡片点按钮能完成即时交互（demo-timer 复制验证码），无需回传后台；Rust 校验 Toast 调用窗口、事件 source、插件启用状态和 `clipboard` 权限（真机已确认复制成功）。
+- [x] 卡片点按钮能完成即时交互（demo-timer 复制验证码），无需回传后台；当前实现校验 Toast 调用窗口、事件 source、插件启用状态和 `clipboard` 权限（真机已确认复制成功；M11.1 将移除 manifest 权限硬依赖，保留前三项边界）。
 - [x] `cargo check` / `pnpm vue-tsc --noEmit` / `pnpm build` 通过。
 
 ### M11.1 完成定义
 
-- [ ] 单插件 publish 限流生效，超限拒绝报错。
-- [ ] 未声明权限的 invoke 调用被门闩拒绝。
+- [ ] 普通 `plugin_*` invoke 不再因 manifest 未声明 `permissions` 而被拒绝；已启用插件默认可调用已公开能力。
+- [ ] 后台身份只能由窗口 label 推导；卡片调用必须与 Event source/插件启用状态一致，不能跨插件冒充。
+- [ ] Event、Storage 与未来文件能力保持所有权/命名空间隔离，保留 kind/source 和路径边界。
+- [ ] publish 防失控按插件隔离，正常提醒无感，明显突发或持续失控会被拒绝/合并并记录 warning。
+- [ ] Storage、剪贴板、Event payload、日志等输入大小与格式限制有测试覆盖。
 
 ### M12 完成定义
 

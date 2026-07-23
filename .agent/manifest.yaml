@@ -208,6 +208,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md
   - .agent/decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md
   - .agent/decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md
   - .agent/decisions/2026-07-21-久坐提醒配置归功能插件不进系统设置.md
@@ -242,6 +243,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-23-step3-插件权限模型改为启用即信任.md
   - .agent/devlog/2026-07-23-step3-M11-插件后台窗口与最小宿主能力落地.md
   - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
   - .agent/devlog/2026-07-23-第二阶段-A到E-真机验收全部通过.md
@@ -276,4 +278,4 @@ devlog:
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
   phase: Step3 M11 complete; background lifecycle, 10-second Toast, and clipboard interaction accepted on device
-  next: implement M11.1 per-plugin publish rate limiting and permission tightening
+  next: implement M11.1 trusted-local-plugin model: remove manifest permission hard gates, keep identity/ownership isolation, and add publish runaway protection
