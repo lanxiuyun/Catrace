@@ -39,7 +39,7 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 
 | 里程碑 | 内容 | 状态 |
 |--------|------|------|
-| **M11** Plugin Background Window | 每插件一个隐藏 WebView 窗口；manifest 扩展 `background`；宿主 invoke 能力（publishEvent、activity 读取、plugin storage、logger、剪贴板）；启停生命周期 | 📋 规划 |
+| **M11** Plugin Background Window | 每插件一个隐藏 WebView 窗口；manifest 扩展 `background`；宿主 invoke 能力（publishEvent、activity 读取、plugin storage、logger）；启停生命周期 | ✅ 真机验收通过 |
 | **M11.1** 资源与权限 | 定时器最小间隔 clamp、publish 限流（对齐 HTTP 10/s、5 publish/s）、权限声明 + 运行时门闩 | 📋 规划 |
 | **M12** 更多宿主能力 | 打开 URL/应用、读取前台窗口信息、写文件（受限目录）、napcat 类外部服务对接（WebSocket 由插件自己连，宿主不感知） | 📋 规划 |
 | **M13** External Settings Surface | 外部插件可注册 `settings.mjs`；Plugins.vue 详情页加载外部设置组件；与 background 共享 storage | 📋 规划 |
@@ -245,10 +245,10 @@ const t = await invoke('plugin_clipboard_read', {})
 2. 新建 `src-tauri/src/plugin_window.rs`：`PluginWindowManager`，创建/销毁插件后台窗口（参照 `reminder_toast.rs` 隐藏窗口模式）。
 3. 实现 `plugin_*` invoke 命令集：publishEvent（含进程内 `allows_event` 校验）、activity、storage、log、clipboard；从窗口 label 解析 plugin id + 权限门闩。
 4. 后台页面加载：单宿主窗口 `plugin-host.html` + Blob import 插件脚本。
-5. 改造 `tools/plugin-demo/demo-timer`：`background.mjs` 用 `setInterval` + `plugin_publish_event` 每分钟发通知，`plugin_storage` 记次数。
+5. 改造 `tools/plugin-demo/demo-timer`：`background.mjs` 用 `setInterval` + `plugin_publish_event` 每 10 秒发通知，`plugin_storage` 记次数。
 6. 接入 `setup()`：启动扫描并创建启用插件的后台窗口；禁用关闭；版本变化重建。
 7. **M11.1**：publish 限流 + 权限收紧。
-8. 手测：启动 → 启用 demo-timer → 每分钟收通知 → 卡片点按钮复制验证码 → 禁用后后台停止。
+8. 手测：启动 → 启用 demo-timer → 每 10 秒收通知 → 卡片点按钮复制验证码 → 禁用后后台停止。
 9. M12/M13 按里程碑推进。
 
 ## 13. 关键文件规划
@@ -291,11 +291,11 @@ const t = await invoke('plugin_clipboard_read', {})
 
 ### M11 完成定义
 
-- [ ] `demo-timer` 由隐藏 WebView 窗口里的 `background.mjs` 驱动，`setInterval` + `plugin_publish_event` 发通知。
-- [ ] 插件能读活跃数据（`plugin_get_activity`）、读写私有存储（`plugin_storage_*`）。
-- [ ] 启用/禁用插件时后台窗口正确创建/关闭；版本变化重建。
+- [x] `demo-timer` 由隐藏 WebView 窗口里的 `background.mjs` 驱动，`setInterval` + `plugin_publish_event` 发通知（真机已确认启用后 10 秒成功弹出 Toast）。
+- [x] 插件能读活跃数据（`plugin_get_activity`）、读写私有存储（`plugin_storage_*`）。
+- [x] 启用/禁用插件时后台窗口创建/销毁；background 文件元数据或版本变化时重建（真机已确认关闭/重新启用正常）。
 - [ ] 卡片点按钮能完成即时交互（如复制验证码），无需回传后台。
-- [ ] `cargo check` / `pnpm vue-tsc --noEmit` 通过。
+- [x] `cargo check` / `pnpm vue-tsc --noEmit` / `pnpm build` 通过。
 
 ### M11.1 完成定义
 

@@ -12,6 +12,7 @@ import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
 import ReminderPopup from './views/ReminderPopup.vue'
 import ReminderFullscreen from './views/ReminderFullscreen.vue'
 import ReminderToast from './views/ReminderToast.vue'
+import PluginHost from './views/PluginHost.vue'
 import OverlayScrollbar from './components/OverlayScrollbar.vue'
 
 const route = useRoute()
@@ -22,13 +23,14 @@ const naiveLocale = computed(() => {
 })
 
 const isReminderRoute = computed(() => {
-  return ['/reminder-popup', '/reminder-fullscreen', '/reminder-toast'].includes(route.path)
+  return ['/reminder-popup', '/reminder-fullscreen', '/reminder-toast', '/plugin-host'].includes(route.path)
 })
 
 const currentReminderType = computed(() => {
   if (route.path === '/reminder-popup') return 'popup'
   if (route.path === '/reminder-fullscreen') return 'fullscreen'
   if (route.path === '/reminder-toast') return 'toast'
+  if (route.path === '/plugin-host') return 'plugin-host'
   return ''
 })
 
@@ -50,6 +52,7 @@ watch(needsTransparentBg, (val) => {
           <ReminderPopup v-if="currentReminderType === 'popup'" />
           <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen'" />
           <ReminderToast v-else-if="currentReminderType === 'toast'" />
+          <PluginHost v-else-if="currentReminderType === 'plugin-host'" />
           <RouterView v-else />
         </template>
 

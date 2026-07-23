@@ -6,6 +6,7 @@ import Debug from '../views/Debug.vue'
 import ReminderPopup from '../views/ReminderPopup.vue'
 import ReminderFullscreen from '../views/ReminderFullscreen.vue'
 import ReminderToast from '../views/ReminderToast.vue'
+import PluginHost from '../views/PluginHost.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -18,6 +19,7 @@ const router = createRouter({
     { path: '/reminder-popup', component: ReminderPopup },
     { path: '/reminder-fullscreen', component: ReminderFullscreen },
     { path: '/reminder-toast', component: ReminderToast },
+    { path: '/plugin-host', component: PluginHost },
   ],
 })
 

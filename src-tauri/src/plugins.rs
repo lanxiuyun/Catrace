@@ -35,6 +35,8 @@ pub struct PluginManifestFile {
     #[serde(default)]
     pub main: Option<String>,
     #[serde(default)]
+    pub background: Option<String>,
+    #[serde(default)]
     pub events: Vec<String>,
     #[serde(default)]
     pub permissions: Vec<String>,
@@ -54,12 +56,14 @@ pub struct ExternalPluginInfo {
     pub version: String,
     pub description: String,
     pub main: Option<String>,
+    pub background: Option<String>,
     pub events: Vec<String>,
     pub permissions: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
     pub dir: String,
     pub has_ui: bool,
+    pub has_background: bool,
     pub error: Option<String>,
 }
 
@@ -67,6 +71,7 @@ pub struct ExternalPluginInfo {
 struct CachedPlugin {
     info: ExternalPluginInfo,
     main_abs: Option<PathBuf>,
+    background_abs: Option<PathBuf>,
 }
 
 struct PluginCache {
@@ -79,6 +84,12 @@ impl PluginCache {
             plugins: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PluginBackgroundSpec {
+    pub id: String,
+    pub fingerprint: String,
 }
 
 pub struct PluginManager {
@@ -126,15 +137,18 @@ impl PluginManager {
                             version: String::new(),
                             description: String::new(),
                             main: None,
+                            background: None,
                             events: vec![],
                             permissions: vec![],
                             enabled: false,
                             enabled_by_default: false,
                             dir: path.to_string_lossy().to_string(),
                             has_ui: false,
+                            has_background: false,
                             error: Some(e),
                         },
                         main_abs: None,
+                        background_abs: None,
                     });
                 }
             }
@@ -143,12 +157,22 @@ impl PluginManager {
 
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
-        log_info!("plugins", "scanned {} plugin(s) in {}", list.len(), root.display());
+        log_info!(
+            "plugins",
+            "scanned {} plugin(s) in {}",
+            list.len(),
+            root.display()
+        );
         Ok(list)
     }
 
     /// Returns Ok if plugin is installed, error-free, enabled, and may emit this kind/event_type.
-    pub fn allows_event(&self, plugin_id: &str, kind: &str, event_type: &str) -> Result<(), String> {
+    pub fn allows_event(
+        &self,
+        plugin_id: &str,
+        kind: &str,
+        event_type: &str,
+    ) -> Result<(), String> {
         let guard = self.inner.lock().map_err(|e| e.to_string())?;
         let p = guard
             .plugins
@@ -172,7 +196,12 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn set_enabled(&self, db: &Db, id: &str, enabled: bool) -> Result<ExternalPluginInfo, String> {
+    pub fn set_enabled(
+        &self,
+        db: &Db,
+        id: &str,
+        enabled: bool,
+    ) -> Result<ExternalPluginInfo, String> {
         validate_id(id)?;
         let mut guard = self.inner.lock().map_err(|e| e.to_string())?;
         let p = guard
@@ -188,6 +217,58 @@ impl PluginManager {
             .map_err(|e| e.to_string())?;
         p.info.enabled = enabled;
         Ok(p.info.clone())
+    }
+
+    pub fn has_permission(&self, id: &str, permission: &str) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if !p.info.enabled {
+            return Err(format!("plugin disabled: {id}"));
+        }
+        if !p.info.permissions.iter().any(|value| value == permission) {
+            return Err(format!("permission denied: {permission}"));
+        }
+        Ok(())
+    }
+
+    pub fn background_plugins(&self) -> Result<Vec<PluginBackgroundSpec>, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        Ok(guard
+            .plugins
+            .iter()
+            .filter(|p| p.info.enabled && p.info.error.is_none())
+            .filter_map(|p| {
+                p.background_abs.as_ref().map(|path| PluginBackgroundSpec {
+                    id: p.info.id.clone(),
+                    fingerprint: background_fingerprint(&p.info.version, path),
+                })
+            })
+            .collect())
+    }
+
+    pub fn background_source(&self, id: &str) -> Result<String, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if !p.info.enabled {
+            return Err(format!("plugin disabled: {id}"));
+        }
+        let path = p
+            .background_abs
+            .as_ref()
+            .ok_or_else(|| format!("plugin has no background entry: {id}"))?;
+        let meta = fs::metadata(path).map_err(|e| format!("stat background: {e}"))?;
+        if meta.len() > 512 * 1024 {
+            return Err("plugin background source too large (>512KiB)".into());
+        }
+        fs::read_to_string(path).map_err(|e| format!("read background source: {e}"))
     }
 
     pub fn ui_path(&self, id: &str) -> Result<PathBuf, String> {
@@ -266,34 +347,15 @@ fn load_one(dir: &Path, db: &Db) -> Result<CachedPlugin, String> {
         }
     }
 
-    let main_abs = if let Some(main) = m.main.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if main.contains("..") || Path::new(main).is_absolute() || main.contains('\\') && !cfg!(windows)
-        {
-            // still allow windows-style only after normalize
-        }
-        if main.contains("..") || Path::new(main).is_absolute() {
-            return Err("main must be a relative path inside the plugin directory".into());
-        }
-        let abs = dir.join(main);
-        let abs = abs
-            .canonicalize()
-            .map_err(|e| format!("main path resolve failed: {e}"))?;
-        let root_can = dir
-            .canonicalize()
-            .map_err(|e| format!("plugin root resolve failed: {e}"))?;
-        if !abs.starts_with(&root_can) {
-            return Err("main escapes plugin directory".into());
-        }
-        if !abs.is_file() {
-            return Err(format!("main file not found: {main}"));
-        }
-        Some(abs)
-    } else {
-        None
-    };
+    let main_abs = resolve_entry(dir, m.main.as_deref(), "main")?;
+    let background_abs = resolve_entry(dir, m.background.as_deref(), "background")?;
 
     let key = format!("{ENABLED_KEY_PREFIX}{}", m.id);
-    let default = if m.enabled_by_default { "true" } else { "false" };
+    let default = if m.enabled_by_default {
+        "true"
+    } else {
+        "false"
+    };
     let enabled = db.get_setting(&key, default) == "true";
 
     Ok(CachedPlugin {
@@ -303,16 +365,55 @@ fn load_one(dir: &Path, db: &Db) -> Result<CachedPlugin, String> {
             version: m.version,
             description: m.description,
             main: m.main,
+            background: m.background,
             events: m.events,
             permissions: m.permissions,
             enabled,
             enabled_by_default: m.enabled_by_default,
             dir: dir.to_string_lossy().to_string(),
             has_ui: main_abs.is_some(),
+            has_background: background_abs.is_some(),
             error: None,
         },
         main_abs,
+        background_abs,
     })
+}
+
+fn resolve_entry(dir: &Path, entry: Option<&str>, field: &str) -> Result<Option<PathBuf>, String> {
+    let Some(entry) = entry.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    if entry.contains("..") || Path::new(entry).is_absolute() {
+        return Err(format!(
+            "{field} must be a relative path inside the plugin directory"
+        ));
+    }
+    let abs = dir
+        .join(entry)
+        .canonicalize()
+        .map_err(|e| format!("{field} path resolve failed: {e}"))?;
+    let root = dir
+        .canonicalize()
+        .map_err(|e| format!("plugin root resolve failed: {e}"))?;
+    if !abs.starts_with(&root) {
+        return Err(format!("{field} escapes plugin directory"));
+    }
+    if !abs.is_file() {
+        return Err(format!("{field} file not found: {entry}"));
+    }
+    Ok(Some(abs))
+}
+
+fn background_fingerprint(version: &str, path: &Path) -> String {
+    let meta = fs::metadata(path).ok();
+    let len = meta.as_ref().map(|m| m.len()).unwrap_or_default();
+    let modified = meta
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis())
+        .unwrap_or_default();
+    format!("{version}:{len}:{modified}")
 }
 
 fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
@@ -333,7 +434,9 @@ fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
         if event_type.starts_with(ev) && event_type.as_bytes().get(ev.len()) == Some(&b'.') {
             return true;
         }
-        if kind.starts_with(ev) && (kind.len() == ev.len() || kind.as_bytes().get(ev.len()) == Some(&b'.')) {
+        if kind.starts_with(ev)
+            && (kind.len() == ev.len() || kind.as_bytes().get(ev.len()) == Some(&b'.'))
+        {
             return true;
         }
     }
@@ -347,18 +450,25 @@ pub fn list_external_plugins(
     app: AppHandle,
     db: State<'_, Db>,
     mgr: State<'_, PluginManager>,
+    windows: State<'_, crate::plugin_window::PluginWindowManager>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
-    mgr.rescan(&app, &db)
+    let list = mgr.rescan(&app, &db)?;
+    windows.schedule_sync(app, mgr.inner().clone());
+    Ok(list)
 }
 
 #[tauri::command]
 pub fn set_external_plugin_enabled(
+    app: AppHandle,
     db: State<'_, Db>,
     mgr: State<'_, PluginManager>,
+    windows: State<'_, crate::plugin_window::PluginWindowManager>,
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
-    mgr.set_enabled(&db, &id, enabled)
+    let info = mgr.set_enabled(&db, &id, enabled)?;
+    windows.schedule_sync(app, mgr.inner().clone());
+    Ok(info)
 }
 
 #[tauri::command]

@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Sample external plugin with a custom toast card",
   "main": "ui.mjs",
+  "background": "background.mjs",
   "events": ["demo-timer", "kind:demo-timer", "demo-timer.tick"],
-  "permissions": ["notification"],
+  "permissions": ["notification", "activity", "storage", "logger"],
   "enabledByDefault": true
 }

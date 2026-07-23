@@ -900,9 +900,15 @@ async function addNotification(payload: {
 }
 
 function scrollStackToBottom() {
-  if (stackRef.value) {
-    stackRef.value.scrollTop = stackRef.value.scrollHeight
+  const stack = stackRef.value
+  if (!stack) return
+
+  // Keep the shadow padding visible when only one card is present.
+  if (notifications.value.length <= 1) {
+    stack.scrollTop = 0
+    return
   }
+  stack.scrollTop = stack.scrollHeight
 }
 
 function startTimer(item: ToastItem) {

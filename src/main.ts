@@ -51,21 +51,26 @@ app.use(router)
 app.use(i18n)
 
 // Main window only: observe Event Bus (do not drive Toast rendering).
+const isPluginHost = window.location.hash.includes('plugin-host')
 const isToastOrReminder =
   reminder === 'popup' ||
   reminder === 'fullscreen' ||
   window.location.hash.includes('reminder-toast') ||
   window.location.hash.includes('reminder-popup') ||
-  window.location.hash.includes('reminder-fullscreen')
+  window.location.hash.includes('reminder-fullscreen') ||
+  isPluginHost
 if (!isToastOrReminder) {
   // Register before mount so #/plugins can resolve SettingsComponent immediately.
   registerBuiltinPlugins()
 }
 
 // External plugins: Card map must exist in toast window; Settings list in main.
-void loadExternalPlugins().catch((e) => {
-  console.warn('[plugins] loadExternalPlugins failed', e)
-})
+// A background host loads only its own background source.
+if (!isPluginHost) {
+  void loadExternalPlugins().catch((e) => {
+    console.warn('[plugins] loadExternalPlugins failed', e)
+  })
+}
 
 app.mount('#app')
 

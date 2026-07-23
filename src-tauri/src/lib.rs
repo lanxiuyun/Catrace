@@ -6,10 +6,12 @@ mod event_http;
 mod eye;
 mod log;
 mod media_audio;
+mod plugin_commands;
+mod plugin_window;
 mod plugins;
-mod rest_plugin;
 mod reminder_toast;
 mod report;
+mod rest_plugin;
 mod signal;
 mod timer_plugin;
 mod water;
@@ -202,7 +204,8 @@ async fn get_media_debug_info(
     let (audio_sessions, audio_active, audio_error) = match media_audio::list_audio_sessions() {
         Ok(mut sessions) => {
             for session in &mut sessions {
-                session.whitelisted = media_audio::is_session_whitelisted(session, &whitelist_clone);
+                session.whitelisted =
+                    media_audio::is_session_whitelisted(session, &whitelist_clone);
             }
             let active = media_audio::is_media_audio_active(&whitelist_clone);
             (sessions, active, None)
@@ -647,7 +650,9 @@ fn close_reminder_window(
 ) -> Result<(), String> {
     if let Some(window) = app_handle.get_webview_window(&label) {
         // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
-        if label == window_manager::TOAST_WINDOW_LABEL || label == window_manager::POPUP_WINDOW_LABEL {
+        if label == window_manager::TOAST_WINDOW_LABEL
+            || label == window_manager::POPUP_WINDOW_LABEL
+        {
             window_manager::hide_window_internal(&app_handle, &window);
         } else {
             window.close().map_err(|e| e.to_string())?;
@@ -658,7 +663,6 @@ fn close_reminder_window(
     }
     Ok(())
 }
-
 
 pub(crate) fn create_popup_window(
     app_handle: &tauri::AppHandle,
@@ -688,14 +692,17 @@ pub(crate) fn create_popup_window(
     // 计算弹窗位置：以主窗口为中心
     let position_popup = |window: &tauri::WebviewWindow| {
         if let Some(main) = window.app_handle().get_webview_window("main") {
-            if let (Ok(pos), Ok(size), Ok(sf)) =
-                (main.outer_position(), main.outer_size(), main.scale_factor())
-            {
+            if let (Ok(pos), Ok(size), Ok(sf)) = (
+                main.outer_position(),
+                main.outer_size(),
+                main.scale_factor(),
+            ) {
                 let pw = 440.0;
                 let ph = 300.0;
                 let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                 let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ =
+                    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
         }
     };
@@ -891,8 +898,10 @@ pub fn run() {
 
             // External plugins (local app_data_dir/plugins)
             let plugin_mgr = plugins::PluginManager::new();
+            let plugin_windows = plugin_window::PluginWindowManager::new();
             plugins::initial_scan(app.app_handle(), &db, &plugin_mgr);
-            app.manage(plugin_mgr);
+            app.manage(plugin_mgr.clone());
+            app.manage(plugin_windows.clone());
 
             // Signal 采集内核（前台 1Hz 不依赖辅助功能；键鼠仍走 accessibility 门闩）
             let signal_core = Arc::new(signal::SignalCore::new());
@@ -929,6 +938,11 @@ pub fn run() {
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
             app.manage(Arc::new(rest_plugin::NotificationTestState::new()));
+
+            // Plugin commands depend on Db and ActivityState, so start background windows only
+            // after all command state has been managed. Never build WebViews inside setup:
+            // on Windows that can block the main event loop before startup completes.
+            plugin_windows.schedule_sync(app.app_handle().clone(), plugin_mgr.clone());
 
             if accessibility_permission_granted() {
                 start_input_sampling(
@@ -1016,13 +1030,10 @@ pub fn run() {
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     // Drain completed signal minutes; use dominant app for this settle row.
-                    let process_name = signal::persist_drained(
-                        &db_clone,
-                        &signal_for_settle,
-                        timestamp,
-                    )
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| "unknown".to_string());
+                    let process_name =
+                        signal::persist_drained(&db_clone, &signal_for_settle, timestamp)
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or_else(|| "unknown".to_string());
 
                     // 先短暂取出并清零键鼠计数，同时保存媒体/全屏快照，
                     // 后续写 DB、提醒、Toast 都不再持有 ActivityState 锁。
@@ -1038,18 +1049,39 @@ pub fn run() {
                     };
 
                     // 全屏提醒期间：鼠标键盘不计活跃，视为休息
-                    let active = if is_fullscreen { false } else { count >= 3 || media_active };
-                    log_info!("settle", "ts={} count={} media={} fscreen={} active={}",
-                        timestamp, count, media_active, is_fullscreen, active);
+                    let active = if is_fullscreen {
+                        false
+                    } else {
+                        count >= 3 || media_active
+                    };
+                    log_info!(
+                        "settle",
+                        "ts={} count={} media={} fscreen={} active={}",
+                        timestamp,
+                        count,
+                        media_active,
+                        is_fullscreen,
+                        active
+                    );
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         log_error!("db", "Failed to write to database: {}", e);
                     }
 
-                    let break_m: i64 = db_clone.get_setting("break_minutes", "5").parse().unwrap_or(5);
+                    let break_m: i64 = db_clone
+                        .get_setting("break_minutes", "5")
+                        .parse()
+                        .unwrap_or(5);
                     let locale = db_clone.get_setting("locale", "zh-CN");
                     rest_plugin::on_minute_settled(
-                        active, &app_handle, &reminder_state_for_settle, &locale, break_m,
-                        &db_clone, &store_for_settle, &fullscreen_active_for_settle, &event_bus_for_settle,
+                        active,
+                        &app_handle,
+                        &reminder_state_for_settle,
+                        &locale,
+                        break_m,
+                        &db_clone,
+                        &store_for_settle,
+                        &fullscreen_active_for_settle,
+                        &event_bus_for_settle,
                     );
 
                     // 喝水提醒逻辑（仅在当前分钟活跃时检查）
@@ -1221,6 +1253,12 @@ pub fn run() {
             plugins::get_plugin_ui_source,
             plugins::open_plugins_dir,
             plugins::get_plugins_dir,
+            plugin_commands::get_plugin_background_source,
+            plugin_commands::plugin_publish_event,
+            plugin_commands::plugin_get_activity,
+            plugin_commands::plugin_storage_get,
+            plugin_commands::plugin_storage_set,
+            plugin_commands::plugin_log,
             signal::set_signal_key_sequence_enabled,
             signal::set_signal_key_sequence_retention_hours,
             signal::get_signal_runtime_config,

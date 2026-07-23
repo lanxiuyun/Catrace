@@ -1,4 +1,4 @@
-﻿features:
+features:
   plugin-center:
     docs:
       - .agent/features/plugin-center/README.md
@@ -220,6 +220,8 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
+  - .agent/bugs/2026-07-23-单张-toast-自动滚到底导致顶部标题和圆角被裁切.md
   - .agent/bugs/2026-07-21-插件测试连点卡死-toast-supersede卸载与blob重挂载.md
   - .agent/bugs/2026-07-20-插件ui动态import-file-asset失败改blob加载.md
   - .agent/bugs/2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md
@@ -240,6 +242,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-23-step3-M11-插件后台窗口与最小宿主能力落地.md
   - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
   - .agent/devlog/2026-07-23-第二阶段-A到E-真机验收全部通过.md
   - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
@@ -272,5 +275,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step2 Event/Signal Core done (M1-M10); Step3 Plugin Runtime roadmap drafted, runtime selection decided (hidden WebView window per plugin)
-  next: confirm plugin timer precision need (minute vs second); implement M11 plugin_window.rs + plugin_commands.rs invoke set + manifest v2 + demo-timer background script
+  phase: Step3 M11 lifecycle accepted on device; demo-timer startup, disable/re-enable, and 10-second Toast verified
+  next: add clipboard interaction to complete M11; then implement M11.1 publish rate limiting and permission tightening
