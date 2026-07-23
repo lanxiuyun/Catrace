@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：Event Core + Signal Core + **Toast 内容全量经 Bus** + **M9 本机 Event HTTP（:23457）** + **M10 本地外部插件（manifest + Card，手测通过）**。Step 3 进入 **Plugin Runtime**：让用户脚本随应用启动在后台运行，调用受控宿主能力。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）仍属后续。**不做插件市场。**
+当前：**第二阶段已于 2026-07-23 完成 A～E 真机验收**，覆盖 Event Core、Signal Core、Toast 内容全量经 Bus、M9 本机 Event HTTP（:23457）和 M10 本地外部插件（manifest + Card）。SSE/webhook（M9.1）与插件 iframe 沙箱（M10.2）属于后续增量。**不做插件市场。**
 
 ## 模块布局
 

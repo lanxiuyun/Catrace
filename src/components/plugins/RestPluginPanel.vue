@@ -109,6 +109,11 @@ onMounted(async () => {
 
 const testing = ref(false)
 
+function handleEnabledChange(value: boolean) {
+  uiEnabled.value = value
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
+}
+
 async function sendTest() {
   if (testing.value) return
   testing.value = true
@@ -148,7 +153,7 @@ async function sendTest() {
         <n-switch
           :value="uiEnabled"
           :aria-label="t('plugins.rest.switchAria')"
-          @update:value="uiEnabled = $event; window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))"
+          @update:value="handleEnabledChange"
         />
       </div>
     </header>

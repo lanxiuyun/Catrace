@@ -241,6 +241,7 @@ skills:
 
 devlog:
   - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
+  - .agent/devlog/2026-07-23-第二阶段-A到E-真机验收全部通过.md
   - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
   - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
   - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
