@@ -238,6 +238,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-23-第二阶段-A到E-真机验收全部通过.md
   - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
   - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
   - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
@@ -268,5 +269,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-  phase: plugin center status sorting and unified plugin detail headers complete; rest plugin toast-only; M10 local plugins
-  next: validate plugin center interactions visually; later delete popup/fullscreen infra if no regression need; M10.2 iframe/ACL or M9.1 SSE/webhook
+  phase: Step 2 accepted on 2026-07-23; Event Core, Signal Core, M9 HTTP, and M10 local plugins passed A-E device acceptance
+  next: choose the next increment (M10.2 iframe/ACL or M9.1 SSE/webhook); later remove legacy popup/fullscreen infrastructure

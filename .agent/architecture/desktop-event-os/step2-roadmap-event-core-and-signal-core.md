@@ -1,7 +1,7 @@
 # Step 2 路线图：Event Core + Signal Core
 
 > **计划真源**。会话外 Claude Plan 副本仅作草稿；以本文 + 代码为准。  
-> 状态基准：2026-07-20（M10 外部插件首版合入：本地 manifest + Card + HTTP plugin_id）
+> 状态基准：2026-07-23（第二阶段 A～E 真机验收全部通过）
 
 ## 0. 产品定位
 
@@ -26,18 +26,18 @@
 
 | 里程碑 | 内容 | 状态 | 说明 |
 |--------|------|------|------|
-| **M1** Event 协议 + Registry | lifecycle 字段、source 对齐、publish/update/resolve、单测 | ✅ 骨架完成 | `event.rs` / `bus.rs` |
-| **M2** Frontend Hub | Pinia upsert、revision、水合、主窗启动 | ✅ 骨架完成 | 不驱动 Toast |
-| **M3** Signal 骨架 + 落库 | `signal.rs`、三采样、`signal_minutes`、settle | ✅ 骨架完成 | legacy count 保留 |
-| **M4** 键序列隐私 | 开关、保留期、设置卡、purge | ✅ 骨架完成 | 默认关 |
+| **M1** Event 协议 + Registry | lifecycle 字段、source 对齐、publish/update/resolve、单测 | ✅ 验收通过 | `event.rs` / `bus.rs` |
+| **M2** Frontend Hub | Pinia upsert、revision、水合、主窗启动 | ✅ 验收通过 | 不驱动 Toast |
+| **M3** Signal 骨架 + 落库 | `signal.rs`、三采样、`signal_minutes`、settle | ✅ 验收通过 | legacy count 保留 |
+| **M4** 键序列隐私 | 开关、保留期、设置卡、purge | ✅ 验收通过 | 默认关 |
 | **M5** Water 双写 | bus + 现有 toast | ✅ 已收敛 | 现仅 bus，无 eval |
 | **M6** 验收与文档 | 手测清单、知识沉淀 | ✅ 完成 | 用户已验收 |
-| **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 骨架完成 | rest/water/eye |
-| **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 骨架完成 | agent 仍 eval |
+| **M7** Toast 订阅 bus | ReminderToast listen `catrace:event` | ✅ 验收通过 | rest/water/eye |
+| **M7b** 生产者迁 bus | rest/water/eye 只 publish | ✅ 验收通过 | agent 仍 eval |
 | **M7c** 内置插件注册 | pluginRegistry + settingsSurface | ✅ 完成 | rest/agent 挂功能插件页；settings 面可挂未来插件；Card 组件未拆 |
 | **M8** Toast 消费 hub | 渲染适配层，去掉 eval 权威 | ✅ 完成 | 内容路径全 bus；dismiss 改 emit；Card 组件已拆 |
-| **M9** 外部 SDK / HTTP | localhost HTTP + demo kit | ✅ 骨架完成 | 端口 23457，默认开；SSE/webhook 延后 M9.1 |
-| **M10** 插件生态 | 本地 manifest + Card 注册 + HTTP `plugin_id` | ✅ 骨架完成 | 无市场；见 `m10-external-plugins.md`；M10.2 iframe/ACL |
+| **M9** 外部 SDK / HTTP | localhost HTTP + demo kit | ✅ 验收通过 | 端口 23457，默认开；SSE/webhook 延后 M9.1 |
+| **M10** 插件生态 | 本地 manifest + Card 注册 + HTTP `plugin_id` | ✅ 验收通过 | 无市场；见 `m10-external-plugins.md`；M10.2 iframe/ACL |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 
@@ -87,7 +87,7 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 - [x] list/get/resolve 仅 sdk 事件；限流 10 req/s、5 publish/s
 - [x] 调试页卡片（开关/token/轮换）+ Toast 通用卡 + in-place 更新
 - [x] demo kit：	ools/event-sdk/（README + curl/node/python）
-- [ ] 真机手测：publish → toast → patch progress → resolve；401/403/503
+- [x] 真机手测：publish → toast → patch progress → resolve；401/403/503
 - [ ] **不做（M9.1）**：SSE、webhook、浏览器 CORS 演示
 
 参考：src-tauri/src/event_http.rs、	ools/event-sdk/README.md
@@ -125,9 +125,19 @@ Agent 通知路线图（P5/P7…）**并行存在**，不互相替代：
 | `src/stores/eventHub.ts` | 前端观察 |
 | `src/components/settings/SignalSettingsCard.vue` | 隐私开关 |
 
-## 8. 一句话进度
+## 8. 第二阶段验收结论
 
-**Toast 内容路径已全部经 Event Bus：rest/water/eye/agent/permission/update/rest-timer。**  
-agent 会话销项改 `catrace:dismiss-agent-session` emit；Toast 卡片已拆组件。  
-下一步：真机回归 Toast 各 kind + Agent 自动销项；water/eye UI 与无限 Toast 连点延后。  
+**2026-07-23，用户已完成 A～E 全部真机验收，第二阶段正式验收通过。**
+
+验收覆盖：
+
+- A：内置 Event Bus 与 rest / water / eye / agent 等 Toast 生命周期、销项及连点回归
+- B：Signal 分钟聚合、dominant / key_count / mouse 槽落库，以及键序列默认关闭、开启、关闭和 purge
+- C：M9 Event HTTP 的 publish → patch → resolve，以及 401 / 403 / 503
+- D：M10 本地插件发现、启停、自定义 Card、action resolve、保留 kind 拒绝与 SDK 回归
+- E：原有活跃 / 休息判定及配置恢复回归
+
+验收前静态验证：`vue-tsc --noEmit`、`vite build`、`cargo check` 均通过；`cargo test --lib` 47/47 通过。
+
+M9.1 SSE/webhook、M10.2 iframe sandbox/invoke ACL，以及旧 popup/fullscreen 基础设施清理属于后续增量，**不在第二阶段验收范围内**。
 Desktop Event OS 长期愿景见本目录 [README.md](README.md)。
