@@ -3,6 +3,7 @@ features:
     docs:
       - .agent/features/plugin-center/README.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
+      - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
     related:
       - app-shell
       - settings
@@ -278,5 +279,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 M11.1 code complete; trusted local plugin boundaries and per-plugin anomaly observation implemented
+  phase: Step3 M11.1 complete; trusted local plugin boundaries and memory/disk/large-data/event anomaly observation implemented
   next: begin M12 with structured plugin_open and fixed protocol/target boundaries
