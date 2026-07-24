@@ -23,6 +23,10 @@ export async function setConfig(config: AppConfig): Promise<void> {
   return invoke('set_config', { config })
 }
 
+export async function setRestPluginEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_rest_plugin_enabled', { enabled })
+}
+
 /** 跳过当前 block 的提醒，直到下一个 block 边界 */
 export async function skipReminder(boundary: number): Promise<void> {
   return invoke('skip_reminder', { boundary })
@@ -128,6 +132,10 @@ export async function getTimerSettings(): Promise<TimerSettings> {
 
 export async function setTimerSettings(settings: TimerSettings): Promise<TimerSettings> {
   return invoke('set_timer_settings', { settings })
+}
+
+export async function setTimerPluginEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_timer_plugin_enabled', { enabled })
 }
 
 export async function testTimerNotification(ruleId?: string): Promise<void> {

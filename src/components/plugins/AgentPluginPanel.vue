@@ -95,13 +95,20 @@ onMounted(async () => {
 })
 
 async function toggleEnabled(val: boolean) {
+  const previous = enabled.value
+  enabled.value = val
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+    detail: { id: 'agent', enabled: val },
+  }))
   enabledLoading.value = true
   try {
     await setAgentNotificationEnabled(val)
-    enabled.value = val
-    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
     message.success(t('settings.messages.saved'))
   } catch {
+    enabled.value = previous
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+      detail: { id: 'agent', enabled: previous },
+    }))
     message.error(t('settings.messages.saveFailed'))
   } finally {
     enabledLoading.value = false

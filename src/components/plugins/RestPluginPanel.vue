@@ -5,6 +5,7 @@ import { NSwitch, NButton, NInput, useMessage } from 'naive-ui'
 import {
   getConfig,
   setConfig,
+  setRestPluginEnabled,
   getReminderText,
   setReminderText,
   testNotification,
@@ -29,8 +30,18 @@ const { value: config, loading: configLoading } = useAutoSavedSetting<AppConfig>
       snooze_interval_minutes: Number(c.snooze_interval_minutes) || 3,
     }
   },
-  save: setConfig,
+  save: async (value) => {
+    await setConfig({
+      window_minutes: value.window_minutes,
+      break_minutes: value.break_minutes,
+      snooze_interval_minutes: value.snooze_interval_minutes,
+    })
+  },
   debounce: 500,
+  isEqual: (a, b) =>
+    a.window_minutes === b.window_minutes &&
+    a.break_minutes === b.break_minutes &&
+    a.snooze_interval_minutes === b.snooze_interval_minutes,
   onSuccess: () => message.success(t('settings.messages.saved')),
   onError: () => message.error(t('settings.messages.saveFailed')),
 })
@@ -71,9 +82,27 @@ const customBody = computed({
 
 // 当前版本久坐插件只支持 toast；遗留 popup/fullscreen 配置写回 toast
 const testing = ref(false)
+const enabledLoading = ref(false)
 
-function handleEnabledChange(value: boolean) {
+async function handleEnabledChange(value: boolean) {
+  const previous = config.value.enabled ?? true
   config.value = { ...config.value, enabled: value }
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+    detail: { id: 'rest', enabled: value },
+  }))
+  enabledLoading.value = true
+  try {
+    await setRestPluginEnabled(value)
+    message.success(t('settings.messages.saved'))
+  } catch {
+    config.value = { ...config.value, enabled: previous }
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+      detail: { id: 'rest', enabled: previous },
+    }))
+    message.error(t('settings.messages.saveFailed'))
+  } finally {
+    enabledLoading.value = false
+  }
 }
 
 async function sendTest() {
@@ -114,6 +143,7 @@ async function sendTest() {
         <span class="master-label">{{ t('plugins.rest.pluginStatus') }}</span>
         <n-switch
           :value="config.enabled"
+          :loading="enabledLoading"
           :aria-label="t('plugins.rest.switchAria')"
           @update:value="handleEnabledChange"
         />

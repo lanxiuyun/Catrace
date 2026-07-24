@@ -449,13 +449,30 @@ pub fn get_timer_settings(app: tauri::AppHandle, db: tauri::State<db::Db>) -> Ti
 }
 
 #[tauri::command]
+pub fn set_timer_plugin_enabled(
+    enabled: bool,
+    app: tauri::AppHandle,
+    db: tauri::State<db::Db>,
+) -> Result<(), String> {
+    let _ = db;
+    crate::plugin_config::set_plugin_config_entry(
+        &app,
+        PLUGIN_ID,
+        "enabled".into(),
+        serde_json::Value::Bool(enabled),
+    )
+}
+
+#[tauri::command]
 pub fn set_timer_settings(
     settings: TimerSettings,
     app: tauri::AppHandle,
     db: tauri::State<db::Db>,
     runtime: tauri::State<Arc<Mutex<TimerRuntimeState>>>,
 ) -> Result<TimerSettings, String> {
+    let enabled = load_settings(&app, &db).enabled;
     let mut sanitized = sanitize_settings(settings);
+    sanitized.enabled = enabled;
     // 删掉的规则清 snooze
     {
         let mut rt = runtime.lock().unwrap();

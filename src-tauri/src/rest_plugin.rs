@@ -145,11 +145,18 @@ pub(crate) fn get_config(app: tauri::AppHandle) -> serde_json::Value {
 }
 
 #[tauri::command]
+pub(crate) fn set_rest_plugin_enabled(enabled: bool, app: tauri::AppHandle) -> Result<(), String> {
+    crate::plugin_config::set_plugin_config_entry(
+        &app,
+        PLUGIN_ID,
+        "enabled".into(),
+        serde_json::Value::Bool(enabled),
+    )
+}
+
+#[tauri::command]
 pub(crate) fn set_config(config: serde_json::Value, app: tauri::AppHandle) -> Result<(), String> {
     let mut current = load_config(&app);
-    if let Some(v) = config.get("enabled").and_then(|v| v.as_bool()) {
-        current.enabled = v;
-    }
     if let Some(v) = config.get("window_minutes").and_then(|v| v.as_i64()) {
         current.window_minutes = v;
     }

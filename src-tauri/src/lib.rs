@@ -1123,6 +1123,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             rest_plugin::get_config,
+            rest_plugin::set_rest_plugin_enabled,
             rest_plugin::set_config,
             rest_plugin::skip_reminder,
             rest_plugin::snooze_reminder,
@@ -1164,6 +1165,7 @@ pub fn run() {
             get_reminder_data,
             close_reminder_window,
             timer_plugin::get_timer_settings,
+            timer_plugin::set_timer_plugin_enabled,
             timer_plugin::set_timer_settings,
             timer_plugin::test_timer_notification,
             timer_plugin::snooze_timer_reminder,

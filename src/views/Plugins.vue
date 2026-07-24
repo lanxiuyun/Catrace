@@ -46,7 +46,12 @@ async function getSettingsStore() {
   return settingsStore
 }
 
-function onBuiltinPluginEnabledChanged() {
+function onBuiltinPluginEnabledChanged(event: Event) {
+  const detail = (event as CustomEvent<{ id?: VisiblePluginId; enabled?: boolean }>).detail
+  if (detail?.id && typeof detail.enabled === 'boolean') {
+    builtinEnabled.value[detail.id] = detail.enabled
+    return
+  }
   void refreshBuiltinEnabled()
 }
 
@@ -173,6 +178,11 @@ const ActiveDetail = computed(() => {
 })
 
 async function onToggleExternal(id: string, enabled: boolean) {
+  const previous = externalList.value.find((p) => p.id === id)
+  if (!previous) return
+  externalList.value = externalList.value.map((p) =>
+    p.id === id ? { ...p, enabled } : p,
+  )
   toggleBusy.value = id
   try {
     const updated = await setExternalPluginEnabled(id, enabled)
@@ -182,7 +192,9 @@ async function onToggleExternal(id: string, enabled: boolean) {
     await loadExternalPlugins()
   } catch (e) {
     console.warn('[plugins page] toggle failed', e)
-    await refreshExternal()
+    externalList.value = externalList.value.map((p) =>
+      p.id === id ? previous : p,
+    )
   } finally {
     toggleBusy.value = null
   }

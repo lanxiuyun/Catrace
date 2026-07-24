@@ -636,9 +636,12 @@ pub fn get_agent_notification_enabled(app: tauri::AppHandle) -> Result<bool, Str
 }
 #[tauri::command]
 pub fn set_agent_notification_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let mut config = load_config(&app);
-    config.enabled = enabled;
-    save_config(&app, &config)?;
+    crate::plugin_config::set_plugin_config_entry(
+        &app,
+        PLUGIN_ID,
+        "enabled".into(),
+        serde_json::Value::Bool(enabled),
+    )?;
     SERVER_ENABLED.store(enabled, Ordering::SeqCst);
     Ok(())
 }

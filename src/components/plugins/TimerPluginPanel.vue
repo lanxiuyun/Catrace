@@ -5,6 +5,7 @@ import { NSwitch, NButton, NInput, NModal, useMessage } from 'naive-ui'
 import {
   getTimerSettings,
   setTimerSettings,
+  setTimerPluginEnabled,
   testTimerNotification,
   type TimerMode,
   type TimerRule,
@@ -19,8 +20,6 @@ const message = useMessage()
 
 const MAX_RULES = 20
 const MAX_DAILY_TIMES = 8
-
-let enabledChangePending = false
 
 function newRuleId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -44,7 +43,7 @@ function createRule(partial?: Partial<TimerRule>): TimerRule {
   }
 }
 
-const { value: settings, loading } = useAutoSavedSetting<TimerSettings>({
+const { value: settings } = useAutoSavedSetting<TimerSettings>({
   initialValue: { enabled: true, rules: [] },
   load: async () => {
     const s = await getTimerSettings()
@@ -69,19 +68,12 @@ const { value: settings, loading } = useAutoSavedSetting<TimerSettings>({
     await setTimerSettings(v)
   },
   debounce: 500,
-  onSuccess: () => {
-    message.success(t('settings.messages.saved'))
-    if (enabledChangePending) {
-      enabledChangePending = false
-      window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
-    }
-  },
-  onError: () => {
-    enabledChangePending = false
-    message.error(t('settings.messages.saveFailed'))
-  },
+  isEqual: (a, b) => JSON.stringify(a.rules) === JSON.stringify(b.rules),
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
 })
 
+const enabledLoading = ref(false)
 const draftTime = ref('')
 const testingId = ref<string | null>(null)
 const modalOpen = ref(false)
@@ -176,11 +168,25 @@ function patchSettings(mutator: (s: TimerSettings) => void) {
   settings.value = next
 }
 
-function setEnabled(v: boolean) {
-  enabledChangePending = true
-  patchSettings((s) => {
-    s.enabled = v
-  })
+async function setEnabled(v: boolean) {
+  const previous = settings.value.enabled
+  settings.value = { ...settings.value, enabled: v }
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+    detail: { id: 'timer', enabled: v },
+  }))
+  enabledLoading.value = true
+  try {
+    await setTimerPluginEnabled(v)
+    message.success(t('settings.messages.saved'))
+  } catch {
+    settings.value = { ...settings.value, enabled: previous }
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+      detail: { id: 'timer', enabled: previous },
+    }))
+    message.error(t('settings.messages.saveFailed'))
+  } finally {
+    enabledLoading.value = false
+  }
 }
 
 type RuleIcon = 'water' | 'eye' | 'stand' | 'work' | 'default'
@@ -396,7 +402,7 @@ function focusNameInput() {
         <span class="master-label">{{ t('plugins.timer.pluginStatus') }}</span>
         <n-switch
           :value="settings.enabled"
-          :loading="loading"
+          :loading="enabledLoading"
           :aria-label="t('plugins.timer.switchAria')"
           @update:value="setEnabled"
         />
