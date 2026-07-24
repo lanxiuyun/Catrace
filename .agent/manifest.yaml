@@ -248,6 +248,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-24-插件详情顶栏去掉状态文字只保留开关.md
   - .agent/devlog/2026-07-24-插件配置迁移到Store并拆分运行数据.md
   - .agent/devlog/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
   - .agent/devlog/2026-07-24-step3-M11.1-启用即信任与异常插件观测落地.md
@@ -285,5 +286,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 M11.1 complete; trusted local plugin boundaries and memory/disk/large-data/event anomaly observation implemented
+  phase: Step3 M11.1 complete; plugin detail header simplified to switch-only; temporary Playwright test folder established
   next: choose the next concrete plugin; add only the minimum host capabilities required by that plugin
