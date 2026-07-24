@@ -29,6 +29,9 @@ dist-ssr
 # Playwright MCP logs
 .playwright-mcp/
 
+# Temporary ad-hoc Playwright tests
+e2e-temp/
+
 # Tauri signing keys
 keys/
 
