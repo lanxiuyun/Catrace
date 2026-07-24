@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；异常 publish 活跃只记录插件 id，不限流、不丢弃。**不做插件市场。**
+当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；连续高内存、连续磁盘写入、单次大数据或刷事件都会记录插件 id 并显示“异常” Tag；不限流、不丢弃。**不做插件市场。**
 
 ## 模块布局
 

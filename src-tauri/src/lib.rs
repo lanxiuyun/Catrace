@@ -1256,6 +1256,7 @@ pub fn run() {
             plugins::get_plugins_dir,
             plugin_commands::get_plugin_background_source,
             plugin_commands::plugin_publish_event,
+            plugin_commands::plugin_report_memory,
             plugin_commands::plugin_get_activity,
             plugin_commands::plugin_storage_get,
             plugin_commands::plugin_storage_set,

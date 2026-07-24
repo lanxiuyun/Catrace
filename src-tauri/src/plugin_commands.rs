@@ -16,37 +16,111 @@ use crate::plugins::PluginManager;
 use crate::{log_error, log_info, log_warn, ActivityState};
 
 const STORAGE_KEY_PREFIX: &str = "plugin_storage:";
-const PUBLISH_ACTIVITY_WINDOW: Duration = Duration::from_secs(60);
-const PUBLISH_ACTIVITY_WARNING_THRESHOLD: usize = 60;
-const PUBLISH_WARNING_INTERVAL: Duration = Duration::from_secs(10);
+const RESOURCE_ACTIVITY_WINDOW: Duration = Duration::from_secs(60);
+const EVENT_COUNT_WARNING_THRESHOLD: usize = 60;
+const MEMORY_USAGE_WARNING_THRESHOLD: usize = 128 * 1024 * 1024;
+const MEMORY_SAMPLE_WARNING_THRESHOLD: usize = 4;
+const STORAGE_BYTES_WARNING_THRESHOLD: usize = 16 * 1024 * 1024;
+const LARGE_DATA_WARNING_THRESHOLD: usize = 8 * 1024 * 1024;
+const RESOURCE_WARNING_INTERVAL: Duration = Duration::from_secs(10);
 
-static PUBLISH_ACTIVITY: Mutex<Option<HashMap<String, PublishActivity>>> = Mutex::new(None);
+static RESOURCE_ACTIVITY: Mutex<Option<HashMap<String, PluginResourceActivity>>> = Mutex::new(None);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AnomalyReason {
+    EventBurst,
+    EventMemoryPressure,
+    StorageWritePressure,
+    LargeEventData,
+    LargeStorageData,
+}
+
+impl AnomalyReason {
+    fn message(self) -> &'static str {
+        match self {
+            Self::EventBurst => "high event publish activity (> 60 events in 60s)",
+            Self::EventMemoryPressure => {
+                "continuous high memory usage observed (>= 128 MiB for 4 samples)"
+            }
+            Self::StorageWritePressure => "continuous storage writes observed (> 16 MiB in 60s)",
+            Self::LargeEventData => "large event data observed (>= 8 MiB)",
+            Self::LargeStorageData => "large storage value observed (>= 8 MiB)",
+        }
+    }
+}
 
 #[derive(Default)]
-struct PublishActivity {
-    published: VecDeque<Instant>,
+struct PluginResourceActivity {
+    events: VecDeque<(Instant, usize)>,
+    memory_samples: VecDeque<(Instant, usize)>,
+    storage_writes: VecDeque<(Instant, usize)>,
     last_warning: Option<Instant>,
 }
 
-impl PublishActivity {
-    fn record(&mut self, now: Instant) -> bool {
-        while self
-            .published
-            .front()
-            .is_some_and(|time| now.duration_since(*time) > PUBLISH_ACTIVITY_WINDOW)
-        {
-            self.published.pop_front();
-        }
-        self.published.push_back(now);
-        let should_warn = self.published.len() > PUBLISH_ACTIVITY_WARNING_THRESHOLD
-            && self.last_warning.map_or(true, |time| {
-                now.duration_since(time) >= PUBLISH_WARNING_INTERVAL
-            });
-        if should_warn {
-            self.last_warning = Some(now);
-        }
-        should_warn
+impl PluginResourceActivity {
+    fn record_event(&mut self, now: Instant, bytes: usize) -> Option<AnomalyReason> {
+        prune_samples(&mut self.events, now);
+        self.events.push_back((now, bytes));
+        let reason = if bytes >= LARGE_DATA_WARNING_THRESHOLD {
+            Some(AnomalyReason::LargeEventData)
+        } else if self.events.len() > EVENT_COUNT_WARNING_THRESHOLD {
+            Some(AnomalyReason::EventBurst)
+        } else {
+            None
+        };
+        self.throttle(now, reason)
     }
+
+    fn record_memory_sample(&mut self, now: Instant, bytes: usize) -> Option<AnomalyReason> {
+        prune_samples(&mut self.memory_samples, now);
+        self.memory_samples.push_back((now, bytes));
+        let sustained_high_memory = self.memory_samples.len() >= MEMORY_SAMPLE_WARNING_THRESHOLD
+            && self
+                .memory_samples
+                .iter()
+                .all(|(_, bytes)| *bytes >= MEMORY_USAGE_WARNING_THRESHOLD);
+        let reason = sustained_high_memory.then_some(AnomalyReason::EventMemoryPressure);
+        self.throttle(now, reason)
+    }
+
+    fn record_storage_write(&mut self, now: Instant, bytes: usize) -> Option<AnomalyReason> {
+        prune_samples(&mut self.storage_writes, now);
+        self.storage_writes.push_back((now, bytes));
+        let reason = if bytes >= LARGE_DATA_WARNING_THRESHOLD {
+            Some(AnomalyReason::LargeStorageData)
+        } else if sample_bytes(&self.storage_writes) > STORAGE_BYTES_WARNING_THRESHOLD {
+            Some(AnomalyReason::StorageWritePressure)
+        } else {
+            None
+        };
+        self.throttle(now, reason)
+    }
+
+    fn throttle(&mut self, now: Instant, reason: Option<AnomalyReason>) -> Option<AnomalyReason> {
+        let reason = reason?;
+        if self.last_warning.map_or(false, |time| {
+            now.duration_since(time) < RESOURCE_WARNING_INTERVAL
+        }) {
+            return None;
+        }
+        self.last_warning = Some(now);
+        Some(reason)
+    }
+}
+
+fn prune_samples(samples: &mut VecDeque<(Instant, usize)>, now: Instant) {
+    while samples
+        .front()
+        .is_some_and(|(time, _)| now.duration_since(*time) > RESOURCE_ACTIVITY_WINDOW)
+    {
+        samples.pop_front();
+    }
+}
+
+fn sample_bytes(samples: &VecDeque<(Instant, usize)>) -> usize {
+    samples
+        .iter()
+        .fold(0usize, |total, (_, bytes)| total.saturating_add(*bytes))
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,29 +171,65 @@ fn require_enabled_plugin(
     Ok(id)
 }
 
-fn record_publish_activity(app: &tauri::AppHandle, plugins: &PluginManager, plugin_id: &str) {
-    let should_warn = PUBLISH_ACTIVITY
-        .lock()
-        .ok()
-        .map(|mut guard| {
-            guard
-                .get_or_insert_with(HashMap::new)
-                .entry(plugin_id.to_string())
-                .or_default()
-                .record(Instant::now())
-        })
-        .unwrap_or(false);
-    if should_warn {
-        if let Err(error) = plugins.mark_anomalous(plugin_id) {
-            log_warn!("plugin", "[{plugin_id}] failed to mark anomaly: {error}");
-        } else {
-            let _ = app.emit("catrace:plugin-anomaly", plugin_id);
-        }
-        log_warn!(
-            "plugin",
-            "[{plugin_id}] high publish activity observed (> {PUBLISH_ACTIVITY_WARNING_THRESHOLD} events in 60s); events are not blocked"
-        );
+fn record_resource_activity(
+    app: &tauri::AppHandle,
+    plugins: &PluginManager,
+    plugin_id: &str,
+    record: impl FnOnce(&mut PluginResourceActivity, Instant) -> Option<AnomalyReason>,
+) {
+    let reason = RESOURCE_ACTIVITY.lock().ok().and_then(|mut guard| {
+        let activity = guard
+            .get_or_insert_with(HashMap::new)
+            .entry(plugin_id.to_string())
+            .or_default();
+        record(activity, Instant::now())
+    });
+    let Some(reason) = reason else {
+        return;
+    };
+    if let Err(error) = plugins.mark_anomalous(plugin_id) {
+        log_warn!("plugin", "[{plugin_id}] failed to mark anomaly: {error}");
+    } else {
+        let _ = app.emit("catrace:plugin-anomaly", plugin_id);
     }
+    log_warn!(
+        "plugin",
+        "[{plugin_id}] {}; plugin calls are not blocked",
+        reason.message()
+    );
+}
+
+fn record_event_activity(
+    app: &tauri::AppHandle,
+    plugins: &PluginManager,
+    plugin_id: &str,
+    bytes: usize,
+) {
+    record_resource_activity(app, plugins, plugin_id, |activity, now| {
+        activity.record_event(now, bytes)
+    });
+}
+
+fn record_memory_activity(
+    app: &tauri::AppHandle,
+    plugins: &PluginManager,
+    plugin_id: &str,
+    bytes: usize,
+) {
+    record_resource_activity(app, plugins, plugin_id, |activity, now| {
+        activity.record_memory_sample(now, bytes)
+    });
+}
+
+fn record_storage_activity(
+    app: &tauri::AppHandle,
+    plugins: &PluginManager,
+    plugin_id: &str,
+    bytes: usize,
+) {
+    record_resource_activity(app, plugins, plugin_id, |activity, now| {
+        activity.record_storage_write(now, bytes)
+    });
 }
 
 fn require_plugin_card_caller(label: &str) -> Result<(), String> {
@@ -179,8 +289,22 @@ pub fn plugin_publish_event(
         dedupe_key: event.dedupe_key,
     };
     let published = bus.publish(event)?;
-    record_publish_activity(window.app_handle(), &plugins, &id);
+    let bytes = serde_json::to_vec(&published)
+        .map(|data| data.len())
+        .unwrap_or(0);
+    record_event_activity(window.app_handle(), &plugins, &id, bytes);
     Ok(published)
+}
+
+#[tauri::command]
+pub fn plugin_report_memory(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    bytes: usize,
+) -> Result<(), String> {
+    let id = require_enabled_plugin(&window, &plugins)?;
+    record_memory_activity(window.app_handle(), &plugins, &id, bytes);
+    Ok(())
 }
 
 #[tauri::command]
@@ -230,7 +354,9 @@ pub fn plugin_storage_set(
     validate_storage_key(&key)?;
     let json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
     db.set_setting(&storage_key(&id, &key), &json)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    record_storage_activity(window.app_handle(), &plugins, &id, json.len());
+    Ok(())
 }
 
 #[tauri::command]
@@ -289,7 +415,9 @@ fn storage_key(id: &str, key: &str) -> String {
 mod tests {
     use super::{
         require_plugin_card_caller, require_plugin_event, storage_key, validate_storage_key,
-        PublishActivity, PUBLISH_ACTIVITY_WARNING_THRESHOLD, PUBLISH_WARNING_INTERVAL,
+        AnomalyReason, PluginResourceActivity, EVENT_COUNT_WARNING_THRESHOLD,
+        LARGE_DATA_WARNING_THRESHOLD, MEMORY_SAMPLE_WARNING_THRESHOLD,
+        MEMORY_USAGE_WARNING_THRESHOLD, RESOURCE_WARNING_INTERVAL, STORAGE_BYTES_WARNING_THRESHOLD,
     };
     use crate::event::{BusEvent, EventSource};
     use std::time::Instant;
@@ -335,15 +463,62 @@ mod tests {
     }
 
     #[test]
-    fn publish_activity_is_observed_without_blocking() {
-        let mut activity = PublishActivity::default();
+    fn event_burst_is_observed_without_blocking() {
+        let mut activity = PluginResourceActivity::default();
         let start = Instant::now();
-        for _ in 0..PUBLISH_ACTIVITY_WARNING_THRESHOLD {
-            assert!(!activity.record(start));
+        for _ in 0..EVENT_COUNT_WARNING_THRESHOLD {
+            assert_eq!(activity.record_event(start, 1), None);
         }
-        assert!(activity.record(start));
-        assert!(!activity.record(start));
-        assert!(activity.record(start + PUBLISH_WARNING_INTERVAL));
+        assert_eq!(
+            activity.record_event(start, 1),
+            Some(AnomalyReason::EventBurst)
+        );
+        assert_eq!(activity.record_event(start, 1), None);
+        assert_eq!(
+            activity.record_event(start + RESOURCE_WARNING_INTERVAL, 1),
+            Some(AnomalyReason::EventBurst)
+        );
+    }
+
+    #[test]
+    fn continuous_memory_samples_are_observed() {
+        let mut activity = PluginResourceActivity::default();
+        let start = Instant::now();
+        for _ in 0..MEMORY_SAMPLE_WARNING_THRESHOLD - 1 {
+            assert_eq!(
+                activity.record_memory_sample(start, MEMORY_USAGE_WARNING_THRESHOLD),
+                None
+            );
+        }
+        assert_eq!(
+            activity.record_memory_sample(start, MEMORY_USAGE_WARNING_THRESHOLD),
+            Some(AnomalyReason::EventMemoryPressure)
+        );
+    }
+
+    #[test]
+    fn continuous_storage_writes_and_large_values_are_observed() {
+        let start = Instant::now();
+        let mut continuous = PluginResourceActivity::default();
+        let chunk = STORAGE_BYTES_WARNING_THRESHOLD / 4 + 1;
+        for _ in 0..3 {
+            assert_eq!(continuous.record_storage_write(start, chunk), None);
+        }
+        assert_eq!(
+            continuous.record_storage_write(start, chunk),
+            Some(AnomalyReason::StorageWritePressure)
+        );
+
+        let mut large = PluginResourceActivity::default();
+        assert_eq!(
+            large.record_storage_write(start, LARGE_DATA_WARNING_THRESHOLD),
+            Some(AnomalyReason::LargeStorageData)
+        );
+        let mut large_event = PluginResourceActivity::default();
+        assert_eq!(
+            large_event.record_event(start, LARGE_DATA_WARNING_THRESHOLD),
+            Some(AnomalyReason::LargeEventData)
+        );
     }
 
     #[test]
