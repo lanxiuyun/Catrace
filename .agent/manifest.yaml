@@ -243,6 +243,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-24-step3-M11.1-启用即信任与异常插件观测落地.md
   - .agent/devlog/2026-07-23-step3-插件权限模型改为启用即信任.md
   - .agent/devlog/2026-07-23-step3-M11-插件后台窗口与最小宿主能力落地.md
   - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
@@ -277,5 +278,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 M11 complete; background lifecycle, 10-second Toast, and clipboard interaction accepted on device
-  next: implement M11.1 trusted-local-plugin model: remove manifest permission hard gates, keep identity/ownership isolation, and add publish runaway protection
+  phase: Step3 M11.1 code complete; trusted local plugin boundaries and per-plugin anomaly observation implemented
+  next: begin M12 with structured plugin_open and fixed protocol/target boundaries

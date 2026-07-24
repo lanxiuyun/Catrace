@@ -80,7 +80,6 @@ export function registerBuiltinPlugins() {
         displayName: b.displayName,
         description: b.description,
         events: b.events,
-        permissions: ['notification'],
         builtin: true,
       },
       onEvent: () => {

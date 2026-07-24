@@ -38,8 +38,6 @@ pub struct PluginManifestFile {
     pub background: Option<String>,
     #[serde(default)]
     pub events: Vec<String>,
-    #[serde(default)]
-    pub permissions: Vec<String>,
     #[serde(default = "default_true")]
     pub enabled_by_default: bool,
 }
@@ -58,12 +56,12 @@ pub struct ExternalPluginInfo {
     pub main: Option<String>,
     pub background: Option<String>,
     pub events: Vec<String>,
-    pub permissions: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
     pub dir: String,
     pub has_ui: bool,
     pub has_background: bool,
+    pub anomalous: bool,
     pub error: Option<String>,
 }
 
@@ -139,12 +137,12 @@ impl PluginManager {
                             main: None,
                             background: None,
                             events: vec![],
-                            permissions: vec![],
                             enabled: false,
                             enabled_by_default: false,
                             dir: path.to_string_lossy().to_string(),
                             has_ui: false,
                             has_background: false,
+                            anomalous: false,
                             error: Some(e),
                         },
                         main_abs: None,
@@ -155,6 +153,18 @@ impl PluginManager {
         }
         found.sort_by(|a, b| a.info.id.cmp(&b.info.id));
 
+        let previous_anomalies: std::collections::HashSet<String> = self
+            .inner
+            .lock()
+            .map_err(|e| e.to_string())?
+            .plugins
+            .iter()
+            .filter(|p| p.info.anomalous)
+            .map(|p| p.info.id.clone())
+            .collect();
+        for plugin in &mut found {
+            plugin.info.anomalous = previous_anomalies.contains(&plugin.info.id);
+        }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
         log_info!(
@@ -219,18 +229,30 @@ impl PluginManager {
         Ok(p.info.clone())
     }
 
-    pub fn has_permission(&self, id: &str, permission: &str) -> Result<(), String> {
+    pub fn mark_anomalous(&self, id: &str) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let plugin = guard
+            .plugins
+            .iter_mut()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        plugin.info.anomalous = true;
+        Ok(())
+    }
+
+    /// Returns Ok when the plugin is installed, valid, and currently enabled.
+    pub fn ensure_enabled(&self, id: &str) -> Result<(), String> {
         let guard = self.inner.lock().map_err(|e| e.to_string())?;
         let p = guard
             .plugins
             .iter()
             .find(|p| p.info.id == id)
             .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if let Some(err) = &p.info.error {
+            return Err(format!("plugin invalid: {err}"));
+        }
         if !p.info.enabled {
             return Err(format!("plugin disabled: {id}"));
-        }
-        if !p.info.permissions.iter().any(|value| value == permission) {
-            return Err(format!("permission denied: {permission}"));
         }
         Ok(())
     }
@@ -367,12 +389,12 @@ fn load_one(dir: &Path, db: &Db) -> Result<CachedPlugin, String> {
             main: m.main,
             background: m.background,
             events: m.events,
-            permissions: m.permissions,
             enabled,
             enabled_by_default: m.enabled_by_default,
             dir: dir.to_string_lossy().to_string(),
             has_ui: main_abs.is_some(),
             has_background: background_abs.is_some(),
+            anomalous: false,
             error: None,
         },
         main_abs,

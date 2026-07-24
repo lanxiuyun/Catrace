@@ -6,6 +6,5 @@
   "main": "ui.mjs",
   "background": "background.mjs",
   "events": ["demo-timer","kind:demo-timer","demo-timer.tick"],
-  "permissions": ["notification","activity","storage","logger","clipboard"],
   "enabledByDefault": true
 }

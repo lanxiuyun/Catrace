@@ -26,7 +26,6 @@
   "description": "...",
   "main": "ui.mjs",
   "events": ["demo-timer", "kind:demo-timer", "demo-timer.tick"],
-  "permissions": ["notification"],
   "enabledByDefault": true
 }
 ```

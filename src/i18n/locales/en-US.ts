@@ -501,6 +501,7 @@ export default {
       emptyHint: 'Drop a plugin package into the local plugins folder, then refresh.',
       enabled: 'Enabled',
       disabled: 'Disabled',
+      anomalous: 'Anomalous',
       noDescription: 'No description',
       events: 'Declared events',
       anyKind: 'Unrestricted (non-reserved kinds)',

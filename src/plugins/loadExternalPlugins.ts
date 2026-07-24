@@ -113,7 +113,6 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
         displayName: p.name,
         description: p.description,
         events: p.events.length ? p.events : [`kind:${p.id}`, p.id],
-        permissions: p.permissions,
         builtin: false,
       },
       onEvent: () => {},

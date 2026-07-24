@@ -541,12 +541,12 @@ export interface ExternalPluginInfo {
   main?: string | null
   background?: string | null
   events: string[]
-  permissions: string[]
   enabled: boolean
   enabledByDefault: boolean
   dir: string
   hasUi: boolean
   hasBackground: boolean
+  anomalous: boolean
   error?: string | null
 }
 

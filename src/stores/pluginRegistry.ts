@@ -8,7 +8,6 @@ export interface PluginManifest {
   displayName: string
   description: string
   events: string[]
-  permissions: string[]
   builtin?: boolean
 }
 

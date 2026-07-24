@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import { load, type Store } from '@tauri-apps/plugin-store'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
 import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
@@ -37,6 +38,7 @@ const builtinEnabled = ref<Record<VisiblePluginId, boolean>>({
 })
 
 let settingsStore: Store | null = null
+let unlistenPluginAnomaly: UnlistenFn | null = null
 async function getSettingsStore() {
   if (!settingsStore) {
     settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
@@ -85,10 +87,17 @@ async function refreshExternal() {
 onMounted(() => {
   void refreshBuiltinEnabled()
   void refreshExternal()
+  void listen<string>('catrace:plugin-anomaly', ({ payload: pluginId }) => {
+    const plugin = externalList.value.find((item) => item.id === pluginId)
+    if (plugin) plugin.anomalous = true
+  }).then((unlisten) => {
+    unlistenPluginAnomaly = unlisten
+  })
   window.addEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
 onBeforeUnmount(() => {
+  unlistenPluginAnomaly?.()
   window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
@@ -105,6 +114,7 @@ const plugins = computed(() => {
       enabled: builtinEnabled.value[id],
       version: handle?.manifest.version,
       error: null as string | null,
+      anomalous: false,
       tone: id as string,
     }
   })
@@ -120,6 +130,7 @@ const plugins = computed(() => {
     enabled: p.enabled,
     version: p.version,
     error: p.error ?? null,
+    anomalous: p.anomalous,
     tone: 'external',
   }))
   return [...builtins, ...externals].sort((a, b) => {
@@ -315,6 +326,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
                 <div class="item-name">
                   {{ p.name }}
                   <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
+                  <span v-if="p.anomalous" class="anomaly-tag">{{ t('plugins.external.anomalous') }}</span>
                 </div>
                 <div class="item-sub">{{ p.subtitle }}</div>
               </div>
@@ -370,7 +382,12 @@ async function onTestExternal(p: ExternalPluginInfo) {
                 </svg>
               </div>
               <div>
-                <h2 class="ext-title">{{ selectedExternal.name }}</h2>
+                <div class="ext-title-row">
+                  <h2 class="ext-title">{{ selectedExternal.name }}</h2>
+                  <span v-if="selectedExternal.anomalous" class="anomaly-tag anomaly-tag-lg">
+                    {{ t('plugins.external.anomalous') }}
+                  </span>
+                </div>
                 <p class="ext-meta">
                   {{ selectedExternal.id }} · v{{ selectedExternal.version || '—' }}
                 </p>
@@ -714,6 +731,24 @@ async function onTestExternal(p: ExternalPluginInfo) {
   border-radius: 0.25rem;
 }
 
+.anomaly-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.anomaly-tag-lg {
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+}
+
 .item-sub {
   margin-top: 0.15rem;
   font-size: 0.6875rem;
@@ -836,6 +871,12 @@ async function onTestExternal(p: ExternalPluginInfo) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.ext-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .ext-title {

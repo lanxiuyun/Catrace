@@ -1,7 +1,9 @@
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::bus::EventBus;
@@ -14,6 +16,38 @@ use crate::plugins::PluginManager;
 use crate::{log_error, log_info, log_warn, ActivityState};
 
 const STORAGE_KEY_PREFIX: &str = "plugin_storage:";
+const PUBLISH_ACTIVITY_WINDOW: Duration = Duration::from_secs(60);
+const PUBLISH_ACTIVITY_WARNING_THRESHOLD: usize = 60;
+const PUBLISH_WARNING_INTERVAL: Duration = Duration::from_secs(10);
+
+static PUBLISH_ACTIVITY: Mutex<Option<HashMap<String, PublishActivity>>> = Mutex::new(None);
+
+#[derive(Default)]
+struct PublishActivity {
+    published: VecDeque<Instant>,
+    last_warning: Option<Instant>,
+}
+
+impl PublishActivity {
+    fn record(&mut self, now: Instant) -> bool {
+        while self
+            .published
+            .front()
+            .is_some_and(|time| now.duration_since(*time) > PUBLISH_ACTIVITY_WINDOW)
+        {
+            self.published.pop_front();
+        }
+        self.published.push_back(now);
+        let should_warn = self.published.len() > PUBLISH_ACTIVITY_WARNING_THRESHOLD
+            && self.last_warning.map_or(true, |time| {
+                now.duration_since(time) >= PUBLISH_WARNING_INTERVAL
+            });
+        if should_warn {
+            self.last_warning = Some(now);
+        }
+        should_warn
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,14 +88,38 @@ fn caller_id(window: &tauri::WebviewWindow) -> Result<String, String> {
     Ok(plugin_id_from_label(window.label())?.to_string())
 }
 
-fn require_permission(
+fn require_enabled_plugin(
     window: &tauri::WebviewWindow,
     plugins: &PluginManager,
-    permission: &str,
 ) -> Result<String, String> {
     let id = caller_id(window)?;
-    plugins.has_permission(&id, permission)?;
+    plugins.ensure_enabled(&id)?;
     Ok(id)
+}
+
+fn record_publish_activity(app: &tauri::AppHandle, plugins: &PluginManager, plugin_id: &str) {
+    let should_warn = PUBLISH_ACTIVITY
+        .lock()
+        .ok()
+        .map(|mut guard| {
+            guard
+                .get_or_insert_with(HashMap::new)
+                .entry(plugin_id.to_string())
+                .or_default()
+                .record(Instant::now())
+        })
+        .unwrap_or(false);
+    if should_warn {
+        if let Err(error) = plugins.mark_anomalous(plugin_id) {
+            log_warn!("plugin", "[{plugin_id}] failed to mark anomaly: {error}");
+        } else {
+            let _ = app.emit("catrace:plugin-anomaly", plugin_id);
+        }
+        log_warn!(
+            "plugin",
+            "[{plugin_id}] high publish activity observed (> {PUBLISH_ACTIVITY_WARNING_THRESHOLD} events in 60s); events are not blocked"
+        );
+    }
 }
 
 fn require_plugin_card_caller(label: &str) -> Result<(), String> {
@@ -95,12 +153,12 @@ pub fn plugin_publish_event(
     bus: State<'_, EventBus>,
     event: PluginPublishInput,
 ) -> Result<BusEvent, String> {
-    let id = require_permission(&window, &plugins, "notification")?;
+    let id = require_enabled_plugin(&window, &plugins)?;
     plugins.allows_event(&id, &event.kind, &event.event_type)?;
-    bus.publish(BusEvent {
+    let event = BusEvent {
         id: String::new(),
         event_type: event.event_type,
-        source: EventSource::Plugin { name: id },
+        source: EventSource::Plugin { name: id.clone() },
         kind: event.kind,
         display_mode: DisplayMode::Toast,
         level: event.level,
@@ -119,7 +177,10 @@ pub fn plugin_publish_event(
         expires_at: event.expires_at,
         correlation_id: event.correlation_id,
         dedupe_key: event.dedupe_key,
-    })
+    };
+    let published = bus.publish(event)?;
+    record_publish_activity(window.app_handle(), &plugins, &id);
+    Ok(published)
 }
 
 #[tauri::command]
@@ -128,7 +189,7 @@ pub fn plugin_get_activity(
     plugins: State<'_, PluginManager>,
     activity: State<'_, Arc<Mutex<ActivityState>>>,
 ) -> Result<PluginActivitySnapshot, String> {
-    require_permission(&window, &plugins, "activity")?;
+    require_enabled_plugin(&window, &plugins)?;
     let state = activity.lock().map_err(|e| e.to_string())?;
     let active = !state.fullscreen_snapshot && (state.count > 0 || state.media_active_snapshot);
     Ok(PluginActivitySnapshot {
@@ -146,7 +207,7 @@ pub fn plugin_storage_get(
     db: State<'_, Db>,
     key: String,
 ) -> Result<Option<serde_json::Value>, String> {
-    let id = require_permission(&window, &plugins, "storage")?;
+    let id = require_enabled_plugin(&window, &plugins)?;
     validate_storage_key(&key)?;
     let value = db.get_setting(&storage_key(&id, &key), "");
     if value.is_empty() {
@@ -165,12 +226,9 @@ pub fn plugin_storage_set(
     key: String,
     value: serde_json::Value,
 ) -> Result<(), String> {
-    let id = require_permission(&window, &plugins, "storage")?;
+    let id = require_enabled_plugin(&window, &plugins)?;
     validate_storage_key(&key)?;
     let json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
-    if json.len() > 64 * 1024 {
-        return Err("plugin storage value too large (>64KiB)".into());
-    }
     db.set_setting(&storage_key(&id, &key), &json)
         .map_err(|e| e.to_string())
 }
@@ -185,13 +243,7 @@ pub fn plugin_write_clipboard(
     text: String,
 ) -> Result<(), String> {
     require_plugin_card_caller(window.label())?;
-    plugins.has_permission(&plugin_id, "clipboard")?;
-    if text.as_bytes().len() > 64 * 1024 {
-        return Err("clipboard text too large (>64KiB)".into());
-    }
-    if text.is_empty() {
-        return Err("clipboard text cannot be empty".into());
-    }
+    plugins.ensure_enabled(&plugin_id)?;
     let event = bus
         .get(&event_id)?
         .ok_or_else(|| format!("event not found: {event_id}"))?;
@@ -211,19 +263,20 @@ pub fn plugin_log(
     message: String,
     data: Option<serde_json::Value>,
 ) -> Result<(), String> {
-    let id = require_permission(&window, &plugins, "logger")?;
+    let id = require_enabled_plugin(&window, &plugins)?;
     let suffix = data.map(|value| format!(" {value}")).unwrap_or_default();
     match level.as_str() {
         "error" => log_error!("plugin", "[{id}] {message}{suffix}"),
         "warn" => log_warn!("plugin", "[{id}] {message}{suffix}"),
-        _ => log_info!("plugin", "[{id}] {message}{suffix}"),
+        "info" => log_info!("plugin", "[{id}] {message}{suffix}"),
+        other => log_info!("plugin", "[{id}][{other}] {message}{suffix}"),
     }
     Ok(())
 }
 
 fn validate_storage_key(key: &str) -> Result<(), String> {
-    if key.is_empty() || key.len() > 128 || key.contains(':') {
-        return Err("plugin storage key must be 1..128 characters and cannot contain colon".into());
+    if key.is_empty() || key.contains(':') {
+        return Err("plugin storage key cannot be empty or contain colon".into());
     }
     Ok(())
 }
@@ -234,8 +287,12 @@ fn storage_key(id: &str, key: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{require_plugin_card_caller, require_plugin_event};
+    use super::{
+        require_plugin_card_caller, require_plugin_event, storage_key, validate_storage_key,
+        PublishActivity, PUBLISH_ACTIVITY_WARNING_THRESHOLD, PUBLISH_WARNING_INTERVAL,
+    };
     use crate::event::{BusEvent, EventSource};
+    use std::time::Instant;
 
     #[test]
     fn plugin_card_caller_is_restricted() {
@@ -249,7 +306,9 @@ mod tests {
         let mut event = BusEvent {
             id: "event-1".into(),
             event_type: "demo-timer.tick".into(),
-            source: EventSource::Plugin { name: "demo-timer".into() },
+            source: EventSource::Plugin {
+                name: "demo-timer".into(),
+            },
             kind: "demo-timer".into(),
             display_mode: Default::default(),
             level: Default::default(),
@@ -275,14 +334,24 @@ mod tests {
         assert!(require_plugin_event(&event, "demo-timer").is_err());
     }
 
-    use super::{storage_key, validate_storage_key};
+    #[test]
+    fn publish_activity_is_observed_without_blocking() {
+        let mut activity = PublishActivity::default();
+        let start = Instant::now();
+        for _ in 0..PUBLISH_ACTIVITY_WARNING_THRESHOLD {
+            assert!(!activity.record(start));
+        }
+        assert!(activity.record(start));
+        assert!(!activity.record(start));
+        assert!(activity.record(start + PUBLISH_WARNING_INTERVAL));
+    }
 
     #[test]
-    fn validates_storage_keys() {
+    fn storage_key_rejects_namespace_escape() {
         assert!(validate_storage_key("tickCount").is_ok());
         assert!(validate_storage_key("").is_err());
         assert!(validate_storage_key("nested:key").is_err());
-        assert!(validate_storage_key(&"a".repeat(129)).is_err());
+        assert!(validate_storage_key(&"a".repeat(1024)).is_ok());
     }
 
     #[test]

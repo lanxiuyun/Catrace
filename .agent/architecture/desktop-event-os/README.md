@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 将移除 manifest 权限硬门闩，保留身份/所有权/命名空间隔离并增加 publish 防失控。**不做插件市场。**
+当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；异常 publish 活跃只记录插件 id，不限流、不丢弃。**不做插件市场。**
 
 ## 模块布局
 
@@ -63,7 +63,7 @@ tools/plugin-demo/            # M10 demo-timer 包
 6. 键序列默认关；休息判定用 legacy `count`
 7. **外部写入走 Event HTTP（:23457）**，禁止冒充内部 kind；管理入口在调试页
 8. **插件窗口同步不得阻塞主循环**：禁止在 `setup()` 或 `run_on_main_thread()` 中执行包含 `WebviewWindowBuilder::build()` 的完整同步；统一调用 `PluginWindowManager::schedule_sync()`
-9. **本地插件启用即信任**：普通宿主能力不要求 manifest 权限声明；后台身份仍由 `plugin-bg-<id>` 窗口 label 推导，启用状态、Event 所有权和 storage namespace 按该 id 强制校验
+9. **本地插件启用即信任**：插件 manifest 不包含权限声明；后台身份仍由 `plugin-bg-<id>` 窗口 label 推导，启用状态、Event 所有权和 storage namespace 按该 id 强制校验
 
 ## 子文档
 

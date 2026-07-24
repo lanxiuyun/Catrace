@@ -501,6 +501,7 @@ export default {
       emptyHint: '将插件包放入本地 plugins 目录后点刷新。',
       enabled: '已启用',
       disabled: '已禁用',
+      anomalous: '异常',
       noDescription: '无描述',
       events: '声明事件',
       anyKind: '未限制（非保留 kind）',
