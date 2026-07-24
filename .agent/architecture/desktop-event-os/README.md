@@ -20,7 +20,6 @@ src-tauri/src/
 ├── plugin_window.rs      # 每插件隐藏 WebView 生命周期与非阻塞同步
 ├── plugin_commands.rs    # publish/activity/storage/logger 身份、所有权与输入边界
 ├── signal.rs / db.rs     # 行为采集 + signal_minutes
-├── water.rs / eye.rs     # 生产者：只 bus.publish
 ├── reminder_toast.rs     # ensure 窗口 + agent/update/permission → bus
 ├── agent_hook.rs         # :23456 agent hook（与 event_http 分离）
 └── lib.rs                # rest toast 模式 → bus；settle 组合；启动两 HTTP
@@ -55,10 +54,10 @@ tools/plugin-demo/            # M10 demo-timer 包
 
 ## 关键约定
 
-1. **内容只走 Bus**：rest / water / eye / agent / permission / update 均 `publish`；禁止再 `eval addToastNotification` 注入内容
+1. **内容只走 Bus**：rest / timer / agent / permission / update 均 `publish`；禁止再 `eval addToastNotification` 注入内容
 2. **窗口与内容分离**：`ensure_toast_window_visible` 只管窗口；`publish` 顺带 ensure
 3. **主窗 hub 不渲第二张卡**；Toast 窗自己 listen + `get_active_events` 水合
-4. Action resolve **只记生命周期**；业务（snooze/喝水/permission HTTP）仍在既有 command
+4. Action resolve **只记生命周期**；业务（snooze/permission HTTP）仍在既有 command
 5. 仍用专用通道：`catrace-rest-timer`、`dismissAgentSession`（eval 仅销项）
 6. 键序列默认关；休息判定用 legacy `count`
 7. **外部写入走 Event HTTP（:23457）**，禁止冒充内部 kind；管理入口在调试页
@@ -73,6 +72,7 @@ tools/plugin-demo/            # M10 demo-timer 包
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) — Toast 订阅线与例外通道
 - [signal-collection-schema-and-privacy.md](signal-collection-schema-and-privacy.md) — Signal / 隐私
+- [插件配置和运行数据必须分开存储.md](插件配置和运行数据必须分开存储.md) — 可迁移配置与机器运行数据的边界
 - [m9-event-http-api.md](m9-event-http-api.md) — 外部 localhost Event HTTP（M9）
 
 ## 相关

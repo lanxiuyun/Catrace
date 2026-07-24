@@ -13,11 +13,6 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
-  recordWater,
-  snoozeWaterReminder,
-  skipWaterReminder,
-  snoozeEyeReminder,
-  skipEyeReminder,
   snoozeTimerReminder,
   ackTimerReminder,
   skipTimerReminder,
@@ -32,11 +27,9 @@ import {
   getActiveEvents,
 } from '../api/tauri'
 import type { BusEvent } from '../types/event'
-import EyeToastCard from '../components/EyeToastCard.vue'
 import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
 import PermissionToastCard, { type PermissionItem } from '../components/PermissionToastCard.vue'
 import RestToastCard from '../components/RestToastCard.vue'
-import WaterToastCard from '../components/WaterToastCard.vue'
 import UpdateToastCard from '../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../components/RestTimerToastCard.vue'
 import SdkToastCard from '../components/SdkToastCard.vue'
@@ -50,8 +43,6 @@ const pluginRegistry = usePluginRegistry()
 
 const BUILTIN_TOAST_KINDS = [
   'rest',
-  'water',
-  'eye',
   'timer',
   'update',
   'rest-timer',
@@ -174,7 +165,6 @@ const REST_POLL_MS = 2000
 const REST_TIMER_REMOVE_DELAY_MS = 4000
 
 const AUTO_HIDE_MS = 8000
-const EYE_AUTO_HIDE_MS = 25000
 const MAX_NOTIFICATIONS = 5
 const CARD_HEIGHT = 128
 const CARD_GAP = 8
@@ -669,7 +659,7 @@ function handleBusEvent(event: BusEvent) {
         !(kind === 'sdk' && event.sticky) &&
         !stickyPlugin
       ) {
-        const autoHideMs = kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
+        const autoHideMs = AUTO_HIDE_MS
         existing.remainingMs = autoHideMs
         existing.totalMs = autoHideMs
         startTimer(existing)
@@ -836,7 +826,7 @@ async function addNotification(payload: {
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const isPluginSticky = !!payload.pluginId && !!payload.sticky
-  const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
+  const autoHideMs = AUTO_HIDE_MS
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
     id,
@@ -931,13 +921,13 @@ function stopTimer(item: ToastItem) {
 
 function handleMouseEnter(item: ToastItem) {
   // 护眼提醒 hover 不暂停倒计时；休息计时/sticky/permission 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -1098,61 +1088,6 @@ async function handleSkip(item: ToastItem) {
   removeNotification(item.id, true)
 }
 
-async function handleDrinkWater(item: ToastItem) {
-  stopTimer(item)
-  try {
-    await recordWater(Math.floor(Date.now() / 1000))
-  } catch {
-    // ignore
-  }
-  markEventResolved(item.eventId, 'drunk')
-  removeNotification(item.id, true)
-}
-
-async function handleWaterSnooze(item: ToastItem, minutes: number) {
-  stopTimer(item)
-  try {
-    await snoozeWaterReminder(minutes)
-  } catch {
-    // ignore
-  }
-  markEventResolved(item.eventId, 'snooze_5')
-  removeNotification(item.id, true)
-}
-
-async function handleWaterSkip(item: ToastItem) {
-  stopTimer(item)
-  try {
-    await skipWaterReminder()
-  } catch {
-    // ignore
-  }
-  markEventResolved(item.eventId, 'skip')
-  removeNotification(item.id, true)
-}
-
-async function handleEyeSnooze(item: ToastItem, minutes: number) {
-  stopTimer(item)
-  try {
-    await snoozeEyeReminder(minutes)
-  } catch {
-    // ignore
-  }
-  markEventResolved(item.eventId, 'snooze_5')
-  removeNotification(item.id, true)
-}
-
-async function handleEyeSkip(item: ToastItem) {
-  stopTimer(item)
-  try {
-    await skipEyeReminder()
-  } catch {
-    // ignore
-  }
-  markEventResolved(item.eventId, 'skip')
-  removeNotification(item.id, true)
-}
-
 function toggleUpdateDetails(item: ToastItem) {
   item.showUpdateBody = !item.showUpdateBody
   nextTick(() => adjustWindowSize())
@@ -1281,8 +1216,6 @@ async function handleUpdateInstall(item: ToastItem) {
         class="toast-card"
         :class="{
           visible: item.visible,
-          'toast-card-water': item.kind === 'water',
-          'toast-card-eye': item.kind === 'eye',
           'toast-card-timer': item.kind === 'timer',
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
@@ -1294,20 +1227,8 @@ async function handleUpdateInstall(item: ToastItem) {
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
-        <EyeToastCard
-          v-if="item.kind === 'eye'"
-          :title="item.title"
-          :body="item.body"
-          :remaining-ms="item.remainingMs"
-          :last-start-at="item.lastStartAt"
-          :total-ms="item.totalMs"
-          @close="handleClose(item)"
-          @snooze="(m) => handleEyeSnooze(item, m)"
-          @skip="handleEyeSkip(item)"
-        />
-
         <AgentToastCard
-          v-else-if="item.kind === 'agent' && item.agentEntries"
+          v-if="item.kind === 'agent' && item.agentEntries"
           :entries="item.agentEntries"
           :sticky="!!item.sticky"
           :remaining-ms="item.remainingMs"
@@ -1333,17 +1254,6 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
           @snooze="(m) => handleSnooze(item, m)"
           @skip="handleSkip(item)"
-        />
-
-        <WaterToastCard
-          v-else-if="item.kind === 'water'"
-          :title="item.title"
-          :body="item.body"
-          :is-hovered="item.isHovered"
-          @close="handleClose(item)"
-          @drank="handleDrinkWater(item)"
-          @snooze="(m) => handleWaterSnooze(item, m)"
-          @skip="handleWaterSkip(item)"
         />
 
         <UpdateToastCard

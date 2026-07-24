@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSwitch, NButton, NInput, useMessage } from 'naive-ui'
-import { load, type Store } from '@tauri-apps/plugin-store'
 import {
   getConfig,
   setConfig,
-  getReminderMode,
-  setReminderMode,
   getReminderText,
   setReminderText,
   testNotification,
@@ -18,41 +15,15 @@ import SettingRow from '../settings/SettingRow.vue'
 import SliderControl from '../settings/SliderControl.vue'
 import OverlayScrollbar from '../OverlayScrollbar.vue'
 
-const STORE_KEY = 'plugin_rest_ui_enabled'
-
 const { t } = useI18n()
 const message = useMessage()
 
-let settingsStore: Store | null = null
-async function getStore() {
-  if (!settingsStore) {
-    settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
-  }
-  return settingsStore
-}
-
-const { value: uiEnabled } = useAutoSavedSetting<boolean>({
-  initialValue: true,
-  load: async () => {
-    const s = await getStore()
-    const v = await s.get<boolean>(STORE_KEY)
-    return v ?? true
-  },
-  save: async (v) => {
-    const s = await getStore()
-    await s.set(STORE_KEY, v)
-  },
-  debounce: 0,
-  onSuccess: () => {
-    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
-  },
-})
-
 const { value: config, loading: configLoading } = useAutoSavedSetting<AppConfig>({
-  initialValue: { window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 },
+  initialValue: { enabled: true, window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3 },
   load: async () => {
     const c = await getConfig()
     return {
+      enabled: c.enabled ?? true,
       window_minutes: Number(c.window_minutes) || 45,
       break_minutes: Number(c.break_minutes) || 5,
       snooze_interval_minutes: Number(c.snooze_interval_minutes) || 3,
@@ -99,21 +70,10 @@ const customBody = computed({
 })
 
 // 当前版本久坐插件只支持 toast；遗留 popup/fullscreen 配置写回 toast
-onMounted(async () => {
-  try {
-    const mode = await getReminderMode()
-    if (mode !== 'toast') {
-      await setReminderMode('toast')
-    }
-  } catch {
-    // 启动迁移失败不挡面板
-  }
-})
-
 const testing = ref(false)
 
 function handleEnabledChange(value: boolean) {
-  uiEnabled.value = value
+  config.value = { ...config.value, enabled: value }
 }
 
 async function sendTest() {
@@ -133,7 +93,7 @@ async function sendTest() {
 </script>
 
 <template>
-  <div class="rest-panel" :class="{ 'is-disabled': !uiEnabled }">
+  <div class="rest-panel" :class="{ 'is-disabled': !config.enabled }">
     <header class="panel-header">
       <div class="header-left">
         <div class="icon-badge" aria-hidden="true">
@@ -153,7 +113,7 @@ async function sendTest() {
       <div class="master-switch">
         <span class="master-label">{{ t('plugins.rest.pluginStatus') }}</span>
         <n-switch
-          :value="uiEnabled"
+          :value="config.enabled"
           :aria-label="t('plugins.rest.switchAria')"
           @update:value="handleEnabledChange"
         />
@@ -164,7 +124,7 @@ async function sendTest() {
       <OverlayScrollbar>
         <div class="panel-body">
           <div class="panel-actions">
-            <n-button type="primary" :loading="testing" :disabled="!uiEnabled" @click="sendTest">
+            <n-button type="primary" :loading="testing" :disabled="!config.enabled" @click="sendTest">
               <template #icon>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
@@ -173,7 +133,7 @@ async function sendTest() {
               {{ t('plugins.rest.testBtn') }}
             </n-button>
           </div>
-          <template v-if="uiEnabled">
+          <template v-if="config.enabled">
       <section class="panel-section">
         <h3 class="section-title">{{ t('plugins.rest.timingSection') }}</h3>
         <div class="section-card">

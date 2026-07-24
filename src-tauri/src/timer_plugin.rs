@@ -8,11 +8,10 @@ use uuid::Uuid;
 
 use crate::bus::EventBus;
 use crate::db;
-use crate::event::{
-    BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
-};
+use crate::event::{BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus};
 
-const SETTINGS_KEY: &str = "timer_rules";
+const PLUGIN_ID: &str = "timer";
+const RUNTIME_STORAGE_KEY: &str = "runtime";
 const MAX_RULES: usize = 20;
 const MAX_DAILY_TIMES: usize = 8;
 const MAX_DAILY_KEYS: usize = 64;
@@ -114,25 +113,67 @@ impl Default for TimerSettings {
     }
 }
 
-fn load_settings(db: &db::Db) -> TimerSettings {
-    let raw = db.get_setting(SETTINGS_KEY, "");
-    if raw.is_empty() {
-        return TimerSettings::default();
-    }
-    match serde_json::from_str::<TimerSettings>(&raw) {
-        Ok(s) => sanitize_settings(s),
-        Err(e) => {
-            crate::log_error!("timer", "parse timer_rules failed: {}", e);
-            TimerSettings::default()
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct TimerRuleRuntime {
+    #[serde(default)]
+    last_fired_at: Option<i64>,
+    #[serde(default)]
+    last_daily_keys: Vec<String>,
 }
 
-fn save_settings(db: &db::Db, settings: &TimerSettings) -> Result<(), String> {
-    let sanitized = sanitize_settings(settings.clone());
-    let json = serde_json::to_string(&sanitized).map_err(|e| e.to_string())?;
-    db.set_setting(SETTINGS_KEY, &json)
+fn load_settings(app: &tauri::AppHandle, db: &db::Db) -> TimerSettings {
+    let mut settings =
+        match crate::plugin_config::get_plugin_config::<TimerSettings>(app, PLUGIN_ID) {
+            Ok(Some(settings)) => sanitize_settings(settings),
+            Ok(None) => TimerSettings::default(),
+            Err(e) => {
+                crate::log_error!("timer", "load config failed: {}", e);
+                TimerSettings::default()
+            }
+        };
+    if let Ok(Some(raw)) = db.get_plugin_storage(PLUGIN_ID, RUNTIME_STORAGE_KEY) {
+        if let Ok(runtime) = serde_json::from_str::<HashMap<String, TimerRuleRuntime>>(&raw) {
+            apply_runtime(&mut settings, &runtime);
+        }
+    }
+    settings
+}
+
+fn save_config(app: &tauri::AppHandle, settings: &TimerSettings) -> Result<(), String> {
+    let mut portable = sanitize_settings(settings.clone());
+    for rule in &mut portable.rules {
+        rule.last_fired_at = None;
+        rule.last_daily_keys.clear();
+    }
+    crate::plugin_config::set_plugin_config(app, PLUGIN_ID, &portable)
+}
+
+fn save_runtime(db: &db::Db, settings: &TimerSettings) -> Result<(), String> {
+    let runtime: HashMap<String, TimerRuleRuntime> = settings
+        .rules
+        .iter()
+        .map(|rule| {
+            (
+                rule.id.clone(),
+                TimerRuleRuntime {
+                    last_fired_at: rule.last_fired_at,
+                    last_daily_keys: rule.last_daily_keys.clone(),
+                },
+            )
+        })
+        .collect();
+    let json = serde_json::to_string(&runtime).map_err(|e| e.to_string())?;
+    db.set_plugin_storage(PLUGIN_ID, RUNTIME_STORAGE_KEY, &json)
         .map_err(|e| e.to_string())
+}
+
+fn apply_runtime(settings: &mut TimerSettings, runtime: &HashMap<String, TimerRuleRuntime>) {
+    for rule in &mut settings.rules {
+        if let Some(state) = runtime.get(&rule.id) {
+            rule.last_fired_at = state.last_fired_at;
+            rule.last_daily_keys = state.last_daily_keys.clone();
+        }
+    }
 }
 
 fn sanitize_settings(mut s: TimerSettings) -> TimerSettings {
@@ -317,12 +358,13 @@ fn prune_daily_keys(keys: &mut Vec<String>, keep_prefix: &str) {
 /// 分钟循环入口：interval 仅 active；daily 到点必弹
 pub fn on_minute_tick(
     active: bool,
+    app: &tauri::AppHandle,
     db: &db::Db,
     runtime: &Arc<Mutex<TimerRuntimeState>>,
     locale: &str,
     bus: &EventBus,
 ) {
-    let mut settings = load_settings(db);
+    let mut settings = load_settings(app, db);
     if !settings.enabled {
         return;
     }
@@ -393,7 +435,7 @@ pub fn on_minute_tick(
     }
 
     if dirty {
-        if let Err(e) = save_settings(db, &settings) {
+        if let Err(e) = save_runtime(db, &settings) {
             crate::log_error!("timer", "save after tick failed: {}", e);
         }
     }
@@ -402,13 +444,14 @@ pub fn on_minute_tick(
 // ---------- commands ----------
 
 #[tauri::command]
-pub fn get_timer_settings(db: tauri::State<db::Db>) -> TimerSettings {
-    load_settings(&db)
+pub fn get_timer_settings(app: tauri::AppHandle, db: tauri::State<db::Db>) -> TimerSettings {
+    load_settings(&app, &db)
 }
 
 #[tauri::command]
 pub fn set_timer_settings(
     settings: TimerSettings,
+    app: tauri::AppHandle,
     db: tauri::State<db::Db>,
     runtime: tauri::State<Arc<Mutex<TimerRuntimeState>>>,
 ) -> Result<TimerSettings, String> {
@@ -428,17 +471,19 @@ pub fn set_timer_settings(
             r.last_fired_at = Some(now_ts);
         }
     }
-    save_settings(&db, &sanitized)?;
+    save_config(&app, &sanitized)?;
+    save_runtime(&db, &sanitized)?;
     Ok(sanitized)
 }
 
 #[tauri::command]
 pub fn test_timer_notification(
     rule_id: Option<String>,
+    app: tauri::AppHandle,
     db: tauri::State<db::Db>,
     bus: tauri::State<EventBus>,
 ) -> Result<(), String> {
-    let settings = load_settings(&db);
+    let settings = load_settings(&app, &db);
     let locale = db.get_setting("locale", "zh-CN");
     let rule = if let Some(id) = rule_id {
         settings
@@ -476,16 +521,17 @@ pub fn snooze_timer_reminder(
 #[tauri::command]
 pub fn ack_timer_reminder(
     rule_id: String,
+    app: tauri::AppHandle,
     db: tauri::State<db::Db>,
     runtime: tauri::State<Arc<Mutex<TimerRuntimeState>>>,
 ) {
     runtime.lock().unwrap().clear_snooze(&rule_id);
     // interval：ack 后从现在重新计时
-    let mut settings = load_settings(&db);
+    let mut settings = load_settings(&app, &db);
     if let Some(rule) = find_rule_mut(&mut settings, &rule_id) {
         if rule.mode == TimerMode::Interval {
             rule.last_fired_at = Some(Local::now().timestamp());
-            let _ = save_settings(&db, &settings);
+            let _ = save_runtime(&db, &settings);
         }
     }
 }
@@ -493,11 +539,12 @@ pub fn ack_timer_reminder(
 #[tauri::command]
 pub fn skip_timer_reminder(
     rule_id: String,
+    app: tauri::AppHandle,
     db: tauri::State<db::Db>,
     runtime: tauri::State<Arc<Mutex<TimerRuntimeState>>>,
 ) {
     runtime.lock().unwrap().clear_snooze(&rule_id);
-    let mut settings = load_settings(&db);
+    let mut settings = load_settings(&app, &db);
     let now = Local::now();
     let now_ts = now.timestamp();
     let date = now.format("%Y-%m-%d").to_string();
@@ -518,7 +565,7 @@ pub fn skip_timer_reminder(
                 }
             }
         }
-        let _ = save_settings(&db, &settings);
+        let _ = save_runtime(&db, &settings);
     }
 }
 

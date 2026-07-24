@@ -7,10 +7,7 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
-use crate::db::Db;
 use crate::{log_error, log_info, log_warn};
-
-const ENABLED_KEY_PREFIX: &str = "external_plugin_enabled:";
 
 /// Kinds plugins must not claim (includes sdk — reserved for M9 generic path).
 pub const RESERVED_KINDS: &[&str] = &[
@@ -109,7 +106,7 @@ impl PluginManager {
         }
     }
 
-    pub fn rescan(&self, app: &AppHandle, db: &Db) -> Result<Vec<ExternalPluginInfo>, String> {
+    pub fn rescan(&self, app: &AppHandle) -> Result<Vec<ExternalPluginInfo>, String> {
         let root = plugins_root(app)?;
         fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
 
@@ -120,7 +117,7 @@ impl PluginManager {
             if !path.is_dir() {
                 continue;
             }
-            match load_one(&path, db) {
+            match load_one(app, &path) {
                 Ok(p) => found.push(p),
                 Err(e) => {
                     log_warn!("plugins", "skip {}: {}", path.display(), e);
@@ -208,7 +205,7 @@ impl PluginManager {
 
     pub fn set_enabled(
         &self,
-        db: &Db,
+        app: &AppHandle,
         id: &str,
         enabled: bool,
     ) -> Result<ExternalPluginInfo, String> {
@@ -222,9 +219,12 @@ impl PluginManager {
         if p.info.error.is_some() {
             return Err("cannot enable invalid plugin".into());
         }
-        let key = format!("{ENABLED_KEY_PREFIX}{id}");
-        db.set_setting(&key, if enabled { "true" } else { "false" })
-            .map_err(|e| e.to_string())?;
+        crate::plugin_config::set_plugin_config_entry(
+            app,
+            id,
+            "enabled".into(),
+            serde_json::Value::Bool(enabled),
+        )?;
         p.info.enabled = enabled;
         Ok(p.info.clone())
     }
@@ -329,7 +329,7 @@ fn validate_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn load_one(dir: &Path, db: &Db) -> Result<CachedPlugin, String> {
+fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
     let manifest_path = dir.join("manifest.json");
     if !manifest_path.is_file() {
         return Err("missing manifest.json".into());
@@ -372,13 +372,9 @@ fn load_one(dir: &Path, db: &Db) -> Result<CachedPlugin, String> {
     let main_abs = resolve_entry(dir, m.main.as_deref(), "main")?;
     let background_abs = resolve_entry(dir, m.background.as_deref(), "background")?;
 
-    let key = format!("{ENABLED_KEY_PREFIX}{}", m.id);
-    let default = if m.enabled_by_default {
-        "true"
-    } else {
-        "false"
-    };
-    let enabled = db.get_setting(&key, default) == "true";
+    let enabled = crate::plugin_config::get_plugin_config_entry(app, &m.id, "enabled")?
+        .and_then(|value| value.as_bool())
+        .unwrap_or(m.enabled_by_default);
 
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
@@ -470,11 +466,10 @@ fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
 #[tauri::command]
 pub fn list_external_plugins(
     app: AppHandle,
-    db: State<'_, Db>,
     mgr: State<'_, PluginManager>,
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
-    let list = mgr.rescan(&app, &db)?;
+    let list = mgr.rescan(&app)?;
     windows.schedule_sync(app, mgr.inner().clone());
     Ok(list)
 }
@@ -482,13 +477,12 @@ pub fn list_external_plugins(
 #[tauri::command]
 pub fn set_external_plugin_enabled(
     app: AppHandle,
-    db: State<'_, Db>,
     mgr: State<'_, PluginManager>,
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
-    let info = mgr.set_enabled(&db, &id, enabled)?;
+    let info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app, mgr.inner().clone());
     Ok(info)
 }
@@ -533,11 +527,11 @@ pub fn get_plugins_dir(app: AppHandle) -> Result<String, String> {
 }
 
 /// Called from setup after PluginManager is managed.
-pub fn initial_scan(app: &AppHandle, db: &Db, mgr: &PluginManager) {
+pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
     #[cfg(debug_assertions)]
     ensure_dev_plugin_links(app);
 
-    if let Err(e) = mgr.rescan(app, db) {
+    if let Err(e) = mgr.rescan(app) {
         log_error!("plugins", "initial scan failed: {e}");
     }
 }

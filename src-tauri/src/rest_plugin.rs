@@ -1,5 +1,6 @@
 //! Built-in sedentary reminder plugin.
 use crate::{db, log_error, ReminderWindowStore};
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -77,38 +78,91 @@ impl Default for NotificationTestState {
     }
 }
 
-#[tauri::command]
-pub(crate) fn get_config(db: tauri::State<db::Db>) -> serde_json::Value {
-    let window: i64 = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
-    let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-    let snooze_interval: i64 = db
-        .get_setting("snooze_interval_minutes", "3")
-        .parse()
-        .unwrap_or(3);
-    serde_json::json!({ "window_minutes": window, "break_minutes": break_m, "snooze_interval_minutes": snooze_interval })
+const PLUGIN_ID: &str = "rest";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct RestPluginConfig {
+    #[serde(default = "default_true")]
+    pub(crate) enabled: bool,
+    #[serde(default = "default_window_minutes")]
+    window_minutes: i64,
+    #[serde(default = "default_break_minutes")]
+    pub(crate) break_minutes: i64,
+    #[serde(default = "default_snooze_minutes")]
+    snooze_interval_minutes: i64,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    body: String,
+}
+
+fn default_true() -> bool {
+    true
+}
+fn default_window_minutes() -> i64 {
+    45
+}
+fn default_break_minutes() -> i64 {
+    5
+}
+fn default_snooze_minutes() -> i64 {
+    3
+}
+
+impl Default for RestPluginConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            window_minutes: default_window_minutes(),
+            break_minutes: default_break_minutes(),
+            snooze_interval_minutes: default_snooze_minutes(),
+            title: String::new(),
+            body: String::new(),
+        }
+    }
+}
+
+pub(crate) fn load_config(app: &tauri::AppHandle) -> RestPluginConfig {
+    crate::plugin_config::get_plugin_config(app, PLUGIN_ID)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+
+fn save_config(app: &tauri::AppHandle, config: &RestPluginConfig) -> Result<(), String> {
+    crate::plugin_config::set_plugin_config(app, PLUGIN_ID, config)
 }
 
 #[tauri::command]
-pub(crate) fn set_config(
-    config: serde_json::Value,
-    db: tauri::State<db::Db>,
-) -> Result<(), String> {
+pub(crate) fn get_config(app: tauri::AppHandle) -> serde_json::Value {
+    let config = load_config(&app);
+    serde_json::json!({
+        "enabled": config.enabled,
+        "window_minutes": config.window_minutes,
+        "break_minutes": config.break_minutes,
+        "snooze_interval_minutes": config.snooze_interval_minutes,
+    })
+}
+
+#[tauri::command]
+pub(crate) fn set_config(config: serde_json::Value, app: tauri::AppHandle) -> Result<(), String> {
+    let mut current = load_config(&app);
+    if let Some(v) = config.get("enabled").and_then(|v| v.as_bool()) {
+        current.enabled = v;
+    }
     if let Some(v) = config.get("window_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("window_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
+        current.window_minutes = v;
     }
     if let Some(v) = config.get("break_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("break_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
+        current.break_minutes = v;
     }
     if let Some(v) = config
         .get("snooze_interval_minutes")
         .and_then(|v| v.as_i64())
     {
-        db.set_setting("snooze_interval_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
+        current.snooze_interval_minutes = v;
     }
-    Ok(())
+    save_config(&app, &current)
 }
 
 #[tauri::command]
@@ -283,7 +337,7 @@ pub(crate) fn test_notification(
     );
 
     // 追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
-    let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
+    let break_m = load_config(&app_handle).break_minutes;
     let now_ts = chrono::Local::now().timestamp();
     let rest_start_ts = (now_ts / 60) * 60;
     let rest_streak: i64 = std::cmp::min(3, break_m);
@@ -367,14 +421,15 @@ fn show_notification(
     default_body: &str,
     _reminder_state: Arc<Mutex<ReminderState>>,
     locale: &str,
-    db: &db::Db,
+    _db: &db::Db,
     _store: &ReminderWindowStore,
     _fullscreen_active: Arc<AtomicBool>,
     bus: &crate::bus::EventBus,
 ) {
     // 优先使用用户自定义文本，空则回退到 i18n 默认值
-    let custom_title = db.get_setting("reminder_title", "");
-    let custom_body = db.get_setting("reminder_body", "");
+    let config = load_config(_app_handle);
+    let custom_title = config.title;
+    let custom_body = config.body;
     let title = if custom_title.is_empty() {
         notify_title(locale).to_string()
     } else {
@@ -387,9 +442,7 @@ fn show_notification(
     };
 
     // toast：只 publish 到 Event Bus，由 Toast 窗订阅渲染
-    use crate::event::{
-        BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus,
-    };
+    use crate::event::{BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus};
     let event = BusEvent {
         id: String::new(),
         event_type: "reminder.rest.due".into(),
@@ -447,7 +500,6 @@ pub(crate) fn on_minute_settled(
     app_handle: &tauri::AppHandle,
     state: &Arc<Mutex<ReminderState>>,
     locale: &str,
-    break_minutes: i64,
     db: &crate::db::Db,
     store: &ReminderWindowStore,
     fullscreen_active: &Arc<AtomicBool>,
@@ -455,7 +507,12 @@ pub(crate) fn on_minute_settled(
 ) {
     if active {
         state.lock().unwrap().break_timer_active = false;
-        let window_minutes = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
+        let config = load_config(app_handle);
+        if !config.enabled {
+            return;
+        }
+        let window_minutes = config.window_minutes;
+        let break_minutes = config.break_minutes;
         match db.check_should_notify(window_minutes, break_minutes) {
             Ok((true, Some(boundary))) => {
                 let reminder = state.lock().unwrap();
@@ -476,10 +533,7 @@ pub(crate) fn on_minute_settled(
                     fullscreen_active.clone(),
                     bus,
                 );
-                let interval_minutes: i64 = db
-                    .get_setting("snooze_interval_minutes", "3")
-                    .parse()
-                    .unwrap_or(3);
+                let interval_minutes = config.snooze_interval_minutes;
                 let mut reminder = state.lock().unwrap();
                 reminder.snooze_until =
                     Some(Instant::now() + Duration::from_secs((interval_minutes * 60) as u64));
@@ -490,6 +544,7 @@ pub(crate) fn on_minute_settled(
         }
         return;
     }
+    let break_minutes = load_config(app_handle).break_minutes;
     let mut reminder = state.lock().unwrap();
     reminder.snooze_until = None;
     if !reminder.break_timer_active {

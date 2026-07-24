@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
 export interface AppConfig {
+  enabled?: boolean
   window_minutes: number
   break_minutes: number
   snooze_interval_minutes: number
@@ -100,76 +101,6 @@ export async function startNotificationTest(intervalSeconds: number): Promise<vo
 /** 停止循环测试通知 */
 export async function stopNotificationTest(): Promise<void> {
   return invoke('stop_notification_test')
-}
-
-/** 发送一条测试喝水提醒 */
-export async function testWaterNotification(): Promise<void> {
-  return invoke('test_water_notification')
-}
-
-export interface EyeSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getEyeSettings(): Promise<EyeSettings> {
-  return invoke('get_eye_settings')
-}
-
-export async function setEyeSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_eye_settings', { enabled, intervalMinutes })
-}
-
-/** 发送一条测试护眼提醒 */
-export async function testEyeNotification(): Promise<void> {
-  return invoke('test_eye_notification')
-}
-
-/** 推迟护眼提醒 N 分钟 */
-export async function snoozeEyeReminder(minutes: number): Promise<void> {
-  return invoke('snooze_eye_reminder', { minutes })
-}
-
-/** 跳过本次护眼提醒 */
-export async function skipEyeReminder(): Promise<void> {
-  return invoke('skip_eye_reminder')
-}
-
-export interface WaterSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getWaterSettings(): Promise<WaterSettings> {
-  return invoke('get_water_settings')
-}
-
-export async function setWaterSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_water_settings', { enabled, intervalMinutes })
-}
-
-export async function recordWater(timestamp: number): Promise<void> {
-  return invoke('record_water', { timestamp })
-}
-
-export async function getWaterStats(): Promise<{ count: number; last_ts: number | null }> {
-  return invoke('get_water_stats')
-}
-
-export async function getWaterRecords(): Promise<{ records: number[] }> {
-  return invoke('get_water_records')
-}
-
-export async function deleteLastWater(): Promise<boolean> {
-  return invoke('delete_last_water')
-}
-
-export async function snoozeWaterReminder(minutes: number): Promise<void> {
-  return invoke('snooze_water_reminder', { minutes })
-}
-
-export async function skipWaterReminder(): Promise<void> {
-  return invoke('skip_water_reminder')
 }
 
 export type TimerMode = 'interval' | 'daily'

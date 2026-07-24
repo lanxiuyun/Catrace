@@ -53,8 +53,8 @@ function onBuiltinPluginEnabledChanged() {
 async function refreshBuiltinEnabled() {
   try {
     const store = await getSettingsStore()
-    const rest = await store.get<boolean>('plugin_rest_ui_enabled')
-    builtinEnabled.value.rest = rest ?? true
+    const rest = await store.get<{ enabled?: boolean }>('plugin_config:rest')
+    builtinEnabled.value.rest = rest?.enabled ?? true
   } catch {
     builtinEnabled.value.rest = false
   }

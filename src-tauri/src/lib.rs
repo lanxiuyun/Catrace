@@ -3,10 +3,10 @@ mod bus;
 mod db;
 mod event;
 mod event_http;
-mod eye;
 mod log;
 mod media_audio;
 mod plugin_commands;
+mod plugin_config;
 mod plugin_window;
 mod plugins;
 mod reminder_toast;
@@ -14,7 +14,6 @@ mod report;
 mod rest_plugin;
 mod signal;
 mod timer_plugin;
-mod water;
 mod window_manager;
 
 use std::collections::HashMap;
@@ -147,10 +146,8 @@ async fn get_activity_snapshot(
     })
 }
 
-use eye::EyeReminderState;
 use rest_plugin::ReminderState;
 use timer_plugin::TimerRuntimeState;
-use water::WaterReminderState;
 
 // ---------- 提醒窗口数据 ----------
 
@@ -415,45 +412,36 @@ fn set_locale(locale: String, db: tauri::State<db::Db>) -> Result<(), String> {
 // ---------- 提醒模式与自定义文本 ----------
 
 #[tauri::command]
-fn get_reminder_mode(db: tauri::State<db::Db>) -> String {
-    // 当前久坐插件仅支持 toast；遗留 popup/fullscreen 读时归一
-    let mode = db.get_setting("reminder_mode", "toast");
-    if mode == "toast" {
-        mode
-    } else {
-        "toast".to_string()
-    }
+fn get_reminder_mode() -> String {
+    "toast".to_string()
 }
 
 #[tauri::command]
-fn set_reminder_mode(mode: String, db: tauri::State<db::Db>) -> Result<(), String> {
-    // 当前版本只持久化 toast；其它模式写入时钳制，避免再次启用全屏/弹窗
-    let mode = if mode == "toast" {
-        mode
-    } else {
-        "toast".into()
-    };
-    db.set_setting("reminder_mode", &mode)
-        .map_err(|e| e.to_string())
+fn set_reminder_mode(_mode: String) -> Result<(), String> {
+    Ok(())
 }
 
 #[tauri::command]
-fn get_reminder_text(db: tauri::State<db::Db>) -> serde_json::Value {
-    let title = db.get_setting("reminder_title", "");
-    let body = db.get_setting("reminder_body", "");
+fn get_reminder_text(app: tauri::AppHandle) -> serde_json::Value {
+    let title = plugin_config::get_plugin_config_entry(&app, "rest", "title")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    let body = plugin_config::get_plugin_config_entry(&app, "rest", "body")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
     serde_json::json!({ "title": title, "body": body })
 }
 
 #[tauri::command]
-fn set_reminder_text(title: String, body: String, db: tauri::State<db::Db>) -> Result<(), String> {
-    db.set_setting("reminder_title", &title)
-        .map_err(|e| e.to_string())?;
-    db.set_setting("reminder_body", &body)
-        .map_err(|e| e.to_string())
+fn set_reminder_text(title: String, body: String, app: tauri::AppHandle) -> Result<(), String> {
+    plugin_config::set_plugin_config_entry(&app, "rest", "title".into(), title.into())?;
+    plugin_config::set_plugin_config_entry(&app, "rest", "body".into(), body.into())
 }
 
-// ------------------------------------------------------------------
-// 全屏背景图：保存到磁盘文件，数据库只存路径
 // ------------------------------------------------------------------
 
 /// 解析 data URL，返回 (扩展名, 解码后的二进制数据)
@@ -850,14 +838,10 @@ async fn check_update_and_notify(
 pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
-    let water_state = Arc::new(Mutex::new(WaterReminderState::default()));
     let timer_state = Arc::new(Mutex::new(TimerRuntimeState::default()));
     let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
-    let water_state_clone = water_state.clone();
-    let eye_state = Arc::new(Mutex::new(EyeReminderState::default()));
-    let eye_state_clone = eye_state.clone();
     let timer_state_clone = timer_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));
 
@@ -900,7 +884,7 @@ pub fn run() {
             // External plugins (local app_data_dir/plugins)
             let plugin_mgr = plugins::PluginManager::new();
             let plugin_windows = plugin_window::PluginWindowManager::new();
-            plugins::initial_scan(app.app_handle(), &db, &plugin_mgr);
+            plugins::initial_scan(app.app_handle(), &plugin_mgr);
             app.manage(plugin_mgr.clone());
             app.manage(plugin_windows.clone());
 
@@ -932,8 +916,6 @@ pub fn run() {
             let store: ReminderWindowStore = Arc::new(Mutex::new(HashMap::new()));
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
-            app.manage(water_state_clone.clone());
-            app.manage(eye_state_clone.clone());
             app.manage(timer_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
@@ -978,7 +960,7 @@ pub fn run() {
             reminder_toast::prepare_toast_window(app.app_handle());
 
             // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
-            agent_hook::start_server(app.app_handle().clone(), db.clone());
+            agent_hook::start_server(app.app_handle().clone());
             // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
@@ -999,8 +981,6 @@ pub fn run() {
             let db_clone = db.clone();
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
-            let water_state_for_settle = water_state_clone.clone();
-            let eye_state_for_settle = eye_state_clone.clone();
             let timer_state_for_settle = timer_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
@@ -1067,46 +1047,22 @@ pub fn run() {
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         log_error!("db", "Failed to write to database: {}", e);
                     }
-
-                    let break_m: i64 = db_clone
-                        .get_setting("break_minutes", "5")
-                        .parse()
-                        .unwrap_or(5);
                     let locale = db_clone.get_setting("locale", "zh-CN");
                     rest_plugin::on_minute_settled(
                         active,
                         &app_handle,
                         &reminder_state_for_settle,
                         &locale,
-                        break_m,
                         &db_clone,
                         &store_for_settle,
                         &fullscreen_active_for_settle,
                         &event_bus_for_settle,
                     );
 
-                    // 喝水提醒逻辑（仅在当前分钟活跃时检查）
-                    if active {
-                        water::check_and_notify(
-                            &db_clone,
-                            &water_state_for_settle,
-                            &locale,
-                            &event_bus_for_settle,
-                        );
-
-                        // 护眼提醒逻辑（仅在当前分钟活跃时检查）
-                        eye::check_and_notify(
-                            break_m,
-                            &db_clone,
-                            &eye_state_for_settle,
-                            &locale,
-                            &event_bus_for_settle,
-                        );
-                    }
-
                     // 定时提醒：interval 仅活跃分钟；daily 到点必弹
                     timer_plugin::on_minute_tick(
                         active,
+                        &app_handle,
                         &db_clone,
                         &timer_state_for_settle,
                         &locale,
@@ -1195,12 +1151,6 @@ pub fn run() {
             rest_plugin::test_notification,
             rest_plugin::start_notification_test,
             rest_plugin::stop_notification_test,
-            water::test_water_notification,
-            eye::get_eye_settings,
-            eye::set_eye_settings,
-            eye::test_eye_notification,
-            eye::snooze_eye_reminder,
-            eye::skip_eye_reminder,
             get_media_debug_info,
             get_activity_snapshot,
             rest_plugin::dismiss_rest_timer,
@@ -1213,14 +1163,6 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
-            water::get_water_settings,
-            water::set_water_settings,
-            water::record_water,
-            water::get_water_stats,
-            water::get_water_records,
-            water::delete_last_water,
-            water::snooze_water_reminder,
-            water::skip_water_reminder,
             timer_plugin::get_timer_settings,
             timer_plugin::set_timer_settings,
             timer_plugin::test_timer_notification,
@@ -1258,6 +1200,8 @@ pub fn run() {
             plugin_commands::plugin_publish_event,
             plugin_commands::plugin_report_memory,
             plugin_commands::plugin_get_activity,
+            plugin_commands::plugin_config_get,
+            plugin_commands::plugin_config_set,
             plugin_commands::plugin_storage_get,
             plugin_commands::plugin_storage_set,
             plugin_commands::plugin_log,

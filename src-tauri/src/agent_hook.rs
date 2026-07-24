@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::Manager;
 
-use crate::db::Db;
 use crate::{log_error, log_info};
 
 /// 固定监听端口。
@@ -31,9 +30,51 @@ const KNOWN_EVENTS: &[&str] = &[
 ];
 /// 同会话同事件的去重窗口（仅 auto 模式生效），防止连续触发刷屏。
 const DEDUP_TTL: Duration = Duration::from_secs(8);
-const ENABLED_SETTING_KEY: &str = "agent_notification_enabled";
-const EVENT_MODES_SETTING_KEY: &str = "agent_event_modes";
+const PLUGIN_ID: &str = "agent";
 const HOOK_SCRIPT_MARKER: &str = "catrace-agent-hook";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AgentPluginConfig {
+    #[serde(default = "default_true")]
+    enabled: bool,
+    #[serde(default)]
+    event_modes: HashMap<String, String>,
+    #[serde(default = "default_sound_mode")]
+    sound_mode: String,
+    #[serde(default)]
+    sound_path: String,
+    #[serde(default = "default_sound_volume")]
+    sound_volume: f32,
+}
+fn default_true() -> bool {
+    true
+}
+fn default_sound_mode() -> String {
+    "builtin".into()
+}
+fn default_sound_volume() -> f32 {
+    1.0
+}
+impl Default for AgentPluginConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            event_modes: HashMap::new(),
+            sound_mode: default_sound_mode(),
+            sound_path: String::new(),
+            sound_volume: default_sound_volume(),
+        }
+    }
+}
+fn load_config(app: &tauri::AppHandle) -> AgentPluginConfig {
+    crate::plugin_config::get_plugin_config(app, PLUGIN_ID)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+fn save_config(app: &tauri::AppHandle, config: &AgentPluginConfig) -> Result<(), String> {
+    crate::plugin_config::set_plugin_config(app, PLUGIN_ID, config)
+}
 
 static SERVER_STARTED: AtomicBool = AtomicBool::new(false);
 static SERVER_ENABLED: AtomicBool = AtomicBool::new(true);
@@ -49,7 +90,11 @@ fn debug_log_hit(msg: &str) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
         use std::io::Write;
         let _ = writeln!(f, "[{}] {}", ts, msg);
     }
@@ -127,7 +172,9 @@ fn summarize_transcript(path: &str) -> Option<String> {
         let snippet = match content {
             serde_json::Value::Array(arr) => arr.iter().find_map(|c| {
                 if c.get("type").and_then(|t| t.as_str()) == Some("text") {
-                    c.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                    c.get("text")
+                        .and_then(|t| t.as_str())
+                        .map(|s| s.to_string())
                 } else {
                     None
                 }
@@ -199,15 +246,13 @@ fn truncate_chars(s: &str, max: usize) -> String {
 // ------------------------------------------------------------------
 
 /// 启动 HTTP 服务（整个进程生命周期只启动一次，开关通过 SERVER_ENABLED 控制是否投递）。
-pub fn start_server(app: tauri::AppHandle, db: Db) {
+pub fn start_server(app: tauri::AppHandle) {
     if SERVER_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
-    SERVER_ENABLED.store(db.get_setting(ENABLED_SETTING_KEY, "true") == "true", Ordering::SeqCst);
-    let stored = db.get_setting(EVENT_MODES_SETTING_KEY, "");
-    let parsed: HashMap<String, String> =
-        serde_json::from_str(&stored).unwrap_or_default();
-    *EVENT_MODES.lock().unwrap() = Some(parsed);
+    let config = load_config(&app);
+    SERVER_ENABLED.store(config.enabled, Ordering::SeqCst);
+    *EVENT_MODES.lock().unwrap() = Some(config.event_modes);
 
     thread::spawn(move || {
         let addr = format!("127.0.0.1:{}", AGENT_HOOK_PORT);
@@ -385,7 +430,11 @@ const PERMISSION_AWAIT_TIMEOUT: Duration = Duration::from_secs(540);
 
 /// 阻塞处理一个权限请求：挂起 ~9 分钟，轮询等 UI 决策；超时回 timeout。
 /// 决策通过 `resolve_permission`（UI 按钮 invoke）写入 PENDING_PERMISSIONS。
-fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payload: AgentHookPayload) {
+fn handle_permission(
+    app: &tauri::AppHandle,
+    request: tiny_http::Request,
+    payload: AgentHookPayload,
+) {
     let request_id = PERMISSION_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
     log_info!(
         "agent-hook",
@@ -455,7 +504,12 @@ fn handle_permission(app: &tauri::AppHandle, request: tiny_http::Request, payloa
         thread::sleep(Duration::from_millis(150));
     };
 
-    log_info!("agent-hook", "/permission id={} 决策={}", request_id, decision);
+    log_info!(
+        "agent-hook",
+        "/permission id={} 决策={}",
+        request_id,
+        decision
+    );
 
     // 手写 HTTP 响应（raw writer 上没有 Response 便捷封装）
     // 带 CORS，本地网页测试页才能读到决策 body
@@ -577,24 +631,17 @@ pub fn resolve_permission(request_id: u64, decision: String) -> bool {
 // ------------------------------------------------------------------
 
 #[tauri::command]
-pub fn get_agent_notification_enabled(db: tauri::State<'_, Db>) -> Result<bool, String> {
-    Ok(db.get_setting(ENABLED_SETTING_KEY, "true") == "true")
+pub fn get_agent_notification_enabled(app: tauri::AppHandle) -> Result<bool, String> {
+    Ok(load_config(&app).enabled)
 }
-
 #[tauri::command]
-pub fn set_agent_notification_enabled(
-    db: tauri::State<'_, Db>,
-    enabled: bool,
-) -> Result<(), String> {
-    db.set_setting(ENABLED_SETTING_KEY, if enabled { "true" } else { "false" })
-        .map_err(|e| e.to_string())?;
+pub fn set_agent_notification_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let mut config = load_config(&app);
+    config.enabled = enabled;
+    save_config(&app, &config)?;
     SERVER_ENABLED.store(enabled, Ordering::SeqCst);
     Ok(())
 }
-
-// ------------------------------------------------------------------
-// 每事件显示策略命令
-// ------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AgentEventMode {
@@ -615,7 +662,7 @@ pub fn get_agent_event_modes() -> Vec<AgentEventMode> {
 
 #[tauri::command]
 pub fn set_agent_event_mode(
-    db: tauri::State<'_, Db>,
+    app: tauri::AppHandle,
     event: String,
     mode: String,
 ) -> Result<(), String> {
@@ -628,9 +675,11 @@ pub fn set_agent_event_mode(
     let mut guard = EVENT_MODES.lock().unwrap();
     let map = guard.get_or_insert_with(HashMap::new);
     map.insert(event, mode);
-    let serialized = serde_json::to_string(map).map_err(|e| e.to_string())?;
-    db.set_setting(EVENT_MODES_SETTING_KEY, &serialized)
-        .map_err(|e| e.to_string())
+    let event_modes = map.clone();
+    drop(guard);
+    let mut config = load_config(&app);
+    config.event_modes = event_modes;
+    save_config(&app, &config)
 }
 
 // ------------------------------------------------------------------
@@ -638,9 +687,6 @@ pub fn set_agent_event_mode(
 // ------------------------------------------------------------------
 
 /// 提示音设置 key（存 SQLite，前端用 Store 同步一份用于自定义路径）
-const SOUND_MODE_SETTING_KEY: &str = "agent_sound_mode"; // builtin | custom | muted
-const SOUND_PATH_SETTING_KEY: &str = "agent_sound_path";
-const SOUND_VOLUME_SETTING_KEY: &str = "agent_sound_volume";
 
 #[derive(Debug, Serialize)]
 pub struct AgentSoundSettings {
@@ -649,56 +695,44 @@ pub struct AgentSoundSettings {
     pub volume: f32,
 }
 
-fn parse_volume(s: &str) -> f32 {
-    s.parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0)
-}
-
 #[tauri::command]
-pub fn get_agent_sound_settings(db: tauri::State<'_, Db>) -> AgentSoundSettings {
+pub fn get_agent_sound_settings(app: tauri::AppHandle) -> AgentSoundSettings {
+    let config = load_config(&app);
     AgentSoundSettings {
-        mode: db.get_setting(SOUND_MODE_SETTING_KEY, "builtin"),
-        custom_path: db.get_setting(SOUND_PATH_SETTING_KEY, ""),
-        volume: parse_volume(&db.get_setting(SOUND_VOLUME_SETTING_KEY, "1.0")),
+        mode: config.sound_mode,
+        custom_path: config.sound_path,
+        volume: config.sound_volume.clamp(0.0, 1.0),
     }
 }
-
 #[tauri::command]
 pub fn set_agent_sound_settings(
-    db: tauri::State<'_, Db>,
     mode: String,
     custom_path: String,
     volume: f32,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     if !["builtin", "custom", "muted"].contains(&mode.as_str()) {
-        return Err(format!("未知提示音模式: {}", mode));
+        return Err(format!("???????: {}", mode));
     }
-    let volume = volume.clamp(0.0, 1.0);
-    db.set_setting(SOUND_MODE_SETTING_KEY, &mode)
-        .map_err(|e| e.to_string())?;
-    db.set_setting(SOUND_PATH_SETTING_KEY, &custom_path)
-        .map_err(|e| e.to_string())?;
-    db.set_setting(SOUND_VOLUME_SETTING_KEY, &volume.to_string())
-        .map_err(|e| e.to_string())?;
-
-    // 通知所有 Toast 窗口刷新缓存的提示音 data URL
+    let mut config = load_config(&app);
+    config.sound_mode = mode;
+    config.sound_path = custom_path;
+    config.sound_volume = volume.clamp(0.0, 1.0);
+    save_config(&app, &config)?;
     let _ = app.emit("catrace-agent-sound-changed", ());
     Ok(())
 }
 
-/// 返回提示音的 data URL。
-/// mode=builtin 时把内置 mp3 释放到 app_data_dir/sounds/ 后读回；
-/// mode=custom 时读用户选择的本地文件；muted 或读失败返回 None。
 #[tauri::command]
 pub fn get_agent_sound_data_url(app: tauri::AppHandle) -> Option<String> {
-    let db = app.state::<Db>();
-    let mode = db.get_setting(SOUND_MODE_SETTING_KEY, "builtin");
+    let config = load_config(&app);
+    let mode = config.sound_mode.clone();
     if mode == "muted" {
         return None;
     }
 
     let bytes: Vec<u8> = if mode == "custom" {
-        let path = db.get_setting(SOUND_PATH_SETTING_KEY, "");
+        let path = config.sound_path.clone();
         if path.is_empty() {
             return None;
         }
@@ -719,7 +753,7 @@ pub fn get_agent_sound_data_url(app: tauri::AppHandle) -> Option<String> {
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     // 自定义文件可能是 mp3 也可能是 wav，统一用 mpeg MIME（Audio 宽容处理）
     let mime = if mode == "custom" {
-        let path = db.get_setting(SOUND_PATH_SETTING_KEY, "");
+        let path = config.sound_path.clone();
         if path.to_lowercase().ends_with(".mp3") {
             "audio/mpeg"
         } else if path.to_lowercase().ends_with(".ogg") {
@@ -808,7 +842,9 @@ fn claude_settings_path() -> Result<std::path::PathBuf, String> {
 
 fn read_json_settings(path: &std::path::Path) -> Result<serde_json::Value, String> {
     match std::fs::read_to_string(path) {
-        Ok(s) => serde_json::from_str(&s).map_err(|e| format!("{} 解析失败: {}", path.display(), e)),
+        Ok(s) => {
+            serde_json::from_str(&s).map_err(|e| format!("{} 解析失败: {}", path.display(), e))
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
         Err(e) => Err(e.to_string()),
     }
@@ -819,8 +855,11 @@ fn write_json_settings(path: &std::path::Path, value: &serde_json::Value) -> Res
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     // 原子写入：先写临时文件再 rename
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, serde_json::to_string_pretty(value).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(
+        &tmp,
+        serde_json::to_string_pretty(value).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 
@@ -833,7 +872,9 @@ fn entry_contains_catrace_hook(entry: &serde_json::Value) -> bool {
         .get("hooks")
         .and_then(|h| h.as_array())
         .is_some_and(|hooks| {
-            hooks.iter().any(|h| has_marker(h.get("command").and_then(|c| c.as_str())))
+            hooks
+                .iter()
+                .any(|h| has_marker(h.get("command").and_then(|c| c.as_str())))
         })
 }
 
@@ -1142,7 +1183,9 @@ fn install_claude_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
-        let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
+        let arr = entries
+            .as_array_mut()
+            .ok_or(format!("hooks.{} 不是数组", event))?;
         // 已装：字段级 sync（更新 command/timeout/shell），而非 skip——脚本路径/node 路径变更后不陈旧
         if let Some(entry) = find_catrace_entry_mut(arr) {
             if let Some(hook) = catrace_hook_obj_mut(entry) {
@@ -1154,7 +1197,8 @@ fn install_claude_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
                 let new_cmd = spec.get("command").and_then(|c| c.as_str()).unwrap_or("");
                 // 解析不到 node 绝对路径时，别用裸 node 覆盖已有的绝对路径
                 let should_update_cmd = !existing.is_empty()
-                    && (command_uses_absolute_node(new_cmd) || !command_uses_absolute_node(&existing));
+                    && (command_uses_absolute_node(new_cmd)
+                        || !command_uses_absolute_node(&existing));
                 if should_update_cmd {
                     hook["command"] = spec["command"].clone();
                 }
@@ -1231,7 +1275,9 @@ fn uninstall_json_hooks(settings_path: &std::path::Path) -> Result<serde_json::V
             if let Some(arr) = entries.as_array_mut() {
                 let before = arr.len();
                 // 清 command hook（marker）与 http 权限 hook（url 指向本地 /permission）
-                arr.retain(|e| !entry_contains_catrace_hook(e) && !entry_is_catrace_permission_hook(e));
+                arr.retain(|e| {
+                    !entry_contains_catrace_hook(e) && !entry_is_catrace_permission_hook(e)
+                });
                 removed += before - arr.len();
                 if arr.is_empty() {
                     empty_events.push(event.clone());
@@ -1310,7 +1356,10 @@ fn ensure_codex_hooks_feature() -> Result<(), String> {
         }
         if let Some(eq) = t.find('=') {
             let key = t[..eq].trim();
-            let val = t[eq + 1..].trim().trim_matches('"').eq_ignore_ascii_case("true");
+            let val = t[eq + 1..]
+                .trim()
+                .trim_matches('"')
+                .eq_ignore_ascii_case("true");
             if key == "hooks" {
                 hooks_line = Some(i);
                 hooks_value = Some(val);
@@ -1399,7 +1448,9 @@ fn install_codex_hooks(script_path: &std::path::Path) -> Result<serde_json::Valu
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
-        let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
+        let arr = entries
+            .as_array_mut()
+            .ok_or(format!("hooks.{} 不是数组", event))?;
         if let Some(entry) = find_catrace_entry_mut(arr) {
             if let Some(hook) = catrace_hook_obj_mut(entry) {
                 let new_cmd = spec.get("command").and_then(|c| c.as_str()).unwrap_or("");
@@ -1409,7 +1460,8 @@ fn install_codex_hooks(script_path: &std::path::Path) -> Result<serde_json::Valu
                     .unwrap_or("")
                     .to_string();
                 if !existing.is_empty()
-                    && (command_uses_absolute_node(new_cmd) || !command_uses_absolute_node(&existing))
+                    && (command_uses_absolute_node(new_cmd)
+                        || !command_uses_absolute_node(&existing))
                 {
                     hook["command"] = spec["command"].clone();
                 }
@@ -1477,7 +1529,9 @@ fn install_gemini_hooks(script_path: &std::path::Path) -> Result<serde_json::Val
         let entries = hooks_obj
             .entry(event.to_string())
             .or_insert_with(|| serde_json::json!([]));
-        let arr = entries.as_array_mut().ok_or(format!("hooks.{} 不是数组", event))?;
+        let arr = entries
+            .as_array_mut()
+            .ok_or(format!("hooks.{} 不是数组", event))?;
         if let Some(entry) = find_catrace_entry_mut(arr) {
             if let Some(hook) = catrace_hook_obj_mut(entry) {
                 let existing = hook
@@ -1622,7 +1676,9 @@ fn install_kimi_hooks(script_path: &std::path::Path) -> Result<serde_json::Value
     if installed_targets.is_empty() && synced_targets.is_empty() {
         return Err("未找到 Kimi 配置目录（~/.kimi 或 ~/.kimi-code）".to_string());
     }
-    Ok(serde_json::json!({ "installed_targets": installed_targets, "synced_targets": synced_targets }))
+    Ok(
+        serde_json::json!({ "installed_targets": installed_targets, "synced_targets": synced_targets }),
+    )
 }
 
 fn uninstall_kimi_hooks() -> Result<serde_json::Value, String> {
@@ -1655,7 +1711,10 @@ fn is_kimi_hook_installed() -> bool {
 // ------------------------------------------------------------------
 
 #[tauri::command]
-pub fn install_agent_hooks(app: tauri::AppHandle, agent: String) -> Result<serde_json::Value, String> {
+pub fn install_agent_hooks(
+    app: tauri::AppHandle,
+    agent: String,
+) -> Result<serde_json::Value, String> {
     let script_path = ensure_hook_script(&app)?;
     match agent.as_str() {
         "claude" => install_claude_hooks(&script_path),

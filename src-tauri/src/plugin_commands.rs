@@ -15,7 +15,6 @@ use crate::plugin_window::plugin_id_from_label;
 use crate::plugins::PluginManager;
 use crate::{log_error, log_info, log_warn, ActivityState};
 
-const STORAGE_KEY_PREFIX: &str = "plugin_storage:";
 const RESOURCE_ACTIVITY_WINDOW: Duration = Duration::from_secs(60);
 const EVENT_COUNT_WARNING_THRESHOLD: usize = 60;
 const MEMORY_USAGE_WARNING_THRESHOLD: usize = 128 * 1024 * 1024;
@@ -325,6 +324,29 @@ pub fn plugin_get_activity(
 }
 
 #[tauri::command]
+pub fn plugin_config_get(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    key: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let id = require_enabled_plugin(&window, &plugins)?;
+    validate_storage_key(&key)?;
+    crate::plugin_config::get_plugin_config_entry(window.app_handle(), &id, &key)
+}
+
+#[tauri::command]
+pub fn plugin_config_set(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    key: String,
+    value: serde_json::Value,
+) -> Result<(), String> {
+    let id = require_enabled_plugin(&window, &plugins)?;
+    validate_storage_key(&key)?;
+    crate::plugin_config::set_plugin_config_entry(window.app_handle(), &id, key, value)
+}
+
+#[tauri::command]
 pub fn plugin_storage_get(
     window: tauri::WebviewWindow,
     plugins: State<'_, PluginManager>,
@@ -333,10 +355,12 @@ pub fn plugin_storage_get(
 ) -> Result<Option<serde_json::Value>, String> {
     let id = require_enabled_plugin(&window, &plugins)?;
     validate_storage_key(&key)?;
-    let value = db.get_setting(&storage_key(&id, &key), "");
-    if value.is_empty() {
+    let Some(value) = db
+        .get_plugin_storage(&id, &key)
+        .map_err(|e| e.to_string())?
+    else {
         return Ok(None);
-    }
+    };
     serde_json::from_str(&value)
         .map(Some)
         .map_err(|e| format!("invalid stored JSON: {e}"))
@@ -353,7 +377,7 @@ pub fn plugin_storage_set(
     let id = require_enabled_plugin(&window, &plugins)?;
     validate_storage_key(&key)?;
     let json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
-    db.set_setting(&storage_key(&id, &key), &json)
+    db.set_plugin_storage(&id, &key, &json)
         .map_err(|e| e.to_string())?;
     record_storage_activity(window.app_handle(), &plugins, &id, json.len());
     Ok(())
@@ -407,17 +431,13 @@ fn validate_storage_key(key: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn storage_key(id: &str, key: &str) -> String {
-    format!("{STORAGE_KEY_PREFIX}{id}:{key}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
-        require_plugin_card_caller, require_plugin_event, storage_key, validate_storage_key,
-        AnomalyReason, PluginResourceActivity, EVENT_COUNT_WARNING_THRESHOLD,
-        LARGE_DATA_WARNING_THRESHOLD, MEMORY_SAMPLE_WARNING_THRESHOLD,
-        MEMORY_USAGE_WARNING_THRESHOLD, RESOURCE_WARNING_INTERVAL, STORAGE_BYTES_WARNING_THRESHOLD,
+        require_plugin_card_caller, require_plugin_event, validate_storage_key, AnomalyReason,
+        PluginResourceActivity, EVENT_COUNT_WARNING_THRESHOLD, LARGE_DATA_WARNING_THRESHOLD,
+        MEMORY_SAMPLE_WARNING_THRESHOLD, MEMORY_USAGE_WARNING_THRESHOLD, RESOURCE_WARNING_INTERVAL,
+        STORAGE_BYTES_WARNING_THRESHOLD,
     };
     use crate::event::{BusEvent, EventSource};
     use std::time::Instant;
@@ -527,13 +547,5 @@ mod tests {
         assert!(validate_storage_key("").is_err());
         assert!(validate_storage_key("nested:key").is_err());
         assert!(validate_storage_key(&"a".repeat(1024)).is_ok());
-    }
-
-    #[test]
-    fn namespaces_storage_by_plugin_id() {
-        assert_eq!(
-            storage_key("demo-timer", "tickCount"),
-            "plugin_storage:demo-timer:tickCount"
-        );
     }
 }

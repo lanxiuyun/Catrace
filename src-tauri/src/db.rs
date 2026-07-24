@@ -51,8 +51,11 @@ impl Db {
             [],
         )?;
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS water_records (
-                timestamp INTEGER PRIMARY KEY
+            "CREATE TABLE IF NOT EXISTS plugin_storage (
+                plugin_id TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (plugin_id, key)
             )",
             [],
         )?;
@@ -268,60 +271,25 @@ impl Db {
     // ------------------------------------------------------------------
     // 喝水记录
     // ------------------------------------------------------------------
+    // Plugin runtime state / persistent business data
+    // ------------------------------------------------------------------
 
-    pub fn record_water(&self, timestamp: i64) -> Result<()> {
+    pub fn get_plugin_storage(&self, plugin_id: &str, key: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt =
+            conn.prepare("SELECT value FROM plugin_storage WHERE plugin_id = ?1 AND key = ?2")?;
+        let mut rows = stmt.query([plugin_id, key])?;
+        Ok(rows.next()?.map(|row| row.get(0)).transpose()?)
+    }
+
+    pub fn set_plugin_storage(&self, plugin_id: &str, key: &str, value: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT OR IGNORE INTO water_records (timestamp) VALUES (?1)",
-            [timestamp],
+            "INSERT INTO plugin_storage (plugin_id, key, value) VALUES (?1, ?2, ?3)
+             ON CONFLICT(plugin_id, key) DO UPDATE SET value = excluded.value",
+            [plugin_id, key, value],
         )?;
         Ok(())
-    }
-
-    pub fn get_last_water(&self) -> Option<i64> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = match conn
-            .prepare("SELECT timestamp FROM water_records ORDER BY timestamp DESC LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return None,
-        };
-        let mut rows = match stmt.query([]) {
-            Ok(r) => r,
-            Err(_) => return None,
-        };
-        rows.next().ok().flatten().and_then(|row| row.get(0).ok())
-    }
-
-    pub fn get_today_water_count(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM water_records WHERE timestamp >= ?1",
-            [start_of_day],
-            |row| row.get(0),
-        )?;
-        Ok(count)
-    }
-
-    pub fn get_today_water_records(&self) -> Result<Vec<i64>> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let mut stmt = conn.prepare(
-            "SELECT timestamp FROM water_records WHERE timestamp >= ?1 ORDER BY timestamp ASC",
-        )?;
-        let rows = stmt.query_map([start_of_day], |row| row.get::<_, i64>(0))?;
-        rows.collect::<Result<Vec<_>>>()
-    }
-
-    pub fn delete_last_water(&self) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let deleted = conn.execute(
-            "DELETE FROM water_records WHERE timestamp = (SELECT MAX(timestamp) FROM water_records WHERE timestamp >= ?1)",
-            [start_of_day],
-        )?;
-        Ok(deleted > 0)
     }
 
     /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
@@ -584,6 +552,25 @@ fn compute_completed_blocks(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugin_storage_is_isolated_by_plugin_and_key() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        db.set_plugin_storage("alpha", "state", "{\"value\":1}")
+            .unwrap();
+        db.set_plugin_storage("beta", "state", "{\"value\":2}")
+            .unwrap();
+
+        assert_eq!(
+            db.get_plugin_storage("alpha", "state").unwrap().as_deref(),
+            Some("{\"value\":1}")
+        );
+        assert_eq!(
+            db.get_plugin_storage("beta", "state").unwrap().as_deref(),
+            Some("{\"value\":2}")
+        );
+        assert_eq!(db.get_plugin_storage("alpha", "missing").unwrap(), None);
+    }
 
     #[test]
     fn test_notify_after_active_block_completes() {
@@ -928,47 +915,5 @@ mod tests {
         }
         // 本次只休息 5 分钟，结束于 base + 29*60
         assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 29 * 60));
-    }
-
-    #[test]
-    fn test_water_records() {
-        let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = start_of_day_ts();
-
-        assert_eq!(db.get_last_water(), None);
-        assert_eq!(db.get_today_water_count().unwrap(), 0);
-
-        db.record_water(base + 60).unwrap();
-        assert_eq!(db.get_last_water(), Some(base + 60));
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        // 同分钟去重
-        db.record_water(base + 60).unwrap();
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        db.record_water(base + 120).unwrap();
-        assert_eq!(db.get_last_water(), Some(base + 120));
-        assert_eq!(db.get_today_water_count().unwrap(), 2);
-
-        let records = db.get_today_water_records().unwrap();
-        assert_eq!(records, vec![base + 60, base + 120]);
-
-        // 昨天的记录不应出现在今日列表中
-        db.record_water(base - 86400).unwrap();
-        let records = db.get_today_water_records().unwrap();
-        assert_eq!(records, vec![base + 60, base + 120]);
-
-        // 删除最近一次应只删今天的，不影响昨天记录
-        assert!(db.delete_last_water().unwrap());
-        assert_eq!(db.get_last_water(), Some(base + 60));
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        // 删除 today's 最后一条后再删应返回 false
-        assert!(db.delete_last_water().unwrap());
-        assert!(!db.delete_last_water().unwrap());
-        assert_eq!(db.get_today_water_count().unwrap(), 0);
-
-        // 昨天的记录仍在
-        assert_eq!(db.get_last_water(), Some(base - 86400));
     }
 }

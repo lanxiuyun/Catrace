@@ -188,6 +188,7 @@ architecture:
       - .agent/architecture/desktop-event-os/m10-external-plugins.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
+      - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
       - .agent/architecture/desktop-event-os/toast-card-split-and-dismiss-agent-session-emit.md
@@ -247,6 +248,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-24-插件配置迁移到Store并拆分运行数据.md
   - .agent/devlog/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
   - .agent/devlog/2026-07-24-step3-M11.1-启用即信任与异常插件观测落地.md
   - .agent/devlog/2026-07-23-step3-插件权限模型改为启用即信任.md

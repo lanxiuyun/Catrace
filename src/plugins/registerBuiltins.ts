@@ -2,8 +2,6 @@
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
 import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
-import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
-import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
 import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
 
 /**
@@ -40,25 +38,6 @@ export function registerBuiltinPlugins() {
       settingsKey: 'timer',
       settingsSurface: 'plugins',
       SettingsComponent: TimerPluginPanel,
-    },
-    {
-      name: 'water',
-      displayName: '喝水提醒',
-      description: '定时喝水提醒',
-      events: ['reminder.water.due', 'kind:water'],
-      settingsKey: 'water',
-      // Backend force-off; UI restore deferred with plugin work.
-      settingsSurface: 'none',
-      SettingsComponent: WaterSettingsCard,
-    },
-    {
-      name: 'eye',
-      displayName: '护眼提醒',
-      description: '定时护眼提醒',
-      events: ['reminder.eye.due', 'kind:eye'],
-      settingsKey: 'eye',
-      settingsSurface: 'none',
-      SettingsComponent: EyeSettingsCard,
     },
     {
       name: 'agent',
