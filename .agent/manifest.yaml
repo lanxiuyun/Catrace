@@ -209,6 +209,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
   - .agent/decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md
   - .agent/decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md
   - .agent/decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md
@@ -244,6 +245,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
   - .agent/devlog/2026-07-24-step3-M11.1-启用即信任与异常插件观测落地.md
   - .agent/devlog/2026-07-23-step3-插件权限模型改为启用即信任.md
   - .agent/devlog/2026-07-23-step3-M11-插件后台窗口与最小宿主能力落地.md
@@ -280,4 +282,4 @@ devlog:
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
   phase: Step3 M11.1 complete; trusted local plugin boundaries and memory/disk/large-data/event anomaly observation implemented
-  next: begin M12 with structured plugin_open and fixed protocol/target boundaries
+  next: choose the next concrete plugin; add only the minimum host capabilities required by that plugin
