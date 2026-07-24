@@ -304,6 +304,8 @@ export default {
     minute: 'min',
     hours: 'hr',
     hour: 'hr',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
   },
   reminder: {
     snooze5: '5 min',

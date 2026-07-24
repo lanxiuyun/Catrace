@@ -140,7 +140,6 @@ async function sendTest() {
       </div>
 
       <div class="master-switch">
-        <span class="master-label">{{ t('plugins.rest.pluginStatus') }}</span>
         <n-switch
           :value="config.enabled"
           :loading="enabledLoading"
@@ -254,10 +253,10 @@ async function sendTest() {
 
 .panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: none;
   padding: 1rem 1.5rem;
   background: #fff;
@@ -316,6 +315,9 @@ async function sendTest() {
   font-weight: 700;
   color: #1e1b4b;
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-subtitle {
@@ -323,6 +325,9 @@ async function sendTest() {
   font-size: 0.8125rem;
   color: #64748b;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-actions {
@@ -340,12 +345,15 @@ async function sendTest() {
   background: #f1f5f9;
   border: 0.0625rem solid #e2e8f0;
   border-radius: 0.625rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .master-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: #64748b;
+  white-space: nowrap;
 }
 
 .panel-section {

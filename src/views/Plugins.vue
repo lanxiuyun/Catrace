@@ -406,7 +406,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
               </div>
             </div>
             <div class="master-switch" :class="{ busy: toggleBusy === selectedExternal.id }">
-              <span class="master-label">{{ t('plugins.timer.pluginStatus') }}</span>
               <label class="switch">
                 <input
                   type="checkbox"
@@ -857,10 +856,10 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .ext-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: none;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #e2e8f0;
@@ -871,6 +870,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   display: flex;
   align-items: center;
   gap: 0.875rem;
+  min-width: 0;
 }
 
 .ext-icon {
@@ -889,6 +889,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .ext-title {
@@ -896,12 +897,18 @@ async function onTestExternal(p: ExternalPluginInfo) {
   font-size: 1.25rem;
   font-weight: 700;
   color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ext-meta {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
   color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .master-switch {
@@ -912,6 +919,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: #f1f5f9;
   border: 0.0625rem solid #e2e8f0;
   border-radius: 0.625rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .master-switch.busy {
@@ -922,6 +931,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   font-size: 0.75rem;
   font-weight: 600;
   color: #64748b;
+  white-space: nowrap;
 }
 
 .external-body {

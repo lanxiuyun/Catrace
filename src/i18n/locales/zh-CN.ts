@@ -304,6 +304,8 @@ export default {
     minute: '分钟',
     hours: '小时',
     hour: '小时',
+    enabled: '已启用',
+    disabled: '已禁用',
   },
   reminder: {
     snooze5: '稍后5分钟',
