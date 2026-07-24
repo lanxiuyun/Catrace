@@ -20,6 +20,8 @@ const message = useMessage()
 const MAX_RULES = 20
 const MAX_DAILY_TIMES = 8
 
+let enabledChangePending = false
+
 function newRuleId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
@@ -67,8 +69,17 @@ const { value: settings, loading } = useAutoSavedSetting<TimerSettings>({
     await setTimerSettings(v)
   },
   debounce: 500,
-  onSuccess: () => message.success(t('settings.messages.saved')),
-  onError: () => message.error(t('settings.messages.saveFailed')),
+  onSuccess: () => {
+    message.success(t('settings.messages.saved'))
+    if (enabledChangePending) {
+      enabledChangePending = false
+      window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
+    }
+  },
+  onError: () => {
+    enabledChangePending = false
+    message.error(t('settings.messages.saveFailed'))
+  },
 })
 
 const draftTime = ref('')
@@ -166,10 +177,10 @@ function patchSettings(mutator: (s: TimerSettings) => void) {
 }
 
 function setEnabled(v: boolean) {
+  enabledChangePending = true
   patchSettings((s) => {
     s.enabled = v
   })
-  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
 }
 
 type RuleIcon = 'water' | 'eye' | 'stand' | 'work' | 'default'

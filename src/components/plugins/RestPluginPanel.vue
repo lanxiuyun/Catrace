@@ -43,6 +43,9 @@ const { value: uiEnabled } = useAutoSavedSetting<boolean>({
     await s.set(STORE_KEY, v)
   },
   debounce: 0,
+  onSuccess: () => {
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
+  },
 })
 
 const { value: config, loading: configLoading } = useAutoSavedSetting<AppConfig>({
@@ -111,7 +114,6 @@ const testing = ref(false)
 
 function handleEnabledChange(value: boolean) {
   uiEnabled.value = value
-  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed'))
 }
 
 async function sendTest() {

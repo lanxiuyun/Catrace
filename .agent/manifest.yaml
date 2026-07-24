@@ -4,6 +4,7 @@ features:
       - .agent/features/plugin-center/README.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
+      - .agent/features/plugin-center/插件开关必须在持久化成功后再刷新列表.md
     related:
       - app-shell
       - settings
@@ -223,6 +224,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
   - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
   - .agent/bugs/2026-07-23-单张-toast-自动滚到底导致顶部标题和圆角被裁切.md
   - .agent/bugs/2026-07-21-插件测试连点卡死-toast-supersede卸载与blob重挂载.md
