@@ -1,10 +1,12 @@
-﻿# 插件中心
+# 插件中心
 
-插件页面提供左侧插件导航、启用状态排序，以及右侧统一的插件详情面板结构。
+插件页面提供左侧插件导航、启用状态排序，以及右侧统一的插件详情面板结构。本轮回合将面板 header、左侧导航栏抽离为可复用组件，并统一外部插件详情页布局。
 
 ## Files involved
 
-- `src/views/Plugins.vue` — 左侧插件中心、搜索、状态读取、排序和实时刷新。
+- `src/views/Plugins.vue` — 插件中心容器：组合导航、内置/外部插件详情、测试通知。
+- `src/components/plugins/PluginNavRail.vue` — 左侧插件导航栏组件（搜索、列表、刷新、打开目录）。
+- `src/components/plugins/PluginPanelHeader.vue` — 插件详情页统一 header 组件（图标 + 标题/副标题 + 开关）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐提醒插件详情面板。
 - `src/components/plugins/TimerPluginPanel.vue` — 定时提醒插件详情面板。
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 通知插件详情面板。
@@ -12,8 +14,9 @@
 - `src-tauri/src/plugin_commands.rs` — 按插件观测事件、Storage 写入和内存活动。
 - `src-tauri/src/plugins.rs` — 保存本次运行中的异常状态。
 
-## Sub-docs
+## Sub-documents
 
 - [插件状态排序和统一详情顶栏实现约定.md](插件状态排序和统一详情顶栏实现约定.md) — 状态来源、排序规则和面板边界。
 - [插件异常标签如何判定和保持不拦截.md](插件异常标签如何判定和保持不拦截.md) — 资源活动判定、实时 Tag 数据流和“不限流、不丢弃”约定。
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 避免详情开关已变化但列表读取到旧状态的事件时序约定。
+- [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — 本轮 header / nav-rail 抽离细节与外部插件占位布局。

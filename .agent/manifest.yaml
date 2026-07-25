@@ -5,6 +5,7 @@ features:
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
       - .agent/features/plugin-center/插件开关必须在持久化成功后再刷新列表.md
+      - .agent/features/plugin-center/插件面板和导航栏组件化拆分.md
     related:
       - app-shell
       - settings
@@ -248,6 +249,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
   - .agent/devlog/2026-07-24-插件详情顶栏去掉状态文字只保留开关.md
   - .agent/devlog/2026-07-24-插件配置迁移到Store并拆分运行数据.md
   - .agent/devlog/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
@@ -286,5 +288,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 M11.1 complete; plugin detail header simplified to switch-only; temporary Playwright test folder established
-  next: choose the next concrete plugin; add only the minimum host capabilities required by that plugin
+  phase: Step3 plugin UI refactor; panel header and left nav rail extracted into shared components; external plugin detail uses unified header + placeholder content
+  next: wire external plugin settings panel via manifest/Rust/iframe or dynamic component
