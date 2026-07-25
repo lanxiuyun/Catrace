@@ -3,13 +3,13 @@ import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
-import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
-import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
-import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
-import PluginPanelHeader from '../components/plugins/PluginPanelHeader.vue'
-import PluginNavRail, { type PluginNavItem } from '../components/plugins/PluginNavRail.vue'
-import OverlayScrollbar from '../components/OverlayScrollbar.vue'
-import { usePluginRegistry } from '../stores/pluginRegistry'
+import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
+import TimerPluginPanel from '../../components/plugins/TimerPluginPanel.vue'
+import AgentPluginPanel from '../../components/plugins/AgentPluginPanel.vue'
+import PluginPanelHeader from '../../components/plugins/PluginPanelHeader.vue'
+import PluginNavRail, { type PluginNavItem } from '../../components/plugins/PluginNavRail.vue'
+import OverlayScrollbar from '../../components/OverlayScrollbar.vue'
+import { usePluginRegistry } from '../../stores/pluginRegistry'
 import {
   listExternalPlugins,
   setExternalPluginEnabled,
@@ -18,8 +18,8 @@ import {
   getTimerSettings,
   getAgentNotificationEnabled,
   type ExternalPluginInfo,
-} from '../api/tauri'
-import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
+} from '../../api/tauri'
+import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
 const pluginRegistry = usePluginRegistry()

@@ -9,7 +9,7 @@ import {
   setFullscreenSettings,
   DEFAULT_ELEMENT_TRANSFORMS,
   type ElementTransforms,
-} from '../api/tauri'
+} from '../../api/tauri'
 
 const { t } = useI18n()
 

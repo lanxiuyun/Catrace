@@ -26,8 +26,8 @@ import {
   getSignalRuntimeConfig,
   type SignalMinuteRecord,
   type SignalRuntimeConfig,
-} from '../api/tauri'
-import EventSdkSettingsCard from '../components/settings/EventSdkSettingsCard.vue'
+} from '../../api/tauri'
+import EventSdkSettingsCard from '../../components/settings/EventSdkSettingsCard.vue'
 
 const { t } = useI18n()
 

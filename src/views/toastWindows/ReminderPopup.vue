@@ -9,7 +9,7 @@ import {
   skipReminder,
   setWindowActiveMode,
   closeReminderWindow,
-} from '../api/tauri'
+} from '../../api/tauri'
 
 useI18n()
 

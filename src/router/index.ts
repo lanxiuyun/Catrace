@@ -1,25 +1,39 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Dashboard from '../views/Dashboard.vue'
-import Plugins from '../views/Plugins.vue'
-import Settings from '../views/Settings.vue'
-import Debug from '../views/Debug.vue'
-import ReminderPopup from '../views/ReminderPopup.vue'
-import ReminderFullscreen from '../views/ReminderFullscreen.vue'
-import ReminderToast from '../views/ReminderToast.vue'
-import PluginHost from '../views/PluginHost.vue'
+import MainShell from '../views/mainWindow/MainShell.vue'
+import ToastShell from '../views/toastWindows/ToastShell.vue'
+import Dashboard from '../views/mainWindow/Dashboard.vue'
+import Plugins from '../views/mainWindow/Plugins.vue'
+import Settings from '../views/mainWindow/Settings.vue'
+import Debug from '../views/mainWindow/Debug.vue'
+import ReminderPopup from '../views/toastWindows/ReminderPopup.vue'
+import ReminderFullscreen from '../views/toastWindows/ReminderFullscreen.vue'
+import ReminderToast from '../views/toastWindows/ReminderToast.vue'
+import PluginHost from '../views/toastWindows/PluginHost.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', redirect: '/dashboard' },
-    { path: '/dashboard', component: Dashboard },
-    { path: '/plugins', component: Plugins },
-    { path: '/settings', component: Settings },
-    { path: '/debug', component: Debug },
-    { path: '/reminder-popup', component: ReminderPopup },
-    { path: '/reminder-fullscreen', component: ReminderFullscreen },
-    { path: '/reminder-toast', component: ReminderToast },
-    { path: '/plugin-host', component: PluginHost },
+    {
+      path: '/',
+      component: MainShell,
+      children: [
+        { path: '', redirect: '/dashboard' },
+        { path: 'dashboard', component: Dashboard },
+        { path: 'plugins', component: Plugins },
+        { path: 'settings', component: Settings },
+        { path: 'debug', component: Debug },
+      ],
+    },
+    {
+      path: '/',
+      component: ToastShell,
+      children: [
+        { path: 'reminder-popup', component: ReminderPopup },
+        { path: 'reminder-fullscreen', component: ReminderFullscreen },
+        { path: 'reminder-toast', component: ReminderToast },
+        { path: 'plugin-host', component: PluginHost },
+      ],
+    },
   ],
 })
 

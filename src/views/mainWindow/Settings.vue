@@ -4,11 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import Sortable from 'sortablejs'
-import MediaSettingsCard from '../components/settings/MediaSettingsCard.vue'
-import SystemSettingsCard from '../components/settings/SystemSettingsCard.vue'
-import LinksSettingsCard from '../components/settings/LinksSettingsCard.vue'
-import SignalSettingsCard from '../components/settings/SignalSettingsCard.vue'
-import { usePluginRegistry } from '../stores/pluginRegistry'
+import MediaSettingsCard from '../../components/settings/MediaSettingsCard.vue'
+import SystemSettingsCard from '../../components/settings/SystemSettingsCard.vue'
+import LinksSettingsCard from '../../components/settings/LinksSettingsCard.vue'
+import SignalSettingsCard from '../../components/settings/SignalSettingsCard.vue'
+import { usePluginRegistry } from '../../stores/pluginRegistry'
 
 const { t } = useI18n()
 const message = useMessage()

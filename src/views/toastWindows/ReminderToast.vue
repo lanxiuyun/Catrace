@@ -25,18 +25,18 @@ import {
   resolveEvent,
   resolveEventAction,
   getActiveEvents,
-} from '../api/tauri'
-import type { BusEvent } from '../types/event'
-import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
-import PermissionToastCard, { type PermissionItem } from '../components/PermissionToastCard.vue'
-import RestToastCard from '../components/RestToastCard.vue'
-import UpdateToastCard from '../components/UpdateToastCard.vue'
-import RestTimerToastCard from '../components/RestTimerToastCard.vue'
-import SdkToastCard from '../components/SdkToastCard.vue'
-import PluginHostCard from '../components/PluginHostCard.vue'
-import type { EventAction, EventLevel, EventProgress } from '../types/event'
-import { usePluginRegistry } from '../stores/pluginRegistry'
-import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
+} from '../../api/tauri'
+import type { BusEvent } from '../../types/event'
+import AgentToastCard, { type AgentEntry } from '../../components/AgentToastCard.vue'
+import PermissionToastCard, { type PermissionItem } from '../../components/PermissionToastCard.vue'
+import RestToastCard from '../../components/RestToastCard.vue'
+import UpdateToastCard from '../../components/UpdateToastCard.vue'
+import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
+import SdkToastCard from '../../components/SdkToastCard.vue'
+import PluginHostCard from '../../components/PluginHostCard.vue'
+import type { EventAction, EventLevel, EventProgress } from '../../types/event'
+import { usePluginRegistry } from '../../stores/pluginRegistry'
+import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
 const pluginRegistry = usePluginRegistry()

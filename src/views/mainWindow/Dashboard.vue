@@ -2,11 +2,11 @@
 import { ref, onActivated, onDeactivated, computed } from "vue";
 import { useI18n } from 'vue-i18n'
 import { NCard, NRadioGroup, NRadioButton, NSwitch } from "naive-ui";
-import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../api/tauri";
-import Timeline from "../components/Timeline.vue";
-import TimelineWindows from "../components/TimelineWindows.vue";
-import type { MinuteData } from "../components/Timeline.vue";
-import { computeTimeBlocks } from "../utils/timeBlocks";
+import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../../api/tauri";
+import Timeline from "../../components/Timeline.vue";
+import TimelineWindows from "../../components/TimelineWindows.vue";
+import type { MinuteData } from "../../components/Timeline.vue";
+import { computeTimeBlocks } from "../../utils/timeBlocks";
 
 const { t, locale } = useI18n()
 
