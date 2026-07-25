@@ -16,7 +16,7 @@
 | 层 | 职责 |
 |----|------|
 | `App.vue` | `NConfigProvider` / message / dialog + 全局 `html/body/#app` 与 user-select |
-| `MainShell.vue` | 主窗 chrome：header、nav、`OverlayScrollbar`、`KeepAlive` 子路由 |
+| `MainShell.vue` | 主窗 chrome：header、nav、`n-scrollbar`、`KeepAlive` 子路由 |
 | `ToastShell.vue` | 独立窗 chrome：子路由 + `reminder-transparent` |
 | `router/index.ts` | 两套 parent `path: '/'` + 各自 children，决定挂哪套壳 |
 
@@ -55,7 +55,7 @@ src/views/toastWindows/   # 独立窗页面 + ToastShell
 
 1. **显示哪个 view 由 router 决定**，不要在 Shell 或 App 里再手写 path → 组件映射（`ToastShell` 只根据 path 切透明背景 class，不选组件）。
 2. 主窗页面默认进 `KeepAlive`；独立窗不进。
-3. Toast / fullscreen / popup / plugin-host **禁止**挂 `.app-shell` 或 `OverlayScrollbar`（尺寸测量与透明窗）。
+3. Toast / fullscreen / popup / plugin-host **禁止**挂 `.app-shell` 或主窗 `n-scrollbar`（尺寸测量与透明窗）。
 4. 两个 parent 都用 `path: '/'` + 相对 children path 是刻意写法：hash 路由下与历史绝对 path（`/dashboard`、`/reminder-toast`）兼容，且互不嵌套。
 
 ## 加页面 checklist

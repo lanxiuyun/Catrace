@@ -148,7 +148,6 @@ architecture:
     docs:
       - .agent/architecture/app-shell/README.md
       - .agent/architecture/app-shell/主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md
-      - .agent/architecture/app-shell/覆盖式滚动条不能影响-Toast-窗口尺寸测量.md
       - .agent/architecture/app-shell/插件页左侧插件中心与右侧固定顶栏的布局约定.md
     related:
       - project-structure
