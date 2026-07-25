@@ -14,8 +14,8 @@
 - `src-tauri/src/event.rs` — `EventSource::Sdk`
 - `src/components/SdkToastCard.vue` — 通用 sdk Toast 卡
 - `src/components/settings/EventSdkSettingsCard.vue` — **调试页** n-card（开关/token/轮换）
-- `src/views/Debug.vue` — 挂载 Event SDK 卡
-- `src/views/ReminderToast.vue` — `kind: sdk` 监听、原地更新、action resolve
+- `src/views/mainWindow/Debug.vue` — 挂载 Event SDK 卡
+- `src/views/toastWindows/ReminderToast.vue` — `kind: sdk` 监听、原地更新、action resolve
 - `src/api/tauri.ts` — `getEventSdkStatus` / `setEventSdkEnabled` / `rotateEventSdkToken`
 - `tools/event-sdk/` — demo kit（README、publish/progress 脚本）
 

@@ -147,12 +147,14 @@ architecture:
   app-shell:
     docs:
       - .agent/architecture/app-shell/README.md
+      - .agent/architecture/app-shell/主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md
       - .agent/architecture/app-shell/覆盖式滚动条不能影响-Toast-窗口尺寸测量.md
       - .agent/architecture/app-shell/插件页左侧插件中心与右侧固定顶栏的布局约定.md
     related:
       - project-structure
       - dashboard
       - toast-window
+      - plugin-center
   window-manager:
     docs:
       - .agent/features/window-manager/README.md
@@ -249,6 +251,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
   - .agent/devlog/2026-07-24-插件详情顶栏去掉状态文字只保留开关.md
   - .agent/devlog/2026-07-24-插件配置迁移到Store并拆分运行数据.md
@@ -288,5 +291,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 plugin UI refactor; panel header and left nav rail extracted into shared components; external plugin detail uses unified header + placeholder content
+  phase: Step3 plugin UI refactor; views split into mainWindow/toastWindows with nested MainShell/ToastShell; App.vue no longer path-branches
   next: wire external plugin settings panel via manifest/Rust/iframe or dynamic component

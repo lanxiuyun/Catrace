@@ -8,7 +8,7 @@
 - `src-tauri/src/lib.rs` — 每分钟活跃结算时调用 `eye::check_and_notify()`；注册 `snooze_eye_reminder` / `skip_eye_reminder` 命令
 - `src/components/EyeToastCard.vue` — 护眼提醒专用 Toast 卡片（标题 + 倒计时 + 进度条 + 绿色正文 + 稍后/跳过按钮）
 - `src/components/settings/EyeSettingsCard.vue` — 设置页护眼提醒卡片
-- `src/views/ReminderToast.vue` — 通用 Toast 堆叠容器，调度 `EyeToastCard`；通用 body 渲染已排除 `eye`（正文由卡片自渲染）
+- `src/views/toastWindows/ReminderToast.vue` — 通用 Toast 堆叠容器，调度 `EyeToastCard`；通用 body 渲染已排除 `eye`（正文由卡片自渲染）
 - `src/api/tauri.ts` — 前端 API 封装
 - `src/i18n/locales/zh-CN.ts` / `en-US.ts` — 中英文字符串（按钮文案复用 `reminder.snooze5` / `reminder.skip`）
 

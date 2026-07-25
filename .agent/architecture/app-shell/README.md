@@ -1,47 +1,67 @@
 # 普通应用外壳
 
-Catrace 普通页面统一使用顶部导航和覆盖式滚动容器；Reminder 系列窗口继续使用独立渲染路径。
+Catrace 前端按 **窗口职责** 拆成两套壳：主窗口 `MainShell` 与 Toast/提醒窗口 `ToastShell`。路由决定挂哪套壳；`App.vue` 只提供 naive-ui / 全局样式，不再按 path 分支。
 
 ## Component / module hierarchy
 
 ```text
-App.vue
-├── ReminderPopup / ReminderFullscreen / ReminderToast（特殊路由，绕过 app-shell）
-└── app-shell（普通路由）
-    ├── global-header（品牌、版本、一级导航）
-    └── OverlayScrollbar
-        └── RouterView + KeepAlive
-            └── Plugins.vue
-                ├── plugin-rail（标题、搜索、插件列表）+ OverlayScrollbar
-                └── plugin-main
-                    └── 插件 Panel（固定顶栏 + OverlayScrollbar 内容区）
+App.vue                          # NConfigProvider + RouterView + 全局 html/body 样式
+└── router（nested）
+    ├── MainShell.vue            # /dashboard /plugins /settings /debug
+    │   ├── global-header
+    │   └── OverlayScrollbar
+    │       └── RouterView + KeepAlive
+    │           ├── Dashboard.vue
+    │           ├── Plugins.vue
+    │           │   ├── PluginNavRail + OverlayScrollbar
+    │           │   └── plugin-main（固定顶栏 Panel + OverlayScrollbar）
+    │           ├── Settings.vue
+    │           └── Debug.vue
+    └── ToastShell.vue           # /reminder-* /plugin-host
+        └── RouterView（无 KeepAlive、无 app-shell）
+            ├── ReminderPopup.vue
+            ├── ReminderFullscreen.vue
+            ├── ReminderToast.vue
+            └── PluginHost.vue
+```
+
+目录：
+
+```text
+src/views/
+  mainWindow/     MainShell + 主窗口页面
+  toastWindows/   ToastShell + 独立窗口页面
 ```
 
 ## Data flow
 
-- `App.vue` 根据路由区分 Reminder 窗口与普通页面。
-- 普通路由在 `app-shell` 中渲染，一级导航使用 `RouterLink` 的 active 状态。
-- `OverlayScrollbar` 隐藏原生滚动条，根据 viewport/content 尺寸计算覆盖式滑块；内容与容器变化通过 `ResizeObserver` 和 `MutationObserver` 触发更新。
-- 插件页自身管理二级栏和详情区滚动，外层主滚动容器不会替代这两个局部滚动区域。
+- 路由 nested：父组件是 Shell，子组件是具体页面；**不再**在 `App.vue` 用 `v-if` 手选组件。
+- 主窗口一级导航用 `RouterLink` active 状态。
+- `ToastShell` 监听 fullscreen / toast 路由，给 `html` 打 `reminder-transparent`，保证透明窗背景。
+- `OverlayScrollbar` 只挂在主窗口壳与插件页局部滚动区，不进 Toast 路径。
 
 ## Key conventions
 
+- **主窗 / Toast 窗禁止耦合**：主窗 chrome（header、nav、KeepAlive、覆盖滚动）只进 `MainShell`；Toast 相关透明背景只进 `ToastShell`。
 - 普通页面样式限定在 `.app-shell` 内，禁止影响 Reminder Toast 的窗口尺寸测量。
-- 同一滚动区域只保留一个滚动容器；接入 `OverlayScrollbar` 后，外层容器应使用 `overflow: hidden`。
-- 覆盖式滑块默认隐藏，仅在 hover 或拖动时显示，不占内容布局宽度。
-- 插件页面保持左右分栏；窄窗口只收窄左栏，不改为上下堆叠。
-- Header 的间距是固定值，不根据窗口宽度动态修改：高度为 `3rem`，左 padding 为 `0.75rem`。
-- 应用级辅助信息放在全局顶栏右侧；插件侧栏顶栏只保留插件上下文和刷新操作。
-- 内置插件详情的标题与总开关固定，只有配置内容区滚动。
+- 同一滚动区域只保留一个滚动容器；接入 `OverlayScrollbar` 后，外层用 `overflow: hidden`。
+- 覆盖式滑块默认隐藏，hover / 拖动才显示，不占内容布局宽度。
+- 插件页保持左右分栏；窄窗只收窄左栏，不改上下堆叠。
+- Header 固定：高 `3rem`，左 padding `0.75rem`。
+- 应用级辅助信息放全局顶栏右侧；插件侧栏只放插件上下文。
 
 ## Sub-docs
 
-- [覆盖式滚动条不能影响-Toast-窗口尺寸测量.md](覆盖式滚动条不能影响-Toast-窗口尺寸测量.md) — 覆盖式滚动条与 Reminder 窗口的隔离边界。
-- [插件页左侧插件中心与右侧固定顶栏的布局约定.md](插件页左侧插件中心与右侧固定顶栏的布局约定.md) — 插件页侧栏、搜索、状态与详情滚动结构。
+- [主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md](主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md) — 拆分动机、路由表、加页面要改哪。
+- [覆盖式滚动条不能影响-Toast-窗口尺寸测量.md](覆盖式滚动条不能影响-Toast-窗口尺寸测量.md) — 覆盖滚动与 Reminder 窗隔离。
+- [插件页左侧插件中心与右侧固定顶栏的布局约定.md](插件页左侧插件中心与右侧固定顶栏的布局约定.md) — 插件页侧栏与详情滚动。
 
 ## Change points
 
-1. 修改一级导航或普通页面外壳：`src/App.vue`。
-2. 修改覆盖式滚动行为：`src/components/OverlayScrollbar.vue`。
-3. 修改插件二级栏或独立滚动区：`src/views/Plugins.vue`。
-4. Reminder 路由相关改动必须确认仍绕过 `.app-shell`。
+1. 改一级导航 / 主窗外壳 → `src/views/mainWindow/MainShell.vue`
+2. 改 Toast 透明背景或独立窗外壳 → `src/views/toastWindows/ToastShell.vue`
+3. 加主窗页面 → `src/views/mainWindow/` + `router` 的 MainShell children
+4. 加独立窗页面 → `src/views/toastWindows/` + `router` 的 ToastShell children
+5. 改覆盖滚动 → `src/components/OverlayScrollbar.vue`
+6. 改插件二级栏 → `src/views/mainWindow/Plugins.vue`
+7. 全局 provider / 全局 html 样式 → `src/App.vue`（保持薄）

@@ -9,7 +9,7 @@
 | 入口 | 组件 | 内容 |
 |------|------|------|
 | 功能插件 → 久坐 | `src/components/plugins/RestPluginPanel.vue` | 节奏 / 方式 / 文案 / 全屏 / 测试 |
-| 系统设置 | `src/views/Settings.vue` | 仅 media / signal / system / links |
+| 系统设置 | `src/views/mainWindow/Settings.vue` | 仅 media / signal / system / links |
 
 ## RestPluginPanel 区块
 
@@ -28,7 +28,7 @@
 | 文件 | 变更 |
 |------|------|
 | `src/components/plugins/RestPluginPanel.vue` | 承接原通知卡能力 |
-| `src/views/Settings.vue` | core 去掉 `notification` |
+| `src/views/mainWindow/Settings.vue` | core 去掉 `notification` |
 | `src/components/settings/NotificationSettingsCard.vue` | 删除 |
 | `src/i18n/locales/zh-CN.ts` / `en-US.ts` | `plugins.rest.*` 文案；设置副标题 |
 | `src/plugins/registerBuiltins.ts` | `rest` 仍 `settingsSurface: 'plugins'` |

@@ -12,7 +12,7 @@
 - `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用；agent/update/permission **publish bus**（不再 eval 内容）
 - `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
 - `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
+- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 

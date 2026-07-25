@@ -4,7 +4,7 @@
 
 ## 涉及文件
 
-- `src/views/Settings.vue` — 页面容器
+- `src/views/mainWindow/Settings.vue` — 页面容器
 - `src/components/settings/SettingRow.vue` — 通用设置行
 - `src/components/settings/SliderControl.vue` — 滑块+数值
 - `src/components/settings/MediaSettingsCard.vue` — 视频与音乐

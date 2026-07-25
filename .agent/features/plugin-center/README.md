@@ -4,7 +4,7 @@
 
 ## Files involved
 
-- `src/views/Plugins.vue` — 插件中心容器：组合导航、内置/外部插件详情、测试通知。
+- `src/views/mainWindow/Plugins.vue` — 插件中心容器：组合导航、内置/外部插件详情、测试通知。
 - `src/components/plugins/PluginNavRail.vue` — 左侧插件导航栏组件（搜索、列表、刷新、打开目录）。
 - `src/components/plugins/PluginPanelHeader.vue` — 插件详情页统一 header 组件（图标 + 标题/副标题 + 开关）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐提醒插件详情面板。

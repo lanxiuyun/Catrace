@@ -20,3 +20,8 @@ Catrace 是一款桌面端工具，帮助用户平衡工作与休息。后台静
 7. **Event 双写** — Toast 仍是可见权威；bus 失败不挡 Toast；hub 不渲染第二张卡
 8. **前端验证用 Playwright** — 连已运行的 `pnpm tauri dev`（`http://localhost:1420`）；不写 browser preview；除非用户明确叫你去前端验证，否则不要进行前端验证
 9. **临时 Playwright 测试放 `e2e-temp/`** — 该目录已被 `.gitignore` 忽略，用于一次性探索性验证
+10. **批量改文档/源码必须保换行与 BOM** — 禁止 `Path.write_text` / 整文件 decode→encode 重写去只改路径或短字符串。Windows 仓库混有 LF / CRLF，部分 `.md` 带 UTF-8 BOM；整文件重写会让 `git diff` 变成「全文修改」。正确做法：
+    - 优先用能保原文件字节的编辑（`Edit` / 精确补丁）
+    - 脚本批量替换时用 **二进制** 读写真：`raw.replace(old_bytes, new_bytes)`，勿先按文本规范化换行
+    - 改完立刻 `git diff --numstat`：若出现整文件 `N N` 且内容只应改 1 行 → 停手，从 HEAD 恢复后按字节重做
+    - 有意全文重写的文件（新建 README 等）可另论；路径回写、manifest 小补丁不行

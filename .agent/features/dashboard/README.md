@@ -4,7 +4,7 @@
 
 ## 涉及文件
 
-- `src/views/Dashboard.vue` — 页面布局
+- `src/views/mainWindow/Dashboard.vue` — 页面布局
 - `src/components/Timeline.vue` — 详细视图热力图
 - `src/components/TimelineWindows.vue` — 概览视图 block 卡片
 - `src/components/WaterWidget.vue` — 喝水统计

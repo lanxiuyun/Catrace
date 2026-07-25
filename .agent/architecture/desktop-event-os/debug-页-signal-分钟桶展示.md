@@ -7,7 +7,7 @@ M6 清单要求能验：运行 ≥2 分钟后 `signal_minutes` 有 dominant / ke
 
 ## 实现
 
-`src/views/Debug.vue` 增加「Signal 分钟桶」卡片：
+`src/views/mainWindow/Debug.vue` 增加「Signal 分钟桶」卡片：
 
 - 每 2s 与媒体调试一并刷新
 - 运行时：键序列开关、保留小时、pending 桶数、当前分钟 key/mouse 快照（**不展示序列明文**）
