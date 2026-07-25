@@ -150,18 +150,15 @@ onDeactivated(() => {
 <template>
   <div class="dashboard">
     <header class="header">
-      <div class="header-main">
-        <h1 class="title">{{ t('dashboard.title') }}</h1>
-        <p class="subtitle">
-          {{
-            new Date().toLocaleDateString(locale, {
-              month: "long",
-              day: "numeric",
-              weekday: "long",
-            })
-          }}
-        </p>
-      </div>
+      <p class="subtitle">
+        {{
+          new Date().toLocaleDateString(locale, {
+            month: "long",
+            day: "numeric",
+            weekday: "long",
+          })
+        }}
+      </p>
       <div class="header-actions">
         <span class="hide-stats-label">{{ t('dashboard.hideStats.label') }}</span>
         <n-switch
@@ -242,13 +239,9 @@ onDeactivated(() => {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
-}
-
-.header-main {
-  min-width: 0;
 }
 
 .header-actions {
@@ -256,7 +249,6 @@ onDeactivated(() => {
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
-  margin-top: 0.25rem;
 }
 
 .hide-stats-label {
@@ -265,16 +257,8 @@ onDeactivated(() => {
   white-space: nowrap;
 }
 
-.title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2e1065;
-  letter-spacing: -0.02em;
-}
-
 .subtitle {
-  margin: 0.375rem 0 0;
+  margin: 0;
   font-size: 0.8125rem;
   color: #8b7aab;
 }
