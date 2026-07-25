@@ -518,6 +518,8 @@ export default {
       testBody: '这是一条来自插件详情页的测试通知。',
       testSnooze: '稍后',
       testDone: '完成',
+      switchAria: '外部插件开关',
+      settingsPlaceholder: '插件设置面板由插件自身提供（暂未实现）。',
     },
   },
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, NInput, NSlider, useMessage } from 'naive-ui'
+import { NButton, NTag, NRadioGroup, NRadioButton, NInput, NSlider, useMessage } from 'naive-ui'
 import {
   getAgentNotificationEnabled,
   setAgentNotificationEnabled,
@@ -19,6 +19,7 @@ import {
   type AgentSoundMode,
 } from '../../api/tauri'
 import OverlayScrollbar from '../OverlayScrollbar.vue'
+import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -184,32 +185,25 @@ async function handlePickSoundFile() {
 
 <template>
   <div class="agent-panel" :class="{ 'is-disabled': !enabled }">
-    <header class="panel-header">
-      <div class="header-left">
-        <div class="icon-badge" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 8V4H8" />
-            <rect width="16" height="12" x="4" y="8" rx="2" />
-            <path d="M2 14h2" />
-            <path d="M20 14h2" />
-            <path d="M15 13v2" />
-            <path d="M9 13v2" />
-          </svg>
-        </div>
-        <div class="header-text">
-          <h2 class="panel-title">{{ t('plugins.agent.name') }}</h2>
-          <p class="panel-subtitle">{{ t('plugins.agent.subtitle') }}</p>
-        </div>
-      </div>
-      <div class="master-switch">
-        <n-switch
-          :value="enabled"
-          :loading="enabledLoading"
-          :aria-label="t('plugins.agent.switchAria')"
-          @update:value="toggleEnabled"
-        />
-      </div>
-    </header>
+    <plugin-panel-header
+      :title="t('plugins.agent.name')"
+      :subtitle="t('plugins.agent.subtitle')"
+      :enabled="enabled"
+      :loading="enabledLoading"
+      :switch-aria-label="t('plugins.agent.switchAria')"
+      @update:enabled="toggleEnabled"
+    >
+      <template #icon>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8V4H8" />
+          <rect width="16" height="12" x="4" y="8" rx="2" />
+          <path d="M2 14h2" />
+          <path d="M20 14h2" />
+          <path d="M15 13v2" />
+          <path d="M9 13v2" />
+        </svg>
+      </template>
+    </plugin-panel-header>
 
     <div class="panel-content">
       <OverlayScrollbar>
@@ -337,18 +331,6 @@ async function handlePickSoundFile() {
   opacity: 1;
 }
 
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: nowrap;
-  flex: none;
-  padding: 1rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-}
-
 .panel-content {
   flex: 1;
   min-height: 0;
@@ -365,69 +347,6 @@ async function handlePickSoundFile() {
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  min-width: 0;
-}
-
-.icon-badge {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.75rem;
-  background: #ede9fe;
-  color: #7c3aed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.header-text {
-  min-width: 0;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e1b4b;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.panel-subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
-  color: #64748b;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.master-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.7rem;
-  background: #f1f5f9;
-  border: 0.0625rem solid #e2e8f0;
-  border-radius: 0.625rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.master-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  white-space: nowrap;
 }
 
 .panel-section {

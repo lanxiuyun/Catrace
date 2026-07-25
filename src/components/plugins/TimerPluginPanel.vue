@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NInput, NModal, useMessage } from 'naive-ui'
+import { NButton, NInput, NModal, NSwitch, useMessage } from 'naive-ui'
 import {
   getTimerSettings,
   setTimerSettings,
@@ -14,6 +14,7 @@ import {
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SliderControl from '../settings/SliderControl.vue'
 import OverlayScrollbar from '../OverlayScrollbar.vue'
+import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -382,31 +383,23 @@ function focusNameInput() {
 
 <template>
   <div class="timer-panel" :class="{ 'is-disabled': !settings.enabled }">
-    <header class="panel-header">
-      <div class="header-left">
-        <div class="icon-badge" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-            <path d="M16 2l2 2" />
-            <path d="M8 2L6 4" />
-          </svg>
-        </div>
-        <div class="header-text">
-          <h2 class="panel-title">{{ t('plugins.timer.name') }}</h2>
-          <p class="panel-subtitle">{{ t('plugins.timer.subtitle') }}</p>
-        </div>
-      </div>
-
-      <div class="master-switch">
-        <n-switch
-          :value="settings.enabled"
-          :loading="enabledLoading"
-          :aria-label="t('plugins.timer.switchAria')"
-          @update:value="setEnabled"
-        />
-      </div>
-    </header>
+    <plugin-panel-header
+      :title="t('plugins.timer.name')"
+      :subtitle="t('plugins.timer.subtitle')"
+      :enabled="settings.enabled"
+      :loading="enabledLoading"
+      :switch-aria-label="t('plugins.timer.switchAria')"
+      @update:enabled="setEnabled"
+    >
+      <template #icon>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+          <path d="M16 2l2 2" />
+          <path d="M8 2L6 4" />
+        </svg>
+      </template>
+    </plugin-panel-header>
 
     <div class="panel-content">
       <OverlayScrollbar>
@@ -693,18 +686,6 @@ function focusNameInput() {
   opacity: 0.72;
 }
 
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: nowrap;
-  flex: none;
-  padding: 1rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-}
-
 .panel-actions {
   display: flex;
   justify-content: flex-end;
@@ -726,120 +707,6 @@ function focusNameInput() {
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  min-width: 0;
-}
-
-.icon-badge {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.75rem;
-  background: #ede9fe;
-  color: #7c3aed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.header-text {
-  min-width: 0;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  flex-wrap: wrap;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e1b4b;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.active-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  background: #d1fae5;
-  color: #047857;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.active-badge .dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-  animation: pulse-dot 1.6s ease infinite;
-}
-
-.active-badge.off {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.active-badge.off .dot {
-  background: #94a3b8;
-  animation: none;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
-  50% { box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0); }
-}
-
-.panel-subtitle {
-  margin: 0.3rem 0 0;
-  font-size: 0.8125rem;
-  color: #64748b;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.625rem;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
-}
-
-.master-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.7rem;
-  background: #f1f5f9;
-  border: 0.0625rem solid #e2e8f0;
-  border-radius: 0.625rem;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.master-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  white-space: nowrap;
 }
 
 .empty-state {

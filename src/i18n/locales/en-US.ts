@@ -518,6 +518,8 @@ export default {
       testBody: 'This is a test notification from the plugin detail page.',
       testSnooze: 'Snooze',
       testDone: 'Done',
+      switchAria: 'External plugin switch',
+      settingsPlaceholder: 'Plugin settings panel is provided by the plugin itself (not yet implemented).',
     },
   },
 }
