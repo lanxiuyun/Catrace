@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import OverlayScrollbar from '../OverlayScrollbar.vue'
 
 export interface PluginNavItem {
   id: string
@@ -111,7 +110,6 @@ function openDir() {
     </div>
 
     <div class="rail-list">
-      <OverlayScrollbar>
         <div class="rail-list-content">
           <button
             v-for="p in filteredItems"
@@ -188,7 +186,6 @@ function openDir() {
             </button>
           </div>
         </div>
-      </OverlayScrollbar>
     </div>
   </aside>
 </template>
@@ -202,7 +199,6 @@ function openDir() {
   flex-direction: column;
   background: #fff;
   border-right: 0.0625rem solid #e2e8f0;
-  min-height: 0;
 }
 
 .rail-header {
@@ -318,12 +314,9 @@ function openDir() {
 
 .rail-list {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .rail-list-content {
-  min-height: 100%;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;

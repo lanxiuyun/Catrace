@@ -13,7 +13,6 @@ import {
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SliderControl from '../settings/SliderControl.vue'
-import OverlayScrollbar from '../OverlayScrollbar.vue'
 import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
@@ -402,7 +401,6 @@ function focusNameInput() {
     </plugin-panel-header>
 
     <div class="panel-content">
-      <OverlayScrollbar>
         <div class="panel-body">
           <div class="panel-actions">
             <n-button type="primary" :disabled="!settings.enabled || settings.rules.length >= MAX_RULES" @click="openCreateModal">
@@ -558,7 +556,6 @@ function focusNameInput() {
       </div>
           </section>
         </div>
-      </OverlayScrollbar>
     </div>
 
     <n-modal
@@ -678,7 +675,6 @@ function focusNameInput() {
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
 }
 
 .timer-panel.is-disabled .rules-list,
@@ -693,8 +689,6 @@ function focusNameInput() {
 
 .panel-content {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .panel-body {
@@ -703,7 +697,6 @@ function focusNameInput() {
   gap: 1.25rem;
   width: 100%;
   max-width: 64rem;
-  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;

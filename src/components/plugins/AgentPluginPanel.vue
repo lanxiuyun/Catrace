@@ -18,7 +18,6 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
-import OverlayScrollbar from '../OverlayScrollbar.vue'
 import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
@@ -206,7 +205,6 @@ async function handlePickSoundFile() {
     </plugin-panel-header>
 
     <div class="panel-content">
-      <OverlayScrollbar>
         <div class="panel-body">
           <template v-if="enabled">
       <section class="panel-section">
@@ -313,7 +311,6 @@ async function handlePickSoundFile() {
             <p>{{ t('plugins.agent.disabledHint') }}</p>
           </div>
         </div>
-      </OverlayScrollbar>
     </div>
   </div>
 </template>
@@ -324,7 +321,6 @@ async function handlePickSoundFile() {
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
 }
 
 .agent-panel.is-disabled .empty-state {
@@ -333,8 +329,6 @@ async function handlePickSoundFile() {
 
 .panel-content {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .panel-body {
@@ -343,7 +337,6 @@ async function handlePickSoundFile() {
   gap: 1.25rem;
   width: 100%;
   max-width: 64rem;
-  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;

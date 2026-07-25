@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import OverlayScrollbar from '../../components/OverlayScrollbar.vue'
+import { NScrollbar } from 'naive-ui'
 
 const { t } = useI18n()
 </script>
@@ -47,13 +47,13 @@ const { t } = useI18n()
     </header>
 
     <main class="app-workspace">
-      <OverlayScrollbar>
+      <n-scrollbar class="workspace-scroll">
         <RouterView v-slot="{ Component }">
           <KeepAlive>
             <component :is="Component" />
           </KeepAlive>
         </RouterView>
-      </OverlayScrollbar>
+      </n-scrollbar>
     </main>
   </div>
 </template>
@@ -195,5 +195,9 @@ const { t } = useI18n()
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.workspace-scroll {
+  height: 100%;
 }
 </style>

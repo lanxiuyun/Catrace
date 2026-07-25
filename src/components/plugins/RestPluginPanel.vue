@@ -14,7 +14,6 @@ import {
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from '../settings/SettingRow.vue'
 import SliderControl from '../settings/SliderControl.vue'
-import OverlayScrollbar from '../OverlayScrollbar.vue'
 import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
@@ -143,7 +142,6 @@ async function sendTest() {
     </plugin-panel-header>
 
     <div class="panel-content">
-      <OverlayScrollbar>
         <div class="panel-body">
           <div class="panel-actions">
             <n-button type="primary" :loading="testing" :disabled="!config.enabled" @click="sendTest">
@@ -226,7 +224,6 @@ async function sendTest() {
             <p>{{ t('plugins.rest.disabledHint') || t('plugins.agent.disabledHint') }}</p>
           </div>
         </div>
-      </OverlayScrollbar>
     </div>
   </div>
 </template>
@@ -237,7 +234,6 @@ async function sendTest() {
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
 }
 
 .rest-panel.is-disabled .panel-section {
@@ -251,8 +247,6 @@ async function sendTest() {
 
 .panel-content {
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .panel-body {
@@ -261,7 +255,6 @@ async function sendTest() {
   gap: 1.25rem;
   width: 100%;
   max-width: 64rem;
-  min-height: 100%;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
