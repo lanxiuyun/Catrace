@@ -317,38 +317,57 @@ async function onTestExternal(p: ExternalPluginInfo) {
       </plugin-panel-header>
 
       <n-scrollbar class="plugin-scroll">
-        <component
+        <div
           v-if="ActiveDetail"
-          :is="ActiveDetail"
-          :key="selectedId"
-          :ref="(el: any) => activePanelRef = el"
-        />
-        <div v-else-if="selectedExternal" class="external-content placeholder-content">
-          <div class="external-body plugin-detail">
-            <p v-if="selectedExternal.error" class="ext-error">
-              {{ selectedExternal.error }}
-            </p>
-            <template v-else>
-              <p class="ext-placeholder">{{ t('plugins.external.settingsPlaceholder') }}</p>
-              <div class="ext-actions-card">
-                <button
-                  type="button"
-                  class="btn-primary"
-                  :disabled="!selectedExternal.enabled || testingId === selectedExternal.id"
-                  @click="onTestExternal(selectedExternal)"
-                >
-                  {{
-                    testingId === selectedExternal.id
-                      ? t('plugins.external.testing')
-                      : t('plugins.external.testBtn')
-                  }}
-                </button>
-                <span v-if="!selectedExternal.enabled" class="ext-actions-hint">
-                  {{ t('plugins.external.testNeedEnable') }}
-                </span>
-              </div>
-            </template>
+          class="plugin-detail-wrapper"
+        >
+          <div
+            class="plugin-detail-content"
+            :class="{ 'is-disabled': activeHeader && !activeHeader.enabled }"
+          >
+            <component
+              :is="ActiveDetail"
+              :key="selectedId"
+              :ref="(el: any) => activePanelRef = el"
+            />
           </div>
+          <div v-if="activeHeader && !activeHeader.enabled" class="disabled-overlay" />
+        </div>
+        <div
+          v-else-if="selectedExternal"
+          class="plugin-detail-wrapper"
+        >
+          <div
+            class="external-content placeholder-content"
+            :class="{ 'is-disabled': !selectedExternal.enabled }"
+          >
+            <div class="external-body plugin-detail">
+              <p v-if="selectedExternal.error" class="ext-error">
+                {{ selectedExternal.error }}
+              </p>
+              <template v-else>
+                <p class="ext-placeholder">{{ t('plugins.external.settingsPlaceholder') }}</p>
+                <div class="ext-actions-card">
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    :disabled="!selectedExternal.enabled || testingId === selectedExternal.id"
+                    @click="onTestExternal(selectedExternal)"
+                  >
+                    {{
+                      testingId === selectedExternal.id
+                        ? t('plugins.external.testing')
+                        : t('plugins.external.testBtn')
+                    }}
+                  </button>
+                  <span v-if="!selectedExternal.enabled" class="ext-actions-hint">
+                    {{ t('plugins.external.testNeedEnable') }}
+                  </span>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div v-if="!selectedExternal.enabled" class="disabled-overlay" />
         </div>
       </n-scrollbar>
     </main>
@@ -395,6 +414,26 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .placeholder-content {
   background: rgba(248, 250, 252, 0.7);
+}
+
+.plugin-detail-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.plugin-detail-content.is-disabled,
+.external-content.is-disabled {
+  opacity: 0.65;
+  filter: grayscale(0.45);
+  pointer-events: none;
+}
+
+.disabled-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(248, 250, 252, 0.25);
 }
 
 .ext-placeholder {
