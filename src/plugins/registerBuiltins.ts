@@ -1,12 +1,12 @@
-﻿import type { Component } from 'vue'
+import type { Component } from 'vue'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
-import TimerPluginPanel from '../components/plugins/TimerPluginPanel.vue'
 import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
 
 /**
  * 内置「插件」注册：设置/详情组件与 event_type 边界绑到 registry。
  * 产品可见列表由 Plugins.vue allowlist 控制，不必等于此处全部。
+ * 定时提醒已抽离为外部插件（tools/plugin-demo/timer）。
  */
 export function registerBuiltinPlugins() {
   const registry = usePluginRegistry()
@@ -29,15 +29,6 @@ export function registerBuiltinPlugins() {
       // Full detail panel lives on Plugins page, not the compact Settings grid.
       settingsSurface: 'plugins',
       SettingsComponent: RestPluginPanel,
-    },
-    {
-      name: 'timer',
-      displayName: '定时提醒',
-      description: '自定义间隔或定点提醒',
-      events: ['reminder.timer.due', 'kind:timer'],
-      settingsKey: 'timer',
-      settingsSurface: 'plugins',
-      SettingsComponent: TimerPluginPanel,
     },
     {
       name: 'agent',

@@ -13,9 +13,6 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
-  snoozeTimerReminder,
-  ackTimerReminder,
-  skipTimerReminder,
   getActivitySnapshot,
   dismissRestTimer,
   getAgentSoundDataUrl,
@@ -43,7 +40,6 @@ const pluginRegistry = usePluginRegistry()
 
 const BUILTIN_TOAST_KINDS = [
   'rest',
-  'timer',
   'update',
   'rest-timer',
   'agent',
@@ -565,7 +561,7 @@ function handleBusEvent(event: BusEvent) {
       : undefined)
 
   // sdk / plugin: same event id OR same dedupe_key → refresh in place (never remount card).
-  if (kind === 'sdk' || kind === 'timer' || isPluginEvent) {
+  if (kind === 'sdk' || isPluginEvent) {
     const existing = notifications.value.find((n) => n.eventId === event.id && !n.leaving)
       || (dedupeKey
         ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
@@ -640,7 +636,7 @@ function handleBusEvent(event: BusEvent) {
       existing.body = event.body || ''
       existing.boundary = boundary
       existing.visible = true
-      if (kind === 'sdk' || kind === 'timer' || isPluginEvent) {
+      if (kind === 'sdk' || isPluginEvent) {
         existing.level = event.level
         existing.sdkActions = event.actions || []
         existing.sdkProgress = event.progress ?? null
@@ -696,8 +692,8 @@ function handleBusEvent(event: BusEvent) {
     toolInput: p.toolInput,
     level: event.level,
     sticky: !!event.sticky,
-    sdkActions: kind === 'sdk' || kind === 'timer' || isPluginEvent ? (event.actions || []) : undefined,
-    sdkProgress: kind === 'sdk' || kind === 'timer' || isPluginEvent ? (event.progress ?? null) : undefined,
+    sdkActions: kind === 'sdk' || isPluginEvent ? (event.actions || []) : undefined,
+    sdkProgress: kind === 'sdk' || isPluginEvent ? (event.progress ?? null) : undefined,
     busEvent: isPluginEvent ? event : undefined,
     pluginId,
     uiUrl: pluginHandle?.uiUrl,
@@ -1130,28 +1126,8 @@ function handleSdkAction(item: ToastItem, actionId: string) {
   removeNotification(item.id, true)
 }
 
-async function handleTimerAction(item: ToastItem, actionId: string) {
-  stopTimer(item)
-  const ruleId = item.ruleId
-  if (ruleId) {
-    try {
-      if (actionId === 'snooze_5') {
-        await snoozeTimerReminder(ruleId, 5)
-      } else if (actionId === 'skip') {
-        await skipTimerReminder(ruleId)
-      } else {
-        // ack / default
-        await ackTimerReminder(ruleId)
-      }
-    } catch {
-      // ignore
-    }
-  }
-  markEventResolved(item.eventId, actionId)
-  removeNotification(item.id, true)
-}
-
 function handlePluginAction(item: ToastItem, actionId: string) {
+  // Side-effects (ack/snooze/skip) run in plugin bg via bus → plugin-bg resolve bridge.
   markEventResolved(item.eventId, actionId)
   removeNotification(item.id, true)
 }
@@ -1221,7 +1197,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-rest-timer': item.kind === 'rest-timer',
           'toast-card-agent': item.kind === 'agent',
           'toast-card-permission': item.kind === 'permission',
-          'toast-card-sdk': item.kind === 'sdk' || item.kind === 'timer',
+          'toast-card-sdk': item.kind === 'sdk',
           'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
         }"
         @mouseenter="handleMouseEnter(item)"
@@ -1288,7 +1264,7 @@ async function handleUpdateInstall(item: ToastItem) {
         />
 
         <SdkToastCard
-          v-else-if="item.kind === 'sdk' || item.kind === 'timer'"
+          v-else-if="item.kind === 'sdk'"
           :title="item.title"
           :body="item.body"
           :level="item.level"
@@ -1296,8 +1272,8 @@ async function handleUpdateInstall(item: ToastItem) {
           :sticky="!!item.sticky"
           :progress="item.sdkProgress"
           :actions="item.sdkActions"
-          @close="item.kind === 'timer' ? handleTimerAction(item, 'ack') : handleClose(item)"
-          @action="(aid) => item.kind === 'timer' ? handleTimerAction(item, aid) : handleSdkAction(item, aid)"
+          @close="handleClose(item)"
+          @action="(aid) => handleSdkAction(item, aid)"
         />
 
         <!-- Plugin event without custom UI: fall back to SdkToastCard -->

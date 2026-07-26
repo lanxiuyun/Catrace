@@ -13,7 +13,6 @@ mod reminder_toast;
 mod report;
 mod rest_plugin;
 mod signal;
-mod timer_plugin;
 mod window_manager;
 
 use std::collections::HashMap;
@@ -147,7 +146,6 @@ async fn get_activity_snapshot(
 }
 
 use rest_plugin::ReminderState;
-use timer_plugin::TimerRuntimeState;
 
 // ---------- 提醒窗口数据 ----------
 
@@ -838,11 +836,9 @@ async fn check_update_and_notify(
 pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
-    let timer_state = Arc::new(Mutex::new(TimerRuntimeState::default()));
     let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
-    let timer_state_clone = timer_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
@@ -916,7 +912,6 @@ pub fn run() {
             let store: ReminderWindowStore = Arc::new(Mutex::new(HashMap::new()));
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
-            app.manage(timer_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
@@ -981,7 +976,6 @@ pub fn run() {
             let db_clone = db.clone();
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
-            let timer_state_for_settle = timer_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
@@ -1056,16 +1050,6 @@ pub fn run() {
                         &db_clone,
                         &store_for_settle,
                         &fullscreen_active_for_settle,
-                        &event_bus_for_settle,
-                    );
-
-                    // 定时提醒：interval 仅活跃分钟；daily 到点必弹
-                    timer_plugin::on_minute_tick(
-                        active,
-                        &app_handle,
-                        &db_clone,
-                        &timer_state_for_settle,
-                        &locale,
                         &event_bus_for_settle,
                     );
                 }
@@ -1164,13 +1148,6 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
-            timer_plugin::get_timer_settings,
-            timer_plugin::set_timer_plugin_enabled,
-            timer_plugin::set_timer_settings,
-            timer_plugin::test_timer_notification,
-            timer_plugin::snooze_timer_reminder,
-            timer_plugin::ack_timer_reminder,
-            timer_plugin::skip_timer_reminder,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
             agent_hook::get_agent_event_modes,

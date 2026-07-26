@@ -5,7 +5,6 @@ import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
-import TimerPluginPanel from '../../components/plugins/TimerPluginPanel.vue'
 import AgentPluginPanel from '../../components/plugins/AgentPluginPanel.vue'
 import PluginPanelHeader from '../../components/plugins/PluginPanelHeader.vue'
 import PluginNavRail, { type PluginNavItem } from '../../components/plugins/PluginNavRail.vue'
@@ -15,7 +14,6 @@ import {
   setExternalPluginEnabled,
   openPluginsDir,
   publishEvent,
-  getTimerSettings,
   getAgentNotificationEnabled,
   type ExternalPluginInfo,
 } from '../../api/tauri'
@@ -24,7 +22,7 @@ import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 const { t } = useI18n()
 const pluginRegistry = usePluginRegistry()
 
-const VISIBLE_PLUGIN_IDS = ['rest', 'timer', 'agent'] as const
+const VISIBLE_PLUGIN_IDS = ['rest', 'agent'] as const
 type VisiblePluginId = (typeof VISIBLE_PLUGIN_IDS)[number]
 
 const selectedId = ref<string>('')
@@ -35,7 +33,6 @@ const testingId = ref<string | null>(null)
 const searchQuery = ref('')
 const builtinEnabled = ref<Record<VisiblePluginId, boolean>>({
   rest: true,
-  timer: false,
   agent: false,
 })
 
@@ -70,12 +67,6 @@ async function refreshBuiltinEnabled() {
     builtinEnabled.value.rest = rest?.enabled ?? true
   } catch {
     builtinEnabled.value.rest = false
-  }
-  try {
-    const timer = await getTimerSettings()
-    builtinEnabled.value.timer = timer.enabled
-  } catch {
-    builtinEnabled.value.timer = false
   }
   try {
     builtinEnabled.value.agent = await getAgentNotificationEnabled()
@@ -154,7 +145,6 @@ const plugins = computed((): PluginNavItem[] => {
 
 const fallbackDetail: Record<VisiblePluginId, Component> = {
   rest: RestPluginPanel,
-  timer: TimerPluginPanel,
   agent: AgentPluginPanel,
 }
 
@@ -306,10 +296,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
             <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
             <path d="M5 18v2" />
             <path d="M19 18v2" />
-          </svg>
-          <svg v-else-if="activeHeader.icon === 'timer'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
           </svg>
           <svg v-else-if="activeHeader.icon === 'agent'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 8V4H8" />
