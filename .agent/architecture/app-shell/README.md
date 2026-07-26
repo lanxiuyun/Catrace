@@ -12,9 +12,9 @@ App.vue                          # NConfigProvider + RouterView + 全局 html/bo
     │   └── n-scrollbar（唯一主窗滚动容器）
     │       └── RouterView + KeepAlive
     │           ├── Dashboard.vue
-    │           ├── Plugins.vue
-    │           │   ├── PluginNavRail
-    │           │   └── plugin-main（固定顶栏 Panel + 内容自然撑高）
+    │   ├── Plugins.vue
+    │   │   ├── PluginNavRail
+    │   │   └── plugin-main（PluginPanelHeader + PluginPanelShell + 内容自然撑高）
     │           ├── Settings.vue
     │           └── Debug.vue
     └── ToastShell.vue           # /reminder-* /plugin-host
