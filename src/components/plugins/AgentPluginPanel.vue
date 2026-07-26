@@ -18,7 +18,6 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
-import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -180,30 +179,16 @@ async function handlePickSoundFile() {
     message.error(t('settings.messages.saveFailed'))
   }
 }
+
+defineExpose({
+  headerEnabled: enabled,
+  headerLoading: enabledLoading,
+  toggleEnabled,
+})
 </script>
 
 <template>
   <div class="agent-panel" :class="{ 'is-disabled': !enabled }">
-    <plugin-panel-header
-      :title="t('plugins.agent.name')"
-      :subtitle="t('plugins.agent.subtitle')"
-      :enabled="enabled"
-      :loading="enabledLoading"
-      :switch-aria-label="t('plugins.agent.switchAria')"
-      @update:enabled="toggleEnabled"
-    >
-      <template #icon>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 8V4H8" />
-          <rect width="16" height="12" x="4" y="8" rx="2" />
-          <path d="M2 14h2" />
-          <path d="M20 14h2" />
-          <path d="M15 13v2" />
-          <path d="M9 13v2" />
-        </svg>
-      </template>
-    </plugin-panel-header>
-
     <div class="panel-content">
         <div class="panel-body">
           <template v-if="enabled">

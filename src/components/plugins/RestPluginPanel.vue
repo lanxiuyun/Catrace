@@ -14,7 +14,6 @@ import {
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SettingRow from '../settings/SettingRow.vue'
 import SliderControl from '../settings/SliderControl.vue'
-import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -119,28 +118,18 @@ async function sendTest() {
     testing.value = false
   }
 }
+
+const headerEnabled = computed(() => config.value.enabled ?? true)
+
+defineExpose({
+  headerEnabled,
+  headerLoading: enabledLoading,
+  toggleEnabled: handleEnabledChange,
+})
 </script>
 
 <template>
   <div class="rest-panel" :class="{ 'is-disabled': !config.enabled }">
-    <plugin-panel-header
-      :title="t('plugins.rest.name')"
-      :subtitle="t('plugins.rest.subtitle')"
-      :enabled="config.enabled ?? true"
-      :loading="enabledLoading"
-      :switch-aria-label="t('plugins.rest.switchAria')"
-      @update:enabled="handleEnabledChange"
-    >
-      <template #icon>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
-          <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
-          <path d="M5 18v2" />
-          <path d="M19 18v2" />
-        </svg>
-      </template>
-    </plugin-panel-header>
-
     <div class="panel-content">
         <div class="panel-body">
           <div class="panel-actions">

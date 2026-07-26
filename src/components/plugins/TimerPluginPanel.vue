@@ -13,7 +13,6 @@ import {
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
 import SliderControl from '../settings/SliderControl.vue'
-import PluginPanelHeader from './PluginPanelHeader.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -378,28 +377,18 @@ function focusNameInput() {
     el?.focus()
   })
 }
+
+const headerEnabled = computed(() => settings.value.enabled)
+
+defineExpose({
+  headerEnabled,
+  headerLoading: enabledLoading,
+  toggleEnabled: setEnabled,
+})
 </script>
 
 <template>
   <div class="timer-panel" :class="{ 'is-disabled': !settings.enabled }">
-    <plugin-panel-header
-      :title="t('plugins.timer.name')"
-      :subtitle="t('plugins.timer.subtitle')"
-      :enabled="settings.enabled"
-      :loading="enabledLoading"
-      :switch-aria-label="t('plugins.timer.switchAria')"
-      @update:enabled="setEnabled"
-    >
-      <template #icon>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-          <path d="M16 2l2 2" />
-          <path d="M8 2L6 4" />
-        </svg>
-      </template>
-    </plugin-panel-header>
-
     <div class="panel-content">
         <div class="panel-body">
           <div class="panel-actions">

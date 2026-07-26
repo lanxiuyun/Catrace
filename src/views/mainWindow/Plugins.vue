@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { NScrollbar } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
@@ -165,6 +166,35 @@ const ActiveDetail = computed(() => {
   return fallbackDetail[id]
 })
 
+const activePanelRef = ref<any>(null)
+
+const activeHeader = computed(() => {
+  if (ActiveDetail.value) {
+    return {
+      title: t(`plugins.${selectedId.value}.name`),
+      subtitle: t(`plugins.${selectedId.value}.subtitle`),
+      enabled: activePanelRef.value?.headerEnabled ?? false,
+      loading: activePanelRef.value?.headerLoading ?? false,
+      switchAria: t(`plugins.${selectedId.value}.switchAria`),
+      onToggle: (val: boolean) => activePanelRef.value?.toggleEnabled?.(val),
+      icon: selectedId.value,
+    }
+  }
+  if (selectedExternal.value) {
+    const ext = selectedExternal.value
+    return {
+      title: ext.name,
+      subtitle: ext.description || t('plugins.external.noDescription'),
+      enabled: ext.enabled && !ext.error,
+      loading: toggleBusy.value === ext.id,
+      switchAria: t('plugins.external.switchAria'),
+      onToggle: (val: boolean) => onToggleExternal(ext.id, val),
+      icon: 'external',
+    }
+  }
+  return null
+})
+
 async function onToggleExternal(id: string, enabled: boolean) {
   const previous = externalList.value.find((p) => p.id === id)
   if (!previous) return
@@ -245,30 +275,53 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
     <!-- 主内容 -->
     <main class="plugin-main">
-      <component v-if="ActiveDetail" :is="ActiveDetail" :key="selectedId" />
+      <plugin-panel-header
+        v-if="activeHeader"
+        :title="activeHeader.title"
+        :subtitle="activeHeader.subtitle"
+        :enabled="activeHeader.enabled"
+        :loading="activeHeader.loading"
+        :switch-aria-label="activeHeader.switchAria"
+        @update:enabled="activeHeader.onToggle"
+      >
+        <template #icon>
+          <svg v-if="activeHeader.icon === 'rest'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+            <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
+            <path d="M5 18v2" />
+            <path d="M19 18v2" />
+          </svg>
+          <svg v-else-if="activeHeader.icon === 'timer'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <svg v-else-if="activeHeader.icon === 'agent'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 8V4H8" />
+            <rect width="16" height="12" x="4" y="8" rx="2" />
+            <path d="M2 14h2" />
+            <path d="M20 14h2" />
+            <path d="M15 13v2" />
+            <path d="M9 13v2" />
+          </svg>
+          <svg v-else-if="activeHeader.icon === 'external'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2 2" />
+            <path d="M5 3 2 6" />
+            <path d="m22 6-3-3" />
+            <path d="M6.38 18.7 4 21" />
+            <path d="M17.64 18.67 20 21" />
+          </svg>
+        </template>
+      </plugin-panel-header>
 
-      <div v-else-if="selectedExternal" class="external-detail">
-        <plugin-panel-header
-          :title="selectedExternal.name"
-          :subtitle="selectedExternal.description || t('plugins.external.noDescription')"
-          :enabled="selectedExternal.enabled && !selectedExternal.error"
-          :loading="toggleBusy === selectedExternal.id"
-          :switch-aria-label="t('plugins.external.switchAria')"
-          @update:enabled="onToggleExternal(selectedExternal.id, $event)"
-        >
-          <template #icon>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="13" r="8" />
-              <path d="M12 9v4l2 2" />
-              <path d="M5 3 2 6" />
-              <path d="m22 6-3-3" />
-              <path d="M6.38 18.7 4 21" />
-              <path d="M17.64 18.67 20 21" />
-            </svg>
-          </template>
-        </plugin-panel-header>
-
-        <div class="external-content placeholder-content">
+      <n-scrollbar class="plugin-scroll">
+        <component
+          v-if="ActiveDetail"
+          :is="ActiveDetail"
+          :key="selectedId"
+          :ref="(el: any) => activePanelRef = el"
+        />
+        <div v-else-if="selectedExternal" class="external-content placeholder-content">
           <div class="external-body plugin-detail">
             <p v-if="selectedExternal.error" class="ext-error">
               {{ selectedExternal.error }}
@@ -295,13 +348,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
             </template>
           </div>
         </div>
-      </div>
-
-      <div v-else class="external-detail empty-detail">
-        <div class="plugin-detail">
-          <p class="ext-desc">{{ t('plugins.external.selectHint') }}</p>
-        </div>
-      </div>
+      </n-scrollbar>
     </main>
   </div>
 </template>
@@ -309,7 +356,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 <style scoped>
 .plugins-page {
   display: flex;
-  min-height: 100%;
+  height: 100%;
   background: #f8fafc;
   box-sizing: border-box;
 }
@@ -322,23 +369,26 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: rgba(248, 250, 252, 0.7);
 }
 
+.plugin-scroll {
+  flex: 1;
+}
+
+.plugin-scroll :deep(.n-scrollbar-content) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.external-content {
+  flex: 1;
+}
+
 .plugin-detail {
   width: 100%;
   max-width: 64rem;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
-}
-
-.external-detail {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.external-content {
-  flex: 1;
 }
 
 .placeholder-content {
@@ -403,13 +453,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
 .btn-primary:disabled {
   opacity: 0.55;
   cursor: default;
-}
-
-.ext-desc {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #475569;
-  line-height: 1.5;
 }
 
 @media (max-width: 56.25rem) {
