@@ -7,6 +7,8 @@
 - `src/views/mainWindow/Plugins.vue` — 插件中心容器：组合导航、内置/外部插件详情、测试通知。
 - `src/components/plugins/PluginNavRail.vue` — 左侧插件导航栏组件（搜索、列表、刷新、打开目录）。
 - `src/components/plugins/PluginPanelHeader.vue` — 插件详情页统一 header 组件（图标 + 标题/副标题 + 开关）。
+- `src/components/plugins/PluginPanelShell.vue` — 插件详情面板外壳公共组件（panel-content + panel-body 布局）。
+- `src/components/plugins/PluginSection.vue` — 插件详情 Section 卡片公共组件（标题 + 描述 + 卡片容器）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐提醒插件详情面板。
 - `src/components/plugins/TimerPluginPanel.vue` — 定时提醒插件详情面板。
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 通知插件详情面板。
@@ -20,3 +22,4 @@
 - [插件异常标签如何判定和保持不拦截.md](插件异常标签如何判定和保持不拦截.md) — 资源活动判定、实时 Tag 数据流和“不限流、不丢弃”约定。
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 避免详情开关已变化但列表读取到旧状态的事件时序约定。
 - [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — 本轮 header / nav-rail 抽离细节与外部插件占位布局。
+- [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md) — AgentPluginPanel 与 RestPluginPanel 的结构统一、公共组件使用约定与禁用态统一实现。
