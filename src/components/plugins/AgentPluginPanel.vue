@@ -18,6 +18,8 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
+import PluginPanelShell from './PluginPanelShell.vue'
+import PluginSection from './PluginSection.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -188,174 +190,95 @@ defineExpose({
 </script>
 
 <template>
-  <div class="agent-panel" :class="{ 'is-disabled': !enabled }">
-    <div class="panel-content">
-        <div class="panel-body">
-          <template v-if="enabled">
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.hookTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.hookDesc') }}</p>
-          <div v-for="agent in agents" :key="agent" class="event-row">
-            <div class="agent-label">
-              <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
-              <n-tag v-if="installedMap[agent]" type="success" size="small">
-                {{ t('settings.agent.installed') }}
-              </n-tag>
-              <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
-            </div>
-            <n-button
-              v-if="!installedMap[agent]"
-              size="small"
-              :loading="busyMap[agent]"
-              @click="install(agent)"
-            >
-              {{ t('settings.agent.installBtn') }}
-            </n-button>
-            <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
-              {{ t('settings.agent.uninstallBtn') }}
-            </n-button>
-          </div>
+  <plugin-panel-shell>
+    <plugin-section :title="t('settings.agent.hookTitle')" :description="t('settings.agent.hookDesc')">
+      <div v-for="agent in agents" :key="agent" class="event-row">
+        <div class="agent-label">
+          <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
+          <n-tag v-if="installedMap[agent]" type="success" size="small">
+            {{ t('settings.agent.installed') }}
+          </n-tag>
+          <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
         </div>
-      </section>
+        <n-button
+          v-if="!installedMap[agent]"
+          size="small"
+          :loading="busyMap[agent]"
+          @click="install(agent)"
+        >
+          {{ t('settings.agent.installBtn') }}
+        </n-button>
+        <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
+          {{ t('settings.agent.uninstallBtn') }}
+        </n-button>
+      </div>
+    </plugin-section>
 
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.eventsTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.eventsDesc') }}</p>
-          <div v-for="entry in eventModes" :key="entry.event" class="event-row">
-            <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
-            <n-radio-group
-              :value="entry.mode"
-              size="small"
-              :disabled="modeLoading[entry.event]"
-              @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
-            >
-              <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
-              <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
-              <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
-            </n-radio-group>
-          </div>
-        </div>
-      </section>
+    <plugin-section :title="t('settings.agent.eventsTitle')" :description="t('settings.agent.eventsDesc')">
+      <div v-for="entry in eventModes" :key="entry.event" class="event-row">
+        <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
+        <n-radio-group
+          :value="entry.mode"
+          size="small"
+          :disabled="modeLoading[entry.event]"
+          @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
+        >
+          <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
+          <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
+          <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
+        </n-radio-group>
+      </div>
+    </plugin-section>
 
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.soundTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.soundDesc') }}</p>
-          <div class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
-            <n-radio-group
-              :value="soundMode"
-              size="small"
-              :disabled="soundLoading"
-              @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
-            >
-              <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
-              <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
-              <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
-            </n-radio-group>
-          </div>
-          <div v-if="soundMode !== 'muted'" class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
-            <div class="sound-volume-row">
-              <n-slider
-                v-model:value="soundVolume"
-                :min="0"
-                :max="1"
-                :step="0.05"
-                :disabled="soundLoading"
-                style="width: 8rem"
-                @update:value="saveSoundVolume"
-              />
-              <span class="volume-value">{{ Math.round(soundVolume * 100) }}%</span>
-            </div>
-          </div>
-          <div v-if="soundMode === 'custom'" class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
-            <div class="sound-path-row">
-              <n-input
-                v-model:value="soundPath"
-                size="small"
-                style="max-width: 12rem"
-                :placeholder="t('settings.agent.soundPathPlaceholder')"
-                @blur="saveSound"
-              />
-              <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
-                {{ t('settings.agent.soundPickFile') }}
-              </n-button>
-            </div>
-          </div>
+    <plugin-section :title="t('settings.agent.soundTitle')" :description="t('settings.agent.soundDesc')">
+      <div class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
+        <n-radio-group
+          :value="soundMode"
+          size="small"
+          :disabled="soundLoading"
+          @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
+        >
+          <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
+          <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
+          <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
+        </n-radio-group>
+      </div>
+      <div v-if="soundMode !== 'muted'" class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
+        <div class="sound-volume-row">
+          <n-slider
+            v-model:value="soundVolume"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :disabled="soundLoading"
+            style="width: 8rem"
+            @update:value="saveSoundVolume"
+          />
+          <span class="value-display">{{ Math.round(soundVolume * 100) }}%</span>
         </div>
-      </section>
-          </template>
-
-          <div v-else class="empty-state">
-            <div class="empty-icon" aria-hidden="true">🔕</div>
-            <h4>{{ t('plugins.agent.name') }}</h4>
-            <p>{{ t('plugins.agent.disabledHint') }}</p>
-          </div>
+      </div>
+      <div v-if="soundMode === 'custom'" class="event-row">
+        <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
+        <div class="sound-path-row">
+          <n-input
+            v-model:value="soundPath"
+            size="small"
+            style="max-width: 12rem"
+            :placeholder="t('settings.agent.soundPathPlaceholder')"
+            @blur="saveSound"
+          />
+          <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
+            {{ t('settings.agent.soundPickFile') }}
+          </n-button>
         </div>
-    </div>
-  </div>
+      </div>
+    </plugin-section>
+  </plugin-panel-shell>
 </template>
 
 <style scoped>
-.agent-panel {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.agent-panel.is-disabled .empty-state {
-  opacity: 1;
-}
-
-.panel-content {
-  flex: 1;
-}
-
-.panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  width: 100%;
-  max-width: 64rem;
-  box-sizing: border-box;
-  margin: 0 auto;
-  padding: 1.5rem 2rem 2rem;
-}
-
-.panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.02rem;
-}
-
-.section-card {
-  background: #fff;
-  border: 0.0625rem solid #e2e8f0;
-  border-radius: 0.875rem;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.03);
-}
-
-.section-desc {
-  margin: 0 0 0.5rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  line-height: 1.4;
-}
-
 .event-row {
   display: flex;
   align-items: center;
@@ -393,10 +316,10 @@ defineExpose({
   min-width: 0;
 }
 
-.volume-value {
+.value-display {
   font-size: 0.75rem;
   color: #64748b;
-  min-width: 2.5rem;
+  min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -406,30 +329,5 @@ defineExpose({
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2.5rem 1rem;
-  border-radius: 1rem;
-  border: 0.0625rem dashed #e2e8f0;
-  background: #fff;
-}
-
-.empty-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.empty-state h4 {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #334155;
-}
-
-.empty-state p {
-  margin: 0.35rem 0 0;
-  font-size: 0.75rem;
-  color: #94a3b8;
 }
 </style>
