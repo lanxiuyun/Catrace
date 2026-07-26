@@ -27,7 +27,7 @@ const pluginRegistry = usePluginRegistry()
 const VISIBLE_PLUGIN_IDS = ['rest', 'timer', 'agent'] as const
 type VisiblePluginId = (typeof VISIBLE_PLUGIN_IDS)[number]
 
-const selectedId = ref<string>('timer')
+const selectedId = ref<string>('')
 const externalList = ref<ExternalPluginInfo[]>([])
 const loading = ref(false)
 const toggleBusy = ref<string | null>(null)
@@ -91,9 +91,11 @@ async function refreshExternal() {
   }
 }
 
-onMounted(() => {
-  void refreshBuiltinEnabled()
-  void refreshExternal()
+onMounted(async () => {
+  await Promise.all([refreshBuiltinEnabled(), refreshExternal()])
+  if (!selectedId.value && plugins.value.length) {
+    selectedId.value = plugins.value[0].id
+  }
   void listen<string>('catrace:plugin-anomaly', ({ payload: pluginId }) => {
     const plugin = externalList.value.find((item) => item.id === pluginId)
     if (plugin) plugin.anomalous = true
