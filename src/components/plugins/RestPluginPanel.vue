@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NInput, useMessage } from 'naive-ui'
+import { NButton, NInput, NSlider, useMessage } from 'naive-ui'
 import {
   getConfig,
   setConfig,
@@ -12,8 +12,8 @@ import {
   type AppConfig,
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
-import SettingRow from '../settings/SettingRow.vue'
-import SliderControl from '../settings/SliderControl.vue'
+import PluginPanelShell from './PluginPanelShell.vue'
+import PluginSection from './PluginSection.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -79,7 +79,6 @@ const customBody = computed({
   },
 })
 
-// 当前版本久坐插件只支持 toast；遗留 popup/fullscreen 配置写回 toast
 const testing = ref(false)
 const enabledLoading = ref(false)
 
@@ -110,7 +109,6 @@ async function sendTest() {
   try {
     await testNotification()
     message.success(t('settings.messages.notifySent'))
-    // 先限流 1s，避免连点打爆 toast 窗口路径
     await new Promise<void>((r) => setTimeout(r, 1000))
   } catch {
     message.error(t('settings.messages.notifyFailed'))
@@ -129,182 +127,128 @@ defineExpose({
 </script>
 
 <template>
-  <div class="rest-panel" :class="{ 'is-disabled': !config.enabled }">
-    <div class="panel-content">
-        <div class="panel-body">
-          <div class="panel-actions">
-            <n-button type="primary" :loading="testing" :disabled="!config.enabled" @click="sendTest">
-              <template #icon>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </template>
-              {{ t('plugins.rest.testBtn') }}
-            </n-button>
-          </div>
-          <template v-if="config.enabled">
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('plugins.rest.timingSection') }}</h3>
-        <div class="section-card">
-          <setting-row :title="t('plugins.rest.windowTitle')" :desc="t('plugins.rest.windowDesc')">
-            <slider-control
-              v-model:model-value="config.window_minutes"
-              :min="10"
-              :max="120"
-              :step="5"
-              :disabled="configLoading"
-              :suffix="' ' + t('common.minutes')"
-            />
-          </setting-row>
-          <div class="divider" />
-          <setting-row :title="t('plugins.rest.breakTitle')" :desc="t('plugins.rest.breakDesc')">
-            <slider-control
-              v-model:model-value="config.break_minutes"
-              :min="1"
-              :max="30"
-              :step="1"
-              :disabled="configLoading"
-              :suffix="' ' + t('common.minutes')"
-            />
-          </setting-row>
-          <div class="divider" />
-          <setting-row :title="t('plugins.rest.snoozeTitle')" :desc="t('plugins.rest.snoozeDesc')">
-            <slider-control
-              v-model:model-value="config.snooze_interval_minutes"
-              :min="1"
-              :max="10"
-              :step="1"
-              :disabled="configLoading"
-              :suffix="' ' + t('common.minutes')"
-            />
-          </setting-row>
+  <plugin-panel-shell>
+    <plugin-section :title="t('plugins.rest.timingSection')" :description="t('plugins.rest.timingSectionDesc')">
+      <div class="event-row">
+        <span class="event-name">{{ t('plugins.rest.windowTitle') }}</span>
+        <div class="slider-value-row">
+          <n-slider
+            v-model:value="config.window_minutes"
+            :min="10"
+            :max="120"
+            :step="5"
+            :disabled="configLoading"
+            style="width: 8rem"
+          />
+          <span class="value-display">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
         </div>
-      </section>
+      </div>
+      <div class="event-row">
+        <span class="event-name">{{ t('plugins.rest.breakTitle') }}</span>
+        <div class="slider-value-row">
+          <n-slider
+            v-model:value="config.break_minutes"
+            :min="1"
+            :max="30"
+            :step="1"
+            :disabled="configLoading"
+            style="width: 8rem"
+          />
+          <span class="value-display">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
+        </div>
+      </div>
+      <div class="event-row">
+        <span class="event-name">{{ t('plugins.rest.snoozeTitle') }}</span>
+        <div class="slider-value-row">
+          <n-slider
+            v-model:value="config.snooze_interval_minutes"
+            :min="1"
+            :max="10"
+            :step="1"
+            :disabled="configLoading"
+            style="width: 8rem"
+          />
+          <span class="value-display">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
+        </div>
+      </div>
+    </plugin-section>
 
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('plugins.rest.contentSection') }}</h3>
-        <div class="section-card">
-          <setting-row :title="t('plugins.rest.customTitle')" :desc="t('plugins.rest.customTitleDesc')" style="align-items: flex-start;">
-            <n-input
-              v-model:value="customTitle"
-              :placeholder="t('plugins.rest.previewDefaultTitle')"
-              size="small"
-              style="width: 13.75rem;"
-            />
-          </setting-row>
-          <div class="divider" />
-          <setting-row :title="t('plugins.rest.customBody')" :desc="t('plugins.rest.customBodyDesc')" style="align-items: flex-start;">
-            <n-input
-              v-model:value="customBody"
-              :placeholder="t('plugins.rest.previewDefaultBody')"
-              type="textarea"
-              :rows="2"
-              size="small"
-              style="width: 13.75rem;"
-            />
-          </setting-row>
-        </div>
-      </section>
+    <plugin-section :title="t('plugins.rest.contentSection')">
+      <div class="event-row align-start">
+        <span class="event-name">{{ t('plugins.rest.customTitle') }}</span>
+        <n-input
+          v-model:value="customTitle"
+          :placeholder="t('plugins.rest.previewDefaultTitle')"
+          size="small"
+          style="max-width: 12rem"
+        />
+      </div>
+      <div class="event-row align-start">
+        <span class="event-name">{{ t('plugins.rest.customBody') }}</span>
+        <n-input
+          v-model:value="customBody"
+          :placeholder="t('plugins.rest.previewDefaultBody')"
+          type="textarea"
+          :rows="2"
+          size="small"
+          style="max-width: 12rem"
+        />
+      </div>
+      <div class="section-footer">
+        <n-button size="small" type="primary" :loading="testing" @click="sendTest">
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </template>
-
-          <div v-else class="empty-state">
-            <div class="empty-icon" aria-hidden="true">🔕</div>
-            <h4>{{ t('plugins.rest.name') }}</h4>
-            <p>{{ t('plugins.rest.disabledHint') || t('plugins.agent.disabledHint') }}</p>
-          </div>
-        </div>
-    </div>
-  </div>
+          {{ t('plugins.rest.testBtn') }}
+        </n-button>
+      </div>
+    </plugin-section>
+  </plugin-panel-shell>
 </template>
 
 <style scoped>
-.rest-panel {
+.event-row {
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.rest-panel.is-disabled .panel-section {
-  opacity: 0.62;
-}
-
-.panel-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.panel-content {
-  flex: 1;
-}
-
-.panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  width: 100%;
-  max-width: 64rem;
-  box-sizing: border-box;
-  margin: 0 auto;
-  padding: 1.5rem 2rem 2rem;
-}
-
-.panel-section {
-  display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
+  padding: 0.5rem 0;
 }
 
-.section-title {
-  margin: 0;
+.event-row + .event-row {
+  border-top: 0.0625rem solid #f1f5f9;
+}
+
+.event-row.align-start {
+  align-items: flex-start;
+}
+
+.event-name {
   font-size: 0.8125rem;
-  font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.02rem;
-}
-
-.section-card {
-  background: #fff;
-  border: 0.0625rem solid #e2e8f0;
-  border-radius: 0.875rem;
-  padding: 0.25rem 0.25rem;
-  box-shadow: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.03);
-}
-
-.section-card :deep(.setting-meta) {
-  width: 12rem;
-  flex-shrink: 0;
-  max-width: none;
-}
-
-.divider {
-  height: 0.0625rem;
-  background: #f1f5f9;
-  margin: 0 0.75rem;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2.5rem 1rem;
-  border-radius: 1rem;
-  border: 0.0625rem dashed #e2e8f0;
-  background: #fff;
-}
-
-.empty-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.empty-state h4 {
-  margin: 0;
-  font-size: 0.875rem;
   color: #334155;
 }
 
-.empty-state p {
-  margin: 0.35rem 0 0;
+.slider-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.value-display {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
+  min-width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.section-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 0.0625rem solid #f1f5f9;
 }
 </style>
