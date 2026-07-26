@@ -15,14 +15,14 @@ fn notify_title(locale: &str) -> &'static str {
 }
 fn notify_body(locale: &str) -> &'static str {
     match locale {
-        "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
-        _ => "Stand up, drink some water, stretch your neck and back.",
+        "zh-CN" => "站起来休息一下吧。",
+        _ => "Stand up and take a break.",
     }
 }
 fn test_notify_msg(locale: &str) -> &'static str {
     match locale {
-        "zh-CN" => "这是一条测试提醒",
-        _ => "This is a test notification",
+        "zh-CN" => "站起来休息一下吧。",
+        _ => "Stand up and take a break.",
     }
 }
 
