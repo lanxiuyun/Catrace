@@ -1,4 +1,17 @@
-# Plugin demo — demo-timer
+# Plugin demo
+
+Local external plugin samples for Catrace M10.
+
+| Package | Role |
+|---------|------|
+| `demo-timer/` | Minimal toast card + background tick |
+| `timer/` | First-party **定时提醒** (settings + scheduling) |
+
+Debug builds junction packages under `tools/plugin-demo/` into `app_data/plugins/`.
+
+---
+
+# demo-timer
 
 Sample **local external plugin** for Catrace M10.
 
@@ -39,3 +52,22 @@ See architecture: `.agent/architecture/desktop-event-os/m10-external-plugins.md`
 ## Trust
 
 Local plugins run in the app WebView. Only install packages you trust. No marketplace.
+
+---
+
+# timer（定时提醒）
+
+First-party external plugin ported from the former built-in timer.
+
+```
+tools/plugin-demo/timer/
+  manifest.json      # id=timer, main/background/settings
+  background.mjs     # minute-aligned schedule + ack/snooze/skip
+  ui.mjs             # toast card
+  settings.mjs       # Plugins page rule CRUD
+```
+
+- Config key stays `plugin_config:timer` (rules migrate in place).
+- Runtime state in SQLite `plugin_storage(timer, runtime)`.
+- Toast actions resolve on the host; side-effects run in `background.mjs` via `catrace:plugin-event-resolved`.
+- Header switch = external plugin enabled; per-rule switches live in settings.

@@ -159,3 +159,27 @@ mklink /J "%APPDATA%\com.lanxiuyun.catrace\plugins\demo-timer" "C:\work_sapce\Ca
 - 踩坑：[[bugs]] `2026-07-20-插件ui动态import-file-asset失败改blob加载.md`
 - 决策：[[decisions]] 不做插件市场
 - 路线图：[[desktop-event-os]] step2 M10
+
+
+## Settings 与 background（M10.1）
+
+可选 manifest 字段：
+
+```json
+{
+  "background": "background.mjs",
+  "settings": "settings.mjs"
+}
+```
+
+| 能力 | 说明 |
+|------|------|
+| `get_plugin_settings_source(id)` | 主窗读 settings ESM 文本 → Blob import |
+| `get_plugin_config` / `set_plugin_config` | 主窗按已安装 id 读写整包 `plugin_config:{id}` |
+| `plugin_config_get_all` | bg 窗读整包 config（caller-bound） |
+| resolve 回传 | Bus resolve Plugin 源事件 → emit `catrace:plugin-event-resolved` 到 `plugin-bg-{id}`；PluginHost 再 `CustomEvent` 转给 background.mjs |
+| 第一方示例 | `tools/plugin-demo/timer`（原内置定时提醒） |
+
+- settings 组件同样走 `__CATRACE_VUE__`（含 `onMounted`）；`settingsSurface: plugins`
+- header 开关 = `set_external_plugin_enabled`；规则调度另看 config/rules
+- Toast action 副作用在 bg 处理，宿主只 `resolve_event_action`
