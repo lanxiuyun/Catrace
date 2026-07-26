@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 use crate::event::{
-    now_ms, validate_event_shape, BusEvent, DisplayMode, EventPatch, EventResolution, EventStatus,
-    ResolutionKind,
+    now_ms, validate_event_shape, BusEvent, DisplayMode, EventPatch, EventResolution, EventSource,
+    EventStatus, ResolutionKind,
 };
 use crate::reminder_toast;
 
@@ -267,6 +267,7 @@ impl EventBus {
             reg.resolve(&id, resolution)?
         };
         self.emit_event(out.clone());
+        self.notify_plugin_resolved(&out);
         Ok(out)
     }
 
@@ -281,7 +282,38 @@ impl EventBus {
             reg.resolve_action(&id, &action_id, payload)?
         };
         self.emit_event(out.clone());
+        self.notify_plugin_resolved(&out);
         Ok(out)
+    }
+
+    /// Forward resolve outcomes to the plugin background WebView so bg modules can react.
+    fn notify_plugin_resolved(&self, event: &BusEvent) {
+        let EventSource::Plugin { name } = &event.source else {
+            return;
+        };
+        let Some(win) = self
+            .app_handle
+            .get_webview_window(&format!("plugin-bg-{name}"))
+        else {
+            return;
+        };
+        let resolution = event.resolution.as_ref();
+        let payload = serde_json::json!({
+            "eventId": event.id,
+            "eventType": event.event_type,
+            "kind": event.kind,
+            "payload": event.payload,
+            "actionId": resolution.and_then(|r| r.action_id.clone()),
+            "resolutionKind": resolution.map(|r| match r.kind {
+                ResolutionKind::Completed => "completed",
+                ResolutionKind::Dismissed => "dismissed",
+                ResolutionKind::Action => "action",
+                ResolutionKind::Expired => "expired",
+                ResolutionKind::Superseded => "superseded",
+            }),
+            "resolutionPayload": resolution.and_then(|r| r.payload.clone()),
+        });
+        let _ = win.emit("catrace:plugin-event-resolved", payload);
     }
 
     pub fn active_events(&self) -> Result<Vec<BusEvent>, String> {

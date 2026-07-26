@@ -49,9 +49,15 @@ async function getSettingsStore() {
 }
 
 function onBuiltinPluginEnabledChanged(event: Event) {
-  const detail = (event as CustomEvent<{ id?: VisiblePluginId; enabled?: boolean }>).detail
+  const detail = (event as CustomEvent<{ id?: string; enabled?: boolean }>).detail
   if (detail?.id && typeof detail.enabled === 'boolean') {
-    builtinEnabled.value[detail.id] = detail.enabled
+    if ((VISIBLE_PLUGIN_IDS as readonly string[]).includes(detail.id)) {
+      builtinEnabled.value[detail.id as VisiblePluginId] = detail.enabled
+    }
+    // External settings.mjs may toggle enable — keep list in sync.
+    externalList.value = externalList.value.map((p) =>
+      p.id === detail.id ? { ...p, enabled: detail.enabled! } : p,
+    )
     return
   }
   void refreshBuiltinEnabled()
@@ -161,27 +167,24 @@ const isBuiltinSelected = computed(() =>
 )
 
 const ActiveDetail = computed(() => {
-  if (!isBuiltinSelected.value) return null
-  const id = selectedId.value as VisiblePluginId
-  const handle = pluginRegistry.getPlugin(id)
-  if (handle?.SettingsComponent) return handle.SettingsComponent
-  return fallbackDetail[id]
+  if (isBuiltinSelected.value) {
+    const id = selectedId.value as VisiblePluginId
+    const handle = pluginRegistry.getPlugin(id)
+    if (handle?.SettingsComponent) return handle.SettingsComponent
+    return fallbackDetail[id]
+  }
+  // External plugins: mount settings.mjs when available.
+  if (selectedExternal.value && !selectedExternal.value.error) {
+    const handle = pluginRegistry.getPlugin(selectedId.value)
+    if (handle?.SettingsComponent) return handle.SettingsComponent
+  }
+  return null
 })
 
 const activePanelRef = ref<any>(null)
 
 const activeHeader = computed(() => {
-  if (ActiveDetail.value) {
-    return {
-      title: t(`plugins.${selectedId.value}.name`),
-      subtitle: t(`plugins.${selectedId.value}.subtitle`),
-      enabled: activePanelRef.value?.headerEnabled ?? false,
-      loading: activePanelRef.value?.headerLoading ?? false,
-      switchAria: t(`plugins.${selectedId.value}.switchAria`),
-      onToggle: (val: boolean) => activePanelRef.value?.toggleEnabled?.(val),
-      icon: selectedId.value,
-    }
-  }
+  // External plugins: header switch = external enabled (not settings expose).
   if (selectedExternal.value) {
     const ext = selectedExternal.value
     return {
@@ -192,6 +195,17 @@ const activeHeader = computed(() => {
       switchAria: t('plugins.external.switchAria'),
       onToggle: (val: boolean) => onToggleExternal(ext.id, val),
       icon: 'external',
+    }
+  }
+  if (isBuiltinSelected.value && ActiveDetail.value) {
+    return {
+      title: t(`plugins.${selectedId.value}.name`),
+      subtitle: t(`plugins.${selectedId.value}.subtitle`),
+      enabled: activePanelRef.value?.headerEnabled ?? false,
+      loading: activePanelRef.value?.headerLoading ?? false,
+      switchAria: t(`plugins.${selectedId.value}.switchAria`),
+      onToggle: (val: boolean) => activePanelRef.value?.toggleEnabled?.(val),
+      icon: selectedId.value,
     }
   }
   return null

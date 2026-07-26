@@ -34,6 +34,8 @@ pub struct PluginManifestFile {
     #[serde(default)]
     pub background: Option<String>,
     #[serde(default)]
+    pub settings: Option<String>,
+    #[serde(default)]
     pub events: Vec<String>,
     #[serde(default = "default_true")]
     pub enabled_by_default: bool,
@@ -52,12 +54,14 @@ pub struct ExternalPluginInfo {
     pub description: String,
     pub main: Option<String>,
     pub background: Option<String>,
+    pub settings: Option<String>,
     pub events: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
     pub dir: String,
     pub has_ui: bool,
     pub has_background: bool,
+    pub has_settings: bool,
     pub anomalous: bool,
     pub error: Option<String>,
 }
@@ -67,6 +71,7 @@ struct CachedPlugin {
     info: ExternalPluginInfo,
     main_abs: Option<PathBuf>,
     background_abs: Option<PathBuf>,
+    settings_abs: Option<PathBuf>,
 }
 
 struct PluginCache {
@@ -133,17 +138,20 @@ impl PluginManager {
                             description: String::new(),
                             main: None,
                             background: None,
+                            settings: None,
                             events: vec![],
                             enabled: false,
                             enabled_by_default: false,
                             dir: path.to_string_lossy().to_string(),
                             has_ui: false,
                             has_background: false,
+                            has_settings: false,
                             anomalous: false,
                             error: Some(e),
                         },
                         main_abs: None,
                         background_abs: None,
+                        settings_abs: None,
                     });
                 }
             }
@@ -307,6 +315,42 @@ impl PluginManager {
             .clone()
             .ok_or_else(|| format!("plugin has no UI entry: {id}"))
     }
+
+    /// Settings ESM may be read for installed plugins even when disabled (detail panel).
+    pub fn settings_source(&self, id: &str) -> Result<String, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if let Some(err) = &p.info.error {
+            return Err(format!("plugin invalid: {err}"));
+        }
+        let path = p
+            .settings_abs
+            .as_ref()
+            .ok_or_else(|| format!("plugin has no settings entry: {id}"))?;
+        let meta = fs::metadata(path).map_err(|e| format!("stat settings: {e}"))?;
+        if meta.len() > 512 * 1024 {
+            return Err("plugin settings source too large (>512KiB)".into());
+        }
+        fs::read_to_string(path).map_err(|e| format!("read settings source: {e}"))
+    }
+
+    /// True when plugin is installed and error-free (enabled not required).
+    pub fn ensure_installed(&self, id: &str) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if let Some(err) = &p.info.error {
+            return Err(format!("plugin invalid: {err}"));
+        }
+        Ok(())
+    }
 }
 
 fn plugins_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -371,6 +415,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
 
     let main_abs = resolve_entry(dir, m.main.as_deref(), "main")?;
     let background_abs = resolve_entry(dir, m.background.as_deref(), "background")?;
+    let settings_abs = resolve_entry(dir, m.settings.as_deref(), "settings")?;
 
     let enabled = crate::plugin_config::get_plugin_config_entry(app, &m.id, "enabled")?
         .and_then(|value| value.as_bool())
@@ -384,17 +429,20 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             description: m.description,
             main: m.main,
             background: m.background,
+            settings: m.settings,
             events: m.events,
             enabled,
             enabled_by_default: m.enabled_by_default,
             dir: dir.to_string_lossy().to_string(),
             has_ui: main_abs.is_some(),
             has_background: background_abs.is_some(),
+            has_settings: settings_abs.is_some(),
             anomalous: false,
             error: None,
         },
         main_abs,
         background_abs,
+        settings_abs,
     })
 }
 
@@ -508,6 +556,42 @@ pub fn get_plugin_ui_source(mgr: State<'_, PluginManager>, id: String) -> Result
         return Err("plugin UI source too large (>512KiB)".into());
     }
     fs::read_to_string(&path).map_err(|e| format!("read ui source: {e}"))
+}
+
+/// Read plugin settings ESM source for the main-window detail panel.
+#[tauri::command]
+pub fn get_plugin_settings_source(
+    mgr: State<'_, PluginManager>,
+    id: String,
+) -> Result<String, String> {
+    mgr.settings_source(&id)
+}
+
+/// Whole-object plugin config for main window / settings.mjs (installed plugins only).
+#[tauri::command]
+pub fn get_plugin_config(
+    app: AppHandle,
+    mgr: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<Option<serde_json::Value>, String> {
+    validate_id(&plugin_id)?;
+    mgr.ensure_installed(&plugin_id)?;
+    crate::plugin_config::get_plugin_config::<serde_json::Value>(&app, &plugin_id)
+}
+
+#[tauri::command]
+pub fn set_plugin_config(
+    app: AppHandle,
+    mgr: State<'_, PluginManager>,
+    plugin_id: String,
+    value: serde_json::Value,
+) -> Result<(), String> {
+    validate_id(&plugin_id)?;
+    mgr.ensure_installed(&plugin_id)?;
+    if !value.is_object() {
+        return Err("plugin config must be a JSON object".into());
+    }
+    crate::plugin_config::set_plugin_config(&app, &plugin_id, &value)
 }
 
 #[tauri::command]

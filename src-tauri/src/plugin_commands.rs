@@ -334,6 +334,16 @@ pub fn plugin_config_get(
     crate::plugin_config::get_plugin_config_entry(window.app_handle(), &id, &key)
 }
 
+/// Read the whole plugin config object (`plugin_config:{id}`).
+#[tauri::command]
+pub fn plugin_config_get_all(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+) -> Result<Option<serde_json::Value>, String> {
+    let id = require_enabled_plugin(&window, &plugins)?;
+    crate::plugin_config::get_plugin_config::<serde_json::Value>(window.app_handle(), &id)
+}
+
 #[tauri::command]
 pub fn plugin_config_set(
     window: tauri::WebviewWindow,

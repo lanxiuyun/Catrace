@@ -479,12 +479,14 @@ export interface ExternalPluginInfo {
   description: string
   main?: string | null
   background?: string | null
+  settings?: string | null
   events: string[]
   enabled: boolean
   enabledByDefault: boolean
   dir: string
   hasUi: boolean
   hasBackground: boolean
+  hasSettings: boolean
   anomalous: boolean
   error?: string | null
 }
@@ -507,6 +509,20 @@ export async function getPluginUiUrl(id: string): Promise<string> {
 /** Read plugin ui.mjs source text (host loads via Blob URL). */
 export async function getPluginUiSource(id: string): Promise<string> {
   return invoke('get_plugin_ui_source', { id })
+}
+
+/** Read plugin settings.mjs source text (host loads via Blob URL). */
+export async function getPluginSettingsSource(id: string): Promise<string> {
+  return invoke('get_plugin_settings_source', { id })
+}
+
+/** Whole-object plugin config for main window / settings.mjs. */
+export async function getPluginConfig(pluginId: string): Promise<unknown | null> {
+  return invoke('get_plugin_config', { pluginId })
+}
+
+export async function setPluginConfig(pluginId: string, value: unknown): Promise<void> {
+  return invoke('set_plugin_config', { pluginId, value })
 }
 
 export async function openPluginsDir(): Promise<void> {
