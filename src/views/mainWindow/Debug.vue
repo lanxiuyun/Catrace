@@ -28,6 +28,7 @@ import {
   type SignalRuntimeConfig,
 } from '../../api/tauri'
 import EventSdkSettingsCard from '../../components/settings/EventSdkSettingsCard.vue'
+import PageScroll from '../../components/PageScroll.vue'
 
 const { t } = useI18n()
 
@@ -146,7 +147,8 @@ onDeactivated(() => {
 </script>
 
 <template>
-  <div class="debug-page">
+  <page-scroll>
+    <div class="debug-page">
     <div class="page-header">
       <h2>{{ t('debug.title') }}</h2>
       <div class="header-actions">
@@ -339,7 +341,8 @@ onDeactivated(() => {
       </n-card>
       </template>
     </n-space>
-  </div>
+    </div>
+  </page-scroll>
 </template>
 
 <style scoped>

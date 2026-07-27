@@ -5,6 +5,7 @@ import { NCard, NRadioGroup, NRadioButton, NSwitch } from "naive-ui";
 import { getTodayStats, getTodayRecords, getConfig, getHideStats, setHideStats } from "../../api/tauri";
 import Timeline from "../../components/Timeline.vue";
 import TimelineWindows from "../../components/TimelineWindows.vue";
+import PageScroll from '../../components/PageScroll.vue'
 import type { MinuteData } from "../../components/Timeline.vue";
 import { computeTimeBlocks } from "../../utils/timeBlocks";
 
@@ -148,7 +149,8 @@ onDeactivated(() => {
 </script>
 
 <template>
-  <div class="dashboard">
+  <page-scroll>
+    <div class="dashboard">
     <header class="header">
       <p class="subtitle">
         {{
@@ -228,7 +230,8 @@ onDeactivated(() => {
         {{ t('dashboard.activity.empty') }}
       </p>
     </n-card>
-  </div>
+    </div>
+  </page-scroll>
 </template>
 
 <style scoped>

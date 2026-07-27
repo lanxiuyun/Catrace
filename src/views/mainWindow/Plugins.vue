@@ -373,7 +373,11 @@ async function onTestExternal(p: ExternalPluginInfo) {
 <style scoped>
 .plugins-page {
   display: flex;
+  width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: #f8fafc;
   box-sizing: border-box;
 }
@@ -384,15 +388,22 @@ async function onTestExternal(p: ExternalPluginInfo) {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: rgba(248, 250, 252, 0.7);
 }
 
 .plugin-scroll {
   flex: 1;
+  width: 100%;
   min-height: 0;
+  height: 100%;
 }
 
-.plugin-scroll :deep(.n-scrollbar-content) {
+.plugin-scroll > :deep(.n-scrollbar-container) {
+  height: 100%;
+}
+
+.plugin-scroll > :deep(.n-scrollbar-container > .n-scrollbar-content) {
   display: flex;
   flex-direction: column;
   min-height: 100%;

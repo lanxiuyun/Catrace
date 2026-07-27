@@ -8,6 +8,7 @@ import MediaSettingsCard from '../../components/settings/MediaSettingsCard.vue'
 import SystemSettingsCard from '../../components/settings/SystemSettingsCard.vue'
 import LinksSettingsCard from '../../components/settings/LinksSettingsCard.vue'
 import SignalSettingsCard from '../../components/settings/SignalSettingsCard.vue'
+import PageScroll from '../../components/PageScroll.vue'
 import { usePluginRegistry } from '../../stores/pluginRegistry'
 
 const { t } = useI18n()
@@ -152,7 +153,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="settings">
+  <page-scroll>
+    <div class="settings">
     <h1 class="title">{{ t('settings.title') }}</h1>
     <p class="subtitle">{{ t('settings.subtitle') }}</p>
 
@@ -179,7 +181,8 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-  </div>
+    </div>
+  </page-scroll>
 </template>
 
 <style scoped>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import PageScroll from '../PageScroll.vue'
 
 export interface PluginNavItem {
   id: string
@@ -109,8 +110,8 @@ function openDir() {
       </label>
     </div>
 
-    <div class="rail-list">
-        <div class="rail-list-content">
+    <page-scroll class="rail-list">
+      <div class="rail-list-content">
           <button
             v-for="p in filteredItems"
             :key="p.id"
@@ -185,8 +186,8 @@ function openDir() {
               {{ t('plugins.exploreMore') }}
             </button>
           </div>
-        </div>
-    </div>
+      </div>
+    </page-scroll>
   </aside>
 </template>
 
@@ -194,9 +195,12 @@ function openDir() {
 .plugin-rail {
   width: 15rem;
   min-width: 15rem;
+  height: 100%;
+  min-height: 0;
   flex: 0 0 15rem;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #fff;
   border-right: 0.0625rem solid #e2e8f0;
 }
@@ -314,6 +318,7 @@ function openDir() {
 
 .rail-list {
   flex: 1;
+  min-height: 0;
 }
 
 .rail-list-content {

@@ -297,5 +297,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 plugin UI — host .plugin-detail owns chrome; panels business-only; MainShell scrollbar content height 100%
-  next: polish remaining external settings packages against host padding; continue Step3 runtime items from roadmap
+  phase: Step3 plugin UI — page-owned scrolling verified; standard pages use PageScroll, plugins only scroll right detail
+  next: continue Step3 runtime items from roadmap
