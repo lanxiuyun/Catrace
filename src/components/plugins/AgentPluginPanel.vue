@@ -18,7 +18,6 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
-import PluginPanelShell from './PluginPanelShell.vue'
 import PluginSection from './PluginSection.vue'
 
 const { t } = useI18n()
@@ -190,92 +189,90 @@ defineExpose({
 </script>
 
 <template>
-  <plugin-panel-shell>
-    <plugin-section :title="t('settings.agent.hookTitle')" :description="t('settings.agent.hookDesc')">
-      <div v-for="agent in agents" :key="agent" class="event-row">
-        <div class="agent-label">
-          <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
-          <n-tag v-if="installedMap[agent]" type="success" size="small">
-            {{ t('settings.agent.installed') }}
-          </n-tag>
-          <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
-        </div>
-        <n-button
-          v-if="!installedMap[agent]"
-          size="small"
-          :loading="busyMap[agent]"
-          @click="install(agent)"
-        >
-          {{ t('settings.agent.installBtn') }}
-        </n-button>
-        <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
-          {{ t('settings.agent.uninstallBtn') }}
-        </n-button>
+  <plugin-section :title="t('settings.agent.hookTitle')" :description="t('settings.agent.hookDesc')">
+    <div v-for="agent in agents" :key="agent" class="event-row">
+      <div class="agent-label">
+        <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
+        <n-tag v-if="installedMap[agent]" type="success" size="small">
+          {{ t('settings.agent.installed') }}
+        </n-tag>
+        <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
       </div>
-    </plugin-section>
+      <n-button
+        v-if="!installedMap[agent]"
+        size="small"
+        :loading="busyMap[agent]"
+        @click="install(agent)"
+      >
+        {{ t('settings.agent.installBtn') }}
+      </n-button>
+      <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
+        {{ t('settings.agent.uninstallBtn') }}
+      </n-button>
+    </div>
+  </plugin-section>
 
-    <plugin-section :title="t('settings.agent.eventsTitle')" :description="t('settings.agent.eventsDesc')">
-      <div v-for="entry in eventModes" :key="entry.event" class="event-row">
-        <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
-        <n-radio-group
-          :value="entry.mode"
-          size="small"
-          :disabled="modeLoading[entry.event]"
-          @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
-        >
-          <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
-          <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
-          <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
-        </n-radio-group>
-      </div>
-    </plugin-section>
+  <plugin-section :title="t('settings.agent.eventsTitle')" :description="t('settings.agent.eventsDesc')">
+    <div v-for="entry in eventModes" :key="entry.event" class="event-row">
+      <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
+      <n-radio-group
+        :value="entry.mode"
+        size="small"
+        :disabled="modeLoading[entry.event]"
+        @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
+      >
+        <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
+        <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
+        <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
+      </n-radio-group>
+    </div>
+  </plugin-section>
 
-    <plugin-section :title="t('settings.agent.soundTitle')" :description="t('settings.agent.soundDesc')">
-      <div class="event-row">
-        <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
-        <n-radio-group
-          :value="soundMode"
-          size="small"
+  <plugin-section :title="t('settings.agent.soundTitle')" :description="t('settings.agent.soundDesc')">
+    <div class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
+      <n-radio-group
+        :value="soundMode"
+        size="small"
+        :disabled="soundLoading"
+        @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
+      >
+        <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
+        <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
+        <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
+      </n-radio-group>
+    </div>
+    <div v-if="soundMode !== 'muted'" class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
+      <div class="sound-volume-row">
+        <n-slider
+          v-model:value="soundVolume"
+          :min="0"
+          :max="1"
+          :step="0.05"
           :disabled="soundLoading"
-          @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
-        >
-          <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
-          <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
-          <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
-        </n-radio-group>
+          style="width: 8rem"
+          @update:value="saveSoundVolume"
+        />
+        <span class="value-display">{{ Math.round(soundVolume * 100) }}%</span>
       </div>
-      <div v-if="soundMode !== 'muted'" class="event-row">
-        <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
-        <div class="sound-volume-row">
-          <n-slider
-            v-model:value="soundVolume"
-            :min="0"
-            :max="1"
-            :step="0.05"
-            :disabled="soundLoading"
-            style="width: 8rem"
-            @update:value="saveSoundVolume"
-          />
-          <span class="value-display">{{ Math.round(soundVolume * 100) }}%</span>
-        </div>
+    </div>
+    <div v-if="soundMode === 'custom'" class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
+      <div class="sound-path-row">
+        <n-input
+          v-model:value="soundPath"
+          size="small"
+          style="max-width: 12rem"
+          :placeholder="t('settings.agent.soundPathPlaceholder')"
+          @blur="saveSound"
+        />
+        <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
+          {{ t('settings.agent.soundPickFile') }}
+        </n-button>
       </div>
-      <div v-if="soundMode === 'custom'" class="event-row">
-        <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
-        <div class="sound-path-row">
-          <n-input
-            v-model:value="soundPath"
-            size="small"
-            style="max-width: 12rem"
-            :placeholder="t('settings.agent.soundPathPlaceholder')"
-            @blur="saveSound"
-          />
-          <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
-            {{ t('settings.agent.soundPickFile') }}
-          </n-button>
-        </div>
-      </div>
-    </plugin-section>
-  </plugin-panel-shell>
+    </div>
+  </plugin-section>
 </template>
 
 <style scoped>
@@ -301,12 +298,7 @@ defineExpose({
   align-items: center;
   gap: 0.5rem;
   max-width: 18rem;
-  flex: 1;
   justify-content: flex-end;
-}
-
-.sound-path-row .n-input {
-  flex: 1;
 }
 
 .sound-volume-row {

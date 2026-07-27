@@ -14,7 +14,7 @@ App.vue                          # NConfigProvider + RouterView + 全局 html/bo
     │           ├── Dashboard.vue
     │   ├── Plugins.vue
     │   │   ├── PluginNavRail
-    │   │   └── plugin-main（PluginPanelHeader + PluginPanelShell + 内容自然撑高）
+    │   │   └── plugin-main（PluginPanelHeader + .plugin-detail 宿主外壳 + 业务 Panel）
     │           ├── Settings.vue
     │           └── Debug.vue
     └── ToastShell.vue           # /reminder-* /plugin-host

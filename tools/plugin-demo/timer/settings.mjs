@@ -17,9 +17,9 @@ const MAX_INTERVAL = 24 * 60
 
 const STYLE_ID = 'catrace-plugin-timer-settings-css'
 const CSS = `
+/* Host Plugins.vue .plugin-detail owns max-width / padding — panel is business only. */
 .timer-settings {
-  width: 100%; max-width: 64rem; box-sizing: border-box;
-  margin: 0 auto; padding: 1.5rem 2rem 2rem;
+  width: 100%; box-sizing: border-box;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
   color: #0f172a;
 }

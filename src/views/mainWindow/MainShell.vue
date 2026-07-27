@@ -47,7 +47,7 @@ const { t } = useI18n()
     </header>
 
     <main class="app-workspace">
-      <n-scrollbar class="workspace-scroll">
+      <n-scrollbar>
         <RouterView v-slot="{ Component }">
           <KeepAlive>
             <component :is="Component" />
@@ -197,7 +197,8 @@ const { t } = useI18n()
   overflow: hidden;
 }
 
-.workspace-scroll {
+.app-workspace :deep(.n-scrollbar-container),
+.app-workspace :deep(.n-scrollbar-content) {
   height: 100%;
 }
 </style>

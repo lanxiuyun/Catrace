@@ -12,7 +12,6 @@ import {
   type AppConfig,
 } from '../../api/tauri'
 import { useAutoSavedSetting } from '../../composables/useAutoSavedSetting'
-import PluginPanelShell from './PluginPanelShell.vue'
 import PluginSection from './PluginSection.vue'
 
 const { t } = useI18n()
@@ -127,85 +126,83 @@ defineExpose({
 </script>
 
 <template>
-  <plugin-panel-shell>
-    <plugin-section :title="t('plugins.rest.timingSection')" :description="t('plugins.rest.timingSectionDesc')">
-      <div class="event-row">
-        <span class="event-name">{{ t('plugins.rest.windowTitle') }}</span>
-        <div class="slider-value-row">
-          <n-slider
-            v-model:value="config.window_minutes"
-            :min="10"
-            :max="120"
-            :step="5"
-            :disabled="configLoading"
-            style="width: 8rem"
-          />
-          <span class="value-display">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
-        </div>
+  <plugin-section :title="t('plugins.rest.timingSection')" :description="t('plugins.rest.timingSectionDesc')">
+    <div class="event-row">
+      <span class="event-name">{{ t('plugins.rest.windowTitle') }}</span>
+      <div class="slider-value-row">
+        <n-slider
+          v-model:value="config.window_minutes"
+          :min="10"
+          :max="120"
+          :step="5"
+          :disabled="configLoading"
+          style="width: 8rem"
+        />
+        <span class="value-display">{{ config.window_minutes }} {{ t('common.minutes') }}</span>
       </div>
-      <div class="event-row">
-        <span class="event-name">{{ t('plugins.rest.breakTitle') }}</span>
-        <div class="slider-value-row">
-          <n-slider
-            v-model:value="config.break_minutes"
-            :min="1"
-            :max="30"
-            :step="1"
-            :disabled="configLoading"
-            style="width: 8rem"
-          />
-          <span class="value-display">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
-        </div>
+    </div>
+    <div class="event-row">
+      <span class="event-name">{{ t('plugins.rest.breakTitle') }}</span>
+      <div class="slider-value-row">
+        <n-slider
+          v-model:value="config.break_minutes"
+          :min="1"
+          :max="30"
+          :step="1"
+          :disabled="configLoading"
+          style="width: 8rem"
+        />
+        <span class="value-display">{{ config.break_minutes }} {{ t('common.minutes') }}</span>
       </div>
-      <div class="event-row">
-        <span class="event-name">{{ t('plugins.rest.snoozeTitle') }}</span>
-        <div class="slider-value-row">
-          <n-slider
-            v-model:value="config.snooze_interval_minutes"
-            :min="1"
-            :max="10"
-            :step="1"
-            :disabled="configLoading"
-            style="width: 8rem"
-          />
-          <span class="value-display">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
-        </div>
+    </div>
+    <div class="event-row">
+      <span class="event-name">{{ t('plugins.rest.snoozeTitle') }}</span>
+      <div class="slider-value-row">
+        <n-slider
+          v-model:value="config.snooze_interval_minutes"
+          :min="1"
+          :max="10"
+          :step="1"
+          :disabled="configLoading"
+          style="width: 8rem"
+        />
+        <span class="value-display">{{ config.snooze_interval_minutes }} {{ t('common.minutes') }}</span>
       </div>
-    </plugin-section>
+    </div>
+  </plugin-section>
 
-    <plugin-section :title="t('plugins.rest.contentSection')">
-      <div class="event-row align-start">
-        <span class="event-name">{{ t('plugins.rest.customTitle') }}</span>
-        <n-input
-          v-model:value="customTitle"
-          :placeholder="t('plugins.rest.previewDefaultTitle')"
-          size="small"
-          style="max-width: 12rem"
-        />
-      </div>
-      <div class="event-row align-start">
-        <span class="event-name">{{ t('plugins.rest.customBody') }}</span>
-        <n-input
-          v-model:value="customBody"
-          :placeholder="t('plugins.rest.previewDefaultBody')"
-          type="textarea"
-          :rows="2"
-          size="small"
-          style="max-width: 12rem"
-        />
-      </div>
-      <div class="section-footer">
-        <n-button size="small" type="primary" :loading="testing" @click="sendTest">
-          <template #icon>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </template>
-          {{ t('plugins.rest.testBtn') }}
-        </n-button>
-      </div>
-    </plugin-section>
-  </plugin-panel-shell>
+  <plugin-section :title="t('plugins.rest.contentSection')">
+    <div class="event-row align-start">
+      <span class="event-name">{{ t('plugins.rest.customTitle') }}</span>
+      <n-input
+        v-model:value="customTitle"
+        :placeholder="t('plugins.rest.previewDefaultTitle')"
+        size="small"
+        style="max-width: 12rem"
+      />
+    </div>
+    <div class="event-row align-start">
+      <span class="event-name">{{ t('plugins.rest.customBody') }}</span>
+      <n-input
+        v-model:value="customBody"
+        :placeholder="t('plugins.rest.previewDefaultBody')"
+        type="textarea"
+        :rows="2"
+        size="small"
+        style="max-width: 12rem"
+      />
+    </div>
+    <div class="section-footer">
+      <n-button size="small" type="primary" :loading="testing" @click="sendTest">
+        <template #icon>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </template>
+        {{ t('plugins.rest.testBtn') }}
+      </n-button>
+    </div>
+  </plugin-section>
 </template>
 
 <style scoped>

@@ -317,31 +317,27 @@ async function onTestExternal(p: ExternalPluginInfo) {
       </plugin-panel-header>
 
       <n-scrollbar class="plugin-scroll">
-        <div
-          v-if="ActiveDetail"
-          class="plugin-detail-wrapper"
-        >
+        <div v-if="ActiveDetail" class="plugin-detail-wrapper">
           <div
             class="plugin-detail-content"
             :class="{ 'is-disabled': activeHeader && !activeHeader.enabled }"
           >
-            <component
-              :is="ActiveDetail"
-              :key="selectedId"
-              :ref="(el: any) => activePanelRef = el"
-            />
+            <div class="plugin-detail">
+              <component
+                :is="ActiveDetail"
+                :key="selectedId"
+                :ref="(el: any) => activePanelRef = el"
+              />
+            </div>
           </div>
           <div v-if="activeHeader && !activeHeader.enabled" class="disabled-overlay" />
         </div>
-        <div
-          v-else-if="selectedExternal"
-          class="plugin-detail-wrapper"
-        >
+        <div v-else-if="selectedExternal" class="plugin-detail-wrapper">
           <div
-            class="external-content placeholder-content"
+            class="plugin-detail-content"
             :class="{ 'is-disabled': !selectedExternal.enabled }"
           >
-            <div class="external-body plugin-detail">
+            <div class="plugin-detail">
               <p v-if="selectedExternal.error" class="ext-error">
                 {{ selectedExternal.error }}
               </p>
@@ -385,6 +381,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 .plugin-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: rgba(248, 250, 252, 0.7);
@@ -392,6 +389,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .plugin-scroll {
   flex: 1;
+  min-height: 0;
 }
 
 .plugin-scroll :deep(.n-scrollbar-content) {
@@ -400,34 +398,33 @@ async function onTestExternal(p: ExternalPluginInfo) {
   min-height: 100%;
 }
 
-.external-content {
+.plugin-detail-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100%;
+}
+
+.plugin-detail-content {
   flex: 1;
 }
 
+.plugin-detail-content.is-disabled {
+  opacity: 0.65;
+  filter: grayscale(0.45);
+  pointer-events: none;
+}
+
 .plugin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   width: 100%;
   max-width: 64rem;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 2rem 2rem;
-}
-
-.placeholder-content {
-  background: rgba(248, 250, 252, 0.7);
-}
-
-.plugin-detail-wrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.plugin-detail-content.is-disabled,
-.external-content.is-disabled {
-  opacity: 0.65;
-  filter: grayscale(0.45);
-  pointer-events: none;
 }
 
 .disabled-overlay {
@@ -445,12 +442,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: #fff;
   color: #94a3b8;
   font-size: 0.875rem;
-}
-
-.external-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
 }
 
 .ext-error {
@@ -488,9 +479,11 @@ async function onTestExternal(p: ExternalPluginInfo) {
   font-weight: 600;
   cursor: pointer;
 }
+
 .btn-primary:hover:not(:disabled) {
   background: #6d28d9;
 }
+
 .btn-primary:disabled {
   opacity: 0.55;
   cursor: default;
