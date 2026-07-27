@@ -2,6 +2,7 @@ features:
   plugin-center:
     docs:
       - .agent/features/plugin-center/README.md
+      - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
@@ -214,6 +215,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-27-插件详情边距由宿主统一-不再用-PluginPanelShell.md
   - .agent/decisions/2026-07-26-plugin-disabled-state-greyed-by-parent-not-empty-state.md
   - .agent/decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
   - .agent/decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md
@@ -229,6 +231,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md
   - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
   - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
   - .agent/bugs/2026-07-23-单张-toast-自动滚到底导致顶部标题和圆角被裁切.md
@@ -252,6 +255,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-27-插件页铺满高度与拆除-PluginPanelShell.md
   - .agent/devlog/2026-07-26-unify-agent-rest-plugin-panel-structure-and-disabled-overlay.md
   - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
@@ -293,5 +297,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 plugin UI refactor; Agent/Rest plugin panels share PluginPanelShell and PluginSection; disabled state greyed by parent overlay
-  next: wire external plugin settings panel via manifest/Rust/iframe or dynamic component
+  phase: Step3 plugin UI — host .plugin-detail owns chrome; panels business-only; MainShell scrollbar content height 100%
+  next: polish remaining external settings packages against host padding; continue Step3 runtime items from roadmap
