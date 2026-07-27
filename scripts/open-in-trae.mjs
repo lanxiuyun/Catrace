@@ -25,7 +25,14 @@ if (raw.length === 1) {
 
 // Normalize for Trae CLI on Windows (avoid backslash + :line ambiguity).
 const target = `${path.resolve(file).replace(/\\/g, "/")}:${line}:${column}`;
-const traeBin = process.platform === "win32" ? "trae-cn.cmd" : "trae-cn";
+
+let traeBin = "trae";
+// 有 trae 命令，就用 trae, 否则用 trae-cn 命令
+if (process.env.PATH?.includes("trae")) {
+  traeBin = "trae";
+} else {
+  traeBin = "trae-cn";
+}
 
 const child = spawn(traeBin, ["-r", "-g", target], {
   stdio: "inherit",
