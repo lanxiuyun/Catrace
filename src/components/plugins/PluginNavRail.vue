@@ -193,9 +193,6 @@ function openDir() {
 
 <style scoped>
 .plugin-rail {
-  width: 15rem;
-  min-width: 15rem;
-  height: 100%;
   min-height: 0;
   flex: 0 0 15rem;
   display: flex;
@@ -318,7 +315,6 @@ function openDir() {
 
 .rail-list {
   flex: 1;
-  min-height: 0;
 }
 
 .rail-list-content {
@@ -512,13 +508,5 @@ function openDir() {
   border-color: #a78bfa;
   background: #faf5ff;
   color: #7c3aed;
-}
-
-@media (max-width: 56.25rem) {
-  .plugin-rail {
-    width: 15rem;
-    min-width: 15rem;
-    flex-basis: 15rem;
-  }
 }
 </style>

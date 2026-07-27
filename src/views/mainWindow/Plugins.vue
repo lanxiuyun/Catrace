@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
-import { NScrollbar } from 'naive-ui'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
 import AgentPluginPanel from '../../components/plugins/AgentPluginPanel.vue'
+import PageScroll from '../../components/PageScroll.vue'
 import PluginPanelHeader from '../../components/plugins/PluginPanelHeader.vue'
 import PluginNavRail, { type PluginNavItem } from '../../components/plugins/PluginNavRail.vue'
 import { usePluginRegistry } from '../../stores/pluginRegistry'
@@ -316,7 +316,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
         </template>
       </plugin-panel-header>
 
-      <n-scrollbar class="plugin-scroll">
+      <page-scroll fill-content class="plugin-scroll">
         <div v-if="ActiveDetail" class="plugin-detail-wrapper">
           <div
             class="plugin-detail-content"
@@ -365,7 +365,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
           </div>
           <div v-if="!selectedExternal.enabled" class="disabled-overlay" />
         </div>
-      </n-scrollbar>
+      </page-scroll>
     </main>
   </div>
 </template>
@@ -373,10 +373,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 <style scoped>
 .plugins-page {
   display: flex;
-  width: 100%;
   height: 100%;
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
   background: #f8fafc;
   box-sizing: border-box;
@@ -394,19 +391,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
 
 .plugin-scroll {
   flex: 1;
-  width: 100%;
-  min-height: 0;
-  height: 100%;
-}
-
-.plugin-scroll > :deep(.n-scrollbar-container) {
-  height: 100%;
-}
-
-.plugin-scroll > :deep(.n-scrollbar-container > .n-scrollbar-content) {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
 }
 
 .plugin-detail-wrapper {
@@ -431,7 +415,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  width: 100%;
   max-width: 64rem;
   box-sizing: border-box;
   margin: 0 auto;

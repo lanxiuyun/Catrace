@@ -285,10 +285,4 @@ onMounted(async () => {
   background: #f5f3ff;
   margin: 0;
 }
-
-@media (max-width: 56.25rem) {
-  .settings {
-    padding: 1.25rem;
-  }
-}
 </style>
