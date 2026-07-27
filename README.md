@@ -10,7 +10,7 @@
 
 ![Catrace Dashboard](.readme/dashboard.png)
 
-## [下载最新版本](https://download.upgrade.toolsetlink.com/download?appKey=61JFztFHDmB_pGMdySezXg)
+## [下载最新版本](https://github.com/lanxiuyun/Catrace/releases)
 
 ## 它是干嘛的
 

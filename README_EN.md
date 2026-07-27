@@ -12,7 +12,7 @@ See [Contributing Guide](CONTRIBUTING.md) to get involved.
 
 ## Download
 
-[→ Download latest release](https://download.upgrade.toolsetlink.com/download?appKey=61JFztFHDmB_pGMdySezXg)
+[→ Download latest release](https://github.com/lanxiuyun/Catrace/releases)
 
 ## What it does
 
