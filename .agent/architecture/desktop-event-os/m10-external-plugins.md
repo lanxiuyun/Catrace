@@ -180,6 +180,38 @@ mklink /J "%APPDATA%\com.lanxiuyun.catrace\plugins\demo-timer" "C:\work_sapce\Ca
 | resolve 回传 | Bus resolve Plugin 源事件 → emit `catrace:plugin-event-resolved` 到 `plugin-bg-{id}`；PluginHost 再 `CustomEvent` 转给 background.mjs |
 | 第一方示例 | `tools/plugin-demo/timer`（原内置定时提醒） |
 
-- settings 组件同样走 `__CATRACE_VUE__`（含 `onMounted`）；`settingsSurface: plugins`
+- settings 组件同样走 `__CATRACE_VUE__`（含 `onMounted` / `onBeforeUnmount`）；export `default` / `Settings` / `settings`；`settingsSurface: plugins`
+- **禁用时也加载 settings**：Plugins 页要能看配置；Toast 卡仅 enabled 时加载
 - header 开关 = `set_external_plugin_enabled`；规则调度另看 config/rules
 - Toast action 副作用在 bg 处理，宿主只 `resolve_event_action`
+
+### settings.mjs 布局合同（与内置面板对齐）
+
+Plugins 页挂载路径（内置 / 外部相同）：
+
+```text
+Plugins.vue
+└── .plugin-detail          ← 唯一内容外壳：max-width 64rem、居中、padding、section gap
+    └── SettingsComponent   ← 只出业务 UI
+```
+
+宿主 `.plugin-detail`（权威值，改宿主时同步文档）：
+
+```css
+/* 宽屏 */
+padding: 1.5rem 2rem 2rem;
+max-width: 64rem;
+gap: 1.25rem;
+/* 窄屏 ≤56.25rem */
+padding: 1.25rem;
+```
+
+| 该做 | 不该做 |
+|------|--------|
+| 根节点 `width: 100%` + 业务样式 | 根上再写外层 `padding` / `max-width: 64rem` / 水平居中 |
+| 卡片、列表、控件内部的间距 | `@media` 里给 settings 根补一层与宿主相同的 padding（窄屏会**双倍缩进**） |
+| 需要全宽装饰时在业务层局部覆盖 | 再包 layout shell / 自建详情顶栏总开关 |
+
+参考实现：`tools/plugin-demo/timer/settings.mjs` 注释写明边距归宿主；根 `.timer-settings` 无外 padding。曾误留窄屏 `@media { .timer-settings { padding: 1.25rem } }`，与宿主叠加后外部插件比内置「多一圈边距」——已删，作为反例。
+
+布局真源：[[plugin-center]] [插件详情内容区外壳收归宿主](../../features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md) · [[app-shell]] 插件页布局约定。

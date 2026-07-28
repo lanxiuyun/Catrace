@@ -255,6 +255,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-27-外部插件settings根padding与宿主双倍缩进.md
   - .agent/devlog/2026-07-27-插件页铺满高度与拆除-PluginPanelShell.md
   - .agent/devlog/2026-07-26-unify-agent-rest-plugin-panel-structure-and-disabled-overlay.md
   - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md

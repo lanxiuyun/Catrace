@@ -40,7 +40,7 @@ tools/plugin-demo/            # M10 demo-timer 包
 ## 文档索引
 
 - [m9-event-http-api.md](m9-event-http-api.md) — 外部 Event HTTP
-- [m10-external-plugins.md](m10-external-plugins.md) — 本地外部插件（加载策略、合同、信任模型）
+- [m10-external-plugins.md](m10-external-plugins.md) — 本地外部插件（加载策略、Card/settings 合同、信任模型；settings 布局归宿主）
 - [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 里程碑真源
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md)
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md)

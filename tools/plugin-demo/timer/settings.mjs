@@ -134,9 +134,6 @@ const CSS = `
 .timer-settings .toast-msg.ok { background: #ecfdf5; color: #047857; }
 .timer-settings .toast-msg.err { background: #fef2f2; color: #b91c1c; }
 .timer-settings .toast-msg.warn { background: #fffbeb; color: #b45309; }
-@media (max-width: 56.25rem) {
-  .timer-settings { padding: 1.25rem; }
-}
 `
 
 function ensureStyles() {

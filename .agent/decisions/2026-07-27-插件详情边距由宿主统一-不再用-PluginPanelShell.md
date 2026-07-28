@@ -15,8 +15,10 @@ Rest/Agent 曾用 `PluginPanelShell` 统一 `64rem` 与 padding；外部无 sett
 
 - 新增内置/外部 settings 时默认继承宿主边距；需要全宽装饰再在业务层局部覆盖。
 - 已装外部插件若仍自带大 padding，需改包或重拷 demo（宿主不再双倍缩进）。
+- **窄屏同理**：宿主已有 `@media (max-width: 56.25rem) { padding: 1.25rem }`；settings 根再写同值会双倍缩进。timer 示例曾残留该 media 规则，已去掉；开发文档写进 m10 settings 布局合同。
 
 ## 关联
 
 - [[plugin-center]] [插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md](../features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md)
 - [[app-shell]] 插件页布局约定
+- [[desktop-event-os]] [m10-external-plugins.md](../architecture/desktop-event-os/m10-external-plugins.md)

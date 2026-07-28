@@ -26,23 +26,38 @@ plugin-main
 display: flex;
 flex-direction: column;
 gap: 1.25rem;
-width: 100%;
 max-width: 64rem;
+box-sizing: border-box;
 margin: 0 auto;
 padding: 1.5rem 2rem 2rem;
 ```
 
-内置与无 settings 的外部占位共用同一路径；有 `SettingsComponent` 的外部插件同样包在这层里。
+窄屏（`max-width: 56.25rem` / 900px）宿主改为 `padding: 1.25rem`。**响应式边距只改宿主这一处。**
+
+内置、无 settings 的外部占位、有 `SettingsComponent` 的外部插件，共用同一路径。
 
 ## 面板作者约定
 
 | 该做 | 不该做 |
 |------|--------|
 | 业务控件、规则列表、`PluginSection` | 再包一层 layout shell |
-| 依赖宿主 padding | 自己写 `max-width: 64rem` / 大块外 padding |
-| 暴露 `headerEnabled` / `toggleEnabled` 给顶栏 | 在面板内再画总开关顶栏 |
+| 依赖宿主 padding | 自己写 `max-width: 64rem` / 根上大块外 padding |
+| 卡片/列表**内部**间距 | 在 settings 根上再写与宿主同值的 `@media` padding（窄屏双倍缩进） |
+| 暴露 `headerEnabled` / `toggleEnabled` 给顶栏（内置） | 在面板内再画总开关顶栏 |
 
-外部示例：`tools/plugin-demo/timer/settings.mjs` 根节点只保留业务样式，注释标明边距归宿主。
+外部示例：`tools/plugin-demo/timer/settings.mjs` 根节点只保留业务样式，注释标明边距归宿主。开发约定全文见 [[desktop-event-os]] [m10-external-plugins.md](../../architecture/desktop-event-os/m10-external-plugins.md)「settings.mjs 布局合同」。
+
+### 反例（已修）
+
+timer 曾在 `settings.mjs` 留下：
+
+```css
+@media (max-width: 56.25rem) {
+  .timer-settings { padding: 1.25rem; }
+}
+```
+
+宽屏几乎看不出，窄屏 = 宿主 `1.25rem` + 插件 `1.25rem`，外部插件比内置多一圈内缩。根因不是「外部走了另一条宿主路径」，而是插件 CSS 残留。
 
 ## 历史
 

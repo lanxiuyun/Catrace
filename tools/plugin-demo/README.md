@@ -71,3 +71,9 @@ tools/plugin-demo/timer/
 - Runtime state in SQLite `plugin_storage(timer, runtime)`.
 - Toast actions resolve on the host; side-effects run in `background.mjs` via `catrace:plugin-event-resolved`.
 - Header switch = external plugin enabled; per-rule switches live in settings.
+
+## settings.mjs layout (all external plugins)
+
+Host `Plugins.vue` `.plugin-detail` owns **max-width / padding / gap** (including the narrow-viewport media query). Your settings root must **not** add outer padding or `max-width: 64rem` — including responsive rules that only fire on small windows (double inset vs built-in panels).
+
+Reference: `timer/settings.mjs` root `.timer-settings` is business-only. Full contract: `.agent/architecture/desktop-event-os/m10-external-plugins.md` →「settings.mjs 布局合同」。
