@@ -35,7 +35,6 @@ static TOKEN: Mutex<Option<String>> = Mutex::new(None);
 const RESERVED_KINDS: &[&str] = &[
     "rest",
     "water",
-    "eye",
     "agent",
     "permission",
     "update",

@@ -13,7 +13,6 @@ use crate::{log_error, log_info, log_warn};
 pub const RESERVED_KINDS: &[&str] = &[
     "rest",
     "water",
-    "eye",
     "agent",
     "permission",
     "update",

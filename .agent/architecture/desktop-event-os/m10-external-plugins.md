@@ -31,7 +31,7 @@
 ```
 
 - `events`：允许的 `event_type` / `kind` / `kind:xxx`；**不得**占用保留 kind：
-  `rest|water|eye|agent|permission|update|rest-timer|sdk`
+  `rest|water|agent|permission|update|rest-timer|sdk`
 - `main`：相对路径，必须在插件目录内（防 path escape）
 - 无 `main`：事件可降级 `SdkToastCard`
 
