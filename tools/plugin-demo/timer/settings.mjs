@@ -26,9 +26,22 @@ const CSS = `
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
   color: #0f172a;
 }
-.timer-settings .toolbar {
-  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+.timer-settings .header-row {
+  display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 1rem;
+}
+.timer-settings .header-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;
+}
+.timer-settings .count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.25rem; height: 1.25rem; padding: 0 0.375rem;
+  border-radius: 999px; background: #e2e8f0; color: #475569;
+  font-size: 0.6875rem; font-weight: 700;
+}
+.timer-settings .header-actions {
+  display: flex; align-items: center; gap: 0.5rem;
 }
 .timer-settings .btn {
   border: none; border-radius: 0.5rem; padding: 0.5rem 0.9rem;
@@ -38,10 +51,17 @@ const CSS = `
 .timer-settings .btn-primary { background: #7c3aed; color: #fff; }
 .timer-settings .btn-primary:hover:not(:disabled) { background: #6d28d9; }
 .timer-settings .btn-ghost {
-  background: #fff; color: #4c1d95; border: 0.0625rem solid #e2e8f0;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: #fff; color: #334155; border: 0.0625rem solid #e2e8f0;
 }
 .timer-settings .btn-ghost:hover:not(:disabled) { background: #f8fafc; }
 .timer-settings .btn-danger { background: #fef2f2; color: #b91c1c; }
+.timer-settings .btn-add {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; padding: 0; border-radius: 0.5rem;
+  background: #7c3aed; color: #fff;
+}
+.timer-settings .btn-add:hover:not(:disabled) { background: #6d28d9; }
 .timer-settings .presets {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: 0.5rem; margin-bottom: 1.25rem;
@@ -64,31 +84,54 @@ const CSS = `
 }
 .timer-settings .rule.is-off { opacity: 0.6; }
 .timer-settings .rule-main { flex: 1; min-width: 0; }
+.timer-settings .rule-title-row {
+  display: flex; align-items: center; gap: 0.5rem;
+}
 .timer-settings .rule-title {
-  margin: 0; font-size: 0.9375rem; font-weight: 600; color: #0f172a;
+  margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.timer-settings .rule-badge {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center;
+  padding: 0.125rem 0.5rem; border-radius: 999px;
+  background: #f3f4f6; color: #374151;
+  font-size: 0.6875rem; font-weight: 600;
+}
+.timer-settings .rule-tags {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+.timer-settings .rule-tag {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.25rem 0.625rem; border-radius: 999px;
+  background: #f5f3ff; color: #6d28d9;
+  font-size: 0.75rem; font-weight: 500;
+}
+.timer-settings .rule-tag svg {
+  width: 0.8125rem; height: 0.8125rem;
+}
 .timer-settings .rule-body {
-  margin: 0.25rem 0 0; font-size: 0.8125rem; color: #64748b;
+  margin: 0.375rem 0 0; font-size: 0.8125rem; color: #64748b;
   white-space: pre-wrap; word-break: break-word;
 }
-.timer-settings .tag {
-  display: inline-block; margin-top: 0.5rem; padding: 0.125rem 0.5rem;
-  border-radius: 999px; background: #f5f3ff; color: #6d28d9;
-  font-size: 0.75rem; font-weight: 600;
+.timer-settings .rule-acts {
+  display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0;
 }
-.timer-settings .rule-acts { display: flex; flex-direction: column; gap: 0.375rem; flex-shrink: 0; }
+.timer-settings .rule-acts .btn {
+  padding: 0.4rem 0.7rem; font-size: 0.8125rem;
+}
 .timer-settings .switch {
-  position: relative; width: 2.25rem; height: 1.25rem; border-radius: 999px;
+  position: relative; width: 2.5rem; height: 1.375rem; border-radius: 999px;
   border: none; background: #cbd5e1; cursor: pointer; padding: 0;
 }
 .timer-settings .switch.on { background: #7c3aed; }
 .timer-settings .switch .knob {
-  position: absolute; top: 0.125rem; left: 0.125rem;
+  position: absolute; top: 0.1875rem; left: 0.1875rem;
   width: 1rem; height: 1rem; border-radius: 999px; background: #fff;
   transition: transform 0.15s ease;
 }
-.timer-settings .switch.on .knob { transform: translateX(1rem); }
+.timer-settings .switch.on .knob { transform: translateX(1.125rem); }
 .timer-settings .modal-mask {
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35);
   display: flex; align-items: center; justify-content: center; z-index: 50;
@@ -165,6 +208,8 @@ function wantsResetOnRest(r) {
   return !!(r && r.reset_on_rest)
 }
 
+const BUILTIN_EYE_ID = '__builtin_eye__'
+
 function createRule(partial = {}) {
   return {
     id: newRuleId(),
@@ -179,8 +224,35 @@ function createRule(partial = {}) {
     daily_times: [],
     last_fired_at: null,
     last_daily_keys: [],
+    builtin: null,
     ...partial,
   }
+}
+
+function builtinEyeRule() {
+  return createRule({
+    id: BUILTIN_EYE_ID,
+    enabled: true,
+    title: '护眼提醒',
+    body: '远眺一下，放松眼睛。',
+    mode: 'interval',
+    interval_minutes: 20,
+    reset_on_rest: true,
+    sticky: false,
+    card_duration_sec: 25,
+    builtin: 'eye',
+  })
+}
+
+function ensureBuiltinEyeRule(settings) {
+  if (!Array.isArray(settings.rules)) settings.rules = []
+  if (settings.rules.some((r) => r.builtin === 'eye' || r.id === BUILTIN_EYE_ID)) {
+    // Mark legacy eye look-alike as builtin if exactly the builtin id exists without flag.
+    const legacy = settings.rules.find((r) => r.id === BUILTIN_EYE_ID)
+    if (legacy && !legacy.builtin) legacy.builtin = 'eye'
+    return
+  }
+  settings.rules.unshift(builtinEyeRule())
 }
 
 function normalizeHhmm(raw) {
@@ -217,6 +289,7 @@ function portableSettings(settings) {
         .filter((v, i, a) => a.indexOf(v) === i)
         .sort()
         .slice(0, MAX_DAILY_TIMES),
+      builtin: r.builtin || null,
       // runtime fields stripped from portable config
       last_fired_at: null,
       last_daily_keys: [],
@@ -239,26 +312,43 @@ function scheduleTag(rule) {
   return `每天 ${rule.daily_times.join(', ')} · ${stay}`
 }
 
+function splitScheduleTag(rule) {
+  const stay = rule.sticky ? '常驻' : `停留 ${clamp(rule.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)}s`
+  const tags = []
+  if (rule.mode === 'interval') {
+    tags.push({ icon: 'clock', text: `每 ${rule.interval_minutes} 分钟` })
+    if (rule.reset_on_rest) tags.push({ icon: 'refresh', text: '休息重置' })
+  } else if (rule.daily_times && rule.daily_times.length) {
+    if (rule.daily_times.length === 1) {
+      tags.push({ icon: 'clock', text: `每天 ${rule.daily_times[0]}` })
+    } else {
+      tags.push({ icon: 'clock', text: `每天 ${rule.daily_times.join(', ')}` })
+    }
+  } else {
+    tags.push({ icon: 'clock', text: '未设置时间点' })
+  }
+  tags.push({ icon: 'card', text: stay })
+  return tags
+}
+
+const ICONS = {
+  clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+  refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
+  card: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>`,
+  bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+}
+
+function iconEl(name) {
+  return h('span', { class: 'rule-tag-icon', innerHTML: ICONS[name] || '' })
+}
+
 const PRESETS = [
   {
     key: 'drink',
     title: '喝水',
     hint: '每 20 分钟',
     rule: { title: '喝水', body: '起来喝一杯水吧。', mode: 'interval', interval_minutes: 20 },
-  },
-  {
-    key: 'eye',
-    title: '护眼',
-    hint: '每 20 分 · 休息重置 · 25s',
-    rule: {
-      title: '护眼',
-      body: '远眺一下，放松眼睛。',
-      mode: 'interval',
-      interval_minutes: 20,
-      reset_on_rest: true,
-      sticky: false,
-      card_duration_sec: 25,
-    },
   },
   {
     key: 'stand',
@@ -321,7 +411,7 @@ export default {
       try {
         const raw = await invoke('get_plugin_config', { pluginId: PLUGIN_ID })
         const s = raw && typeof raw === 'object' ? raw : { enabled: true, rules: [] }
-        settings.value = {
+        const next = {
           enabled: s.enabled !== false,
           rules: Array.isArray(s.rules)
             ? s.rules.map((r) =>
@@ -338,10 +428,13 @@ export default {
                   daily_times: Array.isArray(r.daily_times) ? [...r.daily_times] : [],
                   last_fired_at: r.last_fired_at ?? null,
                   last_daily_keys: Array.isArray(r.last_daily_keys) ? [...r.last_daily_keys] : [],
+                  builtin: r.builtin || null,
                 }),
               )
             : [],
         }
+        ensureBuiltinEyeRule(next)
+        settings.value = next
       } catch (e) {
         console.warn('[timer settings] load failed', e)
         showToast('err', '加载失败')
@@ -497,6 +590,7 @@ export default {
       const cardSec = clamp(form.value.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)
       if (editingId.value) {
         const id = editingId.value
+        const editingRule = settings.value.rules.find((r) => r.id === id)
         patch((s) => {
           const rule = s.rules.find((r) => r.id === id)
           if (!rule) return
@@ -508,6 +602,8 @@ export default {
           rule.sticky = sticky
           rule.card_duration_sec = cardSec
           rule.daily_times = [...form.value.daily_times]
+          // Preserve builtin flag when editing.
+          if (editingRule && editingRule.builtin) rule.builtin = editingRule.builtin
         })
       } else {
         if (settings.value.rules.length >= MAX_RULES) {
@@ -554,6 +650,11 @@ export default {
     }
 
     function removeRule(id) {
+      const rule = settings.value.rules.find((r) => r.id === id)
+      if (rule && rule.builtin) {
+        showToast('warn', '内置提醒不可删除')
+        return
+      }
       patch((s) => {
         s.rules = s.rules.filter((r) => r.id !== id)
       })
@@ -590,6 +691,7 @@ export default {
             payload: {
               rule_id: r.id,
               mode: normalizeMode(r.mode),
+              // Host ReminderToast reads these for per-card auto-hide.
               auto_hide_ms: r.sticky
                 ? 0
                 : clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC) * 1000,
@@ -632,27 +734,37 @@ export default {
       }
 
       children.push(
-        h('div', { class: 'toolbar' }, [
-          h(
-            'button',
-            {
-              type: 'button',
-              class: ['btn', 'btn-primary'],
-              disabled: !settings.value.enabled || settings.value.rules.length >= MAX_RULES,
-              onClick: openCreate,
-            },
-            '新建规则',
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              class: ['btn', 'btn-ghost'],
-              disabled: !settings.value.enabled || !!testingId.value,
-              onClick: () => sendTest(null),
-            },
-            testingId.value === '__global__' ? '发送中…' : '测试通知',
-          ),
+        h('div', { class: 'header-row' }, [
+          h('h3', { class: 'header-title' }, [
+            '提醒列表',
+            h('span', { class: 'count-badge' }, String(settings.value.rules.length)),
+          ]),
+          h('div', { class: 'header-actions' }, [
+            h(
+              'button',
+              {
+                type: 'button',
+                class: ['btn', 'btn-ghost'],
+                disabled: !settings.value.enabled || !!testingId.value,
+                onClick: () => sendTest(null),
+              },
+              [
+                h('span', { innerHTML: ICONS.bell }),
+                testingId.value === '__global__' ? '发送中…' : '测试全局通知',
+              ],
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: ['btn', 'btn-add'],
+                'aria-label': '新建提醒',
+                disabled: !settings.value.enabled || settings.value.rules.length >= MAX_RULES,
+                onClick: openCreate,
+              },
+              [h('span', { innerHTML: ICONS.plus })],
+            ),
+          ]),
         ]),
       )
 
@@ -691,23 +803,22 @@ export default {
             settings.value.rules.map((rule) =>
               h('div', { key: rule.id, class: ['rule', rule.enabled ? '' : 'is-off'] }, [
                 h('div', { class: 'rule-main' }, [
-                  h('h4', { class: 'rule-title' }, rule.title || '定时提醒'),
+                  h('div', { class: 'rule-title-row' }, [
+                    h('h4', { class: 'rule-title' }, rule.title || '定时提醒'),
+                    rule.builtin
+                      ? h('span', { class: 'rule-badge' }, '内置')
+                      : null,
+                  ]),
+                  h('div', { class: 'rule-tags' },
+                    splitScheduleTag(rule).map((tag) =>
+                      h('span', { class: 'rule-tag' }, [iconEl(tag.icon), tag.text]),
+                    ),
+                  ),
                   rule.body
-                    ? h('p', { class: 'rule-body' }, rule.body)
+                    ? h('p', { class: 'rule-body' }, `“${rule.body}”`)
                     : null,
-                  h('span', { class: 'tag' }, scheduleTag(rule)),
                 ]),
                 h('div', { class: 'rule-acts' }, [
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      class: ['switch', rule.enabled ? 'on' : ''],
-                      'aria-label': '启用规则',
-                      onClick: () => toggleRule(rule.id, !rule.enabled),
-                    },
-                    [h('span', { class: 'knob' })],
-                  ),
                   h(
                     'button',
                     {
@@ -727,14 +838,26 @@ export default {
                     },
                     '编辑',
                   ),
+                  rule.builtin
+                    ? null
+                    : h(
+                        'button',
+                        {
+                          type: 'button',
+                          class: ['btn', 'btn-danger'],
+                          onClick: () => removeRule(rule.id),
+                        },
+                        '删除',
+                      ),
                   h(
                     'button',
                     {
                       type: 'button',
-                      class: ['btn', 'btn-danger'],
-                      onClick: () => removeRule(rule.id),
+                      class: ['switch', rule.enabled ? 'on' : ''],
+                      'aria-label': '启用规则',
+                      onClick: () => toggleRule(rule.id, !rule.enabled),
                     },
-                    '删除',
+                    [h('span', { class: 'knob' })],
                   ),
                 ]),
               ]),
@@ -755,7 +878,7 @@ export default {
             },
             [
               h('div', { class: 'modal' }, [
-                h('h3', null, editingId.value ? '编辑规则' : '新建规则'),
+                h('h3', null, editingId.value ? '编辑提醒' : '添加提醒'),
                 h('div', { class: 'field' }, [
                   h('label', null, '标题'),
                   h('input', {

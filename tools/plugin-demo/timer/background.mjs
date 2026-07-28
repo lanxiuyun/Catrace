@@ -65,6 +65,36 @@ function wantsResetOnRest(r) {
   return !!(r && r.reset_on_rest)
 }
 
+const BUILTIN_EYE_ID = '__builtin_eye__'
+
+function builtinEyeRule() {
+  return {
+    id: BUILTIN_EYE_ID,
+    enabled: true,
+    title: '护眼提醒',
+    body: '远眺一下，放松眼睛。',
+    mode: 'interval',
+    interval_minutes: 20,
+    reset_on_rest: true,
+    sticky: false,
+    card_duration_sec: 25,
+    daily_times: [],
+    last_fired_at: null,
+    last_daily_keys: [],
+    builtin: 'eye',
+  }
+}
+
+function ensureBuiltinEyeRule(settings) {
+  if (!Array.isArray(settings.rules)) settings.rules = []
+  if (settings.rules.some((r) => r.builtin === 'eye' || r.id === BUILTIN_EYE_ID)) {
+    const legacy = settings.rules.find((r) => r.id === BUILTIN_EYE_ID)
+    if (legacy && !legacy.builtin) legacy.builtin = 'eye'
+    return
+  }
+  settings.rules.unshift(builtinEyeRule())
+}
+
 function sanitizeSettings(raw) {
   const s = {
     enabled: raw && raw.enabled !== false,
@@ -95,8 +125,10 @@ function sanitizeSettings(raw) {
       daily_times: normalizeDailyTimes((r && r.daily_times) || []),
       last_fired_at: r && r.last_fired_at != null ? Number(r.last_fired_at) : null,
       last_daily_keys: keys,
+      builtin: (r && r.builtin) || null,
     }
   })
+  ensureBuiltinEyeRule(s)
   return s
 }
 
