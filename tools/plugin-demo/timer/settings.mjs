@@ -14,6 +14,9 @@ const MAX_RULES = 20
 const MAX_DAILY_TIMES = 8
 const MIN_INTERVAL = 1
 const MAX_INTERVAL = 24 * 60
+const MIN_CARD_SEC = 3
+const MAX_CARD_SEC = 600
+const DEFAULT_CARD_SEC = 8
 
 const STYLE_ID = 'catrace-plugin-timer-settings-css'
 const CSS = `
@@ -111,6 +114,7 @@ const CSS = `
   flex: 1; border: 0.0625rem solid #e2e8f0; background: #f8fafc; border-radius: 0.5rem;
   padding: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; color: #475569;
 }
+.timer-settings .field .switch { margin-top: 0.15rem; }
 .timer-settings .mode-row button.active {
   border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9;
 }
@@ -150,6 +154,17 @@ function newRuleId() {
   return `rule_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
+function normalizeMode(mode) {
+  // legacy one-session 'active' → interval
+  if (mode === 'daily') return 'daily'
+  return 'interval'
+}
+
+function wantsResetOnRest(r) {
+  if (r && r.mode === 'active') return true
+  return !!(r && r.reset_on_rest)
+}
+
 function createRule(partial = {}) {
   return {
     id: newRuleId(),
@@ -158,6 +173,9 @@ function createRule(partial = {}) {
     body: '',
     mode: 'interval',
     interval_minutes: 60,
+    reset_on_rest: false,
+    sticky: false,
+    card_duration_sec: DEFAULT_CARD_SEC,
     daily_times: [],
     last_fired_at: null,
     last_daily_keys: [],
@@ -188,8 +206,11 @@ function portableSettings(settings) {
       enabled: r.enabled !== false,
       title: r.title || '',
       body: r.body || '',
-      mode: r.mode === 'daily' ? 'daily' : 'interval',
+      mode: normalizeMode(r.mode),
       interval_minutes: clamp(r.interval_minutes || 60, MIN_INTERVAL, MAX_INTERVAL),
+      reset_on_rest: wantsResetOnRest(r),
+      sticky: !!r.sticky,
+      card_duration_sec: clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC),
       daily_times: (r.daily_times || [])
         .map(normalizeHhmm)
         .filter(Boolean)
@@ -204,10 +225,18 @@ function portableSettings(settings) {
 }
 
 function scheduleTag(rule) {
-  if (rule.mode === 'interval') return `每 ${rule.interval_minutes} 分钟`
-  if (!rule.daily_times || !rule.daily_times.length) return '未设置时间点'
-  if (rule.daily_times.length === 1) return `每天 ${rule.daily_times[0]}`
-  return `每天 ${rule.daily_times.join(', ')}`
+  const stay = rule.sticky
+    ? '常驻'
+    : `停留 ${clamp(rule.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)}s`
+  if (rule.mode === 'interval') {
+    if (rule.reset_on_rest) {
+      return `每 ${rule.interval_minutes} 分钟 · 休息重置 · ${stay}`
+    }
+    return `每 ${rule.interval_minutes} 分钟 · ${stay}`
+  }
+  if (!rule.daily_times || !rule.daily_times.length) return `未设置时间点 · ${stay}`
+  if (rule.daily_times.length === 1) return `每天 ${rule.daily_times[0]} · ${stay}`
+  return `每天 ${rule.daily_times.join(', ')} · ${stay}`
 }
 
 const PRESETS = [
@@ -220,8 +249,16 @@ const PRESETS = [
   {
     key: 'eye',
     title: '护眼',
-    hint: '每 45 分钟',
-    rule: { title: '护眼', body: '远眺一下，放松眼睛。', mode: 'interval', interval_minutes: 45 },
+    hint: '每 20 分 · 休息重置 · 25s',
+    rule: {
+      title: '护眼',
+      body: '远眺一下，放松眼睛。',
+      mode: 'interval',
+      interval_minutes: 20,
+      reset_on_rest: true,
+      sticky: false,
+      card_duration_sec: 25,
+    },
   },
   {
     key: 'stand',
@@ -232,13 +269,15 @@ const PRESETS = [
   {
     key: 'offwork',
     title: '下班总结',
-    hint: '每天 18:00',
+    hint: '每天 18:00 · 常驻',
     rule: {
       title: '下班总结',
       body: '记录今天的工作成果。',
       mode: 'daily',
       interval_minutes: 60,
       daily_times: ['18:00'],
+      sticky: true,
+      card_duration_sec: DEFAULT_CARD_SEC,
     },
   },
 ]
@@ -262,6 +301,9 @@ export default {
       body: '',
       mode: 'interval',
       interval_minutes: 20,
+      reset_on_rest: false,
+      sticky: false,
+      card_duration_sec: DEFAULT_CARD_SEC,
       daily_times: [],
     })
 
@@ -288,8 +330,11 @@ export default {
                   enabled: r.enabled !== false,
                   title: r.title || '',
                   body: r.body || '',
-                  mode: r.mode === 'daily' ? 'daily' : 'interval',
+                  mode: normalizeMode(r.mode),
                   interval_minutes: Number(r.interval_minutes) || 60,
+                  reset_on_rest: wantsResetOnRest(r),
+                  sticky: !!r.sticky,
+                  card_duration_sec: Number(r.card_duration_sec) || DEFAULT_CARD_SEC,
                   daily_times: Array.isArray(r.daily_times) ? [...r.daily_times] : [],
                   last_fired_at: r.last_fired_at ?? null,
                   last_daily_keys: Array.isArray(r.last_daily_keys) ? [...r.last_daily_keys] : [],
@@ -381,6 +426,9 @@ export default {
         body: '',
         mode: 'interval',
         interval_minutes: 20,
+        reset_on_rest: false,
+        sticky: false,
+        card_duration_sec: DEFAULT_CARD_SEC,
         daily_times: [],
       }
       draftTime.value = ''
@@ -392,8 +440,11 @@ export default {
       form.value = {
         title: rule.title || '',
         body: rule.body || '',
-        mode: rule.mode === 'daily' ? 'daily' : 'interval',
+        mode: normalizeMode(rule.mode),
         interval_minutes: rule.interval_minutes || 20,
+        reset_on_rest: wantsResetOnRest(rule),
+        sticky: !!rule.sticky,
+        card_duration_sec: rule.card_duration_sec || DEFAULT_CARD_SEC,
         daily_times: [...(rule.daily_times || [])],
       }
       draftTime.value = ''
@@ -440,6 +491,10 @@ export default {
         showToast('err', '请至少添加一个时间点')
         return
       }
+      const mode = normalizeMode(form.value.mode)
+      const resetOnRest = mode === 'interval' && !!form.value.reset_on_rest
+      const sticky = !!form.value.sticky
+      const cardSec = clamp(form.value.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)
       if (editingId.value) {
         const id = editingId.value
         patch((s) => {
@@ -447,8 +502,11 @@ export default {
           if (!rule) return
           rule.title = title
           rule.body = body
-          rule.mode = form.value.mode
+          rule.mode = mode
           rule.interval_minutes = clamp(form.value.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
+          rule.reset_on_rest = resetOnRest
+          rule.sticky = sticky
+          rule.card_duration_sec = cardSec
           rule.daily_times = [...form.value.daily_times]
         })
       } else {
@@ -461,8 +519,11 @@ export default {
             createRule({
               title,
               body: body || '该处理这件事了。',
-              mode: form.value.mode,
+              mode,
               interval_minutes: clamp(form.value.interval_minutes, MIN_INTERVAL, MAX_INTERVAL),
+              reset_on_rest: resetOnRest,
+              sticky,
+              card_duration_sec: cardSec,
               daily_times: [...form.value.daily_times],
               enabled: true,
             }),
@@ -520,13 +581,24 @@ export default {
             level: 'info',
             title: (r.title || '').trim() || '定时提醒',
             body: (r.body || '').trim() || '该处理这件事了。',
-            sticky: false,
+            sticky: !!r.sticky,
             actions: [
               { id: 'ack', label: '知道了' },
               { id: 'snooze_5', label: '5 分钟后' },
               { id: 'skip', label: '跳过' },
             ],
-            payload: { rule_id: r.id, mode: r.mode === 'daily' ? 'daily' : 'interval' },
+            payload: {
+              rule_id: r.id,
+              mode: normalizeMode(r.mode),
+              auto_hide_ms: r.sticky
+                ? 0
+                : clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC) * 1000,
+              card_duration_sec: clamp(
+                r.card_duration_sec || DEFAULT_CARD_SEC,
+                MIN_CARD_SEC,
+                MAX_CARD_SEC,
+              ),
+            },
             dedupe_key: `reminder.timer.due:${r.id}`,
           },
         })
@@ -732,20 +804,53 @@ export default {
                   ]),
                 ]),
                 form.value.mode === 'interval'
-                  ? h('div', { class: 'field' }, [
-                      h('label', null, `间隔（分钟，${MIN_INTERVAL}–${MAX_INTERVAL}）`),
-                      h('input', {
-                        type: 'number',
-                        min: MIN_INTERVAL,
-                        max: MAX_INTERVAL,
-                        value: form.value.interval_minutes,
-                        onInput: (e) => {
-                          form.value = {
-                            ...form.value,
-                            interval_minutes: clamp(e.target.value, MIN_INTERVAL, MAX_INTERVAL),
-                          }
-                        },
-                      }),
+                  ? h('div', null, [
+                      h('div', { class: 'field' }, [
+                        h('label', null, `间隔（分钟，${MIN_INTERVAL}–${MAX_INTERVAL}）`),
+                        h('input', {
+                          type: 'number',
+                          min: MIN_INTERVAL,
+                          max: MAX_INTERVAL,
+                          value: form.value.interval_minutes,
+                          onInput: (e) => {
+                            form.value = {
+                              ...form.value,
+                              interval_minutes: clamp(e.target.value, MIN_INTERVAL, MAX_INTERVAL),
+                            }
+                          },
+                        }),
+                      ]),
+                      h('div', { class: 'field' }, [
+                        h(
+                          'label',
+                          {
+                            style: {
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.75rem',
+                            },
+                          },
+                          [
+                            '休息重置',
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                class: ['switch', form.value.reset_on_rest ? 'on' : ''],
+                                'aria-label': '休息重置',
+                                onClick: () => {
+                                  form.value = {
+                                    ...form.value,
+                                    reset_on_rest: !form.value.reset_on_rest,
+                                  }
+                                },
+                              },
+                              [h('span', { class: 'knob' })],
+                            ),
+                          ],
+                        ),
+                      ]),
                     ])
                   : h('div', { class: 'field' }, [
                       h('label', null, '时间点（HH:MM）'),
@@ -786,6 +891,58 @@ export default {
                         ),
                       ]),
                     ]),
+                h('div', { class: 'field' }, [
+                  h(
+                    'label',
+                    {
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                      },
+                    },
+                    [
+                      '卡片常驻（不自动关闭）',
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          class: ['switch', form.value.sticky ? 'on' : ''],
+                          'aria-label': '卡片常驻',
+                          onClick: () => {
+                            form.value = {
+                              ...form.value,
+                              sticky: !form.value.sticky,
+                            }
+                          },
+                        },
+                        [h('span', { class: 'knob' })],
+                      ),
+                    ],
+                  ),
+                ]),
+                !form.value.sticky
+                  ? h('div', { class: 'field' }, [
+                      h(
+                        'label',
+                        null,
+                        `卡片停留（秒，${MIN_CARD_SEC}–${MAX_CARD_SEC}）`,
+                      ),
+                      h('input', {
+                        type: 'number',
+                        min: MIN_CARD_SEC,
+                        max: MAX_CARD_SEC,
+                        value: form.value.card_duration_sec,
+                        onInput: (e) => {
+                          form.value = {
+                            ...form.value,
+                            card_duration_sec: clamp(e.target.value, MIN_CARD_SEC, MAX_CARD_SEC),
+                          }
+                        },
+                      }),
+                    ])
+                  : null,
                 h('div', { class: 'modal-acts' }, [
                   h(
                     'button',

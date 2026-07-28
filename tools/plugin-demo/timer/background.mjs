@@ -6,6 +6,9 @@ const MAX_DAILY_TIMES = 8
 const MAX_DAILY_KEYS = 64
 const MIN_INTERVAL = 1
 const MAX_INTERVAL = 24 * 60
+const MIN_CARD_SEC = 3
+const MAX_CARD_SEC = 600
+const DEFAULT_CARD_SEC = 8
 const RUNTIME_KEY = 'runtime'
 
 /** @type {Map<string, number>} ruleId -> snooze-until epoch ms */
@@ -51,6 +54,17 @@ function normalizeDailyTimes(times) {
   return out
 }
 
+function normalizeMode(mode) {
+  // legacy one-session 'active' → interval + reset_on_rest
+  if (mode === 'daily') return 'daily'
+  return 'interval'
+}
+
+function wantsResetOnRest(r) {
+  if (r && r.mode === 'active') return true
+  return !!(r && r.reset_on_rest)
+}
+
 function sanitizeSettings(raw) {
   const s = {
     enabled: raw && raw.enabled !== false,
@@ -65,11 +79,18 @@ function sanitizeSettings(raw) {
       enabled: r.enabled !== false,
       title: (r && r.title) || '',
       body: (r && r.body) || '',
-      mode: r && r.mode === 'daily' ? 'daily' : 'interval',
+      mode: normalizeMode(r && r.mode),
       interval_minutes: clamp(
         Number(r && r.interval_minutes) || 60,
         MIN_INTERVAL,
         MAX_INTERVAL,
+      ),
+      reset_on_rest: wantsResetOnRest(r),
+      sticky: !!(r && r.sticky),
+      card_duration_sec: clamp(
+        Number(r && r.card_duration_sec) || DEFAULT_CARD_SEC,
+        MIN_CARD_SEC,
+        MAX_CARD_SEC,
       ),
       daily_times: normalizeDailyTimes((r && r.daily_times) || []),
       last_fired_at: r && r.last_fired_at != null ? Number(r.last_fired_at) : null,
@@ -196,6 +217,8 @@ async function getLocale() {
 
 async function publishDue(rule, locale) {
   const mode = rule.mode === 'daily' ? 'daily' : 'interval'
+  const sticky = !!rule.sticky
+  const cardSec = clamp(Number(rule.card_duration_sec) || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)
   await invoke('plugin_publish_event', {
     event: {
       eventType: 'reminder.timer.due',
@@ -203,13 +226,19 @@ async function publishDue(rule, locale) {
       title: ruleTitle(rule, locale),
       body: ruleBody(rule, locale),
       level: 'info',
-      sticky: false,
+      sticky,
       actions: [
         { id: 'ack', label: actionLabel(locale, 'ack') },
         { id: 'snooze_5', label: actionLabel(locale, 'snooze_5') },
         { id: 'skip', label: actionLabel(locale, 'skip') },
       ],
-      payload: { rule_id: rule.id, mode },
+      payload: {
+        rule_id: rule.id,
+        mode,
+        // Host ReminderToast reads these for per-card auto-hide.
+        auto_hide_ms: sticky ? 0 : cardSec * 1000,
+        card_duration_sec: cardSec,
+      },
       dedupeKey: `reminder.timer.due:${rule.id}`,
     },
   })
@@ -250,7 +279,28 @@ async function onMinuteTick() {
         rule.last_fired_at = ts
         dirty = true
       } else {
-        overdue = ts - rule.last_fired_at >= interval * 60
+        let startTs = Number(rule.last_fired_at) || 0
+        if (rule.reset_on_rest) {
+          // If last real rest ended inside this round (after last fire), restart from rest end.
+          let lastRest = null
+          try {
+            lastRest = await invoke('plugin_get_last_real_rest')
+          } catch (e) {
+            await invoke('plugin_log', {
+              level: 'warn',
+              message: 'plugin_get_last_real_rest failed',
+              data: { ruleId: rule.id, error: String(e) },
+            })
+          }
+          const restTs = lastRest != null ? Number(lastRest) : NaN
+          if (Number.isFinite(restTs) && restTs > startTs) {
+            startTs = restTs
+            // Persist reset so next ticks don't re-query as "still in old round".
+            rule.last_fired_at = restTs
+            dirty = true
+          }
+        }
+        overdue = ts - startTs >= interval * 60
       }
       if (overdue) {
         markSent(rule.id)

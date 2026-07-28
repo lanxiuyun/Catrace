@@ -71,6 +71,9 @@ tools/plugin-demo/timer/
 - Runtime state in SQLite `plugin_storage(timer, runtime)`.
 - Toast actions resolve on the host; side-effects run in `background.mjs` via `catrace:plugin-event-resolved`.
 - Header switch = external plugin enabled; per-rule switches live in settings.
+- Rule modes: `interval` / `daily`. Interval only fires while user active; daily fires at HH:MM regardless of activity.
+- Interval option `reset_on_rest` (UI: 休息重置): if last real rest end falls after `last_fired_at`, restart from rest end. Host `plugin_get_last_real_rest` uses rest plugin `break_minutes`. Legacy `mode=active` → interval + reset.
+- Card stay: `sticky` (no auto-hide) or `card_duration_sec` (default 8, eye preset 25). Host reads `payload.auto_hide_ms`.
 
 ## settings.mjs layout (all external plugins)
 
