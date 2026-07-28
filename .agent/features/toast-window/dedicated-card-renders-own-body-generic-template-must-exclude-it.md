@@ -4,7 +4,6 @@
 
 ## 这条约定踩过的坑
 
-护眼卡片（`kind === 'eye'`）加按钮时，为了让正文用绿色主题，在 `EyeToastCard.vue` 内部渲染了 `<p class="body-text">{{ body }}</p>`。但 `ReminderToast.vue` 通用模板里有 `<p v-if="item.kind !== 'update'" class="body-text">{{ item.body }}</p>`，对 `eye` 也成立，于是同一段正文出现两次：一次绿色（卡片内）、一次黑色（通用模板）。
 
 修法：通用模板的 body 渲染条件加上 `&& item.kind !== 'eye'`，正文只由 `EyeToastCard` 自渲染。
 
@@ -19,12 +18,10 @@
 |---|---|---|
 | header | `v-if="item.kind !== 'eye'"` | `EyeToastCard` |
 | progress bar | `v-if="item.kind !== 'eye' && !== 'update' && !== 'rest-timer'"` | 护眼/更新/休息计时各自处理 |
-| body | `v-if="item.kind !== 'update' && item.kind !== 'eye'"` | 护眼卡片自渲染、更新通知用 changelog |
 | actions | 按 `kind` 分支渲染 | 每种自己一组按钮 |
 
 新增自渲染型卡片时，对照这张表逐项加排除条件，避免正文/进度条/header 重复。
 
 ## 相关
 
-- [[eye-reminder]] — 护眼卡片是自渲染 body 的实例
 - [[water-reminder]] — 喝水提醒走「只换皮」路线，作对比

@@ -30,6 +30,16 @@ features:
       - reminder
       - toast-window
       - eye-reminder
+  eye-reminder:
+    docs:
+      - .agent/features/eye-reminder/README.md
+    related:
+      - reminder
+      - water-reminder
+      - toast-window
+      - plugin-center
+      - event-sdk
+
   toast-window:
     docs:
       - .agent/features/toast-window/README.md
@@ -45,6 +55,7 @@ features:
       - window-manager
       - platform-input
       - event-sdk
+      - eye-reminder
   fullscreen-reminder:
     docs:
       - .agent/features/fullscreen-reminder/README.md
@@ -104,14 +115,6 @@ features:
       - .agent/features/logging/README.md
     related:
       - settings
-  eye-reminder:
-    docs:
-      - .agent/features/eye-reminder/README.md
-    related:
-      - reminder
-      - water-reminder
-      - toast-window
-      - i18n
   agent-notification:
     docs:
       - .agent/features/agent-notification/README.md
