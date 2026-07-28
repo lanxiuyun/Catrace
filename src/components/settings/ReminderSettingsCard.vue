@@ -31,7 +31,7 @@ const { value: config } = useAutoSavedSetting<AppConfig>({
     <div class="group-label">{{ t('settings.groups.reminder') }}</div>
 
     <setting-row :title="t('settings.reminder.windowTitle')" :desc="t('settings.reminder.windowDesc')">
-      <slider-control v-model:model-value="config.window_minutes" :min="10" :max="120" :step="5" :suffix="' ' + t('common.minutes')" />
+      <slider-control v-model:model-value="config.window_minutes" :min="5" :max="120" :step="5" :suffix="' ' + t('common.minutes')" />
     </setting-row>
 
     <div class="divider" />

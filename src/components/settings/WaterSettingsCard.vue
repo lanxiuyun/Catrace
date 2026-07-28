@@ -55,7 +55,7 @@ async function notifyWater() {
       <div class="divider" />
 
       <setting-row :title="t('settings.reminder.waterIntervalTitle')" :desc="t('settings.reminder.waterIntervalDesc')">
-        <slider-control v-model:model-value="settings.interval_minutes" :min="5" :max="180" :step="5" :disabled="!settings.enabled" :suffix="' ' + t('common.minutes')" />
+        <slider-control v-model:model-value="settings.interval_minutes" :min="1" :max="180" :step="1" editable :disabled="!settings.enabled" :suffix="' ' + t('common.minutes')" />
       </setting-row>
 
       <div class="divider" />
