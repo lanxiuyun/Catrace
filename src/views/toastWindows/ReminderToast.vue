@@ -107,6 +107,25 @@ interface ToastItem {
   ruleId?: string
 }
 
+function resolveAutoHideMs(event: BusEvent | undefined | null, sticky: boolean): number {
+  if (sticky) return 0
+  const p = (event?.payload && typeof event.payload === 'object'
+    ? (event.payload as Record<string, unknown>)
+    : {}) as Record<string, unknown>
+  const raw =
+    typeof p.auto_hide_ms === 'number'
+      ? p.auto_hide_ms
+      : typeof p.autoHideMs === 'number'
+        ? p.autoHideMs
+        : typeof p.card_duration_sec === 'number'
+          ? p.card_duration_sec * 1000
+          : typeof p.cardDurationSec === 'number'
+            ? p.cardDurationSec * 1000
+            : AUTO_HIDE_MS
+  if (!Number.isFinite(raw)) return AUTO_HIDE_MS
+  return Math.min(MAX_AUTO_HIDE_MS, Math.max(MIN_AUTO_HIDE_MS, Math.round(raw)))
+}
+
 const notifications = ref<ToastItem[]>([])
 const cardRefs = ref<Map<number, HTMLElement>>(new Map())
 const showDebug = ref(false)
@@ -161,6 +180,9 @@ const REST_POLL_MS = 2000
 const REST_TIMER_REMOVE_DELAY_MS = 4000
 
 const AUTO_HIDE_MS = 8000
+/** Clamp plugin/sdk payload auto-hide (ms). 0 only valid when sticky. */
+const MIN_AUTO_HIDE_MS = 3000
+const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
 const MAX_NOTIFICATIONS = 5
 const CARD_HEIGHT = 128
 const CARD_GAP = 8
@@ -205,7 +227,7 @@ onMounted(async () => {
     loadAgentSound()
   })
 
-  // Event Bus → Toast 统一渲染线（rest/water/eye 等 display_mode=toast 的 active 事件）
+  // Event Bus → Toast 统一渲染线（rest / timer / agent 等 display_mode=toast 的 active 事件）
   unlistenBusEvent = await listen<BusEvent>('catrace:event', (ev) => {
     handleBusEvent(ev.payload)
   })
@@ -586,12 +608,14 @@ function handleBusEvent(event: BusEvent) {
       if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       existing.visible = true
       if (!event.sticky) {
-        existing.remainingMs = AUTO_HIDE_MS
-        existing.totalMs = AUTO_HIDE_MS
+        const autoHideMs = resolveAutoHideMs(event, false)
+        existing.remainingMs = autoHideMs
+        existing.totalMs = autoHideMs
         startTimer(existing)
       } else {
         stopTimer(existing)
         existing.remainingMs = 0
+        existing.totalMs = 0
       }
       seenBusEventIds.add(event.id)
       void nextTick(() => adjustWindowSize())
@@ -655,7 +679,7 @@ function handleBusEvent(event: BusEvent) {
         !(kind === 'sdk' && event.sticky) &&
         !stickyPlugin
       ) {
-        const autoHideMs = AUTO_HIDE_MS
+        const autoHideMs = resolveAutoHideMs(event, false)
         existing.remainingMs = autoHideMs
         existing.totalMs = autoHideMs
         startTimer(existing)
@@ -822,7 +846,10 @@ async function addNotification(payload: {
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const isPluginSticky = !!payload.pluginId && !!payload.sticky
-  const autoHideMs = AUTO_HIDE_MS
+  const isSticky = isUpdate || isAgentSticky || isSdkSticky || isPluginSticky
+  const autoHideMs = isSticky
+    ? 0
+    : resolveAutoHideMs(payload.busEvent, false)
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
     id,
@@ -832,7 +859,7 @@ async function addNotification(payload: {
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: isUpdate || isAgentSticky || isSdkSticky || isPluginSticky ? 0 : autoHideMs,
+    remainingMs: isSticky ? 0 : autoHideMs,
     closeTimer: null,
     lastStartAt: 0,
     version: payload.version || '',
@@ -855,7 +882,7 @@ async function addNotification(payload: {
           sessionTitle: payload.sessionTitle,
         }]
       : undefined,
-    totalMs: autoHideMs,
+    totalMs: isSticky ? 0 : autoHideMs,
     eventId: payload.eventId,
     dedupeKey: payload.dedupeKey,
     level: payload.level,
@@ -878,7 +905,7 @@ async function addNotification(payload: {
     }
   })
 
-  if (!isUpdate && !isAgentSticky && !isSdkSticky && !isPluginSticky) {
+  if (!isSticky) {
     startTimer(item)
   }
   await adjustWindowSize()
@@ -916,7 +943,7 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
-  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky/permission 卡片不依赖 hover 控制生命周期
+  // 休息计时 / sticky / permission 卡片不依赖 hover 控制生命周期
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = true
   stopTimer(item)
@@ -1200,6 +1227,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-sdk': item.kind === 'sdk',
           'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
         }"
+        :style="item.totalMs > 0 ? { '--toast-auto-hide-ms': `${item.totalMs}ms` } : undefined"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
@@ -1372,12 +1400,7 @@ async function handleUpdateInstall(item: ToastItem) {
   opacity: 1;
 }
 
-/* Eye reminder: keep wrapper sizing minimal */
-.toast-card-eye {
-  min-height: auto;
-}
-
-/* Agent / permission / eye / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
+/* Agent / permission / sdk / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
 .toast-card-agent,
 .toast-card-permission,
 .toast-card-sdk {
