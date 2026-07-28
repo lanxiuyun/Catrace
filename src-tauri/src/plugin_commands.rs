@@ -323,6 +323,22 @@ pub fn plugin_get_activity(
     })
 }
 
+/// Last end-ts of a continuous idle streak ≥ rest plugin `break_minutes` (today).
+/// Threshold always follows built-in rest config so timer "reset on rest" stays in sync.
+#[tauri::command]
+pub fn plugin_get_last_real_rest(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    db: State<'_, Db>,
+) -> Result<Option<i64>, String> {
+    require_enabled_plugin(&window, &plugins)?;
+    let break_minutes = crate::rest_plugin::load_config(window.app_handle())
+        .break_minutes
+        .clamp(1, 24 * 60);
+    db.get_last_real_rest_ts(break_minutes)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn plugin_config_get(
     window: tauri::WebviewWindow,

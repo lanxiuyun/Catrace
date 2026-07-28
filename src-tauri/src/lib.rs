@@ -1182,6 +1182,7 @@ pub fn run() {
             plugin_commands::plugin_publish_event,
             plugin_commands::plugin_report_memory,
             plugin_commands::plugin_get_activity,
+            plugin_commands::plugin_get_last_real_rest,
             plugin_commands::plugin_config_get,
             plugin_commands::plugin_config_get_all,
             plugin_commands::plugin_config_set,
