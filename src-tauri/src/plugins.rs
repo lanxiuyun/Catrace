@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{log_error, log_info, log_warn};
 
@@ -590,7 +590,15 @@ pub fn set_plugin_config(
     if !value.is_object() {
         return Err("plugin config must be a JSON object".into());
     }
-    crate::plugin_config::set_plugin_config(&app, &plugin_id, &value)
+    if let Err(e) = crate::plugin_config::set_plugin_config(&app, &plugin_id, &value) {
+        // Host UI shows failure toast once — plugins need not.
+        let _ = app.emit(
+            "catrace:plugin-config-save-failed",
+            serde_json::json!({ "pluginId": plugin_id, "error": e }),
+        );
+        return Err(e);
+    }
+    Ok(())
 }
 
 #[tauri::command]

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
 import AgentPluginPanel from '../../components/plugins/AgentPluginPanel.vue'
@@ -20,6 +21,7 @@ import {
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
+const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
 const VISIBLE_PLUGIN_IDS = ['rest', 'agent'] as const
@@ -38,6 +40,7 @@ const builtinEnabled = ref<Record<VisiblePluginId, boolean>>({
 
 let settingsStore: Store | null = null
 let unlistenPluginAnomaly: UnlistenFn | null = null
+let unlistenPluginConfigSaveFailed: UnlistenFn | null = null
 async function getSettingsStore() {
   if (!settingsStore) {
     settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
@@ -99,11 +102,17 @@ onMounted(async () => {
   }).then((unlisten) => {
     unlistenPluginAnomaly = unlisten
   })
+  void listen('catrace:plugin-config-save-failed', () => {
+    message.error(t('settings.messages.saveFailed'))
+  }).then((unlisten) => {
+    unlistenPluginConfigSaveFailed = unlisten
+  })
   window.addEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
 onBeforeUnmount(() => {
   unlistenPluginAnomaly?.()
+  unlistenPluginConfigSaveFailed?.()
   window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
