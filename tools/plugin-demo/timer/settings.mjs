@@ -23,144 +23,272 @@ const CSS = `
 /* Host Plugins.vue .plugin-detail owns max-width / padding — panel is business only. */
 .timer-settings {
   width: 100%; box-sizing: border-box;
-  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: #0f172a;
+  display: flex; flex-direction: column; min-height: 0; height: 100%;
 }
+.timer-settings *, .timer-settings *::before, .timer-settings *::after { box-sizing: border-box; }
+
 .timer-settings .header-row {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 1rem; gap: 0.75rem; flex-wrap: wrap;
 }
 .timer-settings .header-title {
   display: flex; align-items: center; gap: 0.5rem;
-  margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;
+  margin: 0; font-size: 0.875rem; font-weight: 700; color: #1e293b;
+  letter-spacing: -0.01em;
 }
 .timer-settings .count-badge {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 1.25rem; height: 1.25rem; padding: 0 0.375rem;
-  border-radius: 999px; background: #e2e8f0; color: #475569;
-  font-size: 0.6875rem; font-weight: 700;
+  min-width: 1.25rem; height: 1.25rem; padding: 0 0.5rem;
+  border-radius: 999px; background: rgba(226,232,240,0.6); color: #64748b;
+  font-size: 0.75rem; font-weight: 600;
 }
 .timer-settings .header-actions {
   display: flex; align-items: center; gap: 0.5rem;
 }
 .timer-settings .btn {
-  border: none; border-radius: 0.5rem; padding: 0.5rem 0.9rem;
-  font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+  border: none; border-radius: 0.5rem; padding: 0.375rem 0.75rem;
+  font-size: 0.75rem; font-weight: 500; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.25; font-family: inherit;
 }
 .timer-settings .btn:disabled { opacity: 0.55; cursor: default; }
-.timer-settings .btn-primary { background: #7c3aed; color: #fff; }
+.timer-settings .btn-primary {
+  background: #7c3aed; color: #fff;
+  box-shadow: 0 0.0625rem 0.125rem rgba(124,58,237,0.2);
+}
 .timer-settings .btn-primary:hover:not(:disabled) { background: #6d28d9; }
 .timer-settings .btn-ghost {
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  background: #fff; color: #334155; border: 0.0625rem solid #e2e8f0;
+  background: #fff; color: #475569; border: 0.0625rem solid #e2e8f0;
+  box-shadow: 0 0.0625rem 0.125rem rgba(15,23,42,0.04);
 }
-.timer-settings .btn-ghost:hover:not(:disabled) { background: #f8fafc; }
-.timer-settings .btn-danger { background: #fef2f2; color: #b91c1c; }
-.timer-settings .btn-add {
+.timer-settings .btn-ghost:hover:not(:disabled) {
+  background: #f8fafc; border-color: #cbd5e1;
+}
+.timer-settings .btn > span {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 2.25rem; height: 2.25rem; padding: 0; border-radius: 0.5rem;
+  line-height: 0; flex-shrink: 0;
+}
+.timer-settings .btn svg {
+  width: 0.875rem; height: 0.875rem; display: block; flex-shrink: 0;
+}
+.timer-settings .btn-ghost svg { color: #64748b; }
+.timer-settings .btn-danger {
+  background: transparent; color: #b91c1c; border: none; box-shadow: none;
+  padding: 0.25rem 0.625rem;
+}
+.timer-settings .btn-danger:hover:not(:disabled) { background: #fff; color: #991b1b; }
+.timer-settings .btn-add {
   background: #7c3aed; color: #fff;
+  box-shadow: 0 0.0625rem 0.125rem rgba(124,58,237,0.2);
+  line-height: 1; align-items: center;
 }
 .timer-settings .btn-add:hover:not(:disabled) { background: #6d28d9; }
-.timer-settings .presets {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
-  gap: 0.5rem; margin-bottom: 1.25rem;
-}
-.timer-settings .preset {
-  text-align: left; padding: 0.75rem; border-radius: 0.75rem;
-  border: 0.0625rem solid #e2e8f0; background: #fff; cursor: pointer;
-}
-.timer-settings .preset:hover { border-color: #c4b5fd; background: #f5f3ff; }
-.timer-settings .preset .p-title { font-size: 0.875rem; font-weight: 600; color: #4c1d95; }
-.timer-settings .preset .p-hint { margin-top: 0.25rem; font-size: 0.75rem; color: #64748b; }
 .timer-settings .empty {
-  padding: 2rem 1rem; text-align: center; border-radius: 0.875rem;
+  padding: 2rem 1rem; text-align: center; border-radius: 0.75rem;
   border: 0.0625rem dashed #e2e8f0; background: #fff; color: #94a3b8; font-size: 0.875rem;
 }
 .timer-settings .list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Rule cards — mockup layout */
 .timer-settings .rule {
-  display: flex; gap: 0.75rem; align-items: flex-start;
-  padding: 1rem; border-radius: 0.875rem; border: 0.0625rem solid #e2e8f0; background: #fff;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  padding: 1rem; border-radius: 0.75rem;
+  border: 0.0625rem solid rgba(226,232,240,0.9); background: #fff;
+  box-shadow: 0 0.0625rem 0.125rem rgba(15,23,42,0.04);
+  transition: box-shadow 0.15s ease, opacity 0.15s ease;
 }
-.timer-settings .rule.is-off { opacity: 0.6; }
-.timer-settings .rule-main { flex: 1; min-width: 0; }
+.timer-settings .rule:hover { box-shadow: 0 0.25rem 0.75rem rgba(15,23,42,0.06); }
+.timer-settings .rule.is-off { opacity: 0.75; }
+.timer-settings .rule.is-off:hover { opacity: 1; }
+.timer-settings .rule-main {
+  flex: 1; min-width: 0; max-width: 36rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
 .timer-settings .rule-title-row {
-  display: flex; align-items: center; gap: 0.5rem;
+  display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
 }
 .timer-settings .rule-title {
   margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color 0.15s ease;
 }
-.timer-settings .rule-badge {
-  flex-shrink: 0;
-  display: inline-flex; align-items: center;
-  padding: 0.125rem 0.5rem; border-radius: 999px;
-  background: #f3f4f6; color: #374151;
-  font-size: 0.6875rem; font-weight: 600;
+.timer-settings .rule:hover .rule-title { color: #7c3aed; }
+.timer-settings .rule-meta {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  font-size: 0.75rem; font-weight: 500; color: #64748b;
 }
-.timer-settings .rule-tags {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
-  margin-top: 0.5rem;
+.timer-settings .meta-dot {
+  width: 0.25rem; height: 0.25rem; border-radius: 999px; background: #cbd5e1; flex-shrink: 0;
 }
-.timer-settings .rule-tag {
+.timer-settings .meta-chip {
   display: inline-flex; align-items: center; gap: 0.25rem;
-  padding: 0.25rem 0.625rem; border-radius: 999px;
-  background: #f5f3ff; color: #6d28d9;
-  font-size: 0.75rem; font-weight: 500;
+  padding: 0.125rem 0.5rem; border-radius: 0.25rem;
+  background: #f8fafc; color: #334155;
+  border: 0.0625rem solid #f1f5f9;
+  white-space: nowrap;
 }
-.timer-settings .rule-tag svg {
-  width: 0.8125rem; height: 0.8125rem;
+.timer-settings .meta-chip svg {
+  width: 0.75rem; height: 0.75rem; color: #8b5cf6; flex-shrink: 0;
 }
+.timer-settings .meta-chip.daily svg { color: #f59e0b; }
+.timer-settings .meta-text { color: #475569; white-space: nowrap; }
+.timer-settings .meta-text.muted { color: #64748b; }
 .timer-settings .rule-body {
-  margin: 0.375rem 0 0; font-size: 0.8125rem; color: #64748b;
+  margin: 0; font-size: 0.75rem; color: #64748b; line-height: 1.6;
   white-space: pre-wrap; word-break: break-word;
 }
 .timer-settings .rule-acts {
-  display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0;
+  display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;
 }
-.timer-settings .rule-acts .btn {
-  padding: 0.4rem 0.7rem; font-size: 0.8125rem;
+.timer-settings .act-group {
+  display: flex; align-items: center; gap: 0.125rem;
+  padding: 0.25rem; border-radius: 0.5rem;
+  background: #f8fafc; border: 0.0625rem solid #f1f5f9;
+}
+.timer-settings .act-group .btn {
+  padding: 0.25rem 0.625rem; font-size: 0.75rem; font-weight: 500;
+  background: transparent; border: none; box-shadow: none; color: #475569;
+}
+.timer-settings .act-group .btn:hover:not(:disabled) {
+  background: #fff; color: #7c3aed;
+  box-shadow: 0 0.0625rem 0.125rem rgba(15,23,42,0.05);
 }
 .timer-settings .switch {
-  position: relative; width: 2.5rem; height: 1.375rem; border-radius: 999px;
-  border: none; background: #cbd5e1; cursor: pointer; padding: 0;
+  position: relative; width: 2.75rem; height: 1.5rem; border-radius: 999px;
+  border: none; background: #e2e8f0; cursor: pointer; padding: 0.125rem; flex-shrink: 0;
+  transition: background 0.2s ease;
 }
 .timer-settings .switch.on { background: #7c3aed; }
 .timer-settings .switch .knob {
-  position: absolute; top: 0.1875rem; left: 0.1875rem;
-  width: 1rem; height: 1rem; border-radius: 999px; background: #fff;
-  transition: transform 0.15s ease;
+  position: absolute; top: 0.125rem; left: 0.125rem;
+  width: 1.25rem; height: 1.25rem; border-radius: 999px; background: #fff;
+  box-shadow: 0 0.0625rem 0.1875rem rgba(15,23,42,0.15);
+  transition: transform 0.2s ease;
 }
-.timer-settings .switch.on .knob { transform: translateX(1.125rem); }
+.timer-settings .switch.on .knob { transform: translateX(1.25rem); }
+.timer-settings .switch.sm { width: 2.5rem; height: 1.375rem; }
+.timer-settings .switch.sm .knob { width: 1.125rem; height: 1.125rem; }
+.timer-settings .switch.sm.on .knob { transform: translateX(1.125rem); }
+
+/* Modal — sectioned layout */
 .timer-settings .modal-mask {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35);
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(0.125rem);
   display: flex; align-items: center; justify-content: center; z-index: 50;
   padding: 1rem;
 }
 .timer-settings .modal {
-  width: min(28rem, 100%); background: #fff; border-radius: 0.875rem;
-  border: 0.0625rem solid #e2e8f0; padding: 1.25rem; box-shadow: 0 1rem 2.5rem rgba(15,23,42,0.12);
+  width: min(36rem, 100%); background: #fff; border-radius: 1rem;
+  border: 0.0625rem solid #e2e8f0;
+  box-shadow: 0 1.5rem 3rem rgba(15,23,42,0.16);
+  display: flex; flex-direction: column; max-height: 90vh; overflow: hidden;
+  padding: 0;
 }
-.timer-settings .modal h3 { margin: 0 0 1rem; font-size: 1rem; color: #0f172a; }
-.timer-settings .field { margin-bottom: 0.875rem; }
-.timer-settings .field label {
-  display: block; margin-bottom: 0.35rem; font-size: 0.75rem; font-weight: 600; color: #64748b;
+.timer-settings .modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border-bottom: 0.0625rem solid #f1f5f9;
+  background: rgba(248,250,252,0.5); flex-shrink: 0;
 }
-.timer-settings .field input, .timer-settings .field textarea {
-  width: 100%; box-sizing: border-box; border: 0.0625rem solid #e2e8f0;
-  border-radius: 0.5rem; padding: 0.5rem 0.625rem; font-size: 0.875rem;
+.timer-settings .modal-head-left {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.timer-settings .modal-head-icon {
+  width: 1.75rem; height: 1.75rem; border-radius: 0.5rem;
+  background: #ede9fe; color: #7c3aed;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.timer-settings .modal-head-icon svg { width: 1rem; height: 1rem; }
+.timer-settings .modal-head h3 {
+  margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a;
+}
+.timer-settings .modal-close {
+  border: none; background: transparent; color: #94a3b8; cursor: pointer;
+  padding: 0.375rem; border-radius: 0.5rem; display: inline-flex;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.timer-settings .modal-close:hover { background: rgba(226,232,240,0.5); color: #475569; }
+.timer-settings .modal-close svg { width: 1rem; height: 1rem; }
+.timer-settings .modal-body {
+  padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem;
+}
+.timer-settings .section { display: flex; flex-direction: column; gap: 0.75rem; }
+.timer-settings .section-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding-bottom: 0.375rem; border-bottom: 0.0625rem solid #f1f5f9;
+}
+.timer-settings .section-head svg { width: 1rem; height: 1rem; color: #7c3aed; flex-shrink: 0; }
+.timer-settings .section-head span {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #64748b;
+}
+.timer-settings .section-card {
+  background: rgba(248,250,252,0.7); border: 0.0625rem solid rgba(226,232,240,0.6);
+  border-radius: 0.75rem; padding: 0.875rem; display: flex; flex-direction: column; gap: 0.75rem;
+}
+.timer-settings .field { margin: 0; }
+.timer-settings .field label,
+.timer-settings .field-label {
+  display: block; margin-bottom: 0.25rem;
+  font-size: 0.75rem; font-weight: 600; color: #334155;
+}
+.timer-settings .field-label .req { color: #ef4444; }
+.timer-settings .field input,
+.timer-settings .field textarea {
+  width: 100%; border: 0.0625rem solid #e2e8f0;
+  border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.75rem;
   font-family: inherit; color: #0f172a; background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.timer-settings .field textarea { min-height: 4rem; resize: vertical; }
-.timer-settings .mode-row { display: flex; gap: 0.5rem; }
+.timer-settings .field input:focus,
+.timer-settings .field textarea:focus {
+  outline: none; border-color: #8b5cf6;
+  box-shadow: 0 0 0 0.1875rem rgba(139,92,246,0.15);
+}
+.timer-settings .field textarea { min-height: 3.5rem; resize: none; }
+.timer-settings .field-hint {
+  margin: 0.25rem 0 0; font-size: 0.6875rem; color: #94a3b8;
+}
+.timer-settings .input-unit {
+  position: relative; display: flex; align-items: center;
+}
+.timer-settings .input-unit input { padding-right: 3rem; }
+.timer-settings .input-unit .unit {
+  position: absolute; right: 0.75rem; font-size: 0.75rem;
+  color: #94a3b8; font-weight: 500; pointer-events: none;
+}
+.timer-settings .mode-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem;
+  background: rgba(226,232,240,0.6); padding: 0.25rem; border-radius: 0.5rem;
+}
 .timer-settings .mode-row button {
-  flex: 1; border: 0.0625rem solid #e2e8f0; background: #f8fafc; border-radius: 0.5rem;
-  padding: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; color: #475569;
+  border: none; background: transparent; border-radius: 0.375rem;
+  padding: 0.375rem; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+  color: #475569; font-family: inherit; transition: all 0.15s ease;
 }
-.timer-settings .field .switch { margin-top: 0.15rem; }
+.timer-settings .mode-row button:hover { color: #0f172a; }
 .timer-settings .mode-row button.active {
-  border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9;
+  background: #fff; color: #7c3aed; font-weight: 600;
+  box-shadow: 0 0.0625rem 0.125rem rgba(15,23,42,0.06);
 }
+.timer-settings .toggle-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+}
+.timer-settings .toggle-row + .toggle-row,
+.timer-settings .section-card .field + .toggle-row,
+.timer-settings .toggle-row + .field,
+.timer-settings .section-divider {
+  border-top: 0.0625rem solid rgba(226,232,240,0.6); padding-top: 0.75rem;
+}
+.timer-settings .toggle-copy { min-width: 0; }
+.timer-settings .toggle-copy .t {
+  display: block; font-size: 0.75rem; font-weight: 600; color: #334155;
+}
+.timer-settings .toggle-copy .d {
+  display: block; font-size: 0.6875rem; color: #94a3b8; margin-top: 0.125rem;
+}
+.timer-settings .dimmed { opacity: 0.4; pointer-events: none; }
 .timer-settings .times { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
 .timer-settings .chip {
   display: inline-flex; align-items: center; gap: 0.25rem;
@@ -168,19 +296,63 @@ const CSS = `
   font-size: 0.75rem; color: #334155;
 }
 .timer-settings .chip button {
-  border: none; background: transparent; color: #94a3b8; cursor: pointer; font-size: 0.875rem; line-height: 1;
+  border: none; background: transparent; color: #94a3b8; cursor: pointer;
+  font-size: 0.875rem; line-height: 1; padding: 0;
 }
 .timer-settings .time-add { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-.timer-settings .modal-acts {
-  display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;
+.timer-settings .time-add input { flex: 1; }
+.timer-settings .modal-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
+  padding: 0.875rem 1.5rem; border-top: 0.0625rem solid #f1f5f9;
+  background: #f8fafc; flex-shrink: 0;
 }
-.timer-settings .toast-msg {
-  margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
-  font-size: 0.8125rem;
+.timer-settings .modal-foot .btn-ghost {
+  background: transparent; border: none; box-shadow: none; color: #475569;
 }
-.timer-settings .toast-msg.ok { background: #ecfdf5; color: #047857; }
-.timer-settings .toast-msg.err { background: #fef2f2; color: #b91c1c; }
-.timer-settings .toast-msg.warn { background: #fffbeb; color: #b45309; }
+.timer-settings .modal-foot .btn-ghost:hover:not(:disabled) {
+  background: rgba(226,232,240,0.6); color: #1e293b;
+}
+.timer-settings .modal-foot .btn-primary { padding: 0.5rem 1.25rem; font-weight: 600; }
+.timer-settings .panel-main {
+  flex: 1 1 auto; min-height: 0;
+}
+.timer-settings .log-panel {
+  margin-top: 1rem; flex-shrink: 0;
+  border: 0.0625rem solid #e2e8f0; border-radius: 0.75rem;
+  background: #f8fafc; overflow: hidden;
+}
+.timer-settings .log-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem; border-bottom: 0.0625rem solid #e2e8f0;
+}
+.timer-settings .log-title {
+  margin: 0; font-size: 0.75rem; font-weight: 700; color: #64748b;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.timer-settings .log-clear {
+  border: none; background: transparent; color: #94a3b8; cursor: pointer;
+  font-size: 0.6875rem; font-weight: 500; padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem; font-family: inherit;
+}
+.timer-settings .log-clear:hover { background: #e2e8f0; color: #475569; }
+.timer-settings .log-list {
+  max-height: 7.5rem; overflow-y: auto; padding: 0.375rem 0;
+}
+.timer-settings .log-empty {
+  padding: 0.625rem 0.75rem; font-size: 0.75rem; color: #94a3b8;
+}
+.timer-settings .log-item {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  padding: 0.25rem 0.75rem; font-size: 0.75rem; line-height: 1.4;
+}
+.timer-settings .log-time {
+  flex-shrink: 0; font-variant-numeric: tabular-nums;
+  color: #94a3b8; font-size: 0.6875rem; padding-top: 0.0625rem;
+}
+.timer-settings .log-text { color: #334155; word-break: break-word; min-width: 0; }
+.timer-settings .log-item.ok .log-text { color: #047857; }
+.timer-settings .log-item.err .log-text { color: #b91c1c; }
+.timer-settings .log-item.warn .log-text { color: #b45309; }
 `
 
 function ensureStyles() {
@@ -297,80 +469,44 @@ function portableSettings(settings) {
   }
 }
 
-function scheduleTag(rule) {
-  const stay = rule.sticky
-    ? '常驻'
-    : `停留 ${clamp(rule.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)}s`
-  if (rule.mode === 'interval') {
-    if (rule.reset_on_rest) {
-      return `每 ${rule.interval_minutes} 分钟 · 休息重置 · ${stay}`
-    }
-    return `每 ${rule.interval_minutes} 分钟 · ${stay}`
-  }
-  if (!rule.daily_times || !rule.daily_times.length) return `未设置时间点 · ${stay}`
-  if (rule.daily_times.length === 1) return `每天 ${rule.daily_times[0]} · ${stay}`
-  return `每天 ${rule.daily_times.join(', ')} · ${stay}`
-}
 
-function splitScheduleTag(rule) {
-  const stay = rule.sticky ? '常驻' : `停留 ${clamp(rule.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)}s`
-  const tags = []
+
+function ruleMetaParts(rule) {
+  const stayLabel = rule.sticky
+    ? '卡片常驻'
+    : `停留 ${clamp(rule.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)}s`
+  let schedule = { kind: 'interval', label: '未设置时间点' }
   if (rule.mode === 'interval') {
-    tags.push({ icon: 'clock', text: `每 ${rule.interval_minutes} 分钟` })
-    if (rule.reset_on_rest) tags.push({ icon: 'refresh', text: '休息重置' })
+    schedule = { kind: 'interval', label: `每 ${rule.interval_minutes} 分钟` }
   } else if (rule.daily_times && rule.daily_times.length) {
-    if (rule.daily_times.length === 1) {
-      tags.push({ icon: 'clock', text: `每天 ${rule.daily_times[0]}` })
-    } else {
-      tags.push({ icon: 'clock', text: `每天 ${rule.daily_times.join(', ')}` })
+    schedule = {
+      kind: 'daily',
+      label:
+        rule.daily_times.length === 1
+          ? `定点 ${rule.daily_times[0]}`
+          : `定点 ${rule.daily_times.join(', ')}`,
     }
   } else {
-    tags.push({ icon: 'clock', text: '未设置时间点' })
+    schedule = { kind: 'daily', label: '未设置时间点' }
   }
-  tags.push({ icon: 'card', text: stay })
-  return tags
+  return {
+    schedule,
+    stay: stayLabel,
+    restReset: rule.mode === 'interval' && !!rule.reset_on_rest,
+  }
 }
 
 const ICONS = {
-  clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
-  refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
-  card: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+  timer: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M12 5V2"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+  file: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+  sliders: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>`,
+  pointer: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg>`,
+  x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
 }
 
-function iconEl(name) {
-  return h('span', { class: 'rule-tag-icon', innerHTML: ICONS[name] || '' })
-}
-
-const PRESETS = [
-  {
-    key: 'drink',
-    title: '喝水',
-    hint: '每 20 分钟',
-    rule: { title: '喝水', body: '起来喝一杯水吧。', mode: 'interval', interval_minutes: 20 },
-  },
-  {
-    key: 'stand',
-    title: '站立活动',
-    hint: '每 60 分钟',
-    rule: { title: '站立活动', body: '站起来活动一下。', mode: 'interval', interval_minutes: 60 },
-  },
-  {
-    key: 'offwork',
-    title: '下班总结',
-    hint: '每天 18:00 · 常驻',
-    rule: {
-      title: '下班总结',
-      body: '记录今天的工作成果。',
-      mode: 'daily',
-      interval_minutes: 60,
-      daily_times: ['18:00'],
-      sticky: true,
-      card_duration_sec: DEFAULT_CARD_SEC,
-    },
-  },
-]
 
 export default {
   name: 'TimerSettings',
@@ -382,7 +518,7 @@ export default {
     const saving = ref(false)
     const headerLoading = ref(false)
     const testingId = ref(null)
-    const toast = ref(null)
+    const logs = ref([])
     const modalOpen = ref(false)
     const editingId = ref(null)
     const draftTime = ref('')
@@ -398,12 +534,30 @@ export default {
     })
 
     let saveTimer = null
+    const MAX_LOGS = 50
 
+    function formatLogTime(d = new Date()) {
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    }
+
+    function pushLog(type, text) {
+      const entry = {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        type: type || 'ok',
+        text: String(text || ''),
+        time: formatLogTime(),
+      }
+      logs.value = [entry, ...logs.value].slice(0, MAX_LOGS)
+    }
+
+    function clearLogs() {
+      logs.value = []
+    }
+
+    // Keep name showToast for call sites — appends to bottom log panel.
     function showToast(type, text) {
-      toast.value = { type, text }
-      setTimeout(() => {
-        if (toast.value && toast.value.text === text) toast.value = null
-      }, 2200)
+      pushLog(type, text)
     }
 
     async function load() {
@@ -450,10 +604,8 @@ export default {
           pluginId: PLUGIN_ID,
           value: portableSettings(next),
         })
-        showToast('ok', '已保存')
       } catch (e) {
         console.warn('[timer settings] save failed', e)
-        showToast('err', '保存失败')
         throw e
       } finally {
         saving.value = false
@@ -499,10 +651,8 @@ export default {
             detail: { id: PLUGIN_ID, enabled: val },
           }),
         )
-        showToast('ok', '已保存')
       } catch (e) {
         settings.value = { ...settings.value, enabled: previous }
-        showToast('err', '保存失败')
       } finally {
         headerLoading.value = false
       }
@@ -510,7 +660,7 @@ export default {
 
     function openCreate() {
       if (settings.value.rules.length >= MAX_RULES) {
-        showToast('warn', `最多 ${MAX_RULES} 条规则`)
+        showToast('warn', `最多 ${MAX_RULES} 条提醒`)
         return
       }
       editingId.value = null
@@ -607,7 +757,7 @@ export default {
         })
       } else {
         if (settings.value.rules.length >= MAX_RULES) {
-          showToast('warn', `最多 ${MAX_RULES} 条规则`)
+          showToast('warn', `最多 ${MAX_RULES} 条提醒`)
           return
         }
         patch((s) => {
@@ -627,19 +777,6 @@ export default {
         })
       }
       closeModal()
-    }
-
-    function addPreset(key) {
-      if (settings.value.rules.length >= MAX_RULES) {
-        showToast('warn', `最多 ${MAX_RULES} 条规则`)
-        return
-      }
-      const preset = PRESETS.find((p) => p.key === key)
-      if (!preset) return
-      patch((s) => {
-        s.rules.unshift(createRule({ ...preset.rule, enabled: true }))
-      })
-      showToast('ok', `已添加「${preset.title}」`)
     }
 
     function toggleRule(id, enabled) {
@@ -725,15 +862,9 @@ export default {
     })
 
     return () => {
-      const children = []
+      const mainChildren = []
 
-      if (toast.value) {
-        children.push(
-          h('div', { class: ['toast-msg', toast.value.type] }, toast.value.text),
-        )
-      }
-
-      children.push(
+      mainChildren.push(
         h('div', { class: 'header-row' }, [
           h('h3', { class: 'header-title' }, [
             '提醒列表',
@@ -758,116 +889,115 @@ export default {
               {
                 type: 'button',
                 class: ['btn', 'btn-add'],
-                'aria-label': '新建提醒',
                 disabled: !settings.value.enabled || settings.value.rules.length >= MAX_RULES,
                 onClick: openCreate,
               },
-              [h('span', { innerHTML: ICONS.plus })],
+              [h('span', { innerHTML: ICONS.plus }), '新建提醒'],
             ),
           ]),
         ]),
       )
 
-      children.push(
-        h(
-          'div',
-          { class: 'presets' },
-          PRESETS.map((p) =>
-            h(
-              'button',
-              {
-                key: p.key,
-                type: 'button',
-                class: 'preset',
-                disabled: !settings.value.enabled || settings.value.rules.length >= MAX_RULES,
-                onClick: () => addPreset(p.key),
-              },
-              [
-                h('div', { class: 'p-title' }, p.title),
-                h('div', { class: 'p-hint' }, p.hint),
-              ],
-            ),
-          ),
-        ),
-      )
-
       if (loading.value) {
-        children.push(h('div', { class: 'empty' }, '加载中…'))
+        mainChildren.push(h('div', { class: 'empty' }, '加载中…'))
       } else if (!settings.value.rules.length) {
-        children.push(h('div', { class: 'empty' }, '还没有规则，点上方预设或「新建规则」开始'))
+        mainChildren.push(h('div', { class: 'empty' }, '还没有提醒，点击右上角「新建提醒」开始'))
       } else {
-        children.push(
+        mainChildren.push(
           h(
             'div',
             { class: 'list' },
-            settings.value.rules.map((rule) =>
-              h('div', { key: rule.id, class: ['rule', rule.enabled ? '' : 'is-off'] }, [
+            settings.value.rules.map((rule) => {
+              const meta = ruleMetaParts(rule)
+              const metaNodes = [
+                h('span', { class: 'meta-dot' }),
+                h(
+                  'span',
+                  { class: ['meta-chip', meta.schedule.kind === 'daily' ? 'daily' : ''] },
+                  [
+                    h('span', {
+                      innerHTML: meta.schedule.kind === 'daily' ? ICONS.clock : ICONS.timer,
+                    }),
+                    meta.schedule.label,
+                  ],
+                ),
+                h('span', { class: 'meta-dot' }),
+                h(
+                  'span',
+                  { class: ['meta-text', rule.sticky ? 'muted' : ''] },
+                  meta.stay,
+                ),
+              ]
+              if (meta.restReset) {
+                metaNodes.push(h('span', { class: 'meta-dot' }))
+                metaNodes.push(h('span', { class: 'meta-text muted' }, '休息重置'))
+              }
+
+              const actBtns = [
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn',
+                    disabled: !!testingId.value,
+                    onClick: () => sendTest(rule),
+                  },
+                  testingId.value === rule.id ? '…' : '测试',
+                ),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'btn',
+                    onClick: () => openEdit(rule),
+                  },
+                  '编辑',
+                ),
+              ]
+              if (!rule.builtin) {
+                actBtns.push(
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: ['btn', 'btn-danger'],
+                      onClick: () => removeRule(rule.id),
+                    },
+                    '删除',
+                  ),
+                )
+              }
+
+              return h('div', { key: rule.id, class: ['rule', rule.enabled ? '' : 'is-off'] }, [
                 h('div', { class: 'rule-main' }, [
                   h('div', { class: 'rule-title-row' }, [
                     h('h4', { class: 'rule-title' }, rule.title || '定时提醒'),
-                    rule.builtin
-                      ? h('span', { class: 'rule-badge' }, '内置')
-                      : null,
+                    h('div', { class: 'rule-meta' }, metaNodes),
                   ]),
-                  h('div', { class: 'rule-tags' },
-                    splitScheduleTag(rule).map((tag) =>
-                      h('span', { class: 'rule-tag' }, [iconEl(tag.icon), tag.text]),
-                    ),
-                  ),
-                  rule.body
-                    ? h('p', { class: 'rule-body' }, `“${rule.body}”`)
-                    : null,
+                  rule.body ? h('p', { class: 'rule-body' }, `“${rule.body}”`) : null,
                 ]),
                 h('div', { class: 'rule-acts' }, [
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      class: ['btn', 'btn-ghost'],
-                      disabled: !!testingId.value,
-                      onClick: () => sendTest(rule),
-                    },
-                    testingId.value === rule.id ? '…' : '测试',
-                  ),
-                  h(
-                    'button',
-                    {
-                      type: 'button',
-                      class: ['btn', 'btn-ghost'],
-                      onClick: () => openEdit(rule),
-                    },
-                    '编辑',
-                  ),
-                  rule.builtin
-                    ? null
-                    : h(
-                        'button',
-                        {
-                          type: 'button',
-                          class: ['btn', 'btn-danger'],
-                          onClick: () => removeRule(rule.id),
-                        },
-                        '删除',
-                      ),
+                  h('div', { class: 'act-group' }, actBtns),
                   h(
                     'button',
                     {
                       type: 'button',
                       class: ['switch', rule.enabled ? 'on' : ''],
-                      'aria-label': '启用规则',
+                      'aria-label': '启用提醒',
                       onClick: () => toggleRule(rule.id, !rule.enabled),
                     },
                     [h('span', { class: 'knob' })],
                   ),
                 ]),
-              ]),
-            ),
+              ])
+            }),
           ),
         )
       }
 
       if (modalOpen.value) {
-        children.push(
+        const isEdit = !!editingId.value
+        mainChildren.push(
           h(
             'div',
             {
@@ -878,90 +1008,166 @@ export default {
             },
             [
               h('div', { class: 'modal' }, [
-                h('h3', null, editingId.value ? '编辑提醒' : '添加提醒'),
-                h('div', { class: 'field' }, [
-                  h('label', null, '标题'),
-                  h('input', {
-                    value: form.value.title,
-                    placeholder: '定时提醒',
-                    onInput: (e) => {
-                      form.value = { ...form.value, title: e.target.value }
-                    },
-                  }),
-                ]),
-                h('div', { class: 'field' }, [
-                  h('label', null, '正文'),
-                  h('textarea', {
-                    value: form.value.body,
-                    placeholder: '该处理这件事了。',
-                    onInput: (e) => {
-                      form.value = { ...form.value, body: e.target.value }
-                    },
-                  }),
-                ]),
-                h('div', { class: 'field' }, [
-                  h('label', null, '模式'),
-                  h('div', { class: 'mode-row' }, [
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        class: form.value.mode === 'interval' ? 'active' : '',
-                        onClick: () => {
-                          form.value = { ...form.value, mode: 'interval' }
-                        },
-                      },
-                      '间隔',
-                    ),
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        class: form.value.mode === 'daily' ? 'active' : '',
-                        onClick: () => {
-                          form.value = { ...form.value, mode: 'daily' }
-                        },
-                      },
-                      '每日定点',
-                    ),
+                h('div', { class: 'modal-head' }, [
+                  h('div', { class: 'modal-head-left' }, [
+                    h('div', { class: 'modal-head-icon', innerHTML: ICONS.sliders }),
+                    h('h3', null, isEdit ? '编辑提醒' : '新建提醒'),
                   ]),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'modal-close',
+                      'aria-label': '关闭',
+                      onClick: closeModal,
+                    },
+                    [h('span', { innerHTML: ICONS.x })],
+                  ),
                 ]),
-                form.value.mode === 'interval'
-                  ? h('div', null, [
-                      h('div', { class: 'field' }, [
-                        h('label', null, `间隔（分钟，${MIN_INTERVAL}–${MAX_INTERVAL}）`),
-                        h('input', {
-                          type: 'number',
-                          min: MIN_INTERVAL,
-                          max: MAX_INTERVAL,
-                          value: form.value.interval_minutes,
-                          onInput: (e) => {
-                            form.value = {
-                              ...form.value,
-                              interval_minutes: clamp(e.target.value, MIN_INTERVAL, MAX_INTERVAL),
-                            }
-                          },
-                        }),
+                h('div', { class: 'modal-body' }, [
+                  h('div', { class: 'section' }, [
+                    h('div', { class: 'section-head' }, [
+                      h('span', { innerHTML: ICONS.file }),
+                      h('span', null, '基本内容'),
+                    ]),
+                    h('div', { class: 'field' }, [
+                      h('label', { class: 'field-label' }, [
+                        '提醒标题 ',
+                        h('span', { class: 'req' }, '*'),
                       ]),
+                      h('input', {
+                        value: form.value.title,
+                        placeholder: '给提醒起个名字，如：护眼提醒',
+                        onInput: (e) => {
+                          form.value = { ...form.value, title: e.target.value }
+                        },
+                      }),
+                    ]),
+                    h('div', { class: 'field' }, [
+                      h('label', { class: 'field-label' }, '提醒正文'),
+                      h('textarea', {
+                        value: form.value.body,
+                        placeholder: '弹出通知卡片时显示的提示文字...',
+                        rows: 2,
+                        onInput: (e) => {
+                          form.value = { ...form.value, body: e.target.value }
+                        },
+                      }),
+                    ]),
+                  ]),
+
+                  h('div', { class: 'section' }, [
+                    h('div', { class: 'section-head' }, [
+                      h('span', { innerHTML: ICONS.clock }),
+                      h('span', null, '触发调度'),
+                    ]),
+                    h('div', { class: 'section-card' }, [
                       h('div', { class: 'field' }, [
-                        h(
-                          'label',
-                          {
-                            style: {
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '0.75rem',
+                        h('label', { class: 'field-label' }, '触发模式'),
+                        h('div', { class: 'mode-row' }, [
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              class: form.value.mode === 'interval' ? 'active' : '',
+                              onClick: () => {
+                                form.value = { ...form.value, mode: 'interval' }
+                              },
                             },
-                          },
-                          [
-                            '休息重置',
+                            '时间间隔',
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              class: form.value.mode === 'daily' ? 'active' : '',
+                              onClick: () => {
+                                form.value = { ...form.value, mode: 'daily' }
+                              },
+                            },
+                            '每日定点',
+                          ),
+                        ]),
+                      ]),
+                      form.value.mode === 'interval'
+                        ? h('div', { class: 'field' }, [
+                            h('label', { class: 'field-label' }, '时间间隔'),
+                            h('div', { class: 'input-unit' }, [
+                              h('input', {
+                                type: 'number',
+                                min: MIN_INTERVAL,
+                                max: MAX_INTERVAL,
+                                value: form.value.interval_minutes,
+                                onInput: (e) => {
+                                  form.value = {
+                                    ...form.value,
+                                    interval_minutes: clamp(
+                                      e.target.value,
+                                      MIN_INTERVAL,
+                                      MAX_INTERVAL,
+                                    ),
+                                  }
+                                },
+                              }),
+                              h('span', { class: 'unit' }, '分钟'),
+                            ]),
+                            h(
+                              'p',
+                              { class: 'field-hint' },
+                              `有效范围: ${MIN_INTERVAL} - ${MAX_INTERVAL} 分钟`,
+                            ),
+                          ])
+                        : h('div', { class: 'field' }, [
+                            h('label', { class: 'field-label' }, '时间点（HH:MM）'),
+                            h('div', { class: 'times' }, [
+                              ...(form.value.daily_times || []).map((t) =>
+                                h('span', { key: t, class: 'chip' }, [
+                                  t,
+                                  h(
+                                    'button',
+                                    { type: 'button', onClick: () => removeDailyTime(t) },
+                                    '×',
+                                  ),
+                                ]),
+                              ),
+                            ]),
+                            h('div', { class: 'time-add' }, [
+                              h('input', {
+                                value: draftTime.value,
+                                placeholder: '18:00',
+                                onInput: (e) => {
+                                  draftTime.value = e.target.value
+                                },
+                                onKeydown: (e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    addDailyTime()
+                                  }
+                                },
+                              }),
+                              h(
+                                'button',
+                                {
+                                  type: 'button',
+                                  class: ['btn', 'btn-ghost'],
+                                  onClick: addDailyTime,
+                                },
+                                '添加',
+                              ),
+                            ]),
+                          ]),
+                      form.value.mode === 'interval'
+                        ? h('div', { class: 'toggle-row section-divider' }, [
+                            h('div', { class: 'toggle-copy' }, [
+                              h('span', { class: 't' }, '休息时重置'),
+                              h('span', { class: 'd' }, '无电脑操作时自动重新计算间隔'),
+                            ]),
                             h(
                               'button',
                               {
                                 type: 'button',
-                                class: ['switch', form.value.reset_on_rest ? 'on' : ''],
-                                'aria-label': '休息重置',
+                                class: ['switch', 'sm', form.value.reset_on_rest ? 'on' : ''],
+                                'aria-label': '休息时重置',
                                 onClick: () => {
                                   form.value = {
                                     ...form.value,
@@ -971,102 +1177,80 @@ export default {
                               },
                               [h('span', { class: 'knob' })],
                             ),
-                          ],
-                        ),
-                      ]),
-                    ])
-                  : h('div', { class: 'field' }, [
-                      h('label', null, '时间点（HH:MM）'),
-                      h('div', { class: 'times' }, [
-                        ...(form.value.daily_times || []).map((t) =>
-                          h('span', { key: t, class: 'chip' }, [
-                            t,
-                            h(
-                              'button',
-                              { type: 'button', onClick: () => removeDailyTime(t) },
-                              '×',
-                            ),
-                          ]),
-                        ),
-                      ]),
-                      h('div', { class: 'time-add' }, [
-                        h('input', {
-                          value: draftTime.value,
-                          placeholder: '18:00',
-                          onInput: (e) => {
-                            draftTime.value = e.target.value
-                          },
-                          onKeydown: (e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              addDailyTime()
-                            }
-                          },
-                        }),
+                          ])
+                        : null,
+                    ]),
+                  ]),
+
+                  h('div', { class: 'section' }, [
+                    h('div', { class: 'section-head' }, [
+                      h('span', { innerHTML: ICONS.pointer }),
+                      h('span', null, '通知卡片行为'),
+                    ]),
+                    h('div', { class: 'section-card' }, [
+                      h('div', { class: 'toggle-row' }, [
+                        h('div', { class: 'toggle-copy' }, [
+                          h('span', { class: 't' }, '卡片常驻'),
+                          h('span', { class: 'd' }, '开启后卡片不会自动消失，需手动点击关闭'),
+                        ]),
                         h(
                           'button',
                           {
                             type: 'button',
-                            class: ['btn', 'btn-ghost'],
-                            onClick: addDailyTime,
+                            class: ['switch', 'sm', form.value.sticky ? 'on' : ''],
+                            'aria-label': '卡片常驻',
+                            onClick: () => {
+                              form.value = {
+                                ...form.value,
+                                sticky: !form.value.sticky,
+                              }
+                            },
                           },
-                          '添加',
+                          [h('span', { class: 'knob' })],
                         ),
                       ]),
-                    ]),
-                h('div', { class: 'field' }, [
-                  h(
-                    'label',
-                    {
-                      style: {
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.75rem',
-                      },
-                    },
-                    [
-                      '卡片常驻（不自动关闭）',
                       h(
-                        'button',
+                        'div',
                         {
-                          type: 'button',
-                          class: ['switch', form.value.sticky ? 'on' : ''],
-                          'aria-label': '卡片常驻',
-                          onClick: () => {
-                            form.value = {
-                              ...form.value,
-                              sticky: !form.value.sticky,
-                            }
-                          },
+                          class: [
+                            'field',
+                            'section-divider',
+                            form.value.sticky ? 'dimmed' : '',
+                          ],
                         },
-                        [h('span', { class: 'knob' })],
+                        [
+                          h('label', { class: 'field-label' }, '停留时长'),
+                          h('div', { class: 'input-unit' }, [
+                            h('input', {
+                              type: 'number',
+                              min: MIN_CARD_SEC,
+                              max: MAX_CARD_SEC,
+                              disabled: !!form.value.sticky,
+                              value: form.value.card_duration_sec,
+                              onInput: (e) => {
+                                form.value = {
+                                  ...form.value,
+                                  card_duration_sec: clamp(
+                                    e.target.value,
+                                    MIN_CARD_SEC,
+                                    MAX_CARD_SEC,
+                                  ),
+                                }
+                              },
+                            }),
+                            h('span', { class: 'unit' }, '秒'),
+                          ]),
+                          h(
+                            'p',
+                            { class: 'field-hint' },
+                            `有效范围: ${MIN_CARD_SEC} - ${MAX_CARD_SEC} 秒`,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ]),
+                  ]),
                 ]),
-                !form.value.sticky
-                  ? h('div', { class: 'field' }, [
-                      h(
-                        'label',
-                        null,
-                        `卡片停留（秒，${MIN_CARD_SEC}–${MAX_CARD_SEC}）`,
-                      ),
-                      h('input', {
-                        type: 'number',
-                        min: MIN_CARD_SEC,
-                        max: MAX_CARD_SEC,
-                        value: form.value.card_duration_sec,
-                        onInput: (e) => {
-                          form.value = {
-                            ...form.value,
-                            card_duration_sec: clamp(e.target.value, MIN_CARD_SEC, MAX_CARD_SEC),
-                          }
-                        },
-                      }),
-                    ])
-                  : null,
-                h('div', { class: 'modal-acts' }, [
+                h('div', { class: 'modal-foot' }, [
                   h(
                     'button',
                     { type: 'button', class: ['btn', 'btn-ghost'], onClick: closeModal },
@@ -1079,7 +1263,7 @@ export default {
                       class: ['btn', 'btn-primary'],
                       onClick: saveModal,
                     },
-                    '保存',
+                    isEdit ? '保存更改' : '保存',
                   ),
                 ]),
               ]),
@@ -1088,7 +1272,36 @@ export default {
         )
       }
 
-      return h('div', { class: 'timer-settings' }, children)
+      const logChildren = [
+        h('div', { class: 'log-head' }, [
+          h('h4', { class: 'log-title' }, '运行日志'),
+          logs.value.length
+            ? h(
+                'button',
+                { type: 'button', class: 'log-clear', onClick: clearLogs },
+                '清空',
+              )
+            : null,
+        ]),
+        h(
+          'div',
+          { class: 'log-list' },
+          logs.value.length
+            ? logs.value.map((item) =>
+                h('div', { key: item.id, class: ['log-item', item.type] }, [
+                  h('span', { class: 'log-time' }, item.time),
+                  h('span', { class: 'log-text' }, item.text),
+                ]),
+              )
+            : [h('div', { class: 'log-empty' }, '暂无日志')],
+        ),
+      ]
+
+      return h('div', { class: 'timer-settings' }, [
+        h('div', { class: 'panel-main' }, mainChildren),
+        h('div', { class: 'log-panel' }, logChildren),
+      ])
+
     }
   },
 }
