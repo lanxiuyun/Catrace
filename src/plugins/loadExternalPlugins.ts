@@ -1,12 +1,6 @@
 import {
-  computed,
   defineAsyncComponent,
-  h,
   markRaw,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
   type Component,
 } from 'vue'
 import {
@@ -16,24 +10,7 @@ import {
   type ExternalPluginInfo,
 } from '../api/tauri'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
-
-/** Expose a minimal Vue runtime for external ESM cards/settings (bare `vue` import won't resolve). */
-function ensurePluginVueRuntime() {
-  const g = globalThis as typeof globalThis & {
-    __CATRACE_VUE__?: Record<string, unknown>
-  }
-  if (!g.__CATRACE_VUE__) {
-    g.__CATRACE_VUE__ = {
-      h,
-      ref,
-      computed,
-      watch,
-      markRaw,
-      onMounted,
-      onBeforeUnmount,
-    }
-  }
-}
+import { ensurePluginRuntime } from './pluginRuntime'
 
 const blobUrlByPlugin = new Map<string, string>()
 const settingsBlobUrlByPlugin = new Map<string, string>()
@@ -103,7 +80,7 @@ async function buildComponentFromSource(
 }
 
 async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
-  ensurePluginVueRuntime()
+  ensurePluginRuntime()
   const registry = usePluginRegistry()
   let list: ExternalPluginInfo[] = []
   try {

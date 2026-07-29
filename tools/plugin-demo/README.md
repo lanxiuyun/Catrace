@@ -44,7 +44,10 @@ Payload includes `plugin_id: "demo-timer"` so the host sets `source=plugin` and 
 
 - props: `event` (BusEvent), `isHovered?`
 - emits: `close`, `action(actionId)`
-- **Use `render` + `h` from `globalThis.__CATRACE_VUE__`** — no SFC template string, no `import 'vue'`
+- **Use `render` + `h` from `globalThis.__CATRACE_VUE__`** — no SFC template string, no `import 'vue'` / `import 'naive-ui'`
+- Optional host UI kits:
+  - `globalThis.__CATRACE_NAIVE__` — curated naive-ui (`NButton`, `NSwitch`, `NInput`, `NSlider`, `NModal`, `NSelect`, `useMessage`, …)
+  - `globalThis.__CATRACE_UI__` — host settings blocks (`SettingRow`, `SliderControl`)
 - Host loads UI via **Blob URL** (not file/asset import)
 
 See architecture: `.agent/architecture/desktop-event-os/m10-external-plugins.md`

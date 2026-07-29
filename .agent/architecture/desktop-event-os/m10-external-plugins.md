@@ -51,9 +51,38 @@ export default {
 - 宿主传入完整 `BusEvent`
 - `close` → dismiss + `resolve(dismissed)`
 - `action(actionId)` → `resolve_event_action`
-- **禁止** `import 'vue'`（asset/blob 模块解析不到 bare specifier）
-- 使用宿主注入的 `globalThis.__CATRACE_VUE__`（`h` / `ref` / `computed` / `watch` / `markRaw`）
+- **禁止** `import 'vue'` / `import 'naive-ui'`（asset/blob 模块解析不到 bare specifier）
+- 使用宿主注入的 globals（见 `src/plugins/pluginRuntime.ts`）：
+  - `globalThis.__CATRACE_VUE__` — `h` / `ref` / `computed` / `watch` / `markRaw` / lifecycle
+  - `globalThis.__CATRACE_NAIVE__` — 精选 naive-ui 组件 + `useMessage` / `useDialog`（须在 `setup()` 内调用）
+  - `globalThis.__CATRACE_UI__` — 主机设置积木 `SettingRow` / `SliderControl`
 - 插件 UI 不应依赖内部 Pinia；副作用只走 emit
+- naive-ui 已挂在 App 的 `NConfigProvider` 下，主题自动继承；toast 窗同样可用
+
+```js
+// settings.mjs / ui.mjs — naive-ui via host
+const { h, ref } = globalThis.__CATRACE_VUE__
+const { NButton, NSwitch, useMessage } = globalThis.__CATRACE_NAIVE__
+const { SettingRow } = globalThis.__CATRACE_UI__ || {}
+
+export default {
+  setup() {
+    const msg = useMessage()
+    const on = ref(true)
+    return () =>
+      h(SettingRow || 'div', { title: '启用', desc: '说明' }, {
+        default: () =>
+          h(NSwitch, {
+            value: on.value,
+            'onUpdate:value': (v) => {
+              on.value = v
+              msg.success('已保存')
+            },
+          }),
+      })
+  },
+}
+```
 
 ## UI 加载策略（手测踩坑后定稿）
 

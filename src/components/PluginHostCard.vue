@@ -12,6 +12,7 @@ import type { BusEvent } from '../types/event'
 import { usePluginRegistry } from '../stores/pluginRegistry'
 import { getPluginUiSource } from '../api/tauri'
 import SdkToastCard from './SdkToastCard.vue'
+import { ensurePluginRuntime } from '../plugins/pluginRuntime'
 
 const props = defineProps<{
   event: BusEvent
@@ -53,15 +54,6 @@ const FallbackCard = markRaw({
   },
 }) as Component
 
-function ensurePluginVueRuntime() {
-  const g = globalThis as typeof globalThis & {
-    __CATRACE_VUE__?: Record<string, unknown>
-  }
-  if (!g.__CATRACE_VUE__) {
-    g.__CATRACE_VUE__ = { h, markRaw }
-  }
-}
-
 async function loadFromBlobUrl(url: string): Promise<Component> {
   const mod: Record<string, unknown> = await import(/* @vite-ignore */ url)
   const comp = (mod.default || mod.Card || mod.card) as Component | undefined
@@ -70,7 +62,7 @@ async function loadFromBlobUrl(url: string): Promise<Component> {
 }
 
 async function loadFromPluginId(id: string): Promise<Component> {
-  ensurePluginVueRuntime()
+  ensurePluginRuntime()
   const source = await getPluginUiSource(id)
   const blob = new Blob([source], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
