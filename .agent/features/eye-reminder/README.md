@@ -23,15 +23,21 @@ Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/time
 
 ## 规则配置（护眼预设）
 
-| 字段 | 值 | 说明 |
-|------|----|------|
-| `mode` | `interval` | 仅当前分钟**活跃**时检查 |
-| `interval_minutes` | `20` | 间隔 |
-| `reset_on_rest` | `true` | UI 文案「休息重置」 |
-| `sticky` | `false` | 不常驻 |
-| `card_duration_sec` | `25` | Toast 自动关闭秒数 |
+| 字段 | 值 | 可否改 | 说明 |
+|------|----|--------|------|
+| `title` | `护眼提醒` | **否** | 固定示例名 |
+| `mode` | `interval` | **否** | 仅活跃分钟检查 |
+| `interval_minutes` | 默认 `20` | **可** | 用户可改间隔 |
+| `reset_on_rest` | `true` | **否** | UI「休息重置」固定开 |
+| `daily_times` | `[]` | **否** | 示例不做定点 |
+| `sticky` | 默认 `false` | 可 | 不常驻 / 可改 |
+| `card_duration_sec` | 默认 `25` | 可 | Toast 自动关闭秒数 |
+| `body` | 默认远眺文案 | 可 | 通知正文 |
+| `enabled` | 默认开 | 可 | 规则开关 |
 
-用户可改间隔、停留秒数，或开 `sticky` 常驻。无需再配独立的休息阈值。
+实现：`settings.mjs` 的 `EYE_FIXED` / `applyEyeFixed` / `ensureBuiltinEyeRule`（始终恰好一条 eye）。详见 [[timer-plugin]]。
+
+用户无需再配独立休息阈值；真休息阈值仍读久坐插件 `break_minutes`。
 
 ## 触发逻辑（`reset_on_rest`）
 
@@ -73,6 +79,7 @@ Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/time
 
 ## 相关
 
+- [[timer-plugin]] — 定时提醒插件 UI/编辑/排序
 - [[toast-window]] — Toast 窗口与 auto-hide
 - [[reminder]] — 久坐插件；提供 `break_minutes` 给真休息判定
 - [[water-reminder]] — 同类「间隔提醒」产品叙事（实现路径可能仍独立或收敛到 timer）

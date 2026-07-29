@@ -12,6 +12,7 @@ features:
       - app-shell
       - settings
       - event-sdk
+      - timer-plugin
   reminder:
     docs:
       - .agent/features/reminder/README.md
@@ -39,6 +40,20 @@ features:
       - toast-window
       - plugin-center
       - event-sdk
+      - timer-plugin
+
+  timer-plugin:
+    docs:
+      - .agent/features/timer-plugin/README.md
+      - .agent/features/timer-plugin/定时提醒-settings内联编辑与规则排序约定.md
+      - .agent/features/timer-plugin/外部插件如何使用宿主注入的-naive-ui.md
+    related:
+      - eye-reminder
+      - plugin-center
+      - toast-window
+      - desktop-event-os
+      - event-sdk
+      - reminder
 
   toast-window:
     docs:
@@ -209,6 +224,8 @@ architecture:
       - event-sdk
       - database
       - settings
+      - timer-plugin
+      - plugin-center
 
 reference:
   - .agent/reference/test-strategy.md
@@ -218,6 +235,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-29-外部插件设置优先卡片内联编辑而非-NModal.md
   - .agent/decisions/2026-07-27-插件详情边距由宿主统一-不再用-PluginPanelShell.md
   - .agent/decisions/2026-07-26-plugin-disabled-state-greyed-by-parent-not-empty-state.md
   - .agent/decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
@@ -258,6 +276,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md
   - .agent/devlog/2026-07-27-外部插件settings根padding与宿主双倍缩进.md
   - .agent/devlog/2026-07-27-插件页铺满高度与拆除-PluginPanelShell.md
   - .agent/devlog/2026-07-26-unify-agent-rest-plugin-panel-structure-and-disabled-overlay.md
@@ -301,5 +320,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: Step3 plugin UI — page-owned scrolling verified; standard pages use PageScroll, plugins only scroll right detail
-  next: continue Step3 runtime items from roadmap
+  phase: timer settings 内联编辑 + 宿主 naive runtime 注入已落地
+  next: 加强 timer 列表 tag 区分度；继续 Step3 runtime 路线图剩余项

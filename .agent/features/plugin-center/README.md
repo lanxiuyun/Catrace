@@ -10,7 +10,8 @@
 - `src/components/plugins/PluginSection.vue` — Section 卡片（标题 + 描述 + 白底容器）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐业务面板。
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 业务面板。
-- `tools/plugin-demo/timer/settings.mjs` — 外部 settings 示例（边距归宿主）。
+- `tools/plugin-demo/timer/settings.mjs` — 外部 settings 参考（内联编辑、边距归宿主）。
+- `src/plugins/pluginRuntime.ts` — 外部插件 Vue/naive/UI runtime 注入。
 - `src/api/tauri.ts` — 插件启用与外部异常状态。
 - `src-tauri/src/plugin_commands.rs` / `plugins.rs` — 外部插件与异常观测。
 
@@ -22,3 +23,5 @@
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 开关与列表时序。
 - [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — header / nav-rail 拆分。
 - [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md) — 历史：PluginPanelShell 已废弃。
+
+外部插件 naive 注入与 teleport 约定见 [[timer-plugin]] / [[m10-external-plugins]]。

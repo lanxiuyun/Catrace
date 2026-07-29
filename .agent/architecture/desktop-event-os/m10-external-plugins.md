@@ -52,37 +52,50 @@ export default {
 - `close` → dismiss + `resolve(dismissed)`
 - `action(actionId)` → `resolve_event_action`
 - **禁止** `import 'vue'` / `import 'naive-ui'`（asset/blob 模块解析不到 bare specifier）
-- 使用宿主注入的 globals（见 `src/plugins/pluginRuntime.ts`）：
+- 使用宿主注入的 globals（见 `src/plugins/pluginRuntime.ts` 的 `ensurePluginRuntime()`）：
   - `globalThis.__CATRACE_VUE__` — `h` / `ref` / `computed` / `watch` / `markRaw` / lifecycle
-  - `globalThis.__CATRACE_NAIVE__` — 精选 naive-ui 组件 + `useMessage` / `useDialog`（须在 `setup()` 内调用）
-  - `globalThis.__CATRACE_UI__` — 主机设置积木 `SettingRow` / `SliderControl`
-- 插件 UI 不应依赖内部 Pinia；副作用只走 emit
-- naive-ui 已挂在 App 的 `NConfigProvider` 下，主题自动继承；toast 窗同样可用
+  - `globalThis.__CATRACE_NAIVE__` — 精选 naive-ui（`NButton`/`NInput`/`NSwitch`/`NTag`/`NTooltip`/`NModal`/`NPopconfirm`/…）+ `useMessage` / `useDialog`（**须在 `setup()` 内调用**）
+  - `globalThis.__CATRACE_UI__` — 主机设置积木 `SettingRow` / `SliderControl`（可选；复杂表单不一定要用）
+- 插件 UI 不应依赖内部 Pinia；副作用只走 emit / `invoke`
+- naive-ui 已挂在 App 的 `NConfigProvider` 下，主题自动继承；**toast 窗同样注入**（`PluginHostCard` 与 `loadExternalPlugins` 共用 `ensurePluginRuntime`）
 
 ```js
 // settings.mjs / ui.mjs — naive-ui via host
 const { h, ref } = globalThis.__CATRACE_VUE__
 const { NButton, NSwitch, useMessage } = globalThis.__CATRACE_NAIVE__
-const { SettingRow } = globalThis.__CATRACE_UI__ || {}
 
 export default {
   setup() {
     const msg = useMessage()
     const on = ref(true)
     return () =>
-      h(SettingRow || 'div', { title: '启用', desc: '说明' }, {
-        default: () =>
-          h(NSwitch, {
-            value: on.value,
-            'onUpdate:value': (v) => {
-              on.value = v
-              msg.success('已保存')
-            },
-          }),
+      h(NSwitch, {
+        value: on.value,
+        'onUpdate:value': (v) => {
+          on.value = v
+          msg.success('已保存')
+        },
       })
   },
 }
 ```
+
+### NModal / teleport 样式陷阱（必读）
+
+`NModal`（以及部分 popup）会 **teleport 到 `body`**，不在插件根节点 `.timer-settings` 子树里。
+
+| 错 | 对 |
+|----|----|
+| CSS 写 `.timer-settings .modal-body { … }` | 给 Modal 设 `class: 'timer-modal'`，样式写 `.timer-modal .tm-body { … }` |
+| 依赖插件根继承的字号/颜色 | 弹层样式自包含，或挂在 teleport 目标 class 上 |
+| 弹层里再叠一层原生 `overflow` 滚动条凑合 | 优先避免长弹层；或用 `NScrollbar` 且样式挂在 modal class |
+
+**产品偏好（timer 已落地）**：复杂规则编辑 **优先卡片内联展开**，不要 `NModal`。理由：
+
+1. 样式不会因 teleport 失效  
+2. 列表上下文不丢，可对照其它规则  
+3. 无双轴原生滚动条问题  
+4. 与「一条提醒一张卡」信息架构一致
 
 ## UI 加载策略（手测踩坑后定稿）
 
@@ -244,3 +257,12 @@ padding: 1.25rem;
 参考实现：`tools/plugin-demo/timer/settings.mjs` 注释写明边距归宿主；根 `.timer-settings` 无外 padding。曾误留窄屏 `@media { .timer-settings { padding: 1.25rem } }`，与宿主叠加后外部插件比内置「多一圈边距」——已删，作为反例。
 
 布局真源：[[plugin-center]] [插件详情内容区外壳收归宿主](../../features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md) · [[app-shell]] 插件页布局约定。
+
+### 宿主 runtime 注入点
+
+| 入口 | 文件 |
+|------|------|
+| 主窗 / 插件页加载 | `src/plugins/loadExternalPlugins.ts` → `ensurePluginRuntime()` |
+| Toast 卡兜底加载 | `src/components/PluginHostCard.vue` → `ensurePluginRuntime()` |
+| 实现 | `src/plugins/pluginRuntime.ts` |
+| 类型 | `src/vite-env.d.ts` 声明三个 global |
