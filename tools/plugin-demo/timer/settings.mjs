@@ -910,7 +910,6 @@ export default {
             settings.value.rules.map((rule) => {
               const meta = ruleMetaParts(rule)
               const metaNodes = [
-                h('span', { class: 'meta-dot' }),
                 h(
                   'span',
                   { class: ['meta-chip', meta.schedule.kind === 'daily' ? 'daily' : ''] },
