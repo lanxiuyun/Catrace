@@ -575,6 +575,45 @@ function portableSettings(settings) {
   }
 }
 
+
+function earliestDailyMinutes(rule) {
+  const times = Array.isArray(rule.daily_times) ? rule.daily_times : []
+  let min = Number.POSITIVE_INFINITY
+  for (const t of times) {
+    const m = String(t || '').match(/^(\d{1,2}):(\d{1,2})$/)
+    if (!m) continue
+    const mins = Number(m[1]) * 60 + Number(m[2])
+    if (Number.isFinite(mins) && mins < min) min = mins
+  }
+  return min
+}
+
+function compareRules(a, b) {
+  // 1) enabled first
+  const ae = a.enabled !== false ? 1 : 0
+  const be = b.enabled !== false ? 1 : 0
+  if (ae !== be) return be - ae
+
+  // 2) interval before daily
+  const am = normalizeMode(a.mode) === 'daily' ? 1 : 0
+  const bm = normalizeMode(b.mode) === 'daily' ? 1 : 0
+  if (am !== bm) return am - bm
+
+  // 3) interval: by minutes asc; daily: by earliest time asc
+  if (am === 0) {
+    const ai = clamp(a.interval_minutes || 0, MIN_INTERVAL, MAX_INTERVAL)
+    const bi = clamp(b.interval_minutes || 0, MIN_INTERVAL, MAX_INTERVAL)
+    if (ai !== bi) return ai - bi
+  } else {
+    const at = earliestDailyMinutes(a)
+    const bt = earliestDailyMinutes(b)
+    if (at !== bt) return at - bt
+  }
+
+  // stable-ish fallback: title
+  return String(a.title || '').localeCompare(String(b.title || ''), 'zh')
+}
+
 function ruleMetaParts(rule) {
   const stayLabel = rule.sticky
     ? '卡片常驻'
@@ -1337,11 +1376,7 @@ export default {
     return () => {
       const pluginOn = !!settings.value.enabled
       const isCreating = editingId.value === '__new__'
-      const rules = [...(settings.value.rules || [])].sort((a, b) => {
-        const ae = a.enabled !== false ? 1 : 0
-        const be = b.enabled !== false ? 1 : 0
-        return be - ae
-      })
+      const rules = [...(settings.value.rules || [])].sort(compareRules)
 
       const header = h('div', { class: 'header-row' }, [
         h('h3', { class: 'header-title' }, [
