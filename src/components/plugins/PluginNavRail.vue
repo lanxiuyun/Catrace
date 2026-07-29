@@ -207,7 +207,6 @@ function openDir() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.0625rem solid #f1f5f9;
   flex-shrink: 0;
 }
 
@@ -272,6 +271,7 @@ function openDir() {
 .rail-search {
   flex: none;
   padding: 0.5rem;
+  padding-top: 0;
   border-bottom: 0.0625rem solid #f1f5f9;
 }
 
