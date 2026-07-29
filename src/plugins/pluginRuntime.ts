@@ -27,6 +27,7 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
+// NTooltip already imported above
 import SettingRow from '../components/settings/SettingRow.vue'
 import SliderControl from '../components/settings/SliderControl.vue'
 

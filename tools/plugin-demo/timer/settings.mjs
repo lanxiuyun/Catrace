@@ -1,30 +1,25 @@
-/** Timer plugin settings — host Vue + naive-ui + SettingRow.
+/** Timer plugin settings — host Vue + naive-ui; inline card editor.
  * Uses get_plugin_config / set_plugin_config / publish_event / set_external_plugin_enabled.
  */
 const vue = globalThis.__CATRACE_VUE__ || {}
 const naive = globalThis.__CATRACE_NAIVE__ || {}
-const ui = globalThis.__CATRACE_UI__ || {}
 const { h, ref, computed, onMounted } = vue
 const {
   NButton,
   NInput,
-  NModal,
   NPopconfirm,
   NRadioButton,
   NRadioGroup,
   NSwitch,
   NTag,
+  NTooltip,
 } = naive
-const { SettingRow } = ui
 
 if (typeof h !== 'function') {
   throw new Error('Catrace plugin Vue runtime missing (__CATRACE_VUE__.h)')
 }
-if (!NButton || !NSwitch || !NInput || !NModal || !NPopconfirm || !NRadioGroup || !NTag) {
+if (!NButton || !NSwitch || !NInput || !NPopconfirm || !NRadioGroup || !NTag || !NTooltip) {
   throw new Error('Catrace plugin naive runtime missing (__CATRACE_NAIVE__)')
-}
-if (!SettingRow) {
-  throw new Error('Catrace plugin UI runtime missing (__CATRACE_UI__.SettingRow)')
 }
 
 const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args)
@@ -233,161 +228,172 @@ const CSS = `
   opacity: 0.92;
 }
 
-.timer-settings .modal-body {
+.timer-settings .rule.is-editing {
+  border-color: #c4b5fd;
+  box-shadow: 0 0.25rem 1rem rgba(124, 58, 237, 0.1);
+}
+.timer-settings .rule.is-editing:hover {
+  border-color: #a78bfa;
+  box-shadow: 0 0.25rem 1rem rgba(124, 58, 237, 0.12);
+}
+.timer-settings .rule-editor {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 0.25rem 0 0.25rem;
-  max-height: min(70vh, 36rem);
-  overflow-y: auto;
+  gap: 0.55rem;
+  margin-top: 0.15rem;
+  padding-top: 0.65rem;
+  border-top: 0.0625rem solid #f5f3ff;
 }
-.timer-settings .mf-section {
-  background: #faf8ff;
-  border: 0.0625rem solid #ebe6f2;
-  border-radius: 0.875rem;
-  padding: 0.875rem 1rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
+.timer-settings .ed-line {
+  display: grid;
+  grid-template-columns: 4.75rem minmax(0, 1fr);
+  gap: 0.75rem 0.875rem;
+  align-items: center;
 }
-.timer-settings .mf-section-title {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #7c3aed;
-  letter-spacing: 0.02em;
+.timer-settings .ed-line.is-top {
+  align-items: flex-start;
 }
-.timer-settings .mf {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+.timer-settings .ed-line.is-top .ed-lab {
+  padding-top: 0.45rem;
 }
-.timer-settings .mf-label {
-  font-size: 0.875rem;
+.timer-settings .ed-lab {
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #2e1065;
   line-height: 1.3;
-}
-.timer-settings .mf-hint {
-  font-size: 0.75rem;
-  color: #8b7aab;
-  line-height: 1.45;
-  margin-top: -0.125rem;
-}
-.timer-settings .mf-control {
-  width: 100%;
-}
-.timer-settings .mf-mode {
-  width: 100%;
-  display: grid !important;
-  grid-template-columns: 1fr 1fr;
-}
-.timer-settings .mf-mode .n-radio-button {
-  text-align: center;
-}
-.timer-settings .mf-num {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  max-width: 14rem;
-  height: 2.25rem;
-  border: 0.0625rem solid #ddd6fe;
-  border-radius: 0.625rem;
-  background: #fff;
-  overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.timer-settings .mf-num:focus-within {
-  border-color: #a78bfa;
-  box-shadow: 0 0 0 0.1875rem rgba(124, 58, 237, 0.14);
-}
-.timer-settings .mf-num.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-  background: #f8f7fc;
-}
-.timer-settings .mf-num-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  padding: 0 0.75rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #2e1065;
-  font-variant-numeric: tabular-nums;
-  font-family: inherit;
-}
-.timer-settings .mf-num-input::-webkit-outer-spin-button,
-.timer-settings .mf-num-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.timer-settings .mf-num-input[type='number'] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-.timer-settings .mf-num-unit {
-  display: flex;
-  align-items: center;
-  padding: 0 0.875rem;
-  background: #f5f3ff;
-  border-left: 0.0625rem solid #ebe6f2;
-  color: #7c3aed;
-  font-size: 0.8125rem;
-  font-weight: 700;
   white-space: nowrap;
+}
+.timer-settings .ed-lab-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.timer-settings .ed-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  border: 0.0625rem solid #ddd6fe;
+  color: #a78bfa;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
   user-select: none;
 }
-.timer-settings .mf-switch-row {
+.timer-settings .ed-main {
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.125rem 0;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
-.timer-settings .mf-switch-copy {
-  min-width: 0;
+.timer-settings .ed-main.grow > .n-input {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.timer-settings .mf-times {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
+  min-width: 0;
   width: 100%;
 }
-.timer-settings .mf-time-chips {
+.timer-settings .ed-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+.timer-settings .ed-num {
+  width: 6.5rem;
+}
+.timer-settings .ed-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b7aab;
+}
+.timer-settings .ed-times {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+}
+.timer-settings .ed-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
-  min-height: 1.75rem;
+  gap: 0.3rem;
   align-items: center;
+  min-height: 1.5rem;
 }
-.timer-settings .mf-time-empty {
-  font-size: 0.8125rem;
+.timer-settings .ed-empty {
+  font-size: 0.75rem;
   color: #a89bc4;
 }
-.timer-settings .mf-time-add {
+.timer-settings .ed-add {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   align-items: center;
 }
-.timer-settings .mf-time-input {
-  width: 8rem;
-  max-width: 40%;
+.timer-settings .ed-hm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
-.timer-settings .is-dimmed {
-  opacity: 0.42;
-  pointer-events: none;
+.timer-settings .ed-hm-input {
+  width: 3.75rem;
 }
-.timer-settings .modal-footer {
+.timer-settings .ed-hm-sep {
+  color: #8b7aab;
+  font-weight: 700;
+  padding: 0 0.1rem;
+}
+.timer-settings .ed-hm-unit {
+  font-size: 0.75rem;
+  color: #8b7aab;
+  font-weight: 600;
+  margin-right: 0.15rem;
+}
+.timer-settings .ed-switch-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: #475569;
+  font-weight: 500;
+}
+.timer-settings .ed-readonly {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2e1065;
+  line-height: 2rem;
+}
+.timer-settings .ed-readonly-hint {
+  font-size: 0.75rem;
+  color: #a89bc4;
+}
+.timer-settings .ed-foot {
   display: flex;
   justify-content: flex-end;
-  gap: 0.625rem;
+  gap: 0.5rem;
+  padding-top: 0.55rem;
+  margin-top: 0.15rem;
+  border-top: 0.0625rem solid #f5f3ff;
+}
+.timer-settings .create-card {
+  border-style: solid;
+  border-color: #c4b5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  box-shadow: 0 0.25rem 1rem rgba(124, 58, 237, 0.08);
+}
+.timer-settings .create-card .rule-header {
+  margin-bottom: 0;
+}
+.timer-settings .create-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #2e1065;
 }
 
 .timer-settings .log-list {
@@ -438,11 +444,38 @@ function normalizeMode(mode) {
 }
 
 function wantsResetOnRest(r) {
-  if (r && r.mode === 'active') return true
   return !!(r && r.reset_on_rest)
 }
 
 const BUILTIN_EYE_ID = '__builtin_eye__'
+const EYE_FIXED = {
+  title: '护眼提醒',
+  mode: 'interval',
+  interval_minutes: 20,
+  reset_on_rest: true,
+  daily_times: [],
+}
+
+function isEyeRule(r) {
+  return !!(r && (r.builtin === 'eye' || r.id === BUILTIN_EYE_ID))
+}
+
+function applyEyeFixed(rule) {
+  if (!rule) return rule
+  rule.id = BUILTIN_EYE_ID
+  rule.builtin = 'eye'
+  rule.title = EYE_FIXED.title
+  rule.mode = EYE_FIXED.mode
+  // interval_minutes is user-tunable for the eye sample
+  rule.reset_on_rest = EYE_FIXED.reset_on_rest
+  rule.daily_times = []
+  if (rule.interval_minutes == null || !Number.isFinite(Number(rule.interval_minutes))) {
+    rule.interval_minutes = EYE_FIXED.interval_minutes
+  } else {
+    rule.interval_minutes = clamp(rule.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
+  }
+  return rule
+}
 
 function createRule(partial = {}) {
   return {
@@ -464,28 +497,32 @@ function createRule(partial = {}) {
 }
 
 function builtinEyeRule() {
-  return createRule({
-    id: BUILTIN_EYE_ID,
-    enabled: true,
-    title: '护眼提醒',
-    body: '远眺一下，放松眼睛。',
-    mode: 'interval',
-    interval_minutes: 20,
-    reset_on_rest: true,
-    sticky: false,
-    card_duration_sec: 25,
-    builtin: 'eye',
-  })
+  return applyEyeFixed(
+    createRule({
+      enabled: true,
+      body: '远眺一下，放松眼睛。',
+      sticky: false,
+      card_duration_sec: 25,
+    }),
+  )
 }
 
 function ensureBuiltinEyeRule(settings) {
   if (!Array.isArray(settings.rules)) settings.rules = []
-  if (settings.rules.some((r) => r.builtin === 'eye' || r.id === BUILTIN_EYE_ID)) {
-    const legacy = settings.rules.find((r) => r.id === BUILTIN_EYE_ID)
-    if (legacy && !legacy.builtin) legacy.builtin = 'eye'
-    return
+  const eyes = settings.rules.filter((r) => isEyeRule(r))
+  const others = settings.rules.filter((r) => !isEyeRule(r))
+  let eye
+  if (eyes.length) {
+    eye = eyes[0]
+    applyEyeFixed(eye)
+    if (eye.body == null || eye.body === '') eye.body = '远眺一下，放松眼睛。'
+    if (eye.card_duration_sec == null) eye.card_duration_sec = 25
+    if (eye.sticky == null) eye.sticky = false
+    if (eye.enabled == null) eye.enabled = true
+  } else {
+    eye = builtinEyeRule()
   }
-  settings.rules.unshift(builtinEyeRule())
+  settings.rules = [eye, ...others]
 }
 
 function normalizeHhmm(raw) {
@@ -506,26 +543,35 @@ function clamp(n, min, max) {
 function portableSettings(settings) {
   return {
     enabled: settings.enabled !== false,
-    rules: (settings.rules || []).slice(0, MAX_RULES).map((r) => ({
-      id: r.id || newRuleId(),
-      enabled: r.enabled !== false,
-      title: r.title || '',
-      body: r.body || '',
-      mode: normalizeMode(r.mode),
-      interval_minutes: clamp(r.interval_minutes || 60, MIN_INTERVAL, MAX_INTERVAL),
-      reset_on_rest: wantsResetOnRest(r),
-      sticky: !!r.sticky,
-      card_duration_sec: clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC),
-      daily_times: (r.daily_times || [])
-        .map(normalizeHhmm)
-        .filter(Boolean)
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort()
-        .slice(0, MAX_DAILY_TIMES),
-      builtin: r.builtin || null,
-      last_fired_at: null,
-      last_daily_keys: [],
-    })),
+    rules: (settings.rules || []).slice(0, MAX_RULES).map((r) => {
+      const eye = isEyeRule(r)
+      return {
+        id: eye ? BUILTIN_EYE_ID : r.id || newRuleId(),
+        enabled: r.enabled !== false,
+        title: eye ? EYE_FIXED.title : r.title || '',
+        body: r.body || '',
+        mode: eye ? EYE_FIXED.mode : normalizeMode(r.mode),
+        interval_minutes: clamp(
+          eye ? (r.interval_minutes || EYE_FIXED.interval_minutes) : (r.interval_minutes || 60),
+          MIN_INTERVAL,
+          MAX_INTERVAL,
+        ),
+        reset_on_rest: eye ? EYE_FIXED.reset_on_rest : wantsResetOnRest(r),
+        sticky: !!r.sticky,
+        card_duration_sec: clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC),
+        daily_times: eye
+          ? []
+          : (r.daily_times || [])
+              .map(normalizeHhmm)
+              .filter(Boolean)
+              .filter((v, i, a) => a.indexOf(v) === i)
+              .sort()
+              .slice(0, MAX_DAILY_TIMES),
+        builtin: eye ? 'eye' : r.builtin || null,
+        last_fired_at: null,
+        last_daily_keys: [],
+      }
+    }),
   }
 }
 
@@ -676,9 +722,9 @@ export default {
     const headerLoading = ref(false)
     const testingId = ref(null)
     const logs = ref([])
-    const modalOpen = ref(false)
     const editingId = ref(null)
-    const draftTime = ref('')
+    const draftHour = ref(9)
+    const draftMinute = ref(0)
     const form = ref({
       title: '',
       body: '',
@@ -724,8 +770,8 @@ export default {
         const next = {
           enabled: s.enabled !== false,
           rules: Array.isArray(s.rules)
-            ? s.rules.map((r) =>
-                createRule({
+            ? s.rules.map((r) => {
+                const rule = createRule({
                   id: r.id || newRuleId(),
                   enabled: r.enabled !== false,
                   title: r.title || '',
@@ -739,8 +785,10 @@ export default {
                   last_fired_at: r.last_fired_at ?? null,
                   last_daily_keys: Array.isArray(r.last_daily_keys) ? [...r.last_daily_keys] : [],
                   builtin: r.builtin || null,
-                }),
-              )
+                })
+                if (isEyeRule(rule)) applyEyeFixed(rule)
+                return rule
+              })
             : [],
         }
         ensureBuiltinEyeRule(next)
@@ -818,7 +866,7 @@ export default {
         showToast('warn', `最多 ${MAX_RULES} 条提醒`)
         return
       }
-      editingId.value = null
+      editingId.value = '__new__'
       form.value = {
         title: '',
         body: '',
@@ -829,37 +877,41 @@ export default {
         card_duration_sec: DEFAULT_CARD_SEC,
         daily_times: [],
       }
-      draftTime.value = ''
-      modalOpen.value = true
+      draftHour.value = 9
+      draftMinute.value = 0
     }
 
     function openEdit(rule) {
       editingId.value = rule.id
+      const eye = isEyeRule(rule)
       form.value = {
-        title: rule.title || '',
+        title: eye ? EYE_FIXED.title : rule.title || '',
         body: rule.body || '',
-        mode: normalizeMode(rule.mode),
-        interval_minutes: rule.interval_minutes || 20,
-        reset_on_rest: wantsResetOnRest(rule),
+        mode: eye ? EYE_FIXED.mode : normalizeMode(rule.mode),
+        interval_minutes: eye
+          ? clamp(rule.interval_minutes || EYE_FIXED.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
+          : rule.interval_minutes || 20,
+        reset_on_rest: eye ? EYE_FIXED.reset_on_rest : wantsResetOnRest(rule),
         sticky: !!rule.sticky,
         card_duration_sec: rule.card_duration_sec || DEFAULT_CARD_SEC,
-        daily_times: [...(rule.daily_times || [])],
+        daily_times: eye ? [] : [...(rule.daily_times || [])],
       }
-      draftTime.value = ''
-      modalOpen.value = true
+      draftHour.value = 9
+      draftMinute.value = 0
     }
 
-    function closeModal() {
-      modalOpen.value = false
+    function closeEditor() {
       editingId.value = null
+      draftHour.value = 9
+      draftMinute.value = 0
     }
 
     function addDailyTime() {
-      const norm = normalizeHhmm(draftTime.value)
-      if (!norm) {
-        showToast('err', '时间格式应为 HH:MM')
-        return
-      }
+      const hh = clamp(draftHour.value, 0, 23)
+      const mm = clamp(draftMinute.value, 0, 59)
+      draftHour.value = hh
+      draftMinute.value = mm
+      const norm = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
       if (form.value.daily_times.includes(norm)) {
         showToast('warn', '时间点已存在')
         return
@@ -872,7 +924,6 @@ export default {
         ...form.value,
         daily_times: [...form.value.daily_times, norm].sort(),
       }
-      draftTime.value = ''
     }
 
     function removeDailyTime(time) {
@@ -882,7 +933,7 @@ export default {
       }
     }
 
-    function saveModal() {
+    function saveEditor() {
       const title = (form.value.title || '').trim() || '定时提醒'
       const body = (form.value.body || '').trim()
       if (form.value.mode === 'daily' && !form.value.daily_times.length) {
@@ -893,21 +944,26 @@ export default {
       const resetOnRest = mode === 'interval' && !!form.value.reset_on_rest
       const sticky = !!form.value.sticky
       const cardSec = clamp(form.value.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)
-      if (editingId.value) {
+      if (editingId.value && editingId.value !== '__new__') {
         const id = editingId.value
         const editingRule = settings.value.rules.find((r) => r.id === id)
         patch((s) => {
           const rule = s.rules.find((r) => r.id === id)
           if (!rule) return
-          rule.title = title
+          const eye = isEyeRule(editingRule) || isEyeRule(rule)
           rule.body = body
-          rule.mode = mode
-          rule.interval_minutes = clamp(form.value.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
-          rule.reset_on_rest = resetOnRest
           rule.sticky = sticky
           rule.card_duration_sec = cardSec
-          rule.daily_times = [...form.value.daily_times]
-          if (editingRule && editingRule.builtin) rule.builtin = editingRule.builtin
+          if (eye) {
+            rule.interval_minutes = clamp(form.value.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
+            applyEyeFixed(rule)
+          } else {
+            rule.title = title
+            rule.mode = mode
+            rule.interval_minutes = clamp(form.value.interval_minutes, MIN_INTERVAL, MAX_INTERVAL)
+            rule.reset_on_rest = resetOnRest
+            rule.daily_times = [...form.value.daily_times]
+          }
         })
       } else {
         if (settings.value.rules.length >= MAX_RULES) {
@@ -930,7 +986,7 @@ export default {
           )
         })
       }
-      closeModal()
+      closeEditor()
     }
 
     function toggleRule(id, enabled) {
@@ -1014,79 +1070,48 @@ export default {
       toggleEnabled,
     })
 
-function sectionLabel(label) {
-      return h('div', { class: 'section-label' }, label)
-    }
-
-    function renderModalBody() {
-      const isInterval = form.value.mode === 'interval'
+    function renderEditor() {
+      const editingRule =
+        editingId.value && editingId.value !== '__new__'
+          ? settings.value.rules.find((r) => r.id === editingId.value)
+          : null
+      const eyeLocked = isEyeRule(editingRule)
+      const isInterval = eyeLocked ? true : form.value.mode === 'interval'
       const sticky = !!form.value.sticky
+      const isCreate = editingId.value === '__new__'
 
-      const field = (label, hint, control) =>
-        h('div', { class: 'mf' }, [
-          h('div', { class: 'mf-label' }, label),
-          hint ? h('div', { class: 'mf-hint' }, hint) : null,
-          h('div', { class: 'mf-control' }, [control]),
-        ])
+      const tip = (text) =>
+        h(
+          NTooltip,
+          { trigger: 'hover', placement: 'top' },
+          {
+            trigger: () => h('span', { class: 'ed-tip' }, '?'),
+            default: () => text,
+          },
+        )
 
-      const numberField = (value, onUpdate, unit, opts = {}) =>
-        h('div', { class: ['mf-num', opts.disabled ? 'is-disabled' : ''] }, [
-          h('input', {
-            class: 'mf-num-input',
-            type: 'number',
+      const lab = (text) => h('div', { class: 'ed-lab' }, text)
+
+      const num = (value, onUpdate, unit, opts = {}) =>
+        h(
+          NInput,
+          {
             value: String(value),
+            size: 'small',
+            class: 'ed-num',
             disabled: !!opts.disabled,
-            min: opts.min,
-            max: opts.max,
-            onInput: (e) => onUpdate(e.target.value),
-          }),
-          h('span', { class: 'mf-num-unit' }, unit),
-        ])
+            'onUpdate:value': onUpdate,
+          },
+          { suffix: () => h('span', { class: 'ed-unit' }, unit) },
+        )
 
-      return h('div', { class: 'modal-body' }, [
-        h('section', { class: 'mf-section' }, [
-          h('div', { class: 'mf-section-title' }, '基本内容'),
-          field(
-            '提醒标题',
-            null,
-            h(NInput, {
-              value: form.value.title,
-              placeholder: '例如：护眼提醒',
-              maxlength: 40,
-              showCount: true,
-              'onUpdate:value': (v) => {
-                form.value = { ...form.value, title: v }
-              },
-            }),
-          ),
-          field(
-            '提醒正文',
-            '出现在通知卡片上的说明文字',
-            h(NInput, {
-              value: form.value.body,
-              type: 'textarea',
-              rows: 3,
-              placeholder: '远眺一下，放松眼睛。',
-              maxlength: 200,
-              showCount: true,
-              'onUpdate:value': (v) => {
-                form.value = { ...form.value, body: v }
-              },
-            }),
-          ),
-        ]),
-
-        h('section', { class: 'mf-section' }, [
-          h('div', { class: 'mf-section-title' }, '触发调度'),
-          field(
-            '触发模式',
-            null,
+      const triggerRight = isInterval
+        ? h('div', { class: 'ed-main' }, [
             h(
               NRadioGroup,
               {
                 value: form.value.mode,
-                size: 'medium',
-                class: 'mf-mode',
+                size: 'small',
                 'onUpdate:value': (v) => {
                   form.value = { ...form.value, mode: v }
                 },
@@ -1098,129 +1123,220 @@ function sectionLabel(label) {
                 ],
               },
             ),
-          ),
-          isInterval
-            ? field(
-                '时间间隔',
-                `每隔多少分钟提醒一次（${MIN_INTERVAL}–${MAX_INTERVAL}）`,
-                numberField(
-                  form.value.interval_minutes,
-                  (v) => {
-                    form.value = {
-                      ...form.value,
-                      interval_minutes: clamp(v, MIN_INTERVAL, MAX_INTERVAL),
-                    }
-                  },
-                  '分钟',
-                  { min: MIN_INTERVAL, max: MAX_INTERVAL },
-                ),
-              )
-            : field(
-                '时间点',
-                '每天固定时刻触发，格式 HH:MM',
-                h('div', { class: 'mf-times' }, [
-                  h(
-                    'div',
-                    { class: 'mf-time-chips' },
-                    (form.value.daily_times || []).length
-                      ? (form.value.daily_times || []).map((t) =>
-                          h(
-                            NTag,
-                            {
-                              key: t,
-                              size: 'medium',
-                              round: true,
-                              closable: true,
-                              type: 'primary',
-                              bordered: false,
-                              onClose: () => removeDailyTime(t),
-                            },
-                            { default: () => t },
-                          ),
-                        )
-                      : h('span', { class: 'mf-time-empty' }, '还没有时间点'),
-                  ),
-                  h('div', { class: 'mf-time-add' }, [
-                    h(NInput, {
-                      value: draftTime.value,
-                      placeholder: '18:00',
-                      class: 'mf-time-input',
-                      'onUpdate:value': (v) => {
-                        draftTime.value = v
-                      },
-                      onKeydown: (e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          addDailyTime()
-                        }
-                      },
-                    }),
-                    h(
-                      NButton,
-                      { type: 'primary', secondary: true, onClick: addDailyTime },
-                      { default: () => '添加' },
-                    ),
-                  ]),
-                ]),
+            h('span', { class: 'ed-inline' }, [
+              '每',
+              num(
+                form.value.interval_minutes,
+                (v) => {
+                  form.value = {
+                    ...form.value,
+                    interval_minutes: clamp(v, MIN_INTERVAL, MAX_INTERVAL),
+                  }
+                },
+                '分钟',
               ),
-          isInterval
-            ? h('div', { class: 'mf-switch-row' }, [
-                h('div', { class: 'mf-switch-copy' }, [
-                  h('div', { class: 'mf-label' }, '休息时重置'),
-                  h('div', { class: 'mf-hint' }, '无电脑操作时，从休息结束后重新计时'),
+            ]),
+            h('span', { class: 'ed-switch-pair' }, [
+              h(NSwitch, {
+                value: !!form.value.reset_on_rest,
+                size: 'small',
+                'onUpdate:value': (v) => {
+                  form.value = { ...form.value, reset_on_rest: !!v }
+                },
+              }),
+              h('span', { class: 'ed-lab-tip' }, [
+                '休息重置',
+                tip('无电脑操作时，从休息结束后重新计时'),
+              ]),
+            ]),
+          ])
+        : h('div', { class: 'ed-main grow' }, [
+            h(
+              NRadioGroup,
+              {
+                value: form.value.mode,
+                size: 'small',
+                'onUpdate:value': (v) => {
+                  form.value = { ...form.value, mode: v }
+                },
+              },
+              {
+                default: () => [
+                  h(NRadioButton, { value: 'interval' }, { default: () => '时间间隔' }),
+                  h(NRadioButton, { value: 'daily' }, { default: () => '每日定点' }),
+                ],
+              },
+            ),
+            h('div', { class: 'ed-times' }, [
+              h(
+                'div',
+                { class: 'ed-chips' },
+                (form.value.daily_times || []).length
+                  ? (form.value.daily_times || []).map((t) =>
+                      h(
+                        NTag,
+                        {
+                          key: t,
+                          size: 'small',
+                          closable: true,
+                          round: true,
+                          onClose: () => removeDailyTime(t),
+                        },
+                        { default: () => t },
+                      ),
+                    )
+                  : h('span', { class: 'ed-empty' }, '尚未添加时间点'),
+              ),
+              h('div', { class: 'ed-add' }, [
+                h('div', { class: 'ed-hm' }, [
+                  h(NInput, {
+                    value: String(draftHour.value),
+                    size: 'small',
+                    class: 'ed-hm-input',
+                    placeholder: '9',
+                    'onUpdate:value': (v) => {
+                      draftHour.value = clamp(v, 0, 23)
+                    },
+                    onKeydown: (e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addDailyTime()
+                      }
+                    },
+                  }),
+                  h('span', { class: 'ed-hm-unit' }, '时'),
+                  h('span', { class: 'ed-hm-sep' }, ':'),
+                  h(NInput, {
+                    value: String(draftMinute.value),
+                    size: 'small',
+                    class: 'ed-hm-input',
+                    placeholder: '0',
+                    'onUpdate:value': (v) => {
+                      draftMinute.value = clamp(v, 0, 59)
+                    },
+                    onKeydown: (e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addDailyTime()
+                      }
+                    },
+                  }),
+                  h('span', { class: 'ed-hm-unit' }, '分'),
                 ]),
-                h(NSwitch, {
-                  value: !!form.value.reset_on_rest,
+                h(NButton, { size: 'small', onClick: addDailyTime }, { default: () => '添加' }),
+              ]),
+            ]),
+          ])
+
+      const notifyRight = h('div', { class: 'ed-main' }, [
+        h('span', { class: 'ed-switch-pair' }, [
+          h(NSwitch, {
+            value: sticky,
+            size: 'small',
+            'onUpdate:value': (v) => {
+              form.value = { ...form.value, sticky: !!v }
+            },
+          }),
+          '卡片常驻',
+        ]),
+        sticky
+          ? null
+          : h('span', { class: 'ed-inline' }, [
+              '停留',
+              num(
+                form.value.card_duration_sec,
+                (v) => {
+                  form.value = {
+                    ...form.value,
+                    card_duration_sec: clamp(v, MIN_CARD_SEC, MAX_CARD_SEC),
+                  }
+                },
+                '秒',
+              ),
+            ]),
+      ])
+
+      return h('div', { class: 'rule-editor' }, [
+        h('div', { class: 'ed-line' }, [
+          lab('标题'),
+          h('div', { class: 'ed-main grow' }, [
+            eyeLocked
+              ? h('div', { class: 'ed-readonly' }, EYE_FIXED.title)
+              : h(NInput, {
+                  value: form.value.title,
+                  size: 'small',
+                  placeholder: '例如：护眼提醒',
                   'onUpdate:value': (v) => {
-                    form.value = { ...form.value, reset_on_rest: !!v }
+                    form.value = { ...form.value, title: v }
                   },
                 }),
-              ])
-            : null,
+          ]),
         ]),
-
-        h('section', { class: 'mf-section' }, [
-          h('div', { class: 'mf-section-title' }, '通知卡片行为'),
-          h('div', { class: 'mf-switch-row' }, [
-            h('div', { class: 'mf-switch-copy' }, [
-              h('div', { class: 'mf-label' }, '卡片常驻'),
-              h('div', { class: 'mf-hint' }, '开启后不会自动消失，需手动关闭'),
-            ]),
-            h(NSwitch, {
-              value: sticky,
+        h('div', { class: 'ed-line is-top' }, [
+          lab('正文'),
+          h('div', { class: 'ed-main grow' }, [
+            h(NInput, {
+              value: form.value.body,
+              type: 'textarea',
+              size: 'small',
+              rows: 2,
+              placeholder: '远眺一下，放松眼睛。',
               'onUpdate:value': (v) => {
-                form.value = { ...form.value, sticky: !!v }
+                form.value = { ...form.value, body: v }
               },
             }),
           ]),
-          h(
-            'div',
-            { class: sticky ? 'is-dimmed' : '' },
-            [
-              field(
-                '停留时长',
-                `自动消失前停留的秒数（${MIN_CARD_SEC}–${MAX_CARD_SEC}）`,
-                numberField(
-                  form.value.card_duration_sec,
-                  (v) => {
-                    form.value = {
-                      ...form.value,
-                      card_duration_sec: clamp(v, MIN_CARD_SEC, MAX_CARD_SEC),
-                    }
-                  },
-                  '秒',
-                  { disabled: sticky, min: MIN_CARD_SEC, max: MAX_CARD_SEC },
+        ]),
+        h('div', { class: 'ed-line is-top' }, [
+          lab('触发'),
+          eyeLocked
+            ? h('div', { class: 'ed-main' }, [
+                h(
+                  NTag,
+                  { size: 'small', round: true, bordered: false, type: 'info' },
+                  { default: () => '时间间隔' },
                 ),
-              ),
-            ],
+                h('span', { class: 'ed-inline' }, [
+                  '每',
+                  num(
+                    form.value.interval_minutes,
+                    (v) => {
+                      form.value = {
+                        ...form.value,
+                        interval_minutes: clamp(v, MIN_INTERVAL, MAX_INTERVAL),
+                      }
+                    },
+                    '分钟',
+                  ),
+                ]),
+                h(
+                  NTag,
+                  { size: 'small', round: true, bordered: false, type: 'success' },
+                  { default: () => '休息重置' },
+                ),
+              ])
+            : triggerRight,
+        ]),
+        h('div', { class: 'ed-line' }, [lab('通知'), notifyRight]),
+        h('div', { class: 'ed-foot' }, [
+          h(NButton, { size: 'small', onClick: closeEditor }, { default: () => '取消' }),
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              loading: saving.value,
+              onClick: saveEditor,
+            },
+            { default: () => (isCreate ? '创建' : '保存') },
           ),
         ]),
       ])
     }
 
     return () => {
-      const isEdit = !!editingId.value
       const pluginOn = !!settings.value.enabled
+      const isCreating = editingId.value === '__new__'
       const rules = [...(settings.value.rules || [])].sort((a, b) => {
         const ae = a.enabled !== false ? 1 : 0
         const be = b.enabled !== false ? 1 : 0
@@ -1242,7 +1358,7 @@ function sectionLabel(label) {
             {
               size: 'small',
               type: 'primary',
-              disabled: !pluginOn || rules.length >= MAX_RULES,
+              disabled: !pluginOn || isCreating || rules.length >= MAX_RULES,
               onClick: openCreate,
             },
             {
@@ -1254,12 +1370,27 @@ function sectionLabel(label) {
       ])
 
       const listChildren = []
+      if (isCreating) {
+        listChildren.push(
+          h('div', { key: '__new__', class: 'rule create-card is-editing' }, [
+            h('div', { class: 'rule-header' }, [
+              h('div', { class: 'create-title' }, '新建提醒'),
+              h('div', { class: 'rule-acts' }, [
+                h(NButton, { size: 'small', onClick: closeEditor }, { default: () => '取消' }),
+              ]),
+            ]),
+            renderEditor(),
+          ]),
+        )
+      }
+
       if (loading.value) {
         listChildren.push(h('div', { class: 'empty' }, '加载中…'))
-      } else if (!rules.length) {
+      } else if (!rules.length && !isCreating) {
         listChildren.push(h('div', { class: 'empty' }, '还没有提醒，点击右上角「新建提醒」开始'))
       } else {
         rules.forEach((rule) => {
+          const editing = editingId.value === rule.id
           const meta = ruleMetaParts(rule)
           const tags = [
             h(
@@ -1294,78 +1425,93 @@ function sectionLabel(label) {
             )
           }
 
-          const actBtns = [
-            h(
-              NButton,
-              {
-                size: 'small',
-                disabled: !!testingId.value,
-                loading: testingId.value === rule.id,
-                onClick: () => sendTest(rule),
-              },
-              { default: () => (testingId.value === rule.id ? '…' : '测试') },
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                onClick: () => openEdit(rule),
-              },
-              { default: () => '编辑' },
-            ),
-          ]
-          if (!rule.builtin) {
+          const actBtns = []
+          if (!editing) {
             actBtns.push(
               h(
-                NPopconfirm,
+                NButton,
                 {
-                  positiveText: '删除',
-                  negativeText: '取消',
-                  onPositiveClick: () => removeRule(rule.id),
+                  size: 'small',
+                  disabled: !!testingId.value || isCreating,
+                  loading: testingId.value === rule.id,
+                  onClick: () => sendTest(rule),
                 },
-                {
-                  trigger: () =>
-                    h(
-                      NButton,
-                      {
-                        size: 'small',
-                        type: 'error',
-                      },
-                      { default: () => '删除' },
-                    ),
-                  default: () => `确认删除「${rule.title || '定时提醒'}」？此操作不可撤销。`,
-                },
+                { default: () => (testingId.value === rule.id ? '…' : '测试') },
               ),
+              h(
+                NButton,
+                {
+                  size: 'small',
+                  disabled: isCreating,
+                  onClick: () => openEdit(rule),
+                },
+                { default: () => '编辑' },
+              ),
+            )
+            if (!rule.builtin) {
+              actBtns.push(
+                h(
+                  NPopconfirm,
+                  {
+                    positiveText: '删除',
+                    negativeText: '取消',
+                    onPositiveClick: () => removeRule(rule.id),
+                  },
+                  {
+                    trigger: () =>
+                      h(
+                        NButton,
+                        { size: 'small', type: 'error', disabled: isCreating },
+                        { default: () => '删除' },
+                      ),
+                    default: () => `确认删除「${rule.title || '定时提醒'}」？此操作不可撤销。`,
+                  },
+                ),
+              )
+            }
+          } else {
+            actBtns.push(
+              h(NButton, { size: 'small', onClick: closeEditor }, { default: () => '收起' }),
             )
           }
 
-          const headerLeft = [
-            h('div', { class: 'rule-title' }, rule.title || '定时提醒'),
-            ...tags,
-          ]
-
           const contentChildren = []
-          if (rule.enabled && rule.body) {
+          if (editing) {
+            contentChildren.push(renderEditor())
+          } else if (rule.enabled && rule.body) {
             contentChildren.push(h('p', { class: 'rule-desc' }, rule.body))
           }
 
           listChildren.push(
-            h('div', { key: rule.id, class: ['rule', rule.enabled ? '' : 'is-off'] }, [
-              h('div', { class: 'rule-header' }, [
-                h('div', { class: 'rule-title-row' }, headerLeft),
-                h('div', { class: 'rule-acts' }, [
-                  ...actBtns,
-                  h(NSwitch, {
-                    value: !!rule.enabled,
-                    size: 'medium',
-                    'onUpdate:value': (v) => toggleRule(rule.id, !!v),
-                  }),
+            h(
+              'div',
+              {
+                key: rule.id,
+                class: ['rule', rule.enabled ? '' : 'is-off', editing ? 'is-editing' : '']
+                  .filter(Boolean)
+                  .join(' '),
+              },
+              [
+                h('div', { class: 'rule-header' }, [
+                  h('div', { class: 'rule-title-row' }, [
+                    h('div', { class: 'rule-title' }, rule.title || '定时提醒'),
+                    ...(editing ? [] : tags),
+                  ]),
+                  h('div', { class: 'rule-acts' }, [
+                    ...actBtns,
+                    h(NSwitch, {
+                      value: !!rule.enabled,
+                      size: 'medium',
+                      disabled: editing || isCreating,
+                      'onUpdate:value': (v) => toggleRule(rule.id, !!v),
+                    }),
+                  ]),
                 ]),
-              ]),
-              contentChildren.length
-                ? h('div', { class: 'rule-content' }, contentChildren)
-                : null,
-            ]),
+                contentChildren.length
+                  ? h('div', { class: 'rule-content' }, contentChildren)
+                  : null,
+              ],
+            ),
           )
         })
       }
@@ -1398,46 +1544,8 @@ function sectionLabel(label) {
         h('div', { class: 'log-list' }, logBody),
       ])
 
-      const modal = h(
-        NModal,
-        {
-          show: modalOpen.value,
-          preset: 'card',
-          class: 'timer-modal',
-          style: { width: 'min(28rem, calc(100vw - 2rem))' },
-          title: isEdit ? '编辑提醒' : '新建提醒',
-          bordered: false,
-          segmented: { content: 'soft', footer: 'soft' },
-          maskClosable: true,
-          closeOnEsc: true,
-          'onUpdate:show': (v) => {
-            if (!v) closeModal()
-            else modalOpen.value = true
-          },
-        },
-        {
-          default: () => renderModalBody(),
-          footer: () =>
-            h('div', { class: 'modal-footer' }, [
-              h(
-                NButton,
-                { onClick: closeModal },
-                { default: () => '取消' },
-              ),
-              h(
-                NButton,
-                {
-                  type: 'primary',
-                  loading: saving.value,
-                  onClick: saveModal,
-                },
-                { default: () => (isEdit ? '保存更改' : '保存') },
-              ),
-            ]),
-        },
-      )
-
-      return h('div', { class: 'timer-settings' }, [header, list, logCard, modal])
+      return h('div', { class: 'timer-settings' }, [header, list, logCard])
     }
+
   },
 }

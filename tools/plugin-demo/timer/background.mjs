@@ -55,13 +55,11 @@ function normalizeDailyTimes(times) {
 }
 
 function normalizeMode(mode) {
-  // legacy one-session 'active' → interval + reset_on_rest
   if (mode === 'daily') return 'daily'
   return 'interval'
 }
 
 function wantsResetOnRest(r) {
-  if (r && r.mode === 'active') return true
   return !!(r && r.reset_on_rest)
 }
 
@@ -88,8 +86,8 @@ function builtinEyeRule() {
 function ensureBuiltinEyeRule(settings) {
   if (!Array.isArray(settings.rules)) settings.rules = []
   if (settings.rules.some((r) => r.builtin === 'eye' || r.id === BUILTIN_EYE_ID)) {
-    const legacy = settings.rules.find((r) => r.id === BUILTIN_EYE_ID)
-    if (legacy && !legacy.builtin) legacy.builtin = 'eye'
+    const eye = settings.rules.find((r) => r.id === BUILTIN_EYE_ID)
+    if (eye && !eye.builtin) eye.builtin = 'eye'
     return
   }
   settings.rules.unshift(builtinEyeRule())
