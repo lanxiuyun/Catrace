@@ -155,6 +155,13 @@ const CSS = `
   background: #fff; color: #7c3aed;
   box-shadow: 0 0.0625rem 0.125rem rgba(15,23,42,0.05);
 }
+.timer-settings .act-group .btn.btn-danger {
+  color: #dc2626;
+}
+.timer-settings .act-group .btn.btn-danger:hover:not(:disabled) {
+  background: #fef2f2; color: #b91c1c;
+  box-shadow: 0 0.0625rem 0.125rem rgba(185,28,28,0.08);
+}
 .timer-settings .switch {
   position: relative; width: 2.75rem; height: 1.5rem; border-radius: 999px;
   border: none; background: #e2e8f0; cursor: pointer; padding: 0.125rem; flex-shrink: 0;
@@ -353,6 +360,84 @@ const CSS = `
 .timer-settings .log-item.ok .log-text { color: #047857; }
 .timer-settings .log-item.err .log-text { color: #b91c1c; }
 .timer-settings .log-item.warn .log-text { color: #b45309; }
+
+/* Readability fixes only — preserve card geometry and information layout. */
+.timer-settings .rule-title,
+.timer-settings .rule-body,
+.timer-settings .rule-meta,
+.timer-settings .meta-chip,
+.timer-settings .meta-text,
+.timer-settings .act-group .btn,
+.timer-settings .log-title,
+.timer-settings .log-empty,
+.timer-settings .log-item,
+.timer-settings .log-time {
+  font-style: normal;
+}
+.timer-settings .rule {
+  border-color: #d5dde8;
+  box-shadow: 0 0.125rem 0.375rem rgba(15,23,42,0.07);
+}
+.timer-settings .rule:hover {
+  border-color: #c5cfdd;
+  box-shadow: 0 0.25rem 0.75rem rgba(15,23,42,0.09);
+}
+.timer-settings .rule.is-off {
+  opacity: 1;
+  background: #fbfcfe;
+}
+.timer-settings .rule-title,
+.timer-settings .rule:hover .rule-title { color: #172033; }
+.timer-settings .rule.is-off .rule-title { color: #334155; }
+.timer-settings .rule-meta,
+.timer-settings .meta-text,
+.timer-settings .meta-text.muted,
+.timer-settings .rule-body { color: #475569; }
+.timer-settings .rule.is-off .rule-meta,
+.timer-settings .rule.is-off .meta-text,
+.timer-settings .rule.is-off .meta-text.muted,
+.timer-settings .rule.is-off .rule-body { color: #64748b; }
+.timer-settings .meta-dot { background: #aeb9c8; }
+.timer-settings .meta-chip {
+  background: #f3f5f8;
+  border-color: #dce2ea;
+  color: #29364a;
+}
+.timer-settings .meta-chip svg { color: #6d5bd0; }
+.timer-settings .meta-chip.daily svg { color: #9a6d18; }
+.timer-settings .act-group {
+  background: #f1f4f8;
+  border-color: #d9e0e9;
+}
+.timer-settings .act-group .btn { color: #263449; }
+.timer-settings .act-group .btn:hover:not(:disabled) { color: #5b4abb; }
+.timer-settings .act-group .btn.btn-danger { color: #dc2626; }
+.timer-settings .act-group .btn.btn-danger:hover:not(:disabled) {
+  background: #fef2f2; color: #b91c1c;
+}
+.timer-settings .btn-add,
+.timer-settings .btn-primary,
+.timer-settings .switch.on { background: #6d5bd0; }
+.timer-settings .btn-add:hover:not(:disabled),
+.timer-settings .btn-primary:hover:not(:disabled) { background: #5b4abb; }
+.timer-settings .btn-add,
+.timer-settings .btn-primary {
+  box-shadow: 0 0.125rem 0.375rem rgba(91,74,187,0.16);
+}
+.timer-settings .log-panel {
+  border-color: #d5dde8;
+  background: #fbfcfe;
+  box-shadow: 0 0.0625rem 0.25rem rgba(15,23,42,0.04);
+}
+.timer-settings .log-head {
+  border-bottom-color: #dce2ea;
+  background: #f3f5f8;
+}
+.timer-settings .log-title { color: #475569; }
+.timer-settings .log-empty,
+.timer-settings .log-time { color: #64748b; }
+.timer-settings .log-clear { color: #64748b; }
+
 `
 
 function ensureStyles() {
