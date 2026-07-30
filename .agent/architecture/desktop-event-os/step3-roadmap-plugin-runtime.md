@@ -11,11 +11,14 @@ Step 3 的目标是把插件从「被动渲染 Toast 卡片」升级为「主动
 ```
 Step 1  休息提醒核心（legacy）
 Step 2  Event Core + Signal Core + M9/M10 外部入口（已完成）
-Step 3  Plugin Runtime：隐藏 WebView 窗口跑插件后台脚本，invoke 调宿主能力
+Step 3  Plugin Runtime：隐藏 WebView 后台 + 可选 Native Sidecar（M15）
 Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 ```
 
-**选型决策（已定）**：不嵌 deno_core、不引入独立 Node 进程、不改 Electron。用 Tauri 原生隐藏 WebView 窗口承载插件后台脚本——Catrace 的 Toast 窗口已是同款技术（`.visible(false)` 预创建隐藏窗口），路径已踩通。
+**选型决策（已定）**：
+
+- **默认后台**：不嵌 deno_core、不改 Electron；用 Tauri 原生隐藏 WebView 跑 `background.mjs`（零体积，与 Toast 同栈）。见 2026-07-23 ADR。
+- **可选本机能力（M15）**：不内置 Node 进安装包；允许插件声明 **sidecar 子进程**（系统 node/pwsh 或插件自带 exe），stdio JSON bridge。业务（蓝牙等）进插件，宿主不写业务洞。见 2026-07-30 ADR + [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。
 
 ## 1. 目标与边界
 
@@ -31,7 +34,7 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 
 ### 1.2 不是什么
 
-- 不是真 Node：插件后台跑在 WebView（浏览器 JS），无 `require('fs')` / `child_process` / 直接 `npm install`。文件、剪贴板等靠 invoke 补。
+- 默认不是真 Node：`background.mjs` 跑在 WebView（浏览器 JS），无 `require('fs')` / `child_process`。需要 OS/native 时用可选 **sidecar**（M15），不在安装包内置 Node。
 - 不做插件市场 / 远程下载 / 自动更新。
 - 不做浏览器扩展兼容层。
 - 不做浏览器扩展式的细粒度权限申请、逐项授权弹窗或“允许一次/永久允许”流程。
@@ -43,9 +46,10 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 |--------|------|------|
 | **M11** Plugin Background Window | 每插件一个隐藏 WebView 窗口；manifest 扩展 `background`；宿主 invoke 能力（publishEvent、activity 读取、plugin storage、logger）；启停生命周期 | ✅ 真机验收通过 |
 | **M11.1** 资源与隔离边界 | 删除 manifest `permissions` 字段；保留身份/所有权/私有命名空间；记录异常活跃插件但不拦截 | ✅ 代码闭环 |
-| **M12** 更多宿主能力 | 不再独立前置建设；等具体插件需要时，按最小需求补充打开目标、前台窗口、文件写入等宿主能力 | 🧊 按需延后 |
-| **M13** External Settings Surface | 外部插件可注册 `settings.mjs`；Plugins.vue 详情页加载外部设置组件；与 background 共享 storage | 📋 规划 |
+| **M12** 更多宿主能力 | 不再独立前置建设业务 API；按需只补**平台原语**（见 M15 与 2026-07-30 sidecar 决策）。`plugin_open_path` 等窄原语可挂具体插件切片 | 🧊 按需 / 原语化 |
+| **M13** External Settings Surface | 外部插件可注册 `settings.mjs`；Plugins.vue 详情页加载外部设置组件；与 background 共享 storage | ✅ 已随 timer 等落地（见 m10 settings 合同） |
 | **M14** Built-in plugins migration | 将 timer/water/eye/rest 的定时/通知逻辑逐步迁到插件 runtime 模型 | 🧊 暂缓 |
+| **M15** Native Sidecar Runtime | 可选插件子进程（node/pwsh/自带 exe）+ stdio JSON bridge；业务 OS 能力进插件，宿主只托管启停与原语 | 📋 设计已定，见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 
@@ -66,18 +70,19 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 
 这与 Toast 窗口是同一套技术：`WebviewWindowBuilder` + `.visible(false)`，Catrace 已有完整实现可参照（`reminder_toast.rs`）。
 
-### 3.2 为什么不用独立 Node 进程 / deno_core
+### 3.2 为什么默认不用独立 Node / deno_core（M11）
 
-| 维度 | 隐藏 WebView 窗口（本方案） | deno_core | 独立 Node 进程 |
-|------|---------------------------|-----------|---------------|
-| 体积增量 | **0** | +80~150MB | +40MB |
-| 与 Toast/UI 技术栈 | **统一**（都在 WebView） | 两个 JS 世界 | 两个 JS 世界 |
-| 通信 | Tauri invoke / event（现成） | 手写 op 桥 | HTTP / IPC |
-| 后台跑 JS | ✅ | ✅ | ✅ |
-| npm 生态 | ❌（ESM CDN 可用） | ❌ | ✅ |
-| 新代码量 | 少（窗口管理 + invoke） | 大量 | 中（进程 + IPC） |
+| 维度 | 隐藏 WebView 窗口（M11 默认） | deno_core | 安装包内置 Node | 插件可选 Sidecar（M15） |
+|------|------------------------------|-----------|-----------------|-------------------------|
+| 体积增量 | **0** | +80~150MB | +40MB | **0**（外置解释器或插件自带 exe） |
+| 与 Toast/UI 技术栈 | **统一** | 两个 JS 世界 | 两个世界 | WebView 编排 + 可选侧车 |
+| 通信 | Tauri invoke | 手写 op | IPC | stdio JSON lines |
+| 后台跑 JS | ✅ 浏览器 JS | ✅ | ✅ 真 Node | ✅ 真 Node/脚本/任意 exe |
+| OS/native | ❌ 靠宿主开洞 | 受限 | ✅ | ✅ **业务在插件** |
+| 新代码量 | 已完成 | 大量 | 中 | 中（进程管理 + bridge） |
 
-对本阶段「卡片写逻辑、后台发通知+读活跃+存数据」的需求，WebView 方案零缺点。
+M11 目标（定时、publish、activity、storage）WebView 足够。  
+**M15** 在「不向安装包塞 Node、不推翻 WebView」前提下，用**可选 sidecar** 承接会逼宿主开业务洞的本机能力。
 
 ### 3.3 后台页面加载策略
 
@@ -230,18 +235,21 @@ M11.1 不建设浏览器扩展式权限系统。目标是让正常插件自由�
 | 异常活跃观测 | 插件 60 秒内 publish 超过 60 次时记录带 plugin id 的 warning，并在 Plugins 页面显示“异常” Tag；事件继续发布，不限流、不丢弃 |
 | 窗口数量 | 每插件最多 1 个后台窗口 |
 
-## 10. M12 更多宿主能力（按具体插件需求延后）
+## 10. M12 宿主能力 vs M15 原语策略
 
-> 不把这一组能力作为独立里程碑提前建设。后续开发具体插件时，只实现该插件真实需要的最小宿主能力，并同时固化对应的协议、目标、路径和调用方边界。没有实际插件需求时，不新增通用 API。
+> **2026-07-30 修订**：优先 **M15 sidecar** 消化 OS/业务需求；M12 不再鼓励「每业务一个 `plugin_*`」。若补宿主接口，只加**平台原语**，并带身份/路径边界。
 
-| 能力 | invoke | 固定宿主边界 |
-|------|--------|----------------|
-| 打开 URL / 应用 / 路径 | `plugin_open` | 协议/目标白名单；不接受任意 shell 字符串 |
-| 读前台窗口信息 | `plugin_get_active_window`（M11 已有基础） | 仅结构化快照，不暴露键序列/坐标 |
-| 受限写文件（插件自己目录内） | `plugin_write_file` | 只能写 `<plugin-data>/<plugin-id>/`，路径由 Rust 归一化校验 |
-| napcat 类外部服务 | 插件自己 `WebSocket`/`fetch` 连，**宿主不感知** | 无需宿主权限（网络在 WebView 内） |
+| 能力 | 落点 | 说明 |
+|------|------|------|
+| 蓝牙 / WMI / 注册表 / 自管 spawn | **插件 sidecar** | 禁止 `plugin_bluetooth_*` 类业务洞 |
+| 打开 URL / 路径 | 原语 `plugin_open_path` **或** sidecar 自 spawn | 无 sidecar 的纯 background 插件才强依赖原语 |
+| 读前台窗口 | 按需 `plugin_get_active_window` | 结构化快照 only |
+| 受限写文件 | 按需 `plugin_write_file` | 仅 `<plugin-data>/<id>/` |
+| napcat 等 | background `WebSocket`/`fetch` | 宿主不感知 |
 
-> QQ/微信快速回复：等实际开发对应插件时再验证 napcat（OneBot 协议，WebSocket/HTTP）。插件后台窗口可直接 `new WebSocket('ws://napcat:3001')`，**不为示例验证提前新增宿主能力**。
+Sidecar 设计真源：[plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。
+
+> QQ/微信快速回复：background 直连 napcat 即可，不必等 M15。
 
 ## 11. M13 外部设置面板
 
@@ -265,12 +273,14 @@ M11.1 不建设浏览器扩展式权限系统。目标是让正常插件自由�
 6. 接入 `setup()`：启动扫描并创建启用插件的后台窗口；禁用关闭；版本变化重建。
 7. **M11.1**：删除 manifest `permissions` 字段，补齐身份/所有权/私有命名空间测试和连续高内存、连续磁盘写入、单次大数据及刷事件观测。
 8. 手测：启动 → 启用 demo-timer → 每 10 秒收通知 → 卡片点按钮复制验证码 → 禁用后后台停止。
-9. M12 不独立前置推进；开发具体插件时按真实需求补最小宿主能力。M13 是否推进由外部设置面板的实际插件需求决定。
+9. M12 不独立前置推进业务 API；OS 类需求走 **M15 sidecar**。M13 settings 已有路径则不再挡 M15。
+10. M15：manifest `sidecar` → `PluginSidecarManager` → stdio bridge → `sidecar-echo` / `bt-music` demo（见 sidecar 架构文 §11–12）。
 
 ## 13. 关键文件规划
 
 | 路径 | 角色 |
 |------|------|
+| `src-tauri/src/plugin_sidecar.rs` | M15：sidecar 启停、stdio bridge、杀进程树 |
 | `src-tauri/src/plugin_window.rs` | 插件后台窗口管理器（创建/销毁/重建） |
 | `src-tauri/src/plugin_commands.rs` | `plugin_*` invoke 命令集 + 身份解析 + 所有权/命名空间边界 + 异常活跃观测 |
 | `src-tauri/src/plugin_storage.rs` | per-plugin KV 存储（SQLite） |
@@ -333,9 +343,22 @@ M11.1 不建设浏览器扩展式权限系统。目标是让正常插件自由�
 - [ ] settings 面板与 background 共享 storage 互通。
 - [ ] 官方 timer 插件覆盖内置定时提醒核心场景，不重复触发。
 
+### M15 完成定义
+
+- [ ] 合法 `sidecar` 启用拉起进程；禁用无残留子进程
+- [ ] sidecar `publish` 与 background 同等 `allows_event` 校验
+- [ ] 路径逃逸 / 解释器缺失 → 可理解错误
+- [ ] Toast resolve 可达 sidecar stdin
+- [ ] `sidecar-echo` 真机通过；信任文案含 sidecar
+- [ ] 无蓝牙等业务专用 Rust API
+
+详见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) §12。
+
+
 ## 16. 相关文档
 
 - [m10-external-plugins.md](m10-external-plugins.md) — Step 2 外部插件基础（Blob 加载、Card 合同）
 - [m9-event-http-api.md](m9-event-http-api.md) — 外部 Event HTTP
 - [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 上一阶段真源
 - [README.md](README.md) — Desktop Event OS 总览
+
