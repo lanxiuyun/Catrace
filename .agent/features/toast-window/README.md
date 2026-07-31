@@ -67,6 +67,15 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - 同 `event.id` 或 `dedupe_key` **原地更新** progress/title/actions（勿二次堆卡）
 - sticky sdk 不走 auto-hide；action → `resolve_event_action`
 
+
+## 外部插件卡 + sticky action 回传
+
+- 外部插件 Toast 走 `PluginHostCard` + bus；`handlePluginAction` **只** `markEventResolved`，不本地卸卡。
+- bus `resolved` 且 `resolution.kind === 'superseded'`：**不卸卡**（等后续 active upsert）。
+- **仅** sticky 插件卡 + `resolution.kind === 'action'` + `action_id === 'echo'` 时 **留卡**，供 sidecar roundtrip 原地 upsert。
+- 其它 action（如 `dismiss`）/ dismissed / completed：正常 `removeNotification`。
+- 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
+
 ## 子文档
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
 

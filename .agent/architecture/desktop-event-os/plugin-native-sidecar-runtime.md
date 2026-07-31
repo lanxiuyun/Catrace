@@ -1,7 +1,7 @@
 # Plugin Native Sidecar Runtime（M15）
 
 > **设计真源**。决策：[2026-07-30-plugin-native-sidecar-runtime](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md)  
-> Status: M15.2 complete demo implemented: lifecycle, stdout publish/log, event validation, and resolved stdin round-trip
+> Status: M15.1–M15.2 真机验收通过（lifecycle + publish/log + resolved 回传 + sidecar-echo）；M15.3 storage/UI 未做；扫描期路径/解释器安全校验按产品决策不做
 > 上级路线图：[step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md)
 
 ## 0. 一句话
@@ -78,20 +78,22 @@ M11 已解决「后台常驻 JS」。M15 解决「本机原生能力放哪」。
 
 Without `sidecar`, behavior is unchanged. Manifest scanning only parses structure; it does not apply path, interpreter allowlist, or environment-variable security checks. Spawn failures are runtime errors.
 
-## 4. 宿主模块（规划）
+## 4. 宿主模块（实现）
 
-| 模块 | 职责 |
-|------|------|
-| `src-tauri/src/plugin_sidecar.rs`（新） | 启停、stdin/stdout 读循环、杀进程树、fingerprint 重启 |
-| `plugins.rs` | 解析 `sidecar`、生成运行规格、`sidecar_plugins()` 列表 |
-| `plugin_commands.rs` | bridge 入站 op → 复用 publish/storage/log 校验逻辑（抽公共，避免双份） |
-| `lib.rs` | `PluginSidecarManager` state；enable/disable/rescan 与 window **同一 schedule 点** |
-| `PluginHost.vue`（可选） | listen `catrace:plugin-sidecar` 供 background 编排 |
+| 模块 | 职责 | 状态 |
+|------|------|------|
+| `src-tauri/src/plugin_sidecar.rs` | 启停、stdout JSONL、stdin resolved/shutdown、杀进程树；写 stdin 不持 running 锁 | ✅ M15.1–M15.2 |
+| `plugins.rs` | 解析 `sidecar` → `PluginSidecarSpec` / 列表；与 enable/rescan 同步 | ✅ |
+| `plugin_commands.rs` | publish/log 入站与 background 共用校验路径 | ✅ publish/log；storage 待 M15.3 |
+| `bus.rs` | resolve 后 `notify_plugin_resolved` → sidecar stdin | ✅ |
+| `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点 | ✅ |
+| Plugins UI / anomaly | sidecar 运行态展示 | ⏳ M15.3 |
 
 启停触发与 M11 对齐：
 
 - `initial_scan` / rescan / set_enabled / 退出  
 - **禁止**在 `setup()` 同步长阻塞；`spawn_blocking` + 锁，同 `PluginWindowManager::schedule_sync`
+- **扫描期不做**路径穿越 / 解释器 allowlist / env 安全校验（产品决策）；spawn 失败当运行时错误
 
 ## 5. Bridge 协议 v1
 
@@ -250,33 +252,40 @@ plugins/bt-music/
 
 ## 10. Demo 包（实现里程碑附带）
 
-| 包 | 目的 |
-|----|------|
-| `tools/plugin-demo/sidecar-echo` | 无硬件：stdio publish + disable 杀进程 |
-| `tools/plugin-demo/bt-music` | 目标场景；v1 可用 mock「模拟连接」按钮/定时；真蓝牙迭代放 runtime 内 |
+| 包 | 目的 | 状态 |
+|----|------|------|
+| `tools/plugin-demo/sidecar-echo` | 无硬件：15s timer publish + action echo roundtrip + dismiss；disable 杀进程 | ✅ 真机验收 |
+| `tools/plugin-demo/bt-music` | 目标场景；v1 mock「模拟连接」→ Toast → action 开记事本/配置路径 | ⏳ 未做 |
 
 Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 
+**sidecar-echo 手测要点**：回传 Sidecar 后卡不消失且序号/payload 更新；点完成卸卡；连点不冻透明 toast 窗。  
+Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)。
+
 ## 11. 实现顺序（建议切片）
 
-1. **Manifest parsing + spec unit tests** (no process start)
-2. **PluginSidecarManager 启停 + 杀进程树**（command=本机 `node -e` 或固定 fixture exe）  
-3. **stdout 行解析 → publish/log**  
-4. **stdin：shutdown + resolved 转发**  
-5. **storage get/set 往返**  
-6. **Plugins UI：sidecar 状态 / 错误 / anomaly**  
-7. **sidecar-echo demo 真机验收**  
-8. **bt-music mock demo**（开记事本或配置路径）  
+1. ~~**Manifest parsing + spec**~~ ✅  
+2. ~~**PluginSidecarManager 启停 + 杀进程树**~~ ✅  
+3. ~~**stdout 行解析 → publish/log**~~ ✅  
+4. ~~**stdin：shutdown + resolved 转发**~~ ✅  
+5. **storage get/set 往返** ⏳ M15.3  
+6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ⏳ M15.3  
+7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
+8. **bt-music mock demo** ⏳  
 9. （可选）`plugin_open_path` 给无 sidecar 插件  
+10. 信任文案补「sidecar = 本机任意代码」⏳  
 
 ## 12. 完成定义（M15）
 
-- [ ] 启用含合法 `sidecar` 的插件会拉起进程；禁用后无残留子进程  
-- [ ] sidecar `publish` 与 background `plugin_publish_event` 同等校验（events 白名单、保留 kind）  
-- [ ] Missing command or interpreter produces a clear runtime error without crashing the host
-- [ ] Toast action resolve 能到达 sidecar stdin  
-- [ ] `sidecar-echo` 手测通过；文档与 m10 信任说明更新「sidecar = 本机代码」  
-- [ ] **无** 蓝牙/业务专用 Rust API  
+- [x] 启用含合法 `sidecar` 的插件会拉起进程；禁用后无残留子进程  
+- [x] sidecar `publish` 与 background `plugin_publish_event` 同等校验（events 白名单、保留 kind）  
+- [x] Missing command or interpreter produces a clear runtime error without crashing the host
+- [x] Toast action resolve 能到达 sidecar stdin  
+- [x] `sidecar-echo` 手测通过（回传留卡 / 完成卸卡 / 不冻窗）  
+- [ ] 文档与 m10 信任说明更新「sidecar = 本机代码」  
+- [x] **无** 蓝牙/业务专用 Rust API  
+- [ ] sidecar storage request/response（M15.3）  
+- [ ] Plugins UI runtime 状态（M15.3）  
 
 ## 13. 风险
 
@@ -295,3 +304,7 @@ Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 - [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — M11–M15  
 - [2026-07-23-step3-插件后台运行时用隐藏webview窗口.md](../../decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md)  
 - [2026-07-24-step3-宿主能力改为随具体插件按需提供.md](../../decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md)  
+- [2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — ADR  
+- [../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md](../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md) — echo 回传卡死  
+- [../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md) — sticky action 留卡规则  
+- [../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md](../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md) — 本轮 devlog  

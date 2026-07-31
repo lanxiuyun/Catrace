@@ -62,6 +62,7 @@ features:
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
       - .agent/features/toast-window/连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md
+      - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
     related:
       - reminder
       - water-reminder
@@ -254,6 +255,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md
   - .agent/bugs/2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md
   - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
   - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
@@ -278,6 +280,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
   - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md
   - .agent/devlog/2026-07-27-外部插件settings根padding与宿主双倍缩进.md
   - .agent/devlog/2026-07-27-插件页铺满高度与拆除-PluginPanelShell.md
@@ -322,5 +325,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: M15.2 sidecar JSONL publish/log + resolved round-trip + complete sidecar-echo demo implemented
-  next: M15.3 sidecar storage request/response and runtime status UI
+  phase: M15.1-M15.2 真机验收（PluginSidecarManager + sidecar-echo + toast echo keep/dismiss）
+  next: M15.3 storage + Plugins UI status；信任文案；bt-music mock

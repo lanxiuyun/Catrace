@@ -49,7 +49,7 @@ Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
 | **M12** 更多宿主能力 | 不再独立前置建设业务 API；按需只补**平台原语**（见 M15 与 2026-07-30 sidecar 决策）。`plugin_open_path` 等窄原语可挂具体插件切片 | 🧊 按需 / 原语化 |
 | **M13** External Settings Surface | 外部插件可注册 `settings.mjs`；Plugins.vue 详情页加载外部设置组件；与 background 共享 storage | ✅ 已随 timer 等落地（见 m10 settings 合同） |
 | **M14** Built-in plugins migration | 将 timer/water/eye/rest 的定时/通知逻辑逐步迁到插件 runtime 模型 | 🧊 暂缓 |
-| **M15** Native Sidecar Runtime | 可选插件子进程（node/pwsh/自带 exe）+ stdio JSON bridge；业务 OS 能力进插件，宿主只托管启停与原语 | 📋 设计已定，见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) |
+| **M15** Native Sidecar Runtime | 可选插件子进程（node/pwsh/自带 exe）+ stdio JSON bridge；业务 OS 能力进插件，宿主只托管启停与原语 | ✅ M15.1–M15.2 真机验收（echo）；⏳ M15.3 storage/UI；见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) |
 
 图例：✅ 完成 · 🔲 进行中 · 📋 规划 · 🧊 暂缓
 
@@ -345,12 +345,14 @@ Sidecar 设计真源：[plugin-native-sidecar-runtime.md](plugin-native-sidecar-
 
 ### M15 完成定义
 
-- [ ] 合法 `sidecar` 启用拉起进程；禁用无残留子进程
-- [ ] sidecar `publish` 与 background 同等 `allows_event` 校验
-- [ ] Missing command or interpreter produces a clear runtime error without crashing the host
-- [ ] Toast resolve 可达 sidecar stdin
-- [ ] `sidecar-echo` 真机通过；信任文案含 sidecar
-- [ ] 无蓝牙等业务专用 Rust API
+- [x] 合法 `sidecar` 启用拉起进程；禁用无残留子进程
+- [x] sidecar `publish` 与 background 同等 `allows_event` 校验
+- [x] Missing command or interpreter produces a clear runtime error without crashing the host（扫描期安全校验不做）
+- [x] Toast resolve 可达 sidecar stdin
+- [x] `sidecar-echo` 真机通过（含 echo 留卡 / dismiss 卸卡）
+- [ ] 信任文案含 sidecar = 本机代码
+- [x] 无蓝牙等业务专用 Rust API
+- [ ] M15.3：storage 往返 + Plugins UI runtime 状态
 
 详见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) §12。
 

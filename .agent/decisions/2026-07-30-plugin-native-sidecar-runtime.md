@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted（设计已定；实现未开工）
+Accepted（设计已定；M15.1–M15.2 已实现并真机验收 sidecar-echo；M15.3 storage/UI 与信任文案仍待）
 
 ## Context
 
@@ -171,7 +171,9 @@ Toast action → sidecar：沿用已有 `catrace:plugin-event-resolved`；宿主
 
 ## Demo 验收（实现后）
 
-1. `tools/plugin-demo/sidecar-echo`：sidecar 每 15s stdout `publish` → Toast  
-2. disable 插件 → 进程消失（任务管理器 / 宿主 log）  
-3. `tools/plugin-demo/bt-music`（可先 mock）：sidecar 模拟「设备连接」→ Toast → action → sidecar 启动记事本/配置路径  
-4. 恶意 `command: "../other/evil.exe"` → 扫描/启动拒绝  
+1. [x] `tools/plugin-demo/sidecar-echo`：sidecar 每 15s stdout `publish` → Toast；action echo roundtrip 留卡刷新；dismiss 卸卡  
+2. [x] disable 插件 → 进程消失（任务管理器 / 宿主 log）  
+3. [ ] `tools/plugin-demo/bt-music`（可先 mock）：sidecar 模拟「设备连接」→ Toast → action → sidecar 启动记事本/配置路径  
+4. [~] 恶意 `command: "../other/evil.exe"` → **按产品决策不做扫描期拒绝**；spawn 失败记运行时错误即可  
+
+实现指针补充：commit `ecb5e3e`；Toast sticky action 约定见 features/toast-window 子文档。  

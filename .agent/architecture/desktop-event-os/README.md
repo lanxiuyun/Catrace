@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；连续高内存、连续磁盘写入、单次大数据或刷事件都会记录插件 id 并显示“异常” Tag；不限流、不丢弃。**M15（设计已定）**：可选 Native Sidecar——插件自带 node/脚本/exe，宿主只托管进程与 stdio bridge，避免为每个业务开 Rust 洞。见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。**不做插件市场。**
+当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；连续高内存、连续磁盘写入、单次大数据或刷事件都会记录插件 id 并显示“异常” Tag；不限流、不丢弃。**M15.1–M15.2 真机验收**：可选 Native Sidecar 已落地（`PluginSidecarManager` + JSONL + `sidecar-echo`）；M15.3 待 storage/UI。见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。**不做插件市场。**
 
 ## 模块布局
 
@@ -16,7 +16,8 @@ Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  → 
 src-tauri/src/
 ├── event.rs / bus.rs     # 协议 + Registry + publish/update/resolve
 ├── event_http.rs         # M9/M10 外部 Event API 127.0.0.1:23457（plugin_id）
-├── plugins.rs            # M10/M11 manifest 扫描、启用、UI/background source
+├── plugins.rs            # M10/M11/M15 manifest 扫描、启用、UI/background/sidecar source
+├── plugin_sidecar.rs     # M15 PluginSidecarManager + stdio JSONL bridge
 ├── plugin_window.rs      # 每插件隐藏 WebView 生命周期与非阻塞同步
 ├── plugin_commands.rs    # publish/activity/storage/logger 身份、所有权与输入边界
 ├── signal.rs / db.rs     # 行为采集 + signal_minutes
@@ -34,7 +35,7 @@ src/
 ├── plugins/registerBuiltins.ts / loadExternalPlugins.ts  # Blob 加载 ui.mjs
 ├── types/event.ts
 tools/event-sdk/              # M9 generic publish
-tools/plugin-demo/            # M10 demo-timer 包
+tools/plugin-demo/            # M10/M11 demo + M15 sidecar-echo
 ```
 
 ## 文档索引
