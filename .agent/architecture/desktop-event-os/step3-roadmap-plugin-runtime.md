@@ -347,7 +347,7 @@ Sidecar 设计真源：[plugin-native-sidecar-runtime.md](plugin-native-sidecar-
 
 - [ ] 合法 `sidecar` 启用拉起进程；禁用无残留子进程
 - [ ] sidecar `publish` 与 background 同等 `allows_event` 校验
-- [ ] 路径逃逸 / 解释器缺失 → 可理解错误
+- [ ] Missing command or interpreter produces a clear runtime error without crashing the host
 - [ ] Toast resolve 可达 sidecar stdin
 - [ ] `sidecar-echo` 真机通过；信任文案含 sidecar
 - [ ] 无蓝牙等业务专用 Rust API

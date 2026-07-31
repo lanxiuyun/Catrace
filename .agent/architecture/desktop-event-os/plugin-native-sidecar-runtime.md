@@ -1,7 +1,7 @@
 # Plugin Native Sidecar Runtime（M15）
 
 > **设计真源**。决策：[2026-07-30-plugin-native-sidecar-runtime](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md)  
-> 状态：📋 已起草，未实现  
+> Status: M15.2 complete demo implemented: lifecycle, stdout publish/log, event validation, and resolved stdin round-trip
 > 上级路线图：[step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md)
 
 ## 0. 一句话
@@ -69,21 +69,21 @@ M11 已解决「后台常驻 JS」。M15 解决「本机原生能力放哪」。
 
 | 字段 | 规则 |
 |------|------|
-| `command` | ① 插件目录相对路径（解析后必须仍在插件根下）；或 ② 解释器短名白名单：`node` \| `python` \| `python3` \| `pwsh` \| `powershell` |
-| `args` | 字符串数组；相对脚本路径按 `cwd` 解析，同样防逃逸 |
-| `cwd` | 默认 `.` = 插件根；不得 `..` 出插件根 |
-| `env` | 可选，字符串 map；与宿主注入合并（宿主键优先不可被覆盖：`CATRACE_*`） |
+| Field | Runtime rule |
+|------|------|
+| `command` | Passed to the OS process API. Relative paths use the plugin root; bare names use system `PATH` |
+| `args` | Passed through unchanged |
+| `cwd` | Defaults to `.` under the plugin root, but other paths are allowed |
+| `env` | Optional string map; host `CATRACE_*` values are injected last |
 
-无 `sidecar`：行为与今天完全一致。
-
-扫描期校验失败 → 插件可列出但 **不可 enable**（或 enable 时报错并标红），错误信息进 Plugins UI。
+Without `sidecar`, behavior is unchanged. Manifest scanning only parses structure; it does not apply path, interpreter allowlist, or environment-variable security checks. Spawn failures are runtime errors.
 
 ## 4. 宿主模块（规划）
 
 | 模块 | 职责 |
 |------|------|
 | `src-tauri/src/plugin_sidecar.rs`（新） | 启停、stdin/stdout 读循环、杀进程树、fingerprint 重启 |
-| `plugins.rs` | 解析 `sidecar`、路径校验、`sidecar_plugins()` 列表 |
+| `plugins.rs` | 解析 `sidecar`、生成运行规格、`sidecar_plugins()` 列表 |
 | `plugin_commands.rs` | bridge 入站 op → 复用 publish/storage/log 校验逻辑（抽公共，避免双份） |
 | `lib.rs` | `PluginSidecarManager` state；enable/disable/rescan 与 window **同一 schedule 点** |
 | `PluginHost.vue`（可选） | listen `catrace:plugin-sidecar` 供 background 编排 |
@@ -160,21 +160,13 @@ stopping → (shutdown 宽限 e.g. 1s) → kill → disabled
 - 与 background 窗：**独立**失败域。sidecar 挂了不自动毁 WebView；WebView 挂了不自动杀 sidecar（但 disable 两者都停）。  
 - 重启策略 v1：崩溃后最多 3 次、指数退避；再失败标 anomaly + error，等用户 disable/enable。
 
-## 7. 路径与命令安全
+## 7. Command execution contract
 
-```
-resolve_command(plugin_dir, command):
-  if command in INTERPRETER_ALLOWLIST:
-    return which(command) or Error("interpreter not found")
-  path = normalize(plugin_dir / command)
-  if path is not under plugin_dir: Error("escape")
-  if !path.exists(): Error("missing")
-  return path
-```
-
-- Windows：杀进程用 job object 或 `taskkill /T` 等价，避免孤儿。  
-- 相对 `args` 中的脚本路径同样 `normalize` 校验。  
-- **v1 禁止** manifest 里写绝对路径 exe（减少「指到 system32 任意工具」的配置脚枪；真要系统工具走解释器脚本）。
+- Local plugins use the existing enable-means-trust model. The host does not restrict `command`, `args`, `cwd`, or plugin-provided environment variables.
+- Relative commands resolve from the plugin root; bare names use system `PATH`; absolute paths are passed through.
+- The host retains lifecycle boundaries only: start while enabled and terminate the process tree on disable, uninstall, or app exit.
+- Host identity values such as `CATRACE_PLUGIN_ID` and `CATRACE_PROTOCOL_VERSION` are injected last, so manifest values with the same names do not take effect.
+- Spawn failures are runtime errors and do not invalidate the plugin during manifest scanning.
 
 ## 8. 与现有能力的分工
 
@@ -267,7 +259,7 @@ Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 
 ## 11. 实现顺序（建议切片）
 
-1. **Manifest + 路径校验 + 单元测试**（不启进程）  
+1. **Manifest parsing + spec unit tests** (no process start)
 2. **PluginSidecarManager 启停 + 杀进程树**（command=本机 `node -e` 或固定 fixture exe）  
 3. **stdout 行解析 → publish/log**  
 4. **stdin：shutdown + resolved 转发**  
@@ -281,7 +273,7 @@ Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 
 - [ ] 启用含合法 `sidecar` 的插件会拉起进程；禁用后无残留子进程  
 - [ ] sidecar `publish` 与 background `plugin_publish_event` 同等校验（events 白名单、保留 kind）  
-- [ ] 路径逃逸 / 绝对 command / 解释器缺失 → 可理解错误，不崩溃宿主  
+- [ ] Missing command or interpreter produces a clear runtime error without crashing the host
 - [ ] Toast action resolve 能到达 sidecar stdin  
 - [ ] `sidecar-echo` 手测通过；文档与 m10 信任说明更新「sidecar = 本机代码」  
 - [ ] **无** 蓝牙/业务专用 Rust API  
@@ -291,7 +283,7 @@ Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 | 风险 | 缓解 |
 |------|------|
 | 孤儿进程 | Job Object / 进程组；exit 钩子 |
-| 恶意插件 | 启用即信任文案；无市场；目录约束 |
+| Malicious plugin | Enable-means-trust warning; no marketplace; install trusted sources only |
 | Node 未安装 | 明确错误；推荐自带 exe 或 ps1 |
 | stdio 死锁 | 读 stdout/stderr 独立线程；写 stdin 带队列 |
 | 与「不内置 Node」冲突误解 | 文档写清：可选、外置、不进安装包 |

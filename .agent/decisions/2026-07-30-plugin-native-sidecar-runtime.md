@@ -72,11 +72,9 @@ manifest 可选字段 `sidecar`（名可微调，实现时以架构文为准）�
 规则：
 
 1. **仅**插件 **enabled** 时启动；disable / 卸载 / 退出 → **杀进程树**。
-2. `command` 解析：
-   - 相对路径 → 必须落在 **该插件目录内**（防 `..` 逃逸）
-   - 绝对路径 → v1 **拒绝**（降低任意本机 exe 配置面）；需要系统解释器时用白名单名字：`node` / `python` / `pwsh` / `powershell`（解析 `PATH`，找不到则插件标错、不静默）
-3. 工作目录 = 插件根（或 manifest 声明的子目录，仍不得逃逸）。
-4. env 注入最小集：`CATRACE_PLUGIN_ID`、`CATRACE_PLUGIN_DIR`、`CATRACE_BRIDGE=stdio`（或命名 pipe 名）。
+2. `command`, `args`, `cwd`, and env follow enable-means-trust: no interpreter allowlist, path-escape check, or absolute-path restriction. Relative commands resolve from the plugin root; bare names use system `PATH`.
+3. Manifest scanning parses structure only. A command that cannot start is reported as a runtime error and does not prevent listing the plugin.
+4. Host identity variables such as `CATRACE_PLUGIN_ID` and the protocol version are injected last and override manifest values.
 5. **不**内置 Node/Python 运行时二进制（保持 2026-07-23「不 +40MB」）；要 Node 生态 = 用户机器有 Node，或插件自带 exe。
 6. fingerprint：manifest + entry 文件 mtime/hash 变 → 重启 sidecar（与 background 窗重建对齐）。
 
@@ -130,7 +128,6 @@ Toast action → sidecar：沿用已有 `catrace:plugin-event-resolved`；宿主
 
 硬边界仍在 Rust：
 
-- 路径不逃逸插件目录  
 - 不伪造 source / 不跨插件 storage  
 - 禁用即杀进程  
 - 不在 v1 提供「任意 command 字符串从远程配置注入」

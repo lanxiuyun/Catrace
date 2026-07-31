@@ -7,6 +7,7 @@ mod log;
 mod media_audio;
 mod plugin_commands;
 mod plugin_config;
+mod plugin_sidecar;
 mod plugin_window;
 mod plugins;
 mod reminder_toast;
@@ -880,9 +881,11 @@ pub fn run() {
             // External plugins (local app_data_dir/plugins)
             let plugin_mgr = plugins::PluginManager::new();
             let plugin_windows = plugin_window::PluginWindowManager::new();
+            let plugin_sidecars = plugin_sidecar::PluginSidecarManager::new();
             plugins::initial_scan(app.app_handle(), &plugin_mgr);
             app.manage(plugin_mgr.clone());
             app.manage(plugin_windows.clone());
+            app.manage(plugin_sidecars.clone());
 
             // Signal 采集内核（前台 1Hz 不依赖辅助功能；键鼠仍走 accessibility 门闩）
             let signal_core = Arc::new(signal::SignalCore::new());
@@ -921,6 +924,7 @@ pub fn run() {
             // after all command state has been managed. Never build WebViews inside setup:
             // on Windows that can block the main event loop before startup completes.
             plugin_windows.schedule_sync(app.app_handle().clone(), plugin_mgr.clone());
+            plugin_sidecars.schedule_sync(app.app_handle().clone(), plugin_mgr.clone());
 
             if accessibility_permission_granted() {
                 start_input_sampling(

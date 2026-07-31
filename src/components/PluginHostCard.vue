@@ -5,6 +5,7 @@ import {
   h,
   markRaw,
   shallowRef,
+  onMounted,
   watch,
   type Component,
 } from 'vue'
@@ -84,7 +85,16 @@ function cacheKey(): string {
 function resolveCard(): Component {
   const key = cacheKey()
   const cached = cardCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    console.info('[PluginHostCard] cache hit', { key, eventId: props.event.id, t: Date.now() })
+    return cached
+  }
+  console.info('[PluginHostCard] resolve card', {
+    key,
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    hasUiUrl: !!props.uiUrl,
+  })
 
   const registered =
     registry.getCardComponent(props.event.kind) ||
@@ -146,7 +156,27 @@ function resolveCard(): Component {
   return FallbackCard
 }
 
+function handleCardAction(actionId: string) {
+  console.info('[PluginHostCard] action', {
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    actionId,
+    cacheKey: cacheKey(),
+    t: Date.now(),
+  })
+  emit('action', actionId)
+}
+
 const cardComp = shallowRef<Component>(resolveCard())
+
+onMounted(() => {
+  console.info('[PluginHostCard] mount', {
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    cacheKey: cacheKey(),
+    t: Date.now(),
+  })
+})
 /** Only remount when the plugin identity changes — not on every event revision/id. */
 const cardKey = computed(() => cacheKey())
 
@@ -165,6 +195,6 @@ watch(
     :event="event"
     :is-hovered="isHovered"
     @close="emit('close')"
-    @action="(id: string) => emit('action', id)"
+    @action="handleCardAction"
   />
 </template>

@@ -210,6 +210,7 @@ architecture:
       - .agent/architecture/desktop-event-os/m10-external-plugins.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
+      - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
       - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
@@ -235,6 +236,7 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
 
 decisions:
+  - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
   - .agent/decisions/2026-07-29-外部插件设置优先卡片内联编辑而非-NModal.md
   - .agent/decisions/2026-07-27-插件详情边距由宿主统一-不再用-PluginPanelShell.md
   - .agent/decisions/2026-07-26-plugin-disabled-state-greyed-by-parent-not-empty-state.md
@@ -320,5 +322,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: timer settings 内联编辑 + 宿主 naive runtime 注入已落地
-  next: 加强 timer 列表 tag 区分度；继续 Step3 runtime 路线图剩余项
+  phase: M15.2 sidecar JSONL publish/log + resolved round-trip + complete sidecar-echo demo implemented
+  next: M15.3 sidecar storage request/response and runtime status UI

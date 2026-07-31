@@ -5,7 +5,7 @@ Local external plugin samples for Catrace M10.
 | Package | Role |
 |---------|------|
 | `timer/` | First-party **定时提醒** (settings + scheduling) |
-| `sidecar-echo/` | M15.1 native sidecar lifecycle fixture; JSONL output is consumed starting in M15.2 |
+| `sidecar-echo/` | Complete native sidecar demo: lifecycle, JSONL publish/log, custom Toast UI, and action round-trip |
 
 Debug builds junction packages under `tools/plugin-demo/` into `app_data/plugins/`.
 

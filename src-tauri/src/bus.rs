@@ -9,6 +9,7 @@ use crate::event::{
     EventStatus, ResolutionKind,
 };
 use crate::reminder_toast;
+use crate::log_info;
 
 static CHANNEL_CAPACITY: usize = 256;
 static MAX_RESOLVED_IN_REGISTRY: usize = 200;
@@ -277,24 +278,30 @@ impl EventBus {
         action_id: String,
         payload: Option<serde_json::Value>,
     ) -> Result<BusEvent, String> {
+        let started_at = std::time::Instant::now();
+        log_info!("plugin-sidecar", "resolve action start: event={id} action={action_id}");
         let out = {
             let mut reg = self.registry.write().map_err(|e| e.to_string())?;
             reg.resolve_action(&id, &action_id, payload)?
         };
         self.emit_event(out.clone());
+        log_info!(
+            "plugin-sidecar",
+            "resolve action emitted: event={id} action={action_id} elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        );
         self.notify_plugin_resolved(&out);
+        log_info!(
+            "plugin-sidecar",
+            "resolve action done: event={id} action={action_id} elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        );
         Ok(out)
     }
 
     /// Forward resolve outcomes to the plugin background WebView so bg modules can react.
     fn notify_plugin_resolved(&self, event: &BusEvent) {
         let EventSource::Plugin { name } = &event.source else {
-            return;
-        };
-        let Some(win) = self
-            .app_handle
-            .get_webview_window(&format!("plugin-bg-{name}"))
-        else {
             return;
         };
         let resolution = event.resolution.as_ref();
@@ -313,7 +320,23 @@ impl EventBus {
             }),
             "resolutionPayload": resolution.and_then(|r| r.payload.clone()),
         });
-        let _ = win.emit("catrace:plugin-event-resolved", payload);
+        if let Some(win) = self
+            .app_handle
+            .get_webview_window(&format!("plugin-bg-{name}"))
+        {
+            let _ = win.emit("catrace:plugin-event-resolved", payload.clone());
+        }
+        if let Some(sidecars) = self
+            .app_handle
+            .try_state::<crate::plugin_sidecar::PluginSidecarManager>()
+        {
+            log_info!(
+                "plugin-sidecar",
+                "forward resolved: plugin={name} event={}",
+                event.id
+            );
+            sidecars.send_resolved(name, &payload);
+        }
     }
 
     pub fn active_events(&self) -> Result<Vec<BusEvent>, String> {

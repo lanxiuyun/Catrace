@@ -1,0 +1,14 @@
+{
+  "id": "sidecar-echo",
+  "name": "Sidecar Capability Demo",
+  "version": "0.2.0",
+  "description": "完整验证 native sidecar 启停、JSONL publish/log、Toast UI 与 action 回传",
+  "main": "ui.mjs",
+  "events": ["sidecar-echo", "kind:sidecar-echo", "sidecar-echo.tick"],
+  "enabledByDefault": false,
+  "sidecar": {
+    "command": "node",
+    "args": ["runtime/main.mjs"],
+    "cwd": "."
+  }
+}

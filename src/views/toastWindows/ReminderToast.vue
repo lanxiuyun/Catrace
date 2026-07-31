@@ -542,16 +542,63 @@ function handleBusEvent(event: BusEvent) {
   if (!event?.id) return
   if (event.display_mode && event.display_mode !== 'toast') return
 
+  const pluginName =
+    event.source &&
+    typeof event.source === 'object' &&
+    (event.source as { type?: string; name?: string }).type === 'plugin'
+      ? (event.source as { name?: string }).name
+      : undefined
+  const tracePluginAction = pluginName === 'sidecar-echo' || event.kind === 'sidecar-echo'
+  if (tracePluginAction) {
+    console.info('[sidecar-action] bus event', {
+      eventId: event.id,
+      status: event.status,
+      revision: event.revision,
+      resolution: event.resolution,
+      pluginName,
+      kind: event.kind,
+    })
+  }
+
   if (event.status === 'resolved') {
     seenBusEventIds.add(event.id)
     // Superseded = same dedupe_key was replaced by a newer publish. Keep the visible
     // card; the following active event will upsert in place. Removing here causes
     // unmount+remount of PluginHostCard (Blob re-import) and freezes toast on rapid test.
     if (event.resolution?.kind === 'superseded') {
+      if (tracePluginAction) {
+        console.info('[sidecar-action] resolved keep (superseded)', {
+          eventId: event.id,
+          resolution: event.resolution,
+        })
+      }
       return
     }
     const existing = notifications.value.find((n) => n.eventId === event.id)
-    if (existing) {
+    // Keep sticky plugin cards when an action is acknowledged — sidecar may immediately
+    // republish the same dedupeKey (echo roundtrip). Removing here races leave animation
+    // and freezes the transparent toast window on Windows.
+    // Only echo (roundtrip) keeps the card. dismiss/completed must still remove it.
+    const keepForActionRoundtrip =
+      !!existing?.pluginId &&
+      !!existing.sticky &&
+      event.resolution?.kind === 'action' &&
+      event.resolution?.action_id === 'echo'
+    if (tracePluginAction) {
+      console.info('[sidecar-action] resolved handling', {
+        eventId: event.id,
+        notificationId: existing?.id,
+        found: !!existing,
+        keepForActionRoundtrip,
+        resolution: event.resolution,
+        leaving: existing?.leaving,
+      })
+    }
+    if (existing && !keepForActionRoundtrip) {
+      console.info('[sidecar-action] resolved removal', {
+        eventId: event.id,
+        notificationId: existing.id,
+      })
       removeNotification(existing.id, true)
     }
     return
@@ -589,6 +636,16 @@ function handleBusEvent(event: BusEvent) {
         ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
         : undefined)
     if (existing) {
+      if (tracePluginAction) {
+        console.info('[sidecar-action] upsert in place', {
+          notificationId: existing.id,
+          prevEventId: existing.eventId,
+          nextEventId: event.id,
+          dedupeKey,
+          leaving: !!existing.leaving,
+          t: Date.now(),
+        })
+      }
       if (existing.eventId && existing.eventId !== event.id) {
         seenBusEventIds.add(existing.eventId)
       }
@@ -726,12 +783,45 @@ function handleBusEvent(event: BusEvent) {
 }
 
 function markEventResolved(eventId: string | undefined, actionId?: string) {
-  if (!eventId) return
-  seenBusEventIds.add(eventId)
-  const p = actionId
-    ? resolveEventAction(eventId, actionId).catch(() => null)
-    : resolveEvent(eventId, { kind: 'dismissed' }).catch(() => null)
-  void p
+  if (!eventId) {
+    console.warn('[sidecar-action] resolve skipped: missing eventId', { actionId })
+    return
+  }
+  const startedAt = performance.now()
+  console.info('[sidecar-action] resolve invoke:start', {
+    eventId,
+    actionId,
+    t: Date.now(),
+  })
+  // Do not pre-mark seen for action resolves: sticky plugin cards may stay
+  // mounted and later receive a fresh active event with a new id.
+  if (!actionId) {
+    seenBusEventIds.add(eventId)
+  }
+  const request = actionId
+    ? resolveEventAction(eventId, actionId)
+    : resolveEvent(eventId, { kind: 'dismissed' })
+  void request.then(
+    (event) => {
+      console.info('[sidecar-action] resolve invoke:done', {
+        eventId,
+        actionId,
+        elapsedMs: Math.round(performance.now() - startedAt),
+        status: event?.status,
+        resolution: event?.resolution,
+        t: Date.now(),
+      })
+    },
+    (error) => {
+      console.error('[sidecar-action] resolve invoke:error', {
+        eventId,
+        actionId,
+        elapsedMs: Math.round(performance.now() - startedAt),
+        error: error instanceof Error ? error.message : String(error),
+        t: Date.now(),
+      })
+    },
+  )
 }
 
 async function addNotification(payload: {
@@ -1154,9 +1244,19 @@ function handleSdkAction(item: ToastItem, actionId: string) {
 }
 
 function handlePluginAction(item: ToastItem, actionId: string) {
-  // Side-effects (ack/snooze/skip) run in plugin bg via bus → plugin-bg resolve bridge.
+  console.info('[sidecar-action] toast action', {
+    notificationId: item.id,
+    eventId: item.eventId,
+    pluginId: item.pluginId,
+    actionId,
+    sticky: !!item.sticky,
+    leaving: !!item.leaving,
+    dedupeKey: item.dedupeKey,
+    t: Date.now(),
+  })
+  // Sticky plugin action cards stay mounted (resolved action keeps card).
+  // Bus owns non-action removal; never double-remove here.
   markEventResolved(item.eventId, actionId)
-  removeNotification(item.id, true)
 }
 
 async function handleClose(item: ToastItem) {

@@ -1,5 +1,6 @@
 //! Local external plugins — scan app_data_dir/plugins, enable gate, UI URL.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -35,9 +36,27 @@ pub struct PluginManifestFile {
     #[serde(default)]
     pub settings: Option<String>,
     #[serde(default)]
+    pub sidecar: Option<PluginSidecarManifest>,
+    #[serde(default)]
     pub events: Vec<String>,
     #[serde(default = "default_true")]
     pub enabled_by_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginSidecarManifest {
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default = "default_sidecar_cwd")]
+    pub cwd: String,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+}
+
+fn default_sidecar_cwd() -> String {
+    ".".into()
 }
 
 fn default_true() -> bool {
@@ -54,6 +73,7 @@ pub struct ExternalPluginInfo {
     pub main: Option<String>,
     pub background: Option<String>,
     pub settings: Option<String>,
+    pub sidecar: Option<PluginSidecarManifest>,
     pub events: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
@@ -61,6 +81,7 @@ pub struct ExternalPluginInfo {
     pub has_ui: bool,
     pub has_background: bool,
     pub has_settings: bool,
+    pub has_sidecar: bool,
     pub anomalous: bool,
     pub error: Option<String>,
 }
@@ -71,6 +92,7 @@ struct CachedPlugin {
     main_abs: Option<PathBuf>,
     background_abs: Option<PathBuf>,
     settings_abs: Option<PathBuf>,
+    sidecar: Option<PluginSidecarSpec>,
 }
 
 struct PluginCache {
@@ -88,6 +110,16 @@ impl PluginCache {
 #[derive(Debug, Clone)]
 pub struct PluginBackgroundSpec {
     pub id: String,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PluginSidecarSpec {
+    pub id: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub cwd: PathBuf,
+    pub env: HashMap<String, String>,
     pub fingerprint: String,
 }
 
@@ -138,6 +170,7 @@ impl PluginManager {
                             main: None,
                             background: None,
                             settings: None,
+                            sidecar: None,
                             events: vec![],
                             enabled: false,
                             enabled_by_default: false,
@@ -145,12 +178,14 @@ impl PluginManager {
                             has_ui: false,
                             has_background: false,
                             has_settings: false,
+                            has_sidecar: false,
                             anomalous: false,
                             error: Some(e),
                         },
                         main_abs: None,
                         background_abs: None,
                         settings_abs: None,
+                        sidecar: None,
                     });
                 }
             }
@@ -276,6 +311,16 @@ impl PluginManager {
                     fingerprint: background_fingerprint(&p.info.version, path),
                 })
             })
+            .collect())
+    }
+
+    pub fn sidecar_plugins(&self) -> Result<Vec<PluginSidecarSpec>, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        Ok(guard
+            .plugins
+            .iter()
+            .filter(|p| p.info.enabled && p.info.error.is_none())
+            .filter_map(|p| p.sidecar.clone())
             .collect())
     }
 
@@ -415,6 +460,10 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
     let main_abs = resolve_entry(dir, m.main.as_deref(), "main")?;
     let background_abs = resolve_entry(dir, m.background.as_deref(), "background")?;
     let settings_abs = resolve_entry(dir, m.settings.as_deref(), "settings")?;
+    let sidecar = m
+        .sidecar
+        .as_ref()
+        .map(|manifest| sidecar_spec(dir, &m.id, &m.version, manifest));
 
     let enabled = crate::plugin_config::get_plugin_config_entry(app, &m.id, "enabled")?
         .and_then(|value| value.as_bool())
@@ -429,6 +478,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             main: m.main,
             background: m.background,
             settings: m.settings,
+            sidecar: m.sidecar,
             events: m.events,
             enabled,
             enabled_by_default: m.enabled_by_default,
@@ -436,13 +486,62 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             has_ui: main_abs.is_some(),
             has_background: background_abs.is_some(),
             has_settings: settings_abs.is_some(),
+            has_sidecar: sidecar.is_some(),
             anomalous: false,
             error: None,
         },
         main_abs,
         background_abs,
         settings_abs,
+        sidecar,
     })
+}
+
+fn sidecar_spec(
+    dir: &Path,
+    id: &str,
+    version: &str,
+    manifest: &PluginSidecarManifest,
+) -> PluginSidecarSpec {
+    let cwd = if Path::new(&manifest.cwd).is_absolute() {
+        PathBuf::from(&manifest.cwd)
+    } else {
+        dir.join(&manifest.cwd)
+    };
+    let command_path = Path::new(&manifest.command);
+    let command = if command_path.is_absolute()
+        || (!manifest.command.contains('/')
+            && !manifest.command.contains('\\')
+            && !manifest.command.starts_with('.'))
+    {
+        manifest.command.clone()
+    } else {
+        dir.join(command_path).to_string_lossy().to_string()
+    };
+    let fingerprint = sidecar_fingerprint(version, &command, &manifest.args, &cwd, &manifest.env);
+    PluginSidecarSpec {
+        id: id.to_string(),
+        command,
+        args: manifest.args.clone(),
+        cwd,
+        env: manifest.env.clone(),
+        fingerprint,
+    }
+}
+
+fn sidecar_fingerprint(
+    version: &str,
+    command: &str,
+    args: &[String],
+    cwd: &Path,
+    env: &HashMap<String, String>,
+) -> String {
+    let mut env_pairs: Vec<_> = env.iter().collect();
+    env_pairs.sort_by(|a, b| a.0.cmp(b.0));
+    format!(
+        "{version}:{command}:{args:?}:{}:{env_pairs:?}",
+        cwd.display()
+    )
 }
 
 fn resolve_entry(dir: &Path, entry: Option<&str>, field: &str) -> Result<Option<PathBuf>, String> {
@@ -508,6 +607,33 @@ fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
     false
 }
 
+#[cfg(test)]
+mod tests {
+    use super::{sidecar_spec, PluginSidecarManifest};
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    #[test]
+    fn sidecar_spec_preserves_manifest_command_args_and_env() {
+        let manifest = PluginSidecarManifest {
+            command: "../tools/custom-runner".into(),
+            args: vec!["--script".into(), "../outside/main.js".into()],
+            cwd: "../runtime".into(),
+            env: HashMap::from([("CATRACE_PLUGIN_ID".into(), "manifest-value".into())]),
+        };
+
+        let spec = sidecar_spec(Path::new("/plugins/demo"), "demo", "0.1.0", &manifest);
+
+        assert_eq!(
+            Path::new(&spec.command),
+            Path::new("/plugins/demo").join("../tools/custom-runner")
+        );
+        assert_eq!(spec.args, manifest.args);
+        assert_eq!(spec.cwd, Path::new("/plugins/demo").join("../runtime"));
+        assert_eq!(spec.env, manifest.env);
+    }
+}
+
 // ---------- Tauri commands ----------
 
 #[tauri::command]
@@ -515,9 +641,11 @@ pub fn list_external_plugins(
     app: AppHandle,
     mgr: State<'_, PluginManager>,
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
+    sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
     let list = mgr.rescan(&app)?;
-    windows.schedule_sync(app, mgr.inner().clone());
+    windows.schedule_sync(app.clone(), mgr.inner().clone());
+    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
     Ok(list)
 }
 
@@ -526,11 +654,13 @@ pub fn set_external_plugin_enabled(
     app: AppHandle,
     mgr: State<'_, PluginManager>,
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
+    sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
     let info = mgr.set_enabled(&app, &id, enabled)?;
-    windows.schedule_sync(app, mgr.inner().clone());
+    windows.schedule_sync(app.clone(), mgr.inner().clone());
+    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
     Ok(info)
 }
 

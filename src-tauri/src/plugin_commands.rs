@@ -263,11 +263,24 @@ pub fn plugin_publish_event(
     event: PluginPublishInput,
 ) -> Result<BusEvent, String> {
     let id = require_enabled_plugin(&window, &plugins)?;
-    plugins.allows_event(&id, &event.kind, &event.event_type)?;
+    publish_plugin_event(window.app_handle(), &plugins, &bus, &id, event)
+}
+
+pub(crate) fn publish_plugin_event(
+    app: &tauri::AppHandle,
+    plugins: &PluginManager,
+    bus: &EventBus,
+    id: &str,
+    event: PluginPublishInput,
+) -> Result<BusEvent, String> {
+    plugins.ensure_enabled(id)?;
+    plugins.allows_event(id, &event.kind, &event.event_type)?;
     let event = BusEvent {
         id: String::new(),
         event_type: event.event_type,
-        source: EventSource::Plugin { name: id.clone() },
+        source: EventSource::Plugin {
+            name: id.to_string(),
+        },
         kind: event.kind,
         display_mode: DisplayMode::Toast,
         level: event.level,
@@ -291,7 +304,7 @@ pub fn plugin_publish_event(
     let bytes = serde_json::to_vec(&published)
         .map(|data| data.len())
         .unwrap_or(0);
-    record_event_activity(window.app_handle(), &plugins, &id, bytes);
+    record_event_activity(app, plugins, id, bytes);
     Ok(published)
 }
 
