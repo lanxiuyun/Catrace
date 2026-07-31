@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 use serde::Deserialize;
 use tauri::Manager;
@@ -9,6 +11,13 @@ use tauri::Manager;
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
 use crate::{log_error, log_info, log_warn};
+
+type RpcResult = Result<serde_json::Value, String>;
+
+struct PendingRequest {
+    plugin_id: String,
+    sender: mpsc::Sender<RpcResult>,
+}
 
 struct RunningSidecar {
     fingerprint: String,
@@ -20,6 +29,8 @@ struct RunningSidecar {
 pub struct PluginSidecarManager {
     running: Arc<Mutex<HashMap<String, RunningSidecar>>>,
     sync_lock: Arc<Mutex<()>>,
+    pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
+    next_request_id: Arc<AtomicU64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,6 +53,17 @@ enum SidecarOutput {
         message: String,
         #[serde(default)]
         data: Option<serde_json::Value>,
+    },
+    Response {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        ok: bool,
+        #[serde(default)]
+        result: serde_json::Value,
+        #[serde(default)]
+        error: Option<String>,
     },
 }
 
@@ -79,6 +101,7 @@ impl PluginSidecarManager {
         for id in stopped {
             if let Some(sidecar) = running.remove(&id) {
                 stop_sidecar(&id, sidecar);
+                self.fail_pending_for_plugin(&id, "plugin sidecar stopped");
             }
         }
         for spec in desired {
@@ -98,9 +121,10 @@ impl PluginSidecarManager {
             }
             if let Some(sidecar) = running.remove(&spec.id) {
                 stop_sidecar(&spec.id, sidecar);
+                self.fail_pending_for_plugin(&spec.id, "plugin sidecar restarted");
             }
             let id = spec.id.clone();
-            let spawned = spawn_sidecar(app, plugins, &spec)?;
+            let spawned = spawn_sidecar(app, plugins, &spec, self.clone())?;
             running.insert(
                 id.clone(),
                 RunningSidecar {
@@ -159,6 +183,86 @@ impl PluginSidecarManager {
         });
     }
 
+    pub fn request(
+        &self,
+        plugins: &PluginManager,
+        plugin_id: &str,
+        method: String,
+        params: serde_json::Value,
+    ) -> RpcResult {
+        plugins.ensure_enabled(plugin_id)?;
+        if method.trim().is_empty() {
+            return Err("sidecar method cannot be empty".into());
+        }
+        let stdin = {
+            let running = self.running.lock().map_err(|e| e.to_string())?;
+            let sidecar = running
+                .get(plugin_id)
+                .ok_or_else(|| format!("plugin sidecar is not running: {plugin_id}"))?;
+            Arc::clone(&sidecar.stdin)
+        };
+        let request_id = format!(
+            "{}-{}",
+            plugin_id,
+            self.next_request_id.fetch_add(1, Ordering::Relaxed)
+        );
+        let (sender, receiver) = mpsc::channel();
+        self.pending.lock().map_err(|e| e.to_string())?.insert(
+            request_id.clone(),
+            PendingRequest {
+                plugin_id: plugin_id.to_string(),
+                sender,
+            },
+        );
+        let message = serde_json::json!({
+            "v": 1,
+            "op": "request",
+            "requestId": request_id,
+            "method": method,
+            "params": params,
+        });
+        if let Err(error) = write_message(&stdin, &message) {
+            self.pending
+                .lock()
+                .map_err(|e| e.to_string())?
+                .remove(&request_id);
+            return Err(format!("send sidecar request: {error}"));
+        }
+        match receiver.recv_timeout(Duration::from_secs(30)) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.pending
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .remove(&request_id);
+                Err(format!("sidecar request timed out: {method}"))
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err("sidecar response channel disconnected".into())
+            }
+        }
+    }
+
+    fn fail_pending_for_plugin(&self, plugin_id: &str, error: &str) {
+        let requests = {
+            let Ok(mut pending) = self.pending.lock() else {
+                return;
+            };
+            let request_ids: Vec<String> = pending
+                .iter()
+                .filter(|(_, request)| request.plugin_id == plugin_id)
+                .map(|(id, _)| id.clone())
+                .collect();
+            request_ids
+                .into_iter()
+                .filter_map(|id| pending.remove(&id))
+                .collect::<Vec<_>>()
+        };
+        for request in requests {
+            let _ = request.sender.send(Err(error.to_string()));
+        }
+    }
+
     pub fn stop_all(&self) {
         let Ok(_sync_guard) = self.sync_lock.lock() else {
             return;
@@ -168,8 +272,35 @@ impl PluginSidecarManager {
         };
         for (id, sidecar) in running.drain() {
             stop_sidecar(&id, sidecar);
+            self.fail_pending_for_plugin(&id, "plugin sidecar stopped");
         }
     }
+}
+
+#[tauri::command]
+pub async fn plugin_sidecar_request(
+    window: tauri::WebviewWindow,
+    plugins: tauri::State<'_, PluginManager>,
+    sidecars: tauri::State<'_, PluginSidecarManager>,
+    plugin_id: String,
+    method: String,
+    params: Option<serde_json::Value>,
+) -> RpcResult {
+    if window.label() != "main" {
+        return Err("sidecar request is only available in the main plugin settings window".into());
+    }
+    let manager = sidecars.inner().clone();
+    let plugins = plugins.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        manager.request(
+            &plugins,
+            &plugin_id,
+            method,
+            params.unwrap_or(serde_json::Value::Null),
+        )
+    })
+    .await
+    .map_err(|e| format!("sidecar request task failed: {e}"))?
 }
 
 impl Drop for PluginSidecarManager {
@@ -189,6 +320,7 @@ fn spawn_sidecar(
     app: &tauri::AppHandle,
     plugins: &PluginManager,
     spec: &PluginSidecarSpec,
+    manager: PluginSidecarManager,
 ) -> Result<SpawnedSidecar, String> {
     let mut command = Command::new(&spec.command);
     command
@@ -227,7 +359,9 @@ fn spawn_sidecar(
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines() {
             match line {
-                Ok(line) => handle_stdout_line(&stdout_app, &stdout_plugins, &stdout_id, &line),
+                Ok(line) => {
+                    handle_stdout_line(&stdout_app, &stdout_plugins, &manager, &stdout_id, &line)
+                }
                 Err(e) => {
                     log_warn!("plugin-sidecar", "read stdout for {stdout_id} failed: {e}");
                     break;
@@ -253,6 +387,7 @@ fn spawn_sidecar(
 fn handle_stdout_line(
     app: &tauri::AppHandle,
     plugins: &PluginManager,
+    manager: &PluginSidecarManager,
     plugin_id: &str,
     line: &str,
 ) {
@@ -291,6 +426,46 @@ fn handle_stdout_line(
         } => {
             let _ = v;
             log_plugin_message(plugin_id, &level, &message, data.as_ref());
+        }
+        SidecarOutput::Response {
+            v,
+            request_id,
+            ok,
+            result,
+            error,
+        } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] response rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let pending = manager
+                .pending
+                .lock()
+                .ok()
+                .and_then(|mut pending| pending.remove(&request_id));
+            let Some(pending) = pending else {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] response has unknown request id: {request_id}"
+                );
+                return;
+            };
+            if pending.plugin_id != plugin_id {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] response request owner mismatch: {request_id}"
+                );
+                return;
+            }
+            let response = if ok {
+                Ok(result)
+            } else {
+                Err(error.unwrap_or_else(|| "sidecar request failed".into()))
+            };
+            let _ = pending.sender.send(response);
         }
     }
 }

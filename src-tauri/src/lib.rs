@@ -1182,6 +1182,7 @@ pub fn run() {
             plugins::set_plugin_config,
             plugins::open_plugins_dir,
             plugins::get_plugins_dir,
+            plugin_sidecar::plugin_sidecar_request,
             plugin_commands::get_plugin_background_source,
             plugin_commands::plugin_publish_event,
             plugin_commands::plugin_report_memory,

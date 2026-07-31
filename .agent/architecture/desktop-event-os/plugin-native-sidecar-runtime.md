@@ -271,9 +271,10 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 5. **storage get/set 往返** ⏳ M15.3  
 6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ⏳ M15.3  
 7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
-8. **bt-music mock demo** ⏳  
-9. （可选）`plugin_open_path` 给无 sidecar 插件  
-10. 信任文案补「sidecar = 本机任意代码」⏳  
+8. **桌面能力完整 demo** ✅：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
+9. **bt-music mock demo** ⏳
+10. （可选）`plugin_open_path` 给无 sidecar 插件
+11. 信任文案补「sidecar = 本机任意代码」⏳
 
 ## 12. 完成定义（M15）
 

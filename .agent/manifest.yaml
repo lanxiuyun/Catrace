@@ -212,6 +212,7 @@ architecture:
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
+      - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
       - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
@@ -280,6 +281,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md
   - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
   - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md
   - .agent/devlog/2026-07-27-外部插件settings根padding与宿主双倍缩进.md
