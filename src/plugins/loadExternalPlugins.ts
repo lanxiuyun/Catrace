@@ -1,8 +1,4 @@
-import {
-  defineAsyncComponent,
-  markRaw,
-  type Component,
-} from 'vue'
+import { markRaw, type Component } from 'vue'
 import {
   getPluginSettingsSource,
   getPluginUiSource,
@@ -11,6 +7,7 @@ import {
 } from '../api/tauri'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import { ensurePluginRuntime } from './pluginRuntime'
+import { wrapPluginSource } from './pluginApi'
 
 const blobUrlByPlugin = new Map<string, string>()
 const settingsBlobUrlByPlugin = new Map<string, string>()
@@ -49,34 +46,17 @@ async function buildComponentFromSource(
   map: Map<string, string>,
   exportNames: string[],
 ): Promise<Component> {
-  const blob = new Blob([source], { type: 'text/javascript' })
+  const blob = new Blob([wrapPluginSource(pluginId, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   revokeBlob(map, pluginId, blobUrl)
 
-  return markRaw(
-    defineAsyncComponent({
-      loader: async () => {
-        const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
-        let comp: Component | undefined
-        for (const name of exportNames) {
-          if (mod[name]) {
-            comp = mod[name] as Component
-            break
-          }
-        }
-        if (!comp) {
-          throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
-        }
-        return markRaw(comp as object) as Component
-      },
-      delay: 0,
-      timeout: 10000,
-      onError(err, _retry, fail) {
-        console.warn(`[plugins] async load failed for ${pluginId}`, err)
-        fail()
-      },
-    }),
-  )
+  const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
+  for (const name of exportNames) {
+    if (mod[name]) {
+      return markRaw(mod[name] as object) as Component
+    }
+  }
+  throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
 }
 
 async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
@@ -96,9 +76,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
     return list
   }
 
-  for (const name of registry.listExternalNames()) {
-    registry.unregister(name)
-  }
+  const previousNames = new Set(registry.listExternalNames())
 
   for (const p of list) {
     if (p.error) continue
@@ -159,6 +137,11 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
       uiUrl,
     }
     registry.register(handle)
+    previousNames.delete(p.id)
+  }
+
+  for (const name of previousNames) {
+    registry.unregister(name)
   }
 
   lastFingerprint = fp

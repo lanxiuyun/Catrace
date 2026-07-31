@@ -182,6 +182,10 @@ const ActiveDetail = computed(() => {
 
 const activePanelRef = ref<any>(null)
 
+function setActivePanelRef(el: any) {
+  activePanelRef.value = isBuiltinSelected.value ? el : null
+}
+
 const activeHeader = computed(() => {
   // External plugins: header switch = external enabled (not settings expose).
   if (selectedExternal.value) {
@@ -335,7 +339,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
               <component
                 :is="ActiveDetail"
                 :key="selectedId"
-                :ref="(el: any) => activePanelRef = el"
+                :ref="isBuiltinSelected ? setActivePanelRef : undefined"
               />
             </div>
           </div>

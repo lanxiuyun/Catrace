@@ -14,6 +14,7 @@ import { usePluginRegistry } from '../stores/pluginRegistry'
 import { getPluginUiSource } from '../api/tauri'
 import SdkToastCard from './SdkToastCard.vue'
 import { ensurePluginRuntime } from '../plugins/pluginRuntime'
+import { wrapPluginSource } from '../plugins/pluginApi'
 
 const props = defineProps<{
   event: BusEvent
@@ -65,7 +66,7 @@ async function loadFromBlobUrl(url: string): Promise<Component> {
 async function loadFromPluginId(id: string): Promise<Component> {
   ensurePluginRuntime()
   const source = await getPluginUiSource(id)
-  const blob = new Blob([source], { type: 'text/javascript' })
+  const blob = new Blob([wrapPluginSource(id, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   return loadFromBlobUrl(blobUrl)
 }

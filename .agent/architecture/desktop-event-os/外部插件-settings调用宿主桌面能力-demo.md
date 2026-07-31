@@ -1,56 +1,82 @@
-# 外部插件 settings 通过通用 Sidecar RPC 调用桌面能力
+﻿# 外部插件 settings 通过统一 plugin API 调用 Rust 宿主能力
 
-`sidecar-echo` 不只验证 sidecar JSONL/Toast 生命周期，也验证插件 Settings 与独立 Node sidecar 的双向请求/响应。
+`sidecar-echo` 同时验证两条能力链：统一 Rust 宿主 API，以及可选 Node sidecar 的后台事件与 action 回传。
 
 ## 正确边界
 
-`src-tauri/src/plugin_sidecar.rs` 只提供通用 `plugin_sidecar_request(pluginId, method, params)` 管道：生成 requestId、写 stdin、匹配 stdout response、超时返回。Rust 不认识环境变量、文件对话框、程序启动或 HTTP 这些具体业务。
+插件 UI/settings/background 源码加载前，宿主会注入模块局部变量：
 
-具体能力全部由 `tools/plugin-demo/sidecar-echo/runtime/main.mjs` 实现：
-
-| Method | Node sidecar 实现 |
-|--------|-------------------|
-| `environment.get` | `process.env` |
-| `dialog.pickFile` | Windows PowerShell / macOS osascript / Linux zenity 或 kdialog |
-| `dialog.pickFolder` | 同上，切换目录选择模式 |
-| `process.spawn` | `node:child_process.spawn`，返回 PID |
-| `http.get` | Node `fetch`，返回状态、最终 URL、Content-Type 与正文 |
-
-## JSONL RPC
-
-Settings → sidecar stdin：
-
-```json
-{"v":1,"op":"request","requestId":"sidecar-echo-1","method":"http.get","params":{"url":"https://example.com"}}
+```js
+const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__('plugin-id')
 ```
 
-sidecar stdout → Settings：
+插件直接调用 Rubick 风格 facade，不直接拼 Tauri command：
 
-```json
-{"v":1,"op":"response","requestId":"sidecar-echo-1","ok":true,"result":{"status":200}}
+```js
+await plugin.env.getAll()
+await plugin.dialog.pickFile()
+await plugin.dialog.pickFolder()
+await plugin.process.spawn(path, args)
+await plugin.http.get(url)
+await plugin.log.info('message', { key: 'value' })
+await plugin.sidecar.request('custom.method', params)
 ```
 
-失败时返回 `ok:false` 和 `error`。宿主只按 requestId 路由，不解释 method。
+Rust 只实现可复用桌面原语；插件业务仍写在插件内。不要新增 `plugin_demo_*` 这类单插件 command。
 
-## 文件
+## 调用链
 
-- `src-tauri/src/plugin_sidecar.rs` — 通用 request/response 管道
-- `src-tauri/src/lib.rs` — 注册唯一通用 invoke command
-- `tools/plugin-demo/sidecar-echo/settings.mjs` — Settings 发起通用 RPC
-- `tools/plugin-demo/sidecar-echo/runtime/main.mjs` — 插件自己的桌面能力实现
+```text
+settings/ui/background.mjs
+  -> 模块局部 plugin facade (src/plugins/pluginApi.ts)
+  -> Tauri invoke + pluginId
+  -> plugins.rs 通用 command
+  -> 校验插件 id、调用窗口和启用状态
+  -> 环境 / dialog / process / HTTP / log
+```
 
-## 约定
+`loadExternalPlugins.ts`、`PluginHostCard.vue`、`PluginHost.vue` 三条 Blob import 路径都必须使用 `wrapPluginSource()`，否则对应 surface 中没有 `plugin` 变量。
 
-1. Settings 运行在主窗口，RPC command 仅接受 main window 调用，并校验插件已启用且 sidecar 正在运行。
-2. 本地插件采用“启用即信任”；sidecar 本身就是本机代码，可读环境变量、访问网络和启动程序。
-3. 新增插件业务能力时只改插件 runtime，不给 Rust 增加 `plugin_demo_*` 专用 command。
-4. request 等待放在 blocking task，避免阻塞 Tauri async 主执行路径。
-5. 当前 RPC 超时为 30 秒；适合交互和短操作，不用于长期流式任务。
+## plugin.log
+
+`plugin.log.info/warn/error(message, data)` 有两个出口：
+
+1. Rust 统一日志：stderr 与宿主日志文件，格式带 `[plugin] [plugin-id]`。
+2. Rust emit `catrace:plugin-log` 到 `main`，主窗口监听后输出为 DevTools `console.info/warn/error`。
+
+console 转发失败不应让插件日志调用失败；日志文件是主记录，console 是调试镜像。
+
+## 当前 API
+
+| API | Rust 实现 |
+|-----|-----------|
+| `plugin.env.getAll()` | `std::env::vars()` |
+| `plugin.dialog.showOpenDialog({ directory })` | `tauri-plugin-dialog` |
+| `plugin.dialog.pickFile()` / `pickFolder()` | facade 便捷方法 |
+| `plugin.process.spawn(path, args)` | `std::process::Command`，返回 PID |
+| `plugin.http.get(url)` | `reqwest`，返回 status/final URL/contentType/body |
+| `plugin.log.*` | 统一 Rust 日志 + 主窗口 console |
+| `plugin.sidecar.request()` | 既有通用 JSONL RPC，供插件自定义 sidecar method |
+
+## sidecar-echo Demo 边界
+
+- `settings.mjs`：通过 `plugin.*` 验证宿主环境、文件/目录选择、启动程序、HTTP GET、日志。
+- `runtime/main.mjs`：只保留 sidecar 自身的定时 Toast、shutdown 和 resolved/action roundtrip；不再重复实现桌面原语。
 
 ## 验证
 
 - `cargo check`
-- `vue-tsc --noEmit`
+- `cargo test plugin_sidecar --lib`
+- `pnpm exec vue-tsc --noEmit`
+- `pnpm build`
 - `node --check tools/plugin-demo/sidecar-echo/settings.mjs`
 - `node --check tools/plugin-demo/sidecar-echo/runtime/main.mjs`
-- 重启 Rust 应用后手测环境变量、文件/目录选择、程序启动和 GET。
+- 重启 Rust 应用后手测，并在主窗口 DevTools console 检查 `[plugin:sidecar-echo]`。
+
+## Newly completed host capabilities
+
+- `plugin.dialog.showSaveDialog()` and `plugin.path.get()`.
+- Clipboard and plugin-isolated JSON storage.
+- `openExternal/openPath/showItemInFolder` shell operations.
+- Platform, theme, and Event Bus-backed Toast notification.
+- Rust implementation is centralized in `src-tauri/src/plugin_api.rs`; `plugins.rs` remains responsible for manifest scanning and lifecycle state.

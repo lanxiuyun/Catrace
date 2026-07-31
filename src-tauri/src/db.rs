@@ -292,6 +292,15 @@ impl Db {
         Ok(())
     }
 
+    pub fn remove_plugin_storage(&self, plugin_id: &str, key: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM plugin_storage WHERE plugin_id = ?1 AND key = ?2",
+            [plugin_id, key],
+        )?;
+        Ok(())
+    }
+
     /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
     fn get_today_minutes(&self) -> Result<Vec<(i64, bool)>> {
         let start_of_day = start_of_day_ts();
@@ -570,6 +579,12 @@ mod tests {
             Some("{\"value\":2}")
         );
         assert_eq!(db.get_plugin_storage("alpha", "missing").unwrap(), None);
+        db.remove_plugin_storage("alpha", "state").unwrap();
+        assert_eq!(db.get_plugin_storage("alpha", "state").unwrap(), None);
+        assert_eq!(
+            db.get_plugin_storage("beta", "state").unwrap().as_deref(),
+            Some("{\"value\":2}")
+        );
     }
 
     #[test]

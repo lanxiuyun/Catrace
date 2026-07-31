@@ -29,6 +29,7 @@ import {
 } from 'naive-ui'
 import SettingRow from '../components/settings/SettingRow.vue'
 import SliderControl from '../components/settings/SliderControl.vue'
+import { createPluginApi, type PluginApi } from './pluginApi'
 
 /** Minimal Vue APIs for external ESM plugins (bare `vue` import won't resolve from Blob URL). */
 export type PluginVueRuntime = {
@@ -79,6 +80,8 @@ declare global {
   var __CATRACE_NAIVE__: PluginNaiveRuntime | undefined
   // eslint-disable-next-line no-var
   var __CATRACE_UI__: PluginUiRuntime | undefined
+  // eslint-disable-next-line no-var
+  var __CATRACE_CREATE_PLUGIN_API__: ((pluginId: string) => PluginApi) | undefined
 }
 
 /**
@@ -90,6 +93,7 @@ export function ensurePluginRuntime() {
     __CATRACE_VUE__?: PluginVueRuntime
     __CATRACE_NAIVE__?: PluginNaiveRuntime
     __CATRACE_UI__?: PluginUiRuntime
+    __CATRACE_CREATE_PLUGIN_API__?: (pluginId: string) => PluginApi
   }
 
   if (!g.__CATRACE_VUE__) {
@@ -131,5 +135,9 @@ export function ensurePluginRuntime() {
       SettingRow: markRaw(SettingRow),
       SliderControl: markRaw(SliderControl),
     }
+  }
+
+  if (!g.__CATRACE_CREATE_PLUGIN_API__) {
+    g.__CATRACE_CREATE_PLUGIN_API__ = createPluginApi
   }
 }

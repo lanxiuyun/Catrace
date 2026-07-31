@@ -2,6 +2,9 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { ensurePluginRuntime } from '../../plugins/pluginRuntime'
+import { wrapPluginSource } from '../../plugins/pluginApi'
 
 let memoryTimer: ReturnType<typeof window.setInterval> | null = null
 let unlistenResolved: UnlistenFn | null = null
@@ -28,8 +31,10 @@ onMounted(async () => {
   })
 
   try {
+    ensurePluginRuntime()
+    const pluginId = getCurrentWindow().label.replace(/^plugin-bg-/, '')
     const source = await invoke<string>('get_plugin_background_source')
-    const blob = new Blob([source], { type: 'text/javascript' })
+    const blob = new Blob([wrapPluginSource(pluginId, source)], { type: 'text/javascript' })
     const url = URL.createObjectURL(blob)
     try {
       await import(/* @vite-ignore */ url)

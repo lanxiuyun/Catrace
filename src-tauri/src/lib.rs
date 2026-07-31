@@ -5,6 +5,7 @@ mod event;
 mod event_http;
 mod log;
 mod media_audio;
+mod plugin_api;
 mod plugin_commands;
 mod plugin_config;
 mod plugin_sidecar;
@@ -1182,6 +1183,24 @@ pub fn run() {
             plugins::set_plugin_config,
             plugins::open_plugins_dir,
             plugins::get_plugins_dir,
+            plugin_api::plugin_api_get_environment,
+            plugin_api::plugin_api_show_open_dialog,
+            plugin_api::plugin_api_show_save_dialog,
+            plugin_api::plugin_api_get_path,
+            plugin_api::plugin_api_clipboard_write_text,
+            plugin_api::plugin_api_clipboard_read_text,
+            plugin_api::plugin_api_storage_get,
+            plugin_api::plugin_api_storage_set,
+            plugin_api::plugin_api_storage_remove,
+            plugin_api::plugin_api_shell_open_external,
+            plugin_api::plugin_api_shell_open_path,
+            plugin_api::plugin_api_shell_show_item_in_folder,
+            plugin_api::plugin_api_platform_get_info,
+            plugin_api::plugin_api_theme_is_dark,
+            plugin_api::plugin_api_notification_show,
+            plugin_api::plugin_api_spawn_process,
+            plugin_api::plugin_api_http_get,
+            plugin_api::plugin_api_log,
             plugin_sidecar::plugin_sidecar_request,
             plugin_commands::get_plugin_background_source,
             plugin_commands::plugin_publish_event,
