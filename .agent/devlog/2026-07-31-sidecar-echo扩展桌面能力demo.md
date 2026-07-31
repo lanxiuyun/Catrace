@@ -13,10 +13,10 @@
 - 增加 Node fetch HTTP GET 与响应展示。
 - 保留原 sidecar 定时 Toast、action resolved 回传能力。
 - 通过 Rust、前端类型、插件 ESM 语法与 manifest JSON 检查。
+- 真机确认环境变量读取、文件选择、文件夹选择、程序启动和 HTTP GET 均正常。
 
 ## Pending
 
-- 重启开发应用后进行真实对话框、程序启动和网络请求手测。
 - M15.3 sidecar storage request/response 与插件中心 runtime 状态仍按路线图推进。
 
 ## Key file changes

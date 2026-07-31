@@ -327,5 +327,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: M15.1-M15.2 真机验收（PluginSidecarManager + sidecar-echo + toast echo keep/dismiss）
+  phase: M15.1-M15.2 真机验收（sidecar 生命周期 + 通用 RPC + 完整桌面能力 Demo）
   next: M15.3 storage + Plugins UI status；信任文案；bt-music mock

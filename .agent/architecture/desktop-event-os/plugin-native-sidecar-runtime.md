@@ -271,7 +271,7 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 5. **storage get/set 往返** ⏳ M15.3  
 6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ⏳ M15.3  
 7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
-8. **桌面能力完整 demo** ✅：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
+8. **桌面能力完整 demo** ✅ 真机验收：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
 9. **bt-music mock demo** ⏳
 10. （可选）`plugin_open_path` 给无 sidecar 插件
 11. 信任文案补「sidecar = 本机任意代码」⏳
@@ -283,6 +283,7 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 - [x] Missing command or interpreter produces a clear runtime error without crashing the host
 - [x] Toast action resolve 能到达 sidecar stdin  
 - [x] `sidecar-echo` 手测通过（回传留卡 / 完成卸卡 / 不冻窗）  
+- [x] Settings → 通用 sidecar RPC → Node 桌面能力手测通过（环境 / 文件 / 目录 / 进程 / GET）
 - [ ] 文档与 m10 信任说明更新「sidecar = 本机代码」  
 - [x] **无** 蓝牙/业务专用 Rust API  
 - [ ] sidecar storage request/response（M15.3）  
