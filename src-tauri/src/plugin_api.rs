@@ -14,8 +14,10 @@ use tauri_plugin_opener::OpenerExt;
 use crate::bus::EventBus;
 use crate::db::Db;
 use crate::event::{BusEvent, DisplayMode, EventLevel, EventSource, EventStatus};
+use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::PluginManager;
-use crate::{log_error, log_info, log_warn};
+use crate::{log_error, log_info, log_warn, ActivityState};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -622,4 +624,60 @@ pub fn plugin_api_notification_show(
         correlation_id: None,
         dedupe_key: None,
     })
+}
+
+/// Full Event Bus publish (actions / payload / dedupe). Plugin must be enabled.
+#[tauri::command]
+pub fn plugin_api_event_publish(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    bus: State<'_, EventBus>,
+    plugin_id: String,
+    event: PluginPublishInput,
+) -> Result<BusEvent, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    publish_plugin_event(window.app_handle(), &plugins, &bus, &plugin_id, event)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginApiActivitySnapshot {
+    active: bool,
+    count: u32,
+    media_active: bool,
+    fullscreen_active: bool,
+}
+
+#[tauri::command]
+pub fn plugin_api_get_activity(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    activity: State<'_, Arc<Mutex<ActivityState>>>,
+    plugin_id: String,
+) -> Result<PluginApiActivitySnapshot, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let state = activity.lock().map_err(|e| e.to_string())?;
+    let active = !state.fullscreen_snapshot && (state.count > 0 || state.media_active_snapshot);
+    Ok(PluginApiActivitySnapshot {
+        active,
+        count: state.count,
+        media_active: state.media_active_snapshot,
+        fullscreen_active: state.fullscreen_snapshot,
+    })
+}
+
+/// Last end-ts of a continuous idle streak ≥ rest plugin `break_minutes` (today).
+#[tauri::command]
+pub fn plugin_api_get_last_real_rest(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    db: State<'_, Db>,
+    plugin_id: String,
+) -> Result<Option<i64>, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let break_minutes = crate::rest_plugin::load_config(window.app_handle())
+        .break_minutes
+        .clamp(1, 24 * 60);
+    db.get_last_real_rest_ts(break_minutes)
+        .map_err(|e| e.to_string())
 }

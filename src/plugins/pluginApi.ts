@@ -33,6 +33,29 @@ export type PluginNotificationOptions = {
   sticky?: boolean
 }
 
+export type PluginEventAction = { id: string; label: string }
+export type PluginEventPublishOptions = {
+  eventType: string
+  kind: string
+  title: string
+  body?: string
+  level?: 'info' | 'warning' | 'error' | 'success'
+  sticky?: boolean
+  actions?: PluginEventAction[]
+  payload?: unknown
+  dedupeKey?: string
+  expiresAt?: number
+  correlationId?: string
+  progress?: unknown
+}
+
+export type PluginActivitySnapshot = {
+  active: boolean
+  count: number
+  mediaActive: boolean
+  fullscreenActive: boolean
+}
+
 type PluginLogLevel = 'info' | 'warn' | 'error'
 type PluginLogPayload = { pluginId: string; level: string; message: string; data?: unknown }
 
@@ -58,11 +81,19 @@ export type PluginApi = {
     getDisplayNearestPoint(point: PluginScreenPoint): Promise<PluginDisplay | null>
     getAllDisplays(): Promise<PluginDisplay[]>
   }
+  /** Plugin-isolated JSON runtime storage (SQLite). */
   storage: {
     get<T = unknown>(key: string): Promise<T | null>
     set(key: string, value: unknown): Promise<void>
     remove(key: string): Promise<void>
   }
+  /** Whole-object settings store (`plugin_config:{id}`); readable while disabled. */
+  config: {
+    get<T = unknown>(): Promise<T | null>
+    set(value: unknown): Promise<void>
+  }
+  /** Enable/disable this plugin (main window / settings). */
+  setEnabled(enabled: boolean): Promise<void>
   shell: {
     openExternal(url: string): Promise<void>
     openPath(path: string): Promise<void>
@@ -71,7 +102,15 @@ export type PluginApi = {
   }
   platform: { getInfo(): Promise<PluginPlatformInfo> }
   theme: { isDark(): Promise<boolean> }
+  /** Simple toast helper (kind defaults to plugin id). */
   notification: { show(options: PluginNotificationOptions): Promise<unknown> }
+  /** Full Event Bus publish with actions/payload (plugin must be enabled). */
+  events: { publish(options: PluginEventPublishOptions): Promise<unknown> }
+  /** Host activity / rest anchors for interval schedulers. */
+  activity: {
+    get(): Promise<PluginActivitySnapshot>
+    getLastRealRest(): Promise<number | null>
+  }
   process: { spawn(path: string, args?: string[]): Promise<PluginProcessInfo> }
   http: { get(url: string): Promise<PluginHttpResponse> }
   log: Record<PluginLogLevel, (message: string, data?: unknown) => Promise<void>>
@@ -119,6 +158,13 @@ export function createPluginApi(pluginId: string): PluginApi {
       set: (key, value) => invoke('plugin_api_storage_set', { pluginId, key, value: JSON.stringify(value) }),
       remove: (key) => invoke('plugin_api_storage_remove', { pluginId, key }),
     },
+    config: {
+      get: <T = unknown>() => invoke<T | null>('get_plugin_config', { pluginId }),
+      set: (value) => invoke('set_plugin_config', { pluginId, value }),
+    },
+    setEnabled: async (enabled) => {
+      await invoke('set_external_plugin_enabled', { id: pluginId, enabled })
+    },
     shell: {
       openExternal: (url) => invoke('plugin_api_shell_open_external', { pluginId, url }),
       openPath: (path) => invoke('plugin_api_shell_open_path', { pluginId, path }),
@@ -128,6 +174,30 @@ export function createPluginApi(pluginId: string): PluginApi {
     platform: { getInfo: () => invoke('plugin_api_platform_get_info', { pluginId }) },
     theme: { isDark: () => invoke('plugin_api_theme_is_dark', { pluginId }) },
     notification: { show: (options) => invoke('plugin_api_notification_show', { pluginId, options }) },
+    events: {
+      publish: (options) =>
+        invoke('plugin_api_event_publish', {
+          pluginId,
+          event: {
+            eventType: options.eventType,
+            kind: options.kind,
+            title: options.title,
+            body: options.body ?? '',
+            level: options.level,
+            sticky: options.sticky,
+            actions: options.actions ?? [],
+            payload: options.payload ?? null,
+            dedupeKey: options.dedupeKey,
+            expiresAt: options.expiresAt,
+            correlationId: options.correlationId,
+            progress: options.progress,
+          },
+        }),
+    },
+    activity: {
+      get: () => invoke<PluginActivitySnapshot>('plugin_api_get_activity', { pluginId }),
+      getLastRealRest: () => invoke<number | null>('plugin_api_get_last_real_rest', { pluginId }),
+    },
     process: { spawn: (path, args = []) => invoke('plugin_api_spawn_process', { pluginId, path, args }) },
     http: { get: (url) => invoke('plugin_api_http_get', { pluginId, url }) },
     log: {

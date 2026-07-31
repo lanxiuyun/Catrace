@@ -1,5 +1,5 @@
 /** Timer plugin settings — host Vue + naive-ui; inline card editor.
- * Uses get_plugin_config / set_plugin_config / publish_event / set_external_plugin_enabled.
+ * Uses injected `plugin` facade (config / events / setEnabled).
  */
 const vue = globalThis.__CATRACE_VUE__ || {}
 const naive = globalThis.__CATRACE_NAIVE__ || {}
@@ -21,8 +21,9 @@ if (typeof h !== 'function') {
 if (!NButton || !NSwitch || !NInput || !NPopconfirm || !NRadioGroup || !NTag || !NTooltip) {
   throw new Error('Catrace plugin naive runtime missing (__CATRACE_NAIVE__)')
 }
-
-const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args)
+if (!plugin || !plugin.config || !plugin.events || !plugin.setEnabled) {
+  throw new Error('Catrace plugin API missing (plugin facade)')
+}
 
 const PLUGIN_ID = 'timer'
 const MAX_RULES = 20
@@ -804,7 +805,7 @@ export default {
     async function load() {
       loading.value = true
       try {
-        const raw = await invoke('get_plugin_config', { pluginId: PLUGIN_ID })
+        const raw = await plugin.config.get()
         const s = raw && typeof raw === 'object' ? raw : { enabled: true, rules: [] }
         const next = {
           enabled: s.enabled !== false,
@@ -843,10 +844,7 @@ export default {
     async function persist(next) {
       saving.value = true
       try {
-        await invoke('set_plugin_config', {
-          pluginId: PLUGIN_ID,
-          value: portableSettings(next),
-        })
+        await plugin.config.set(portableSettings(next))
       } catch (e) {
         console.warn('[timer settings] save failed', e)
         throw e
@@ -883,11 +881,8 @@ export default {
       settings.value = { ...settings.value, enabled: val }
       headerLoading.value = true
       try {
-        await invoke('set_external_plugin_enabled', { id: PLUGIN_ID, enabled: val })
-        await invoke('set_plugin_config', {
-          pluginId: PLUGIN_ID,
-          value: portableSettings({ ...settings.value, enabled: val }),
-        })
+        await plugin.setEnabled(val)
+        await plugin.config.set(portableSettings({ ...settings.value, enabled: val }))
         window.dispatchEvent(
           new CustomEvent('catrace:plugin-enabled-changed', {
             detail: { id: PLUGIN_ID, enabled: val },
@@ -1058,36 +1053,31 @@ export default {
             title: '定时提醒',
             body: '这是一条测试通知。',
           })
-        await invoke('publish_event', {
-          event: {
-            id: '',
-            event_type: 'reminder.timer.due',
-            kind: 'timer',
-            source: { type: 'plugin', name: PLUGIN_ID },
-            display_mode: 'toast',
-            level: 'info',
-            title: (r.title || '').trim() || '定时提醒',
-            body: (r.body || '').trim() || '该处理这件事了。',
-            sticky: !!r.sticky,
-            actions: [
-              { id: 'ack', label: '知道了' },
-              { id: 'snooze_5', label: '5 分钟后' },
-              { id: 'skip', label: '跳过' },
-            ],
-            payload: {
-              rule_id: r.id,
-              mode: normalizeMode(r.mode),
-              auto_hide_ms: r.sticky
-                ? 0
-                : clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC) * 1000,
-              card_duration_sec: clamp(
-                r.card_duration_sec || DEFAULT_CARD_SEC,
-                MIN_CARD_SEC,
-                MAX_CARD_SEC,
-              ),
-            },
-            dedupe_key: `reminder.timer.due:${r.id}`,
+        await plugin.events.publish({
+          eventType: 'reminder.timer.due',
+          kind: 'timer',
+          level: 'info',
+          title: (r.title || '').trim() || '定时提醒',
+          body: (r.body || '').trim() || '该处理这件事了。',
+          sticky: !!r.sticky,
+          actions: [
+            { id: 'ack', label: '知道了' },
+            { id: 'snooze_5', label: '5 分钟后' },
+            { id: 'skip', label: '跳过' },
+          ],
+          payload: {
+            rule_id: r.id,
+            mode: normalizeMode(r.mode),
+            auto_hide_ms: r.sticky
+              ? 0
+              : clamp(r.card_duration_sec || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC) * 1000,
+            card_duration_sec: clamp(
+              r.card_duration_sec || DEFAULT_CARD_SEC,
+              MIN_CARD_SEC,
+              MAX_CARD_SEC,
+            ),
           },
+          dedupeKey: `reminder.timer.due:${r.id}`,
         })
         showToast('ok', '已发送测试通知')
         await new Promise((res) => setTimeout(res, 1000))

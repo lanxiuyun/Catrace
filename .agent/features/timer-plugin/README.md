@@ -11,12 +11,13 @@
 | 路径 | 角色 |
 |------|------|
 | `tools/plugin-demo/timer/manifest.json` | id=`timer`，settings/background/ui |
-| `tools/plugin-demo/timer/settings.mjs` | 规则列表 UI、内联编辑、排序、护眼示例锁定 |
-| `tools/plugin-demo/timer/background.mjs` | 调度、休息重置、action 副作用 |
-| `tools/plugin-demo/timer/ui.mjs` | Toast 卡 |
-| `src/plugins/pluginRuntime.ts` | 宿主注入 `__CATRACE_VUE__` / `__CATRACE_NAIVE__` / `__CATRACE_UI__` |
-| `src/plugins/loadExternalPlugins.ts` | Blob 加载 settings/ui |
-| `src-tauri/src/plugin_commands.rs` | `plugin_get_last_real_rest` 等 |
+| `tools/plugin-demo/timer/settings.mjs` | 规则列表 UI；经注入 `plugin` facade 调 config/events/setEnabled |
+| `tools/plugin-demo/timer/background.mjs` | 调度、休息重置、action 副作用；经 `plugin` facade |
+| `tools/plugin-demo/timer/ui.mjs` | Toast 卡（纯 Vue render，无 host invoke） |
+| `src/plugins/pluginApi.ts` | Rubick 风格 `plugin` facade + `wrapPluginSource` |
+| `src/plugins/pluginRuntime.ts` | 宿主注入 Vue/naive/UI + `__CATRACE_CREATE_PLUGIN_API__` |
+| `src/plugins/loadExternalPlugins.ts` | Blob 加载 settings/ui，注入 `plugin` |
+| `src-tauri/src/plugin_api.rs` | 通用宿主 API（含 event publish / activity / last real rest） |
 
 Debug 构建 junction：`tools/plugin-demo/timer` → `app_data/plugins/timer`。
 

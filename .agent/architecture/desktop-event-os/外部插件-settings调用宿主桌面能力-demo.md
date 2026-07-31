@@ -56,6 +56,12 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 | `plugin.process.spawn(path, args)` | `std::process::Command`，返回 PID |
 | `plugin.http.get(url)` | `reqwest`，返回 status/final URL/contentType/body |
 | `plugin.log.*` | 统一 Rust 日志 + 主窗口 console |
+| `plugin.storage.get/set/remove()` | 插件隔离 JSON runtime 存储 |
+| `plugin.config.get/set()` | 整对象 settings store（可读可在禁用时写） |
+| `plugin.setEnabled(bool)` | 启用/禁用本插件 |
+| `plugin.events.publish()` | 完整 Event Bus 发布（actions/payload/dedupe） |
+| `plugin.activity.get()` / `getLastRealRest()` | 活跃快照 / 真休息锚点 |
+| `plugin.notification.show()` | Event Bus 简易 Toast |
 | `plugin.sidecar.request()` | 既有通用 JSONL RPC，供插件自定义 sidecar method |
 
 ## sidecar-echo Demo 边界
@@ -79,6 +85,7 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 - Clipboard and plugin-isolated JSON storage.
 - `openExternal/openPath/showItemInFolder` shell operations.
 - Platform, theme, and Event Bus-backed Toast notification.
+- Timer plugin config/events/activity surface: `plugin.config`, `plugin.events.publish`, `plugin.activity.*`, `plugin.setEnabled`.
 - Rust implementation is centralized in `src-tauri/src/plugin_api.rs`; `plugins.rs` remains responsible for manifest scanning and lifecycle state.
 
 ## Rubick API second batch

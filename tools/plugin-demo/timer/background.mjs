@@ -1,5 +1,7 @@
-/** Timer plugin background — port of timer_plugin.rs minute-tick semantics. */
-const invoke = (command, args = {}) => window.__TAURI_INTERNALS__.invoke(command, args)
+/** Timer plugin background — minute-tick scheduler via injected `plugin` facade. */
+if (!plugin || !plugin.config || !plugin.storage || !plugin.events || !plugin.activity || !plugin.log) {
+  throw new Error('Catrace plugin API missing (plugin facade)')
+}
 
 const MAX_RULES = 20
 const MAX_DAILY_TIMES = 8
@@ -205,12 +207,12 @@ function snooze(ruleId, minutes) {
 }
 
 async function loadConfig() {
-  const raw = await invoke('plugin_config_get_all')
+  const raw = await plugin.config.get()
   return sanitizeSettings(raw || { enabled: true, rules: [] })
 }
 
 async function loadRuntime() {
-  const raw = await invoke('plugin_storage_get', { key: RUNTIME_KEY })
+  const raw = await plugin.storage.get(RUNTIME_KEY)
   return raw && typeof raw === 'object' ? raw : {}
 }
 
@@ -231,11 +233,10 @@ async function saveRuntime(settings) {
       last_daily_keys: rule.last_daily_keys || [],
     }
   }
-  await invoke('plugin_storage_set', { key: RUNTIME_KEY, value: runtime })
+  await plugin.storage.set(RUNTIME_KEY, runtime)
 }
 
 async function getLocale() {
-  // Prefer document lang; fall back to zh-CN.
   try {
     const lang = (document.documentElement.lang || '').trim()
     if (lang) return lang.startsWith('zh') ? 'zh-CN' : lang
@@ -249,28 +250,25 @@ async function publishDue(rule, locale) {
   const mode = rule.mode === 'daily' ? 'daily' : 'interval'
   const sticky = !!rule.sticky
   const cardSec = clamp(Number(rule.card_duration_sec) || DEFAULT_CARD_SEC, MIN_CARD_SEC, MAX_CARD_SEC)
-  await invoke('plugin_publish_event', {
-    event: {
-      eventType: 'reminder.timer.due',
-      kind: 'timer',
-      title: ruleTitle(rule, locale),
-      body: ruleBody(rule, locale),
-      level: 'info',
-      sticky,
-      actions: [
-        { id: 'ack', label: actionLabel(locale, 'ack') },
-        { id: 'snooze_5', label: actionLabel(locale, 'snooze_5') },
-        { id: 'skip', label: actionLabel(locale, 'skip') },
-      ],
-      payload: {
-        rule_id: rule.id,
-        mode,
-        // Host ReminderToast reads these for per-card auto-hide.
-        auto_hide_ms: sticky ? 0 : cardSec * 1000,
-        card_duration_sec: cardSec,
-      },
-      dedupeKey: `reminder.timer.due:${rule.id}`,
+  await plugin.events.publish({
+    eventType: 'reminder.timer.due',
+    kind: 'timer',
+    title: ruleTitle(rule, locale),
+    body: ruleBody(rule, locale),
+    level: 'info',
+    sticky,
+    actions: [
+      { id: 'ack', label: actionLabel(locale, 'ack') },
+      { id: 'snooze_5', label: actionLabel(locale, 'snooze_5') },
+      { id: 'skip', label: actionLabel(locale, 'skip') },
+    ],
+    payload: {
+      rule_id: rule.id,
+      mode,
+      auto_hide_ms: sticky ? 0 : cardSec * 1000,
+      card_duration_sec: cardSec,
     },
+    dedupeKey: `reminder.timer.due:${rule.id}`,
   })
 }
 
@@ -283,13 +281,9 @@ async function onMinuteTick() {
 
   let activity = { active: false }
   try {
-    activity = await invoke('plugin_get_activity')
+    activity = await plugin.activity.get()
   } catch (e) {
-    await invoke('plugin_log', {
-      level: 'warn',
-      message: 'plugin_get_activity failed',
-      data: { error: String(e) },
-    })
+    await plugin.log.warn('plugin.activity.get failed', { error: String(e) })
   }
 
   const { date, hhmm, ts } = localDateParts()
@@ -311,21 +305,18 @@ async function onMinuteTick() {
       } else {
         let startTs = Number(rule.last_fired_at) || 0
         if (rule.reset_on_rest) {
-          // If last real rest ended inside this round (after last fire), restart from rest end.
           let lastRest = null
           try {
-            lastRest = await invoke('plugin_get_last_real_rest')
+            lastRest = await plugin.activity.getLastRealRest()
           } catch (e) {
-            await invoke('plugin_log', {
-              level: 'warn',
-              message: 'plugin_get_last_real_rest failed',
-              data: { ruleId: rule.id, error: String(e) },
+            await plugin.log.warn('plugin.activity.getLastRealRest failed', {
+              ruleId: rule.id,
+              error: String(e),
             })
           }
           const restTs = lastRest != null ? Number(lastRest) : NaN
           if (Number.isFinite(restTs) && restTs > startTs) {
             startTs = restTs
-            // Persist reset so next ticks don't re-query as "still in old round".
             rule.last_fired_at = restTs
             dirty = true
           }
@@ -339,11 +330,7 @@ async function onMinuteTick() {
         try {
           await publishDue(rule, locale)
         } catch (e) {
-          await invoke('plugin_log', {
-            level: 'error',
-            message: 'publish due failed',
-            data: { ruleId: rule.id, error: String(e) },
-          })
+          await plugin.log.error('publish due failed', { ruleId: rule.id, error: String(e) })
         }
       }
     } else {
@@ -357,11 +344,7 @@ async function onMinuteTick() {
       try {
         await publishDue(rule, locale)
       } catch (e) {
-        await invoke('plugin_log', {
-          level: 'error',
-          message: 'publish due failed',
-          data: { ruleId: rule.id, error: String(e) },
-        })
+        await plugin.log.error('publish due failed', { ruleId: rule.id, error: String(e) })
       }
     }
   }
@@ -370,11 +353,7 @@ async function onMinuteTick() {
     try {
       await saveRuntime(settings)
     } catch (e) {
-      await invoke('plugin_log', {
-        level: 'error',
-        message: 'save runtime failed',
-        data: { error: String(e) },
-      })
+      await plugin.log.error('save runtime failed', { error: String(e) })
     }
   }
 }
@@ -387,7 +366,6 @@ async function handleResolved(detail) {
   if (!ruleId) return
 
   if (detail.resolutionKind === 'dismissed' && !actionId) {
-    // Close without action — treat like skip for interval anchor stability.
     await applySkip(ruleId)
     return
   }
@@ -445,18 +423,16 @@ function scheduleMinuteLoop() {
   const run = () => {
     onMinuteTick().catch((e) => console.error('[timer] tick failed', e))
   }
-  // Align to minute boundary, then every 60s.
   setTimeout(() => {
     run()
     setInterval(run, 60_000)
   }, msUntilNextMinute())
 }
 
-// Resolve bridge from PluginHost (CustomEvent).
 window.addEventListener('catrace:plugin-event-resolved', (ev) => {
   const detail = ev && ev.detail
   handleResolved(detail).catch((e) => console.error('[timer] resolve handler failed', e))
 })
 
-await invoke('plugin_log', { level: 'info', message: 'timer background loaded' })
+await plugin.log.info('timer background loaded')
 scheduleMinuteLoop()
