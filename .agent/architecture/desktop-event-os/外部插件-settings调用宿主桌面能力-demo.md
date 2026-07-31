@@ -80,3 +80,14 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 - `openExternal/openPath/showItemInFolder` shell operations.
 - Platform, theme, and Event Bus-backed Toast notification.
 - Rust implementation is centralized in `src-tauri/src/plugin_api.rs`; `plugins.rs` remains responsible for manifest scanning and lifecycle state.
+
+## Rubick API second batch
+
+The host facade now also exposes these reusable desktop primitives:
+
+- `plugin.window.hideMain()` / `showMain()` for main-window visibility.
+- `plugin.screen.getCursorPoint()`, `getDisplayNearestPoint(point)`, and `getAllDisplays()` using Tauri monitor APIs.
+- `plugin.shell.beep()` with native Windows `MessageBeep` and a terminal-bell fallback on other desktop systems.
+- `plugin.clipboard.writeImage({ rgba, width, height })`, `readImage()`, and `clear()`. Image data is raw RGBA and the Rust boundary validates `width * height * 4`.
+
+Clipboard image reads stay off the main thread because the underlying desktop clipboard implementation can deadlock on Linux when read synchronously.

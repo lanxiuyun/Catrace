@@ -11,6 +11,15 @@ export type PluginHttpResponse = {
 export type PluginProcessInfo = { pid: number }
 export type PluginPathName = 'appData' | 'appConfig' | 'appCache' | 'home' | 'desktop' | 'documents' | 'downloads' | 'temp'
 export type PluginPlatformInfo = { os: 'windows' | 'macos' | 'linux' | 'unknown'; arch: string; family: string }
+export type PluginClipboardImage = { rgba: number[]; width: number; height: number }
+export type PluginScreenPoint = { x: number; y: number }
+export type PluginDisplay = {
+  name?: string | null
+  size: { width: number; height: number }
+  position: { x: number; y: number }
+  workArea: { position: { x: number; y: number }; size: { width: number; height: number } }
+  scaleFactor: number
+}
 export type PluginDialogOptions = {
   title?: string
   defaultPath?: string
@@ -36,7 +45,19 @@ export type PluginApi = {
     pickFolder(): Promise<string | null>
   }
   path: { get(name: PluginPathName): Promise<string> }
-  clipboard: { writeText(text: string): Promise<void>; readText(): Promise<string> }
+  clipboard: {
+    writeText(text: string): Promise<void>
+    readText(): Promise<string>
+    writeImage(image: PluginClipboardImage): Promise<void>
+    readImage(): Promise<PluginClipboardImage>
+    clear(): Promise<void>
+  }
+  window: { hideMain(): Promise<void>; showMain(): Promise<void> }
+  screen: {
+    getCursorPoint(): Promise<PluginScreenPoint>
+    getDisplayNearestPoint(point: PluginScreenPoint): Promise<PluginDisplay | null>
+    getAllDisplays(): Promise<PluginDisplay[]>
+  }
   storage: {
     get<T = unknown>(key: string): Promise<T | null>
     set(key: string, value: unknown): Promise<void>
@@ -46,6 +67,7 @@ export type PluginApi = {
     openExternal(url: string): Promise<void>
     openPath(path: string): Promise<void>
     showItemInFolder(path: string): Promise<void>
+    beep(): Promise<void>
   }
   platform: { getInfo(): Promise<PluginPlatformInfo> }
   theme: { isDark(): Promise<boolean> }
@@ -76,6 +98,18 @@ export function createPluginApi(pluginId: string): PluginApi {
     clipboard: {
       writeText: (text) => invoke('plugin_api_clipboard_write_text', { pluginId, text }),
       readText: () => invoke('plugin_api_clipboard_read_text', { pluginId }),
+      writeImage: (image) => invoke('plugin_api_clipboard_write_image', { pluginId, image }),
+      readImage: () => invoke('plugin_api_clipboard_read_image', { pluginId }),
+      clear: () => invoke('plugin_api_clipboard_clear', { pluginId }),
+    },
+    window: {
+      hideMain: () => invoke('plugin_api_window_hide_main', { pluginId }),
+      showMain: () => invoke('plugin_api_window_show_main', { pluginId }),
+    },
+    screen: {
+      getCursorPoint: () => invoke('plugin_api_screen_get_cursor_point', { pluginId }),
+      getDisplayNearestPoint: (point) => invoke('plugin_api_screen_get_display_nearest_point', { pluginId, point }),
+      getAllDisplays: () => invoke('plugin_api_screen_get_all_displays', { pluginId }),
     },
     storage: {
       get: async <T = unknown>(key: string) => {
@@ -89,6 +123,7 @@ export function createPluginApi(pluginId: string): PluginApi {
       openExternal: (url) => invoke('plugin_api_shell_open_external', { pluginId, url }),
       openPath: (path) => invoke('plugin_api_shell_open_path', { pluginId, path }),
       showItemInFolder: (path) => invoke('plugin_api_shell_show_item_in_folder', { pluginId, path }),
+      beep: () => invoke('plugin_api_shell_beep', { pluginId }),
     },
     platform: { getInfo: () => invoke('plugin_api_platform_get_info', { pluginId }) },
     theme: { isDark: () => invoke('plugin_api_theme_is_dark', { pluginId }) },

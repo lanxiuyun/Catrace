@@ -56,6 +56,20 @@ pub struct PluginPlatformInfo {
     family: &'static str,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginClipboardImage {
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PluginScreenPoint {
+    x: f64,
+    y: f64,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginNotificationInput {
@@ -292,6 +306,71 @@ pub fn plugin_api_clipboard_read_text(
 }
 
 #[tauri::command]
+pub fn plugin_api_clipboard_write_image(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+    image: PluginClipboardImage,
+) -> Result<(), String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let expected_len = image
+        .width
+        .checked_mul(image.height)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| "clipboard image dimensions are too large".to_string())?
+        as usize;
+    if image.rgba.len() != expected_len {
+        return Err(format!(
+            "clipboard image RGBA length mismatch: expected {expected_len}, got {}",
+            image.rgba.len()
+        ));
+    }
+    let clipboard_image = tauri::image::Image::new(&image.rgba, image.width, image.height);
+    window
+        .app_handle()
+        .clipboard()
+        .write_image(&clipboard_image)
+        .map_err(|e| format!("write clipboard image: {e}"))
+}
+
+#[tauri::command]
+pub async fn plugin_api_clipboard_read_image(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<PluginClipboardImage, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let app = window.app_handle().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let image = app
+            .clipboard()
+            .read_image()
+            .map_err(|e| format!("read clipboard image: {e}"))?;
+        Ok(PluginClipboardImage {
+            rgba: image.rgba().to_vec(),
+            width: image.width(),
+            height: image.height(),
+        })
+    })
+    .await
+    .map_err(|e| format!("read clipboard image task failed: {e}"))?
+}
+
+#[tauri::command]
+pub fn plugin_api_clipboard_clear(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<(), String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    window
+        .app_handle()
+        .clipboard()
+        .clear()
+        .map_err(|e| format!("clear clipboard: {e}"))
+}
+
+#[tauri::command]
 pub fn plugin_api_storage_get(
     window: tauri::WebviewWindow,
     plugins: State<'_, PluginManager>,
@@ -374,6 +453,104 @@ pub fn plugin_api_shell_show_item_in_folder(
         .opener()
         .reveal_item_in_dir(path)
         .map_err(|e| format!("show item in folder: {e}"))
+}
+
+#[tauri::command]
+pub fn plugin_api_window_hide_main(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<(), String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    window
+        .app_handle()
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?
+        .hide()
+        .map_err(|e| format!("hide main window: {e}"))
+}
+
+#[tauri::command]
+pub fn plugin_api_window_show_main(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<(), String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let main = window
+        .app_handle()
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    main.show().map_err(|e| format!("show main window: {e}"))?;
+    main.set_focus()
+        .map_err(|e| format!("focus main window: {e}"))
+}
+
+#[tauri::command]
+pub fn plugin_api_screen_get_cursor_point(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<PluginScreenPoint, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let point = window
+        .cursor_position()
+        .map_err(|e| format!("get cursor position: {e}"))?;
+    Ok(PluginScreenPoint {
+        x: point.x,
+        y: point.y,
+    })
+}
+
+#[tauri::command]
+pub fn plugin_api_screen_get_display_nearest_point(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+    point: PluginScreenPoint,
+) -> Result<Option<tauri::Monitor>, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    window
+        .monitor_from_point(point.x, point.y)
+        .map_err(|e| format!("get display nearest point: {e}"))
+}
+
+#[tauri::command]
+pub fn plugin_api_screen_get_all_displays(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<Vec<tauri::Monitor>, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    window
+        .available_monitors()
+        .map_err(|e| format!("get displays: {e}"))
+}
+
+#[tauri::command]
+pub fn plugin_api_shell_beep(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    plugin_id: String,
+) -> Result<(), String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    #[cfg(windows)]
+    unsafe {
+        windows::Win32::System::Diagnostics::Debug::MessageBeep(
+            windows::Win32::UI::WindowsAndMessaging::MB_OK,
+        )
+        .map_err(|e| format!("play system beep: {e}"))?;
+    }
+    #[cfg(not(windows))]
+    {
+        use std::io::Write;
+        let mut stderr = std::io::stderr().lock();
+        stderr
+            .write_all(b"\x07")
+            .and_then(|_| stderr.flush())
+            .map_err(|e| format!("play system beep: {e}"))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

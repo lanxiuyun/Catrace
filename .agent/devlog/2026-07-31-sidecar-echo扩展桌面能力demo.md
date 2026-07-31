@@ -42,3 +42,14 @@
 - Symptom: refreshing/re-registering an external Settings component could throw `getComponentPublicInstance(... exposed)` and `parentNode` errors inside Vue/Naive UI ResizeObserver updates.
 - Cause: the registry temporarily unregistered live components and replaced them with new `defineAsyncComponent` wrappers while the Plugins page was rendering them. The external component also received a dynamic component ref that is only needed by built-in panels.
 - Fix: import Blob modules before registration, replace registry entries without an intermediate empty state, unregister only removed plugins, and attach the panel ref only to built-in panels.
+
+## Rubick API second batch
+
+- Added main-window hide/show controls.
+- Added cursor and monitor queries.
+- Added system beep.
+- Added clipboard RGBA image read/write and clipboard clear.
+- Extended the sidecar-echo Settings demo to exercise these capabilities.
+## Disabled detail panel rule
+
+External Settings components are mounted even while their plugin is disabled so users can inspect the panel before enabling it. Therefore a Settings component must not invoke enabled-only host APIs from `onMounted`; capability calls should start from explicit user actions after the plugin is enabled. The sidecar-echo demo removed its automatic environment/platform/screen reads for this reason.

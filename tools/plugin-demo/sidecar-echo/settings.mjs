@@ -1,7 +1,7 @@
 ﻿/** Sidecar capability demo settings — host environment, dialogs, process and HTTP. */
 const vue = globalThis.__CATRACE_VUE__ || {}
 const naive = globalThis.__CATRACE_NAIVE__ || {}
-const { h, ref, computed, onMounted } = vue
+const { h, ref, computed } = vue
 const { NAlert, NButton, NInput, NTag, useMessage } = naive
 
 if (typeof h !== 'function' || typeof ref !== 'function') {
@@ -63,11 +63,13 @@ export default {
     const savedPath = ref('Not selected')
     const clipboardText = ref('Catrace plugin clipboard demo')
     const clipboardResult = ref('Not read')
+    const clipboardImageResult = ref('Not tested')
     const storageKey = ref('demo-state')
     const storageValue = ref('Hello from sidecar-echo')
     const storageResult = ref('No operation yet')
     const pathResult = ref('Not loaded')
     const platformResult = ref('Not loaded')
+    const screenResult = ref('Not loaded')
 
     const environmentText = computed(() => Object.entries(environment.value)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -147,14 +149,33 @@ export default {
     }
     async function writeClipboard() { await run('clipboard-write', async () => { await plugin.clipboard.writeText(clipboardText.value); await plugin.log.info('clipboard text written'); message.success('Copied to clipboard') }) }
     async function readClipboard() { await run('clipboard-read', async () => { clipboardResult.value = await plugin.clipboard.readText() }) }
+    async function writeClipboardImage() { await run('clipboard-image-write', async () => { await plugin.clipboard.writeImage({ width: 2, height: 2, rgba: [124, 58, 237, 255, 20, 184, 166, 255, 245, 158, 11, 255, 255, 255, 255, 255] }); clipboardImageResult.value = 'Wrote a 2x2 RGBA image' }) }
+    async function readClipboardImage() { await run('clipboard-image-read', async () => { const image = await plugin.clipboard.readImage(); clipboardImageResult.value = JSON.stringify({ width: image.width, height: image.height, rgbaBytes: image.rgba.length }, null, 2) }) }
+    async function clearClipboard() { await run('clipboard-clear', async () => { await plugin.clipboard.clear(); clipboardResult.value = 'Clipboard cleared'; clipboardImageResult.value = 'Clipboard cleared' }) }
     async function setStorage() { await run('storage-set', async () => { await plugin.storage.set(storageKey.value, { text: storageValue.value, savedAt: new Date().toISOString() }); storageResult.value = 'Saved' }) }
     async function getStorage() { await run('storage-get', async () => { storageResult.value = JSON.stringify(await plugin.storage.get(storageKey.value), null, 2) }) }
     async function removeStorage() { await run('storage-remove', async () => { await plugin.storage.remove(storageKey.value); storageResult.value = 'Removed' }) }
     async function loadPaths() { await run('paths', async () => { const names = ['appData', 'home', 'downloads', 'temp']; const values = await Promise.all(names.map(async (name) => [name, await plugin.path.get(name)])); pathResult.value = values.map(([name, path]) => `${name}: ${path}`).join('\n') }) }
     async function loadPlatform() { await run('platform', async () => { const [info, dark] = await Promise.all([plugin.platform.getInfo(), plugin.theme.isDark()]); platformResult.value = JSON.stringify({ ...info, dark }, null, 2) }) }
     async function showNotification() { await run('notification', () => plugin.notification.show({ title: 'Plugin host notification', body: 'sidecar-echo successfully called notification API', level: 'success' })) }
+    async function loadScreenInfo() {
+      await run('screen', async () => {
+        const point = await plugin.screen.getCursorPoint()
+        const [display, displays] = await Promise.all([
+          plugin.screen.getDisplayNearestPoint(point),
+          plugin.screen.getAllDisplays(),
+        ])
+        screenResult.value = JSON.stringify({ point, display, displayCount: displays.length, displays }, null, 2)
+      })
+    }
+    async function hideMainBriefly() {
+      await run('window', async () => {
+        await plugin.window.hideMain()
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await plugin.window.showMain()
+      })
+    }
 
-    onMounted(() => { loadEnvironment(); loadPlatform() })
 
     const card = (title, tag, description, children) => h('section', { class: 'card' }, [
       h('div', { class: 'head' }, [
@@ -228,8 +249,9 @@ export default {
         ]),
         card('Clipboard', 'CLIPBOARD', 'Read and write the system text clipboard.', [
           h(NInput, { value: clipboardText.value, 'onUpdate:value': (value) => { clipboardText.value = value } }),
-          h('div', { class: 'actions' }, [button('Write', 'clipboard-write', writeClipboard), button('Read', 'clipboard-read', readClipboard)]),
+          h('div', { class: 'actions' }, [button('Write text', 'clipboard-write', writeClipboard), button('Read text', 'clipboard-read', readClipboard), button('Write image', 'clipboard-image-write', writeClipboardImage), button('Read image', 'clipboard-image-read', readClipboardImage), button('Clear', 'clipboard-clear', clearClipboard)]),
           h('pre', { class: 'value' }, clipboardResult.value),
+          h('pre', { class: 'value' }, clipboardImageResult.value),
         ]),
         card('Plugin storage', 'STORAGE', 'JSON persistence isolated by plugin id.', [
           h(NInput, { value: storageKey.value, 'onUpdate:value': (value) => { storageKey.value = value }, placeholder: 'key' }),
@@ -244,6 +266,14 @@ export default {
         card('Platform, theme and notification', 'HOST', 'Inspect host info and publish a Toast through Event Bus.', [
           h('div', { class: 'actions' }, [button('Refresh', 'platform', loadPlatform), button('Notify', 'notification', showNotification), button('Open URL', 'external', () => run('external', () => plugin.shell.openExternal(url.value)))]),
           h('pre', { class: 'value' }, platformResult.value),
+        ]),
+        card('Screen, window and beep', 'DESKTOP', 'Read cursor/display information, control the main window and play the system beep.', [
+          h('div', { class: 'actions' }, [
+            button('Refresh screen', 'screen', loadScreenInfo),
+            button('Hide for 1s', 'window', hideMainBriefly),
+            button('Beep', 'beep', () => run('beep', () => plugin.shell.beep())),
+          ]),
+          h('pre', { class: 'value' }, screenResult.value),
         ]),
       ]),
     ])
