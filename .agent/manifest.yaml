@@ -292,7 +292,21 @@ skills:
     related:
       - agent-notification
 
+  external-plugin-authoring:
+    docs:
+      - .agent/skills/external-plugin-authoring/README.md
+      - .agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md
+      - .agent/skills/external-plugin-authoring/plugin-file-scaffolds-and-copy-paste-templates.md
+    related:
+      - desktop-event-os
+      - timer-plugin
+      - bt-music
+      - plugin-center
+      - toast-window
+      - event-sdk
+
 devlog:
+  - .agent/devlog/2026-08-02-外部插件开发完整指南与生成Skill.md
   - .agent/devlog/2026-08-01-bt-music外部插件连接Toast与IsConnected门控.md
   - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md
   - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
