@@ -6,8 +6,35 @@ Local external plugin samples for Catrace M10.
 |---------|------|
 | `timer/` | First-party **定时提醒** (settings + scheduling) |
 | `sidecar-echo/` | Complete native sidecar demo: lifecycle, JSONL publish/log, custom Toast UI, and action round-trip |
+| `bt-music/` | Bluetooth/audio connect Toast → open player (sidecar poll + mock simulate) |
 
 Debug builds junction packages under `tools/plugin-demo/` into `app_data/plugins/`.
+
+---
+
+# bt-music（蓝牙听歌）
+
+Target M15 scenario: device connect → Toast → open player. **No host Bluetooth API.**
+
+```
+tools/plugin-demo/bt-music/
+  manifest.json         # id=bt-music, sidecar node runtime/main.mjs
+  runtime/main.mjs      # Windows AudioEndpoint poll + simulate RPC + open-player on resolved
+  ui.mjs                # custom toast card
+  settings.mjs          # filter / player path / 模拟连接
+```
+
+- Enable plugin → sidecar starts; settings「模拟连接」calls `sidecar.request('simulateConnect')` → publish `bt-music.connected`.
+- Toast action `open-player` → host `resolved` → sidecar `spawn` configured `playerPath` (default `notepad.exe`).
+- Optional Windows poll: BTHENUM/BTHHFENUM PnP nodes with `DEVPKEY_Device_IsConnected=True` (paired-only stays silent); name filter narrows noise. Non-Windows: simulate only.
+- Config via `plugin.config` + `setConfig` RPC (host config push optional).
+
+## Hand test
+
+1. `pnpm tauri dev` → Plugins → enable **蓝牙听歌** → open settings.
+2. **模拟连接** → Toast with device name; **打开听歌** opens notepad (or chosen path).
+3. **模拟断开** → disconnect Toast (if switch on).
+4. Disable plugin → sidecar exits.
 
 ---
 

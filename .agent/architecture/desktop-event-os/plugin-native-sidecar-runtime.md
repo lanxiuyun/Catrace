@@ -255,7 +255,7 @@ plugins/bt-music/
 | 包 | 目的 | 状态 |
 |----|------|------|
 | `tools/plugin-demo/sidecar-echo` | 无硬件：15s timer publish + action echo roundtrip + dismiss；disable 杀进程 | ✅ 真机验收 |
-| `tools/plugin-demo/bt-music` | 目标场景；v1 mock「模拟连接」→ Toast → action 开记事本/配置路径 | ⏳ 未做 |
+| `tools/plugin-demo/bt-music` | 目标场景；v1 mock「模拟连接」→ Toast → action 开记事本/配置路径；可选 Windows AudioEndpoint 轮询 | ✅ 包已落地（待手测） |
 
 Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
 
@@ -272,7 +272,7 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ⏳ M15.3  
 7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
 8. **桌面能力完整 demo** ✅ 真机验收：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
-9. **bt-music mock demo** ⏳
+9. **bt-music mock demo** ✅ 包已落地（`tools/plugin-demo/bt-music`；待手测）
 10. （可选）`plugin_open_path` 给无 sidecar 插件
 11. 信任文案补「sidecar = 本机任意代码」⏳
 

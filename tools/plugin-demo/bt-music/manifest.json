@@ -1,0 +1,20 @@
+{
+  "id": "bt-music",
+  "name": "蓝牙听歌",
+  "version": "0.1.0",
+  "description": "蓝牙/音频设备连接后 Toast 提醒，可一键打开听歌程序（sidecar 监听 + mock 演示）",
+  "main": "ui.mjs",
+  "settings": "settings.mjs",
+  "events": [
+    "bt-music",
+    "kind:bt-music",
+    "bt-music.connected",
+    "bt-music.disconnected"
+  ],
+  "enabledByDefault": false,
+  "sidecar": {
+    "command": "node",
+    "args": ["runtime/main.mjs"],
+    "cwd": "."
+  }
+}
