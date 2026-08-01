@@ -55,6 +55,16 @@ features:
       - event-sdk
       - reminder
 
+  bt-music:
+    docs:
+      - .agent/features/bt-music/README.md
+      - .agent/features/bt-music/windows-pnp-用IsConnected区分配对与真连接-以及轮询去重.md
+    related:
+      - desktop-event-os
+      - toast-window
+      - plugin-center
+      - timer-plugin
+
   toast-window:
     docs:
       - .agent/features/toast-window/README.md
@@ -229,6 +239,7 @@ architecture:
       - settings
       - timer-plugin
       - plugin-center
+      - bt-music
 
 reference:
   - .agent/reference/test-strategy.md
@@ -256,6 +267,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-01-bt-music轮询把仅配对设备当成已连接并多弹Toast.md
   - .agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md
   - .agent/bugs/2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md
   - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
@@ -281,6 +293,7 @@ skills:
       - agent-notification
 
 devlog:
+  - .agent/devlog/2026-08-01-bt-music外部插件连接Toast与IsConnected门控.md
   - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md
   - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
   - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md
@@ -327,5 +340,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: M15.1-M15.2 真机验收（sidecar 生命周期 + 通用 RPC + 完整桌面能力 Demo）
-  next: M15.3 storage + Plugins UI status；信任文案；bt-music mock
+  phase: M15.1-M15.2 真机验收（sidecar 生命周期 + 通用 RPC + bt-music 场景 demo）
+  next: M15.3 storage + Plugins UI sidecar 运行态；信任文案补「sidecar = 本机代码」
