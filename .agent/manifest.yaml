@@ -68,11 +68,11 @@ features:
   toast-window:
     docs:
       - .agent/features/toast-window/README.md
-      - .agent/features/toast-window/development-notes.md
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
       - .agent/features/toast-window/连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md
       - .agent/features/toast-window/外部插件toast卡热更新-generation缓存与reload顺序.md
+      - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
     related:
       - reminder
@@ -230,6 +230,7 @@ architecture:
       - .agent/architecture/desktop-event-os/toast-card-split-and-dismiss-agent-session-emit.md
       - .agent/architecture/desktop-event-os/rest-reminder-builtin-plugin-boundary.md
       - .agent/architecture/desktop-event-os/signal-collection-schema-and-privacy.md
+      - .agent/architecture/desktop-event-os/debug-页-signal-分钟桶展示.md
     related:
       - input-monitoring
       - water-reminder
@@ -248,6 +249,7 @@ reference:
   - .agent/reference/version-management.md
   - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
+  - .agent/reference/macos-accessibility-permission.md
 
 decisions:
   - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
@@ -322,41 +324,6 @@ devlog:
   - .agent/devlog/2026-07-26-unify-agent-rest-plugin-panel-structure-and-disabled-overlay.md
   - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
-  - .agent/devlog/2026-07-24-插件详情顶栏去掉状态文字只保留开关.md
-  - .agent/devlog/2026-07-24-插件配置迁移到Store并拆分运行数据.md
-  - .agent/devlog/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
-  - .agent/devlog/2026-07-24-step3-M11.1-启用即信任与异常插件观测落地.md
-  - .agent/devlog/2026-07-23-step3-插件权限模型改为启用即信任.md
-  - .agent/devlog/2026-07-23-step3-M11-插件后台窗口与最小宿主能力落地.md
-  - .agent/devlog/2026-07-23-step3-plugin-runtime-路线图起草与webview选型.md
-  - .agent/devlog/2026-07-23-第二阶段-A到E-真机验收全部通过.md
-  - .agent/devlog/2026-07-22-插件中心状态排序与详情顶栏统一.md
-  - .agent/devlog/2026-07-22-主界面顶部导航与覆盖式滚动条重构.md
-  - .agent/devlog/2026-07-21-久坐插件收敛为仅toast通知.md
-  - .agent/devlog/2026-07-21-久坐提醒插件设置去掉通知预览并外置测试按钮.md
-  - .agent/devlog/2026-07-21-久坐配置收敛到插件与-debug自动链接plugin-demo.md
-  - .agent/devlog/2026-07-21-插件测试连点卡死修复-supersede与Blob卡缓存.md
-  - .agent/devlog/2026-07-20-M10本地外部插件与自定义Toast卡手测通过.md
-  - .agent/devlog/2026-07-20-M9本机Event-HTTP与调试页管理卡.md
-  - .agent/devlog/2026-07-20-rest-timer-bus收敛与-debug-signal展示.md
-  - .agent/devlog/2026-07-20-signal-cpu修复与久坐toast连点限流.md
-  - .agent/devlog/2026-07-19-toast-content-fully-via-event-bus-including-agent.md
-  - .agent/devlog/2026-07-19-step2-event-core-and-signal-collection-scaffold.md
-  - .agent/devlog/2026-07-18-merge-cleanup-version-bump-and-hover-fix.md
-  - .agent/devlog/2026-07-18-permission-卡死修复-会话标题-卡片改版-hook测试页.md
-  - .agent/devlog/2026-07-18-p6-permission-card-not-popping-debug.md
-  - .agent/devlog/2026-07-17-p6-permission-approve-deny.md
-  - .agent/devlog/2026-07-17-p4-hook-install-reliability.md
-  - .agent/devlog/2026-07-17-agent-sticky-auto-dismiss-on-user-prompt.md
-  - .agent/devlog/2026-07-12-agent-toast-card-summary-goto-session-sound-and-component-extraction.md
-  - .agent/devlog/2026-07-12-agent-notification-event-policy-and-codex-gemini-kimi-support.md
-  - .agent/devlog/2026-07-12-updater-migrated-from-upgradelink-to-github-release-plus-ghproxy.md
-  - .agent/devlog/2026-07-11-toast-卡片缩小到原生尺寸-和阴影修复.md
-  - .agent/devlog/2026-07-11-eye-toast-snooze-skip-buttons.md
-  - .agent/devlog/2026-07-10-eye-reminder-rest-reset.md
-  - .agent/devlog/2026-07-10-eye-reminder.md
-  - .agent/devlog/2026-07-09-logging.md
-  - .agent/devlog/2026-07-07-drop-rdev.md
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md

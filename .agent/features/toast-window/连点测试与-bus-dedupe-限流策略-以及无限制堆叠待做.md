@@ -6,7 +6,7 @@
 
 - 入口：`功能插件 → 久坐提醒 → 发送测试` → `test_notification`
 - **1 秒限流**（后端 + 按钮）是当前防卡死手段
-- toast 模式额外发 `catrace-rest-timer`（休息计时卡，前端已合并同 kind 刷新）
+- toast 模式额外经 Bus upsert 休息计时卡（`reminder.rest.timer`；前端已合并同 kind 刷新）
 - 测试 `boundary = 0`：**不写** `dedupe_key`，与真实结算区分；放开限流后应可堆叠多张 rest 测试卡
 
 ### 真实久坐 due

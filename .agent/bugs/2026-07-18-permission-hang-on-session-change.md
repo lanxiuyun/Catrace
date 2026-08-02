@@ -1,6 +1,6 @@
 # 2026-07-18 — 审批卡未点时 session 变化导致 agent 线程挂死
 
-> 关联：P6 真审批，见 [devlog 2026-07-17-p6-permission-approve-deny](../devlog/2026-07-17-p6-permission-approve-deny.md)。
+> 关联：P6 真审批，见 [permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md](../features/agent-notification/permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md)。
 
 ## 症状
 

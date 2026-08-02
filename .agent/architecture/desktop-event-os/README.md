@@ -59,7 +59,7 @@ tools/plugin-demo/            # M10/M11 demo + M15 sidecar-echo
 2. **窗口与内容分离**：`ensure_toast_window_visible` 只管窗口；`publish` 顺带 ensure
 3. **主窗 hub 不渲第二张卡**；Toast 窗自己 listen + `get_active_events` 水合
 4. Action resolve **只记生命周期**；业务（snooze/permission HTTP）仍在既有 command
-5. 仍用专用通道：`catrace-rest-timer`、`dismissAgentSession`（eval 仅销项）
+5. 仍用专用通道：`dismissAgentSession`（销 sticky/permission UI）；rest-timer 已走 Bus upsert
 6. 键序列默认关；休息判定用 legacy `count`
 7. **外部写入走 Event HTTP（:23457）**，禁止冒充内部 kind；管理入口在调试页
 8. **插件窗口同步不得阻塞主循环**：禁止在 `setup()` 或 `run_on_main_thread()` 中执行包含 `WebviewWindowBuilder::build()` 的完整同步；统一调用 `PluginWindowManager::schedule_sync()`

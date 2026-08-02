@@ -5,7 +5,7 @@
 > **内容入口（Step 2）**：rest/water/eye/agent/permission/update 均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
 > Rust 侧 `ensure_toast_window_visible` 只保证窗口在位。详见  
 > [toast-renders-only-from-event-bus.md](../../architecture/desktop-event-os/toast-renders-only-from-event-bus.md)。  
-> 例外：`catrace-rest-timer`、`dismissAgentSession` eval。
+> 例外：`dismissAgentSession` eval；rest-timer 已走 Bus upsert（见子文档）。
 
 ## 涉及文件
 
