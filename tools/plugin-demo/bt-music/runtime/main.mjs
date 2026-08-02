@@ -48,6 +48,19 @@ let pendingSnapshot = null
 /** Retry scans when IsConnected lags behind the first PnP event. */
 let connectProbeTimer = null
 let connectProbeLeft = 0
+/** Only one probe chain at a time; rate-limit new chains. */
+let lastConnectProbeStartedAt = 0
+const CONNECT_PROBE_COOLDOWN_MS = 5000
+const CONNECT_PROBE_MAX = 8
+/** Single-flight Node-side PnP scans — never pile up powershell/conhost. */
+let snapshotInFlight = null
+/** @type {{ reason: string, options: Record<string, unknown> } | null} */
+let snapshotQueuedWhileBusy = null
+/** Bumped on stopWatcher so in-flight scans cannot re-arm probes after teardown. */
+let snapshotGeneration = 0
+const PS_TIMEOUT_MS = 15000
+/** @type {Set<import('node:child_process').ChildProcess>} */
+const activePsChildren = new Set()
 
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`)
 const log = (message, data, level = 'info') =>
@@ -669,6 +682,32 @@ public static class CatraceMediaKeys {
   }
 }
 
+function killPsTree(child) {
+  if (!child) return
+  try {
+    child.kill()
+  } catch {
+    /* ignore */
+  }
+  if (isWindows && child.pid) {
+    try {
+      spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      }).unref?.()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function killAllActivePs() {
+  for (const child of [...activePsChildren]) {
+    killPsTree(child)
+  }
+  activePsChildren.clear()
+}
+
 function runPowerShell(script) {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -676,21 +715,44 @@ function runPowerShell(script) {
       ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
       { windowsHide: true },
     )
+    activePsChildren.add(child)
     let stdout = ''
     let stderr = ''
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      killPsTree(child)
+      activePsChildren.delete(child)
+      reject(new Error(`powershell timeout after ${PS_TIMEOUT_MS}ms`))
+    }, PS_TIMEOUT_MS)
+    timer.unref?.()
+
+    const finish = (fn) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      activePsChildren.delete(child)
+      fn()
+    }
+
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString('utf8')
     })
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString('utf8')
     })
-    child.on('error', reject)
+    child.on('error', (error) => {
+      finish(() => reject(error))
+    })
     child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || stdout.trim() || `powershell exit ${code}`))
-        return
-      }
-      resolve(stdout.trim())
+      finish(() => {
+        if (code !== 0) {
+          reject(new Error(stderr.trim() || stdout.trim() || `powershell exit ${code}`))
+          return
+        }
+        resolve(stdout.trim())
+      })
     })
   })
 }
@@ -934,19 +996,54 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
   }
 }
 
+function isProbeReason(reason) {
+  // Matches both legacy "…:probe1" and current "probe:1" tags.
+  return /(^|:)probe(:|\d|$)/i.test(String(reason || ''))
+}
+
+function cancelConnectProbe() {
+  if (connectProbeTimer) {
+    clearTimeout(connectProbeTimer)
+    connectProbeTimer = null
+  }
+  connectProbeLeft = 0
+}
+
 function scheduleConnectProbe(reason) {
+  // Probe results must never start another chain (was the conhost storm root cause:
+  // reason kept the "device-change:event" prefix, regex re-matched, left reset to 8).
+  if (isProbeReason(reason)) return
+  if (!/device-change:event/i.test(String(reason || ''))) return
+
+  // One chain at a time — never reset left while running.
+  if (connectProbeLeft > 0 || connectProbeTimer) {
+    log('connect probe skipped (already running)', { reason, left: connectProbeLeft })
+    return
+  }
+
+  const now = Date.now()
+  if (now - lastConnectProbeStartedAt < CONNECT_PROBE_COOLDOWN_MS) {
+    log('connect probe skipped (cooldown)', {
+      reason,
+      waitMs: CONNECT_PROBE_COOLDOWN_MS - (now - lastConnectProbeStartedAt),
+    })
+    return
+  }
+  lastConnectProbeStartedAt = now
+
   // Fast MEDIA-class scans from Node while IsConnected catches up to audio.
-  connectProbeLeft = 8
-  if (connectProbeTimer) clearTimeout(connectProbeTimer)
+  connectProbeLeft = CONNECT_PROBE_MAX
   const gaps = [100, 150, 200, 300, 400, 500, 700, 1000]
   let i = 0
   const tick = () => {
     connectProbeTimer = null
     if (connectProbeLeft <= 0) return
     connectProbeLeft -= 1
-    const gap = gaps[Math.min(i, gaps.length - 1)]
+    const step = i + 1
     i += 1
-    snapshotOnce(`${reason}:probe${i}`, { immediate: true })
+    const gap = gaps[Math.min(i, gaps.length - 1)]
+    // Tag as probe so queueSnapshot will not re-enter scheduleConnectProbe.
+    snapshotOnce(`probe:${step}`, { immediate: true })
       .catch(() => {})
       .finally(() => {
         if (connectProbeLeft > 0) {
@@ -955,6 +1052,7 @@ function scheduleConnectProbe(reason) {
         }
       })
   }
+  log('connect probe started', { reason, steps: CONNECT_PROBE_MAX })
   connectProbeTimer = setTimeout(tick, gaps[0])
   connectProbeTimer.unref?.()
 }
@@ -984,18 +1082,18 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
       immediate: true,
     })
     // Event arrived but still no connected headset → keep probing IsConnected.
+    // Never arm from probe results (isProbeReason) — that nested forever.
     if (
       !effectiveSeed &&
       known.size === before &&
       devices.length === 0 &&
-      /device-change:event/i.test(reason)
+      /device-change:event/i.test(reason) &&
+      !isProbeReason(reason)
     ) {
       scheduleConnectProbe(reason)
     }
-    if (known.size > before && connectProbeTimer) {
-      clearTimeout(connectProbeTimer)
-      connectProbeTimer = null
-      connectProbeLeft = 0
+    if (known.size > before) {
+      cancelConnectProbe()
     }
     return
   }
@@ -1026,16 +1124,53 @@ async function snapshotOnce(reason = 'manual', options = {}) {
     lastWatchError = 'watch only implemented on Windows'
     return
   }
-  try {
-    const devices = await listWindowsAudioEndpoints()
-    queueSnapshot(devices, reason, {
-      seedOnly: options.seedOnly === true,
-      immediate: options.immediate === true || options.seedOnly === true,
-    })
-  } catch (error) {
-    lastWatchError = error instanceof Error ? error.message : String(error)
-    log('device snapshot failed', { error: lastWatchError, reason }, 'warn')
+
+  // Single-flight: concurrent callers coalesce onto one PowerShell scan.
+  // Latest reason/options win for the follow-up pass.
+  if (snapshotInFlight) {
+    snapshotQueuedWhileBusy = { reason, options }
+    return snapshotInFlight
   }
+
+  const generation = snapshotGeneration
+  const run = (async () => {
+    let currentReason = reason
+    let currentOptions = options
+    try {
+      for (;;) {
+        if (generation !== snapshotGeneration) return
+        try {
+          const devices = await listWindowsAudioEndpoints()
+          if (generation !== snapshotGeneration) return
+          queueSnapshot(devices, currentReason, {
+            seedOnly: currentOptions.seedOnly === true,
+            immediate: currentOptions.immediate === true || currentOptions.seedOnly === true,
+          })
+        } catch (error) {
+          if (generation !== snapshotGeneration) return
+          lastWatchError = error instanceof Error ? error.message : String(error)
+          log('device snapshot failed', { error: lastWatchError, reason: currentReason }, 'warn')
+        }
+        if (generation !== snapshotGeneration) return
+        const queued = snapshotQueuedWhileBusy
+        if (!queued) break
+        snapshotQueuedWhileBusy = null
+        currentReason = queued.reason
+        currentOptions = queued.options || {}
+      }
+    } finally {
+      // Do not clobber a newer generation's in-flight promise after stopWatcher.
+      if (snapshotInFlight === run) snapshotInFlight = null
+      if (generation === snapshotGeneration && snapshotQueuedWhileBusy) {
+        const queued = snapshotQueuedWhileBusy
+        snapshotQueuedWhileBusy = null
+        snapshotOnce(queued.reason, queued.options || {}).catch(() => {})
+      }
+    }
+  })()
+  snapshotInFlight = run
+
+  return run
 }
 
 /**
@@ -1104,16 +1239,17 @@ try {
 
 function stopWatcher() {
   watcherGeneration += 1
+  snapshotGeneration += 1
   if (applyDebounceTimer) {
     clearTimeout(applyDebounceTimer)
     applyDebounceTimer = null
   }
-  if (connectProbeTimer) {
-    clearTimeout(connectProbeTimer)
-    connectProbeTimer = null
-  }
-  connectProbeLeft = 0
+  cancelConnectProbe()
+  snapshotQueuedWhileBusy = null
+  snapshotInFlight = null
   pendingSnapshot = null
+  // Drop any short-lived probe/list PowerShell trees; watcher killed below.
+  killAllActivePs()
   if (watcherRl) {
     try {
       watcherRl.removeAllListeners()
@@ -1126,22 +1262,7 @@ function stopWatcher() {
   if (watcherChild) {
     const child = watcherChild
     watcherChild = null
-    try {
-      child.kill()
-    } catch {
-      /* ignore */
-    }
-    // Windows: ensure the PowerShell tree dies.
-    if (isWindows && child.pid) {
-      try {
-        spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-          windowsHide: true,
-          stdio: 'ignore',
-        }).unref?.()
-      } catch {
-        /* ignore */
-      }
-    }
+    killPsTree(child)
   }
 }
 

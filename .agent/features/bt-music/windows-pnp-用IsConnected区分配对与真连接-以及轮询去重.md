@@ -17,7 +17,7 @@ Node sidecar
 ```
 
 - `watchMode: device-change-event`；无 `pollIntervalMs`。
-- shutdown：`taskkill /T /F` 清 PS 树；崩溃 2s 重启。
+- shutdown：`taskkill /T /F` 清 PS 树（watcher + 短探针 PS）；崩溃 2s 重启。
 
 ## 延迟要点（Toast 曾晚于音频）
 
@@ -29,6 +29,25 @@ Node sidecar
 | 新设备 `queueSnapshot` 立即 apply | 不靠长 debounce 挡首包 |
 
 日志：`SNAPSHOT why=event ms=42` — `ms` 经常 >800 说明 PnP 扫仍是瓶颈。
+
+## 探针防风暴（conhost 泄漏根因修复）
+
+曾出现：`device-change:event` 空结果 → `scheduleConnectProbe` 把 reason 拼成
+`device-change:event:probe1` → 正则 `/device-change:event/` 仍命中 →
+`connectProbeLeft = 8` 被反复重置 → 无上限并发 `powershell.exe` → 上万 conhost。
+
+硬约束（`runtime/main.mjs`）：
+
+| 约束 | 行为 |
+|------|------|
+| probe 结果不重入 | reason 匹配 `probe` 时禁止再 `scheduleConnectProbe`；探针 reason 改为 `probe:N` |
+| 单链 | 已在跑则跳过，禁止把 left 重置回 8 |
+| 冷却 | 两条链之间至少 5s |
+| 单飞扫描 | `snapshotOnce` 同时最多 1 次 Node 侧 PnP 扫；忙时只保留最新排队 |
+| PS 超时 | 短生命周期 `runPowerShell` 15s 杀树 |
+| teardown | `stopWatcher` 清 probe + 杀全部 active PS + bump generation 丢弃在途结果 |
+
+手测：待机无耳机时任务管理器不应再堆积「控制台窗口主机」；日志最多见一轮 `connect probe started` + 至多 8 次 `probe:N`。
 
 ## 正确门控
 
