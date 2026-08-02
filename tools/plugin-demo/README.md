@@ -21,22 +21,20 @@ tools/plugin-demo/bt-music/
   manifest.json         # id=bt-music, sidecar node runtime/main.mjs
   runtime/main.mjs      # Win32_DeviceChangeEvent watcher + IsConnected snapshot + open-player
   ui.mjs                # custom toast card
-  settings.mjs          # product UI: trigger / player / toast stay
+  settings.mjs          # panels: trigger keywords / player automation / toast stay
 ```
 
-- Enable plugin → sidecar starts a long-lived PowerShell `ManagementEventWatcher` on `Win32_DeviceChangeEvent` (arrival/removal). On event (and once at start), re-scan BTHENUM/BTHHFENUM with `DEVPKEY_Device_IsConnected=True`. First snapshot seeds only; later deltas publish.
-- Settings UI is product-facing only (no sidecar/PnP jargon, no poll interval, no status dump). Three sections: trigger filter, player path, toast stay seconds.
-- Toast action `open-player` → host `resolved` → sidecar `spawn` configured `playerPath` (must be set).
-- Toast duration defaults: connected 5s / disconnected 3s (0 = sticky; ≥3 → `payload.auto_hide_ms`). Settings auto-save + `setConfig`.
-- Non-Windows: sidecar runs but watcher is a no-op (watchSupported=false).
+- Enable plugin → sidecar starts a long-lived PowerShell `ManagementEventWatcher` on `Win32_DeviceChangeEvent`. On event (and once at start), re-scan with `DEVPKEY_Device_IsConnected=True`. First snapshot seeds only; later deltas publish.
+- Settings: multi keyword tags + paired-device quick pick; auto-launch / pause-on-disconnect; launch delay; toast stay seconds. No developer jargon dump.
+- Toast action `open-player` or `autoLaunchOnConnect` → sidecar `spawn` `playerPath` (required).
+- Non-Windows: watcher no-op.
 
 ## Hand test
 
-1. `pnpm tauri dev` → Plugins → enable **蓝牙听歌** → pick a music app under 听歌程序.
-2. Connect a Bluetooth headset → CONNECTED Toast; **打开听歌** opens the chosen app.
-3. Optionally change 弹窗偏好 seconds → reconnect and confirm auto-hide.
-4. Disconnect → DISCONNECTED Toast if「断开时也提醒」on.
-5. Disable plugin → sidecar exits.
+1. `pnpm tauri dev` → enable **蓝牙听歌** → set music app path; add keywords or pick paired device.
+2. Connect headset → CONNECTED Toast; with auto-launch on, app starts after delay.
+3. Disconnect → optional toast + optional media pause.
+4. Disable plugin → sidecar exits.
 
 ---
 

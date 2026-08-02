@@ -717,9 +717,20 @@ pub fn set_plugin_config(
 ) -> Result<(), String> {
     validate_id(&plugin_id)?;
     mgr.ensure_installed(&plugin_id)?;
-    if !value.is_object() {
+    let serde_json::Value::Object(mut incoming) = value else {
         return Err("plugin config must be a JSON object".into());
+    };
+    // Enable state is owned by set_external_plugin_enabled. Settings UIs often
+    // rewrite the whole plugin_config object and would wipe `enabled` → false
+    // on next scan (enabledByDefault). Preserve the stored flag unless the
+    // payload explicitly includes `enabled` (timer-style portable settings).
+    if !incoming.contains_key("enabled") {
+        if let Some(prev) = crate::plugin_config::get_plugin_config_entry(&app, &plugin_id, "enabled")?
+        {
+            incoming.insert("enabled".into(), prev);
+        }
     }
+    let value = serde_json::Value::Object(incoming);
     if let Err(e) = crate::plugin_config::set_plugin_config(&app, &plugin_id, &value) {
         // Host UI shows failure toast once — plugins need not.
         let _ = app.emit(

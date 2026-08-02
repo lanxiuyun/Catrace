@@ -8,18 +8,34 @@ const pluginId = process.env.CATRACE_PLUGIN_ID || 'bt-music'
 const isWindows = process.platform === 'win32'
 
 const DEFAULT_CONFIG = {
-  // Plugin enable starts the sidecar — always watch (no opt-in gate).
-  nameFilter: '',
+  /** Master switch inside plugin settings (sidecar may still run). */
+  listenEnabled: true,
+  /** Match if device name contains any keyword; empty = all BT audio. */
+  nameKeywords: [],
   playerPath: '',
   playerArgs: [],
   notifyDisconnect: true,
+  /** Connect → spawn player without waiting for toast action. */
+  autoLaunchOnConnect: false,
+  /** Disconnect → send system media pause key. */
+  pauseOnDisconnect: false,
+  /** Delay before spawn / after connect, ms (0–10000). */
+  launchDelayMs: 1500,
   /** 0 = sticky until dismiss; >0 = auto-hide seconds */
   connectedAutoHideSec: 5,
   disconnectedAutoHideSec: 3,
 }
 
 /** @type {typeof DEFAULT_CONFIG} */
-let config = { ...DEFAULT_CONFIG }
+let config = {
+  ...DEFAULT_CONFIG,
+  nameKeywords: [...DEFAULT_CONFIG.nameKeywords],
+  playerArgs: [...DEFAULT_CONFIG.playerArgs],
+}
+
+/** Recently seen paired BT audio names for settings quick-pick (not only connected). */
+/** @type {Map<string, { id: string, name: string }>} */
+const pairedCatalog = new Map()
 
 /** @type {Map<string, { id: string, name: string, source: string, groupKey: string }>} */
 const known = new Map()
@@ -56,17 +72,68 @@ function clampAutoHideSec(value, fallback) {
   return Math.min(600, Math.max(3, rounded))
 }
 
+function clampLaunchDelayMs(value, fallback = 1500) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(10_000, Math.max(0, Math.round(n)))
+}
+
+function normalizeKeywords(input) {
+  const raw = []
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      const s = String(item || '').trim()
+      if (s) raw.push(s)
+    }
+  } else if (typeof input === 'string') {
+    for (const part of input.split(/[,，;；\n]+/)) {
+      const s = part.trim()
+      if (s) raw.push(s)
+    }
+  }
+  const seen = new Set()
+  const out = []
+  for (const k of raw) {
+    const key = k.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(k)
+    if (out.length >= 20) break
+  }
+  return out
+}
+
 function normalizeConfig(input = {}) {
-  const next = { ...config }
-  if (typeof input.nameFilter === 'string') next.nameFilter = input.nameFilter.trim()
+  const next = {
+    ...config,
+    nameKeywords: [...(config.nameKeywords || [])],
+    playerArgs: [...(config.playerArgs || [])],
+  }
+  if (typeof input.listenEnabled === 'boolean') next.listenEnabled = input.listenEnabled
+  if (Array.isArray(input.nameKeywords) || typeof input.nameKeywords === 'string') {
+    next.nameKeywords = normalizeKeywords(input.nameKeywords)
+  } else if (typeof input.nameFilter === 'string' && input.nameFilter.trim()) {
+    // legacy single filter string → one keyword
+    next.nameKeywords = normalizeKeywords([input.nameFilter])
+  }
   if (typeof input.playerPath === 'string') next.playerPath = input.playerPath.trim()
   if (Array.isArray(input.playerArgs)) {
     next.playerArgs = input.playerArgs.map((v) => String(v))
   } else if (typeof input.playerArgs === 'string') {
     next.playerArgs = splitArgs(input.playerArgs)
   }
-  if (typeof input.notifyDisconnect === 'boolean') {
-    next.notifyDisconnect = input.notifyDisconnect
+  if (typeof input.notifyDisconnect === 'boolean') next.notifyDisconnect = input.notifyDisconnect
+  if (typeof input.autoLaunchOnConnect === 'boolean') {
+    next.autoLaunchOnConnect = input.autoLaunchOnConnect
+  }
+  if (typeof input.pauseOnDisconnect === 'boolean') {
+    next.pauseOnDisconnect = input.pauseOnDisconnect
+  }
+  if (
+    typeof input.launchDelayMs === 'number' ||
+    typeof input.launchDelayMs === 'string'
+  ) {
+    next.launchDelayMs = clampLaunchDelayMs(input.launchDelayMs, next.launchDelayMs)
   }
   if (
     typeof input.connectedAutoHideSec === 'number' ||
@@ -83,7 +150,6 @@ function normalizeConfig(input = {}) {
       next.disconnectedAutoHideSec,
     )
   }
-  // legacy pollIntervalMs ignored
   return next
 }
 
@@ -96,11 +162,14 @@ function splitArgs(value) {
 }
 
 function matchesFilter(name) {
-  const filter = config.nameFilter.trim().toLowerCase()
-  if (!filter) return true
-  return String(name || '')
-    .toLowerCase()
-    .includes(filter)
+  const keywords = Array.isArray(config.nameKeywords) ? config.nameKeywords : []
+  if (!keywords.length) return true
+  const hay = String(name || '').toLowerCase()
+  return keywords.some((k) => hay.includes(String(k).toLowerCase()))
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function autoHideMs(sec) {
@@ -109,6 +178,7 @@ function autoHideMs(sec) {
 }
 
 function publishConnected(device, reason) {
+  if (!config.listenEnabled) return
   const hideMs = autoHideMs(config.connectedAutoHideSec)
   const sticky = hideMs <= 0
   const payload = {
@@ -121,6 +191,7 @@ function publishConnected(device, reason) {
   }
   if (!sticky) payload.auto_hide_ms = hideMs
 
+  // Quiet auto-launch still gets a short toast unless user set 0 sticky.
   send({
     v: 1,
     op: 'publish',
@@ -131,22 +202,38 @@ function publishConnected(device, reason) {
       body: device.name || '蓝牙音频设备',
       level: 'success',
       sticky,
-      actions: sticky
-        ? [
-            { id: 'open-player', label: '打开听歌' },
-            { id: 'dismiss', label: '知道了' },
-          ]
-        : [
-            { id: 'open-player', label: '打开听歌' },
-            { id: 'dismiss', label: '关闭' },
-          ],
+      actions: config.autoLaunchOnConnect
+        ? [{ id: 'dismiss', label: sticky ? '知道了' : '关闭' }]
+        : sticky
+          ? [
+              { id: 'open-player', label: '打开听歌' },
+              { id: 'dismiss', label: '知道了' },
+            ]
+          : [
+              { id: 'open-player', label: '打开听歌' },
+              { id: 'dismiss', label: '关闭' },
+            ],
       payload,
       dedupeKey: `bt-music:connected:${device.id}`,
     },
   })
+
+  if (config.autoLaunchOnConnect) {
+    openPlayer(device.name, { delayed: true }).catch((error) => {
+      log(
+        'auto-launch failed',
+        { error: error instanceof Error ? error.message : String(error) },
+        'warn',
+      )
+    })
+  }
 }
 
 function publishDisconnected(device, reason) {
+  if (!config.listenEnabled) return
+  if (config.pauseOnDisconnect) {
+    sendMediaPause().catch(() => {})
+  }
   if (!config.notifyDisconnect) return
   const hideMs = autoHideMs(config.disconnectedAutoHideSec)
   const sticky = hideMs <= 0
@@ -177,25 +264,358 @@ function publishDisconnected(device, reason) {
   })
 }
 
-function openPlayer(deviceName) {
+function psSingleQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
+/**
+ * Start (or re-activate) a GUI app like a normal user launch:
+ * Start-Process + find main window + restore + SetForegroundWindow.
+ */
+async function openPlayerWindows(playerPath, args) {
+  const pathLit = psSingleQuote(playerPath)
+  const argsLit = `@(${(args || []).map((a) => psSingleQuote(a)).join(',')})`
+  const script = `
+$ErrorActionPreference = 'Stop'
+if (-not ('CatraceWinActivate' -as [type])) {
+Add-Type -TypeDefinition @"
+using System;
+using System.Text;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+
+public static class CatraceWinActivate {
+  public const int SW_RESTORE = 9;
+  public const int SW_SHOW = 5;
+  public const int SW_SHOWNA = 8;
+  public const uint SWP_NOSIZE = 0x0001;
+  public const uint SWP_NOMOVE = 0x0002;
+  public const uint SWP_SHOWWINDOW = 0x0040;
+  public const int HWND_TOP = 0;
+  public const int HWND_TOPMOST = -1;
+  public const int HWND_NOTOPMOST = -2;
+
+  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int dwProcessId);
+  [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+  [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+  [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+  [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+  public const uint GW_OWNER = 4;
+  public const int GWL_STYLE = -16;
+  public const int GWL_EXSTYLE = -20;
+  public const int WS_VISIBLE = 0x10000000;
+  public const int WS_EX_TOOLWINDOW = 0x00000080;
+  public const int WS_EX_APPWINDOW = 0x00040000;
+  public const int WPF_ASYNCWINDOWPLACEMENT = 0x0004;
+  public const int SW_SHOWMINIMIZED = 2;
+
+  [StructLayout(LayoutKind.Sequential)]
+  public struct RECT { public int Left, Top, Right, Bottom; }
+
+  [StructLayout(LayoutKind.Sequential)]
+  public struct POINT { public int X, Y; }
+
+  [StructLayout(LayoutKind.Sequential)]
+  public struct WINDOWPLACEMENT {
+    public int length;
+    public int flags;
+    public int showCmd;
+    public POINT ptMinPosition;
+    public POINT ptMaxPosition;
+    public RECT rcNormalPosition;
+  }
+
+  static bool IsCandidateTopLevel(IntPtr hWnd) {
+    if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return false;
+    // Owned windows (tooltips/popups) are usually not the main frame.
+    if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero) return false;
+    int style = GetWindowLong(hWnd, GWL_STYLE);
+    int ex = GetWindowLong(hWnd, GWL_EXSTYLE);
+    bool iconic = IsIconic(hWnd);
+    bool visible = IsWindowVisible(hWnd) || (style & WS_VISIBLE) != 0 || iconic;
+    if (!visible) return false;
+    // Skip pure tool windows unless marked app window.
+    if ((ex & WS_EX_TOOLWINDOW) != 0 && (ex & WS_EX_APPWINDOW) == 0) return false;
+    // Minimized windows often have off-screen tiny rects — still valid targets.
+    if (iconic) return true;
+    if (GetWindowTextLength(hWnd) <= 0) return false;
+    RECT r;
+    if (!GetWindowRect(hWnd, out r)) return false;
+    int w = r.Right - r.Left;
+    int h = r.Bottom - r.Top;
+    return w >= 80 && h >= 80;
+  }
+
+  public static List<IntPtr> FindTopLevelWindows(int pid) {
+    var list = new List<IntPtr>();
+    EnumWindows((hWnd, l) => {
+      uint wpid;
+      GetWindowThreadProcessId(hWnd, out wpid);
+      if ((int)wpid != pid) return true;
+      if (!IsCandidateTopLevel(hWnd)) return true;
+      list.Add(hWnd);
+      return true;
+    }, IntPtr.Zero);
+    return list;
+  }
+
+  public static bool RestoreWindow(IntPtr hWnd) {
+    if (hWnd == IntPtr.Zero) return false;
+    // SetWindowPlacement is the reliable path for minimized frames.
+    WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+    wp.length = Marshal.SizeOf(typeof(WINDOWPLACEMENT));
+    if (GetWindowPlacement(hWnd, ref wp)) {
+      if (wp.showCmd == SW_SHOWMINIMIZED || IsIconic(hWnd)) {
+        wp.showCmd = SW_RESTORE;
+        wp.flags |= WPF_ASYNCWINDOWPLACEMENT;
+        SetWindowPlacement(hWnd, ref wp);
+      }
+    }
+    if (IsIconic(hWnd)) {
+      ShowWindowAsync(hWnd, SW_RESTORE);
+      ShowWindow(hWnd, SW_RESTORE);
+    } else {
+      ShowWindowAsync(hWnd, SW_SHOW);
+      ShowWindow(hWnd, SW_SHOW);
+    }
+    return true;
+  }
+
+  public static bool Activate(IntPtr hWnd) {
+    if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return false;
+    RestoreWindow(hWnd);
+    BringWindowToTop(hWnd);
+    // Brief TOPMOST pulse helps when restore alone leaves the frame behind.
+    SetWindowPos(hWnd, (IntPtr)HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(hWnd, (IntPtr)HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    SetWindowPos(hWnd, (IntPtr)HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+    IntPtr fg = GetForegroundWindow();
+    uint cur = GetCurrentThreadId();
+    uint fgPidIgnore, tgtPidIgnore;
+    uint fgTid = GetWindowThreadProcessId(fg, out fgPidIgnore);
+    uint tgtTid = GetWindowThreadProcessId(hWnd, out tgtPidIgnore);
+    bool attachedFg = false;
+    bool attachedTgt = false;
+    bool ok = false;
+    try {
+      if (fgTid != 0 && fgTid != cur) attachedFg = AttachThreadInput(cur, fgTid, true);
+      if (tgtTid != 0 && tgtTid != cur && tgtTid != fgTid) attachedTgt = AttachThreadInput(cur, tgtTid, true);
+      AllowSetForegroundWindow(-1);
+      SwitchToThisWindow(hWnd, true);
+      ok = SetForegroundWindow(hWnd);
+      if (!ok) {
+        // Last resort: keybd alt trick is avoided; retry restore + focus.
+        RestoreWindow(hWnd);
+        ok = SetForegroundWindow(hWnd);
+      }
+    } finally {
+      if (attachedTgt) AttachThreadInput(cur, tgtTid, false);
+      if (attachedFg) AttachThreadInput(cur, fgTid, false);
+    }
+    return ok || !IsIconic(hWnd);
+  }
+
+  public static bool ActivateProcess(int pid) {
+    var wins = FindTopLevelWindows(pid);
+    // Process.MainWindowHandle still works for many minimized apps.
+    try {
+      var proc = Process.GetProcessById(pid);
+      IntPtr main = proc.MainWindowHandle;
+      if (main != IntPtr.Zero && !wins.Contains(main)) wins.Insert(0, main);
+    } catch {}
+    if (wins.Count == 0) return false;
+    bool ok = false;
+    foreach (var w in wins) {
+      if (Activate(w)) ok = true;
+    }
+    return ok;
+  }
+}
+"@
+}
+
+$path = ${pathLit}
+$argList = ${argsLit}
+$exeName = [System.IO.Path]::GetFileNameWithoutExtension($path)
+
+# Prefer activating an already-running instance of the same exe (user-like bring-to-front).
+$existing = @(Get-Process -Name $exeName -ErrorAction SilentlyContinue | Where-Object {
+  try {
+    if (-not $_.Path) { return $true }
+    [string]::Equals($_.Path, $path, [System.StringComparison]::OrdinalIgnoreCase)
+  } catch { $true }
+})
+$pidOut = 0
+$activated = $false
+$started = $false
+
+if ($existing.Count -gt 0) {
+  foreach ($p in $existing) {
+    # Force restore via MainWindowHandle first (best for minimized frames).
+    try {
+      if ($p.MainWindowHandle -ne [IntPtr]::Zero) {
+        [void][CatraceWinActivate]::Activate([IntPtr]$p.MainWindowHandle)
+      }
+    } catch {}
+    if ([CatraceWinActivate]::ActivateProcess($p.Id)) {
+      $activated = $true
+      $pidOut = $p.Id
+      break
+    }
+  }
+  if (-not $activated) { $pidOut = $existing[0].Id }
+  # Second chance after a short wait (some apps delay un-minimize).
+  if (-not $activated -and $pidOut -ne 0) {
+    Start-Sleep -Milliseconds 250
+    if ([CatraceWinActivate]::ActivateProcess($pidOut)) { $activated = $true }
+  }
+}
+
+if (-not $activated) {
+  $startParams = @{ FilePath = $path; PassThru = $true; ErrorAction = 'Stop' }
+  if ($argList.Count -gt 0) { $startParams['ArgumentList'] = $argList }
+  $proc = Start-Process @startParams
+  $started = $true
+  $pidOut = $proc.Id
+  # Wait for a real top-level window (player splash / main).
+  $deadline = [datetime]::UtcNow.AddSeconds(8)
+  while ([datetime]::UtcNow -lt $deadline) {
+    Start-Sleep -Milliseconds 200
+    try {
+      $alive = Get-Process -Id $pidOut -ErrorAction Stop
+    } catch { break }
+    if ([CatraceWinActivate]::ActivateProcess($pidOut)) {
+      $activated = $true
+      break
+    }
+    # Some launchers spawn a child and exit — try same-name processes.
+    $siblings = @(Get-Process -Name $exeName -ErrorAction SilentlyContinue)
+    foreach ($s in $siblings) {
+      if ([CatraceWinActivate]::ActivateProcess($s.Id)) {
+        $activated = $true
+        $pidOut = $s.Id
+        break
+      }
+    }
+    if ($activated) { break }
+  }
+} else {
+  # Soft re-activate pulse
+  Start-Sleep -Milliseconds 120
+  [void][CatraceWinActivate]::ActivateProcess($pidOut)
+}
+
+Write-Output (("OK pid={0} started={1} activated={2}" -f $pidOut, $started, $activated))
+`
+  const stdout = await runPowerShell(script)
+  const m = String(stdout || '').match(/OK pid=(\d+) started=(True|False) activated=(True|False)/i)
+  if (!m) {
+    throw new Error(stdout.trim() || 'launch produced no result')
+  }
+  return {
+    ok: true,
+    pid: Number(m[1]),
+    started: /^true$/i.test(m[2]),
+    activated: /^true$/i.test(m[3]),
+    path: playerPath,
+  }
+}
+
+async function openPlayer(deviceName, { delayed = false } = {}) {
   const playerPath = String(config.playerPath || '').trim()
   if (!playerPath) {
     log('open-player skipped: no playerPath configured', { deviceName }, 'warn')
     return { ok: false, error: '请先在设置里选择听歌程序' }
   }
+  const delay = delayed ? clampLaunchDelayMs(config.launchDelayMs, 0) : 0
+  if (delay > 0) await sleep(delay)
+  const args = Array.isArray(config.playerArgs) ? config.playerArgs.map((v) => String(v)) : []
   try {
-    const child = spawn(playerPath, config.playerArgs || [], {
+    if (isWindows) {
+      const result = await openPlayerWindows(playerPath, args)
+      log('opened player', {
+        path: playerPath,
+        args,
+        pid: result.pid,
+        deviceName,
+        delayMs: delay,
+        started: result.started,
+        activated: result.activated,
+        via: 'start-process-activate',
+      })
+      return { ...result, delayMs: delay }
+    }
+    const child = spawn(playerPath, args, {
       detached: true,
       stdio: 'ignore',
       shell: false,
-      windowsHide: true,
     })
     child.unref()
-    log('opened player', { path: playerPath, args: config.playerArgs, pid: child.pid, deviceName })
-    return { ok: true, pid: child.pid, path: playerPath }
+    log('opened player', {
+      path: playerPath,
+      args,
+      pid: child.pid,
+      deviceName,
+      delayMs: delay,
+      via: 'spawn',
+    })
+    return { ok: true, pid: child.pid, path: playerPath, delayMs: delay, started: true, activated: false }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     log('open player failed', { path: playerPath, message }, 'error')
+    return { ok: false, error: message }
+  }
+}
+
+async function sendMediaPause() {
+  if (!isWindows) return { ok: false, error: 'pause only on Windows' }
+  // VK_MEDIA_PLAY_PAUSE = 0xB3 — toggles pause on most players / system mixer.
+  const script = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class CatraceMediaKeys {
+  [DllImport("user32.dll")]
+  public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+  public const byte VK_MEDIA_PLAY_PAUSE = 0xB3;
+  public const uint KEYEVENTF_KEYUP = 0x0002;
+  public static void Toggle() {
+    keybd_event(VK_MEDIA_PLAY_PAUSE, 0, 0, UIntPtr.Zero);
+    keybd_event(VK_MEDIA_PLAY_PAUSE, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+  }
+}
+"@
+[CatraceMediaKeys]::Toggle()
+`
+  try {
+    await runPowerShell(script)
+    log('sent media play/pause key', {})
+    return { ok: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    log('media pause failed', { message }, 'warn')
     return { ok: false, error: message }
   }
 }
@@ -461,6 +881,7 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
   // Always seed the first successful snapshot so a failed startup seed
   // cannot turn the next event into a full toast flood.
   const effectiveSeed = seedOnly || !pnpSeeded
+  rememberPaired(devices)
   if (effectiveSeed || immediate) {
     if (applyDebounceTimer) {
       clearTimeout(applyDebounceTimer)
@@ -705,28 +1126,109 @@ function statusPayload() {
     platform: process.platform,
     pid: process.pid,
     watchSupported: isWindows,
-    watchEnabled: true,
+    listenEnabled: config.listenEnabled,
+    watchEnabled: config.listenEnabled,
     watchMode: isWindows ? 'device-change-event' : 'none',
     watcherPid: watcherChild?.pid || null,
     pnpSeeded,
-    nameFilter: config.nameFilter,
+    nameKeywords: [...(config.nameKeywords || [])],
     playerPath: config.playerPath,
     playerArgs: config.playerArgs,
     notifyDisconnect: config.notifyDisconnect,
+    autoLaunchOnConnect: config.autoLaunchOnConnect,
+    pauseOnDisconnect: config.pauseOnDisconnect,
+    launchDelayMs: config.launchDelayMs,
     connectedAutoHideSec: config.connectedAutoHideSec,
     disconnectedAutoHideSec: config.disconnectedAutoHideSec,
     lastWatchError: lastWatchError || null,
     devices: [...known.values()],
+    pairedDevices: [...pairedCatalog.values()],
   }
 }
 
+function filterSignature(cfg) {
+  return JSON.stringify({
+    on: cfg.listenEnabled !== false,
+    keys: [...(cfg.nameKeywords || [])].map((k) => String(k).toLowerCase()).sort(),
+  })
+}
+
 function applyHostConfig(input) {
-  const prevFilter = config.nameFilter
+  const prevSig = filterSignature(config)
   config = normalizeConfig(input)
   log('config applied', { config })
-  // Name filter change should re-evaluate current set without waiting for plug.
-  if (isWindows && prevFilter !== config.nameFilter && pnpSeeded) {
+  if (isWindows && pnpSeeded && prevSig !== filterSignature(config)) {
     snapshotOnce('filter-change', { immediate: true }).catch(() => {})
+  }
+}
+
+function rememberPaired(devices) {
+  for (const d of devices) {
+    const name = String(d.name || '').trim()
+    if (!name) continue
+    const id = String(d.id || name)
+    pairedCatalog.set(name.toLowerCase(), { id, name })
+  }
+  // Cap catalog size
+  if (pairedCatalog.size > 40) {
+    const keys = [...pairedCatalog.keys()]
+    for (const k of keys.slice(0, pairedCatalog.size - 40)) pairedCatalog.delete(k)
+  }
+}
+
+/**
+ * List paired BT audio names (not only currently connected) for settings quick-pick.
+ */
+async function listPairedBluetoothAudio() {
+  if (!isWindows) return []
+  const outFile = path.join(os.tmpdir(), `catrace-bt-music-paired-${process.pid}.json`)
+  const outFilePs = outFile.replace(/'/g, "''")
+  const script = `
+$ErrorActionPreference = 'Stop'
+$outFile = '${outFilePs}'
+$raw = @(Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object {
+  $id = [string]$_.InstanceId
+  $name = [string]$_.FriendlyName
+  $cls = [string]$_.Class
+  $st = [string]$_.Status
+  if ($st -eq 'Error') { return $false }
+  if ($cls -eq 'MEDIA' -and ($id -match 'BTHENUM|BTHHFENUM')) { return $true }
+  if ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\DEV_' -and ($name -match '耳机|Headset|Buds|AirPods|Headphone|Ear|WH-|XM')) { return $true }
+  if ($cls -eq 'System' -and $id -match 'BTHENUM' -and ($name -match 'Hands-Free|耳机')) { return $true }
+  return $false
+})
+$items = @()
+foreach ($d in $raw) {
+  $items += [pscustomobject]@{
+    FriendlyName = $d.FriendlyName
+    InstanceId = $d.InstanceId
+    Class = $d.Class
+    Status = $d.Status
+    IsConnected = $true
+  }
+}
+if ($items.Count -eq 0) { $json = '[]' } else { $json = ($items | ConvertTo-Json -Compress -Depth 3) }
+[System.IO.File]::WriteAllText($outFile, $json, [System.Text.UTF8Encoding]::new($false))
+`
+  try {
+    await runPowerShell(script)
+    // Reuse parser without name keyword filter by temporarily clearing keywords.
+    const saved = config.nameKeywords
+    config.nameKeywords = []
+    let devices = []
+    try {
+      devices = parseEndpointFile(outFile)
+    } finally {
+      config.nameKeywords = saved
+    }
+    rememberPaired(devices)
+    return [...pairedCatalog.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+  } finally {
+    try {
+      fs.unlinkSync(outFile)
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -744,6 +1246,14 @@ function handleRequest(message) {
       case 'listDevices':
         respond(requestId, true, { devices: [...known.values()] })
         break
+      case 'listPairedDevices': {
+        listPairedBluetoothAudio()
+          .then((devices) => respond(requestId, true, { devices }))
+          .catch((error) =>
+            respond(requestId, false, null, error instanceof Error ? error.message : String(error)),
+          )
+        break
+      }
       case 'setConfig': {
         applyHostConfig(params)
         respond(requestId, true, statusPayload())
@@ -758,8 +1268,11 @@ function handleRequest(message) {
         break
       }
       case 'openPlayer': {
-        const result = openPlayer(params.deviceName)
-        respond(requestId, result.ok, result, result.error)
+        openPlayer(params.deviceName, { delayed: params.delayed === true })
+          .then((result) => respond(requestId, result.ok, result, result.error))
+          .catch((error) =>
+            respond(requestId, false, null, error instanceof Error ? error.message : String(error)),
+          )
         break
       }
       default:
@@ -821,7 +1334,13 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     if (message.actionId === 'open-player') {
       const deviceName =
         message.payload?.deviceName || message.event?.payload?.deviceName || undefined
-      openPlayer(deviceName)
+      openPlayer(deviceName).catch((error) => {
+        log(
+          'open-player from toast failed',
+          { error: error instanceof Error ? error.message : String(error) },
+          'warn',
+        )
+      })
     }
   }
 })
