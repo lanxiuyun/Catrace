@@ -52,6 +52,9 @@ let watcherGeneration = 0
 let applyDebounceTimer = null
 /** @type {{ devices: any[], reason: string } | null} */
 let pendingSnapshot = null
+/** Retry scans when IsConnected lags behind the first PnP event. */
+let connectProbeTimer = null
+let connectProbeLeft = 0
 
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`)
 const log = (message, data, level = 'info') =>
@@ -733,21 +736,30 @@ function displayNameFor(device) {
  * to $outFile. Shared by one-shot list and the event watcher.
  */
 function psCollectConnectedScript(outFilePs) {
+  // Prefer -Class scoped queries: full Get-PnpDevice is multi-second on many PCs.
   return `
 $ErrorActionPreference = 'Stop'
 $outFile = '${outFilePs}'
-$raw = @(Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object {
-  $id = [string]$_.InstanceId
-  $name = [string]$_.FriendlyName
-  $cls = [string]$_.Class
-  $st = [string]$_.Status
-  if ($st -eq 'Error') { return $false }
-  if ($cls -eq 'MEDIA' -and ($id -match 'BTHENUM|BTHHFENUM')) { return $true }
-  if ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\DEV_' -and ($name -match '耳机|Headset|Buds|AirPods|Headphone|Ear')) { return $true }
-  if ($cls -eq 'System' -and $id -match 'BTHENUM' -and ($name -match 'Hands-Free|耳机')) { return $true }
-  if ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\\\{0000110' -and ($name -match 'Avrcp|A2DP|耳机|Headset')) { return $true }
-  return $false
-})
+$raw = [System.Collections.Generic.List[object]]::new()
+function Add-BtCandidates([string]$ClassName) {
+  $devs = @(Get-PnpDevice -Class $ClassName -ErrorAction SilentlyContinue)
+  foreach ($d in $devs) {
+    $id = [string]$d.InstanceId
+    $name = [string]$d.FriendlyName
+    $cls = [string]$d.Class
+    $st = [string]$d.Status
+    if ($st -eq 'Error') { continue }
+    $ok = $false
+    if ($cls -eq 'MEDIA' -and ($id -match 'BTHENUM|BTHHFENUM')) { $ok = $true }
+    elseif ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\DEV_' -and ($name -match '耳机|Headset|Buds|AirPods|Headphone|Ear|WH-|XM')) { $ok = $true }
+    elseif ($cls -eq 'System' -and $id -match 'BTHENUM' -and ($name -match 'Hands-Free|耳机')) { $ok = $true }
+    elseif ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\\\{0000110' -and ($name -match 'Avrcp|A2DP|耳机|Headset')) { $ok = $true }
+    if ($ok) { [void]$raw.Add($d) }
+  }
+}
+Add-BtCandidates 'MEDIA'
+Add-BtCandidates 'Bluetooth'
+Add-BtCandidates 'System'
 $items = @()
 foreach ($d in $raw) {
   $connected = $false
@@ -877,12 +889,47 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
   }
 }
 
+function snapshotAddsDevice(devices) {
+  if (!pnpSeeded) return false
+  for (const device of devices) {
+    const groupKey = device.groupKey || deviceGroupKey(device.name)
+    const already =
+      known.has(device.id) ||
+      [...known.values()].some((d) => (d.groupKey || deviceGroupKey(d.name)) === groupKey)
+    if (!already) return true
+  }
+  return false
+}
+
+function scheduleConnectProbe(reason) {
+  // IsConnected often flips after A2DP is already playing — re-scan a few times.
+  connectProbeLeft = 3
+  if (connectProbeTimer) clearTimeout(connectProbeTimer)
+  const tick = () => {
+    connectProbeTimer = null
+    if (connectProbeLeft <= 0) return
+    connectProbeLeft -= 1
+    snapshotOnce(`${reason}:probe`, { immediate: true })
+      .catch(() => {})
+      .finally(() => {
+        if (connectProbeLeft > 0) {
+          connectProbeTimer = setTimeout(tick, 350)
+          connectProbeTimer.unref?.()
+        }
+      })
+  }
+  connectProbeTimer = setTimeout(tick, 280)
+  connectProbeTimer.unref?.()
+}
+
 function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } = {}) {
   // Always seed the first successful snapshot so a failed startup seed
   // cannot turn the next event into a full toast flood.
   const effectiveSeed = seedOnly || !pnpSeeded
   rememberPaired(devices)
-  if (effectiveSeed || immediate) {
+  const hasNew = snapshotAddsDevice(devices)
+  // Apply immediately on seed, explicit immediate, or when a new headset appears.
+  if (effectiveSeed || immediate || hasNew) {
     if (applyDebounceTimer) {
       clearTimeout(applyDebounceTimer)
       applyDebounceTimer = null
@@ -897,7 +944,16 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
       count: devices.length,
       names: devices.map((d) => d.name),
       mode: 'event',
+      immediate: true,
     })
+    if (!effectiveSeed && !hasNew && /device-change/i.test(reason)) {
+      scheduleConnectProbe(reason)
+    }
+    if (hasNew && connectProbeTimer) {
+      clearTimeout(connectProbeTimer)
+      connectProbeTimer = null
+      connectProbeLeft = 0
+    }
     return
   }
 
@@ -918,7 +974,9 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
       names: pending.devices.map((d) => d.name),
       mode: 'event',
     })
-  }, 350)
+    // No visible change yet after a device event → IsConnected may still be false.
+    if (/device-change/i.test(pending.reason)) scheduleConnectProbe(pending.reason)
+  }, 80)
   applyDebounceTimer.unref?.()
 }
 
@@ -977,11 +1035,11 @@ try {
   while ($true) {
     try {
       $null = $watcher.WaitForNextEvent()
-      # Coalesce PnP storms (A2DP+HFP+services arrive together).
-      $deadline = [datetime]::UtcNow.AddMilliseconds(700)
+      # Short coalesce only — long waits made toast lag behind audio.
+      $deadline = [datetime]::UtcNow.AddMilliseconds(160)
       while ([datetime]::UtcNow -lt $deadline) {
         try {
-          $watcher.Options.Timeout = [System.TimeSpan]::FromMilliseconds(80)
+          $watcher.Options.Timeout = [System.TimeSpan]::FromMilliseconds(40)
           $null = $watcher.WaitForNextEvent()
         } catch {
           break
@@ -1009,6 +1067,11 @@ function stopWatcher() {
     clearTimeout(applyDebounceTimer)
     applyDebounceTimer = null
   }
+  if (connectProbeTimer) {
+    clearTimeout(connectProbeTimer)
+    connectProbeTimer = null
+  }
+  connectProbeLeft = 0
   pendingSnapshot = null
   if (watcherRl) {
     try {
