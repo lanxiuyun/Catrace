@@ -41,6 +41,12 @@ const CSS = `
 .bt-settings .cols {
   display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr)); gap:0.75rem 1rem;
 }
+.bt-settings .cols-2 {
+  display:grid; grid-template-columns:1fr 1fr; gap:0.75rem 1rem;
+}
+@media (max-width: 22rem) {
+  .bt-settings .cols-2 { grid-template-columns:1fr; }
+}
 .bt-settings .field { display:flex; flex-direction:column; gap:0.375rem; min-width:0; }
 .bt-settings .label { font-size:0.75rem; color:#64748b; font-weight:600; }
 .bt-settings .hint { margin:0; color:#94a3b8; font-size:0.6875rem; line-height:1.4; }
@@ -517,10 +523,10 @@ export default {
             ]),
           ]),
 
-          card('violet', '⏱', '弹窗偏好', null, [
-            h('div', { class: 'cols' }, [
+          card('violet', '⏱', '通知偏好', null, [
+            h('div', { class: 'cols-2' }, [
               h('div', { class: 'field' }, [
-                h('span', { class: 'label' }, '连接弹窗驻留'),
+                h('span', { class: 'label' }, '连接通知驻留'),
                 h('div', { class: 'row-inline' }, [
                   h(NInput, {
                     value: String(connectedAutoHideSec.value ?? 5),
@@ -538,7 +544,7 @@ export default {
                 h('p', { class: 'hint' }, '0 表示不自动消失'),
               ]),
               h('div', { class: 'field' }, [
-                h('span', { class: 'label' }, '断开弹窗驻留'),
+                h('span', { class: 'label' }, '断开通知驻留'),
                 h('div', { class: 'row-inline' }, [
                   h(NInput, {
                     value: String(disconnectedAutoHideSec.value ?? 3),

@@ -732,57 +732,57 @@ function displayNameFor(device) {
 }
 
 /**
- * PowerShell body that writes a UTF-8 JSON array of connected BT audio PnP nodes
- * to $outFile. Shared by one-shot list and the event watcher.
+ * Fast collect: only MEDIA + a few Bluetooth class nodes (not full PnP dump).
+ * Writes UTF-8 JSON array to $outFile. Used by watcher and one-shot list.
  */
 function psCollectConnectedScript(outFilePs) {
-  // Prefer -Class scoped queries: full Get-PnpDevice is multi-second on many PCs.
   return `
 $ErrorActionPreference = 'Stop'
 $outFile = '${outFilePs}'
-$raw = [System.Collections.Generic.List[object]]::new()
-function Add-BtCandidates([string]$ClassName) {
-  $devs = @(Get-PnpDevice -Class $ClassName -ErrorAction SilentlyContinue)
-  foreach ($d in $devs) {
-    $id = [string]$d.InstanceId
-    $name = [string]$d.FriendlyName
-    $cls = [string]$d.Class
-    $st = [string]$d.Status
-    if ($st -eq 'Error') { continue }
-    $ok = $false
-    if ($cls -eq 'MEDIA' -and ($id -match 'BTHENUM|BTHHFENUM')) { $ok = $true }
-    elseif ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\DEV_' -and ($name -match '耳机|Headset|Buds|AirPods|Headphone|Ear|WH-|XM')) { $ok = $true }
-    elseif ($cls -eq 'System' -and $id -match 'BTHENUM' -and ($name -match 'Hands-Free|耳机')) { $ok = $true }
-    elseif ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\\\{0000110' -and ($name -match 'Avrcp|A2DP|耳机|Headset')) { $ok = $true }
-    if ($ok) { [void]$raw.Add($d) }
-  }
+$seen = @{}
+$items = New-Object System.Collections.Generic.List[object]
+
+function Test-BtAudioId([string]$id, [string]$name, [string]$cls) {
+  if ($cls -eq 'MEDIA' -and ($id -match 'BTHENUM|BTHHFENUM')) { return $true }
+  if ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\DEV_' -and ($name -match '耳机|Headset|Buds|AirPods|Headphone|Ear|WH-|XM|FreeBuds|LinkBuds')) { return $true }
+  if ($cls -eq 'System' -and $id -match 'BTHENUM' -and ($name -match 'Hands-Free|耳机')) { return $true }
+  if ($cls -eq 'Bluetooth' -and $id -match 'BTHENUM\\\\\\{0000110' -and ($name -match 'Avrcp|A2DP|耳机|Headset')) { return $true }
+  return $false
 }
-Add-BtCandidates 'MEDIA'
-Add-BtCandidates 'Bluetooth'
-Add-BtCandidates 'System'
-$items = @()
-foreach ($d in $raw) {
+
+function Add-IfConnected($d) {
+  if ($null -eq $d) { return }
+  $id = [string]$d.InstanceId
+  if ([string]::IsNullOrEmpty($id)) { return }
+  if ($seen.ContainsKey($id)) { return }
+  $name = [string]$d.FriendlyName
+  $cls = [string]$d.Class
+  $st = [string]$d.Status
+  if ($st -eq 'Error') { return }
+  if (-not (Test-BtAudioId $id $name $cls)) { return }
   $connected = $false
   try {
-    $p = Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName 'DEVPKEY_Device_IsConnected' -ErrorAction SilentlyContinue
-    if ($null -ne $p -and $null -ne $p.Data) {
-      $connected = [bool]$p.Data
-    }
+    $p = Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_IsConnected' -ErrorAction SilentlyContinue
+    if ($null -ne $p -and $null -ne $p.Data) { $connected = [bool]$p.Data }
   } catch {}
-  if (-not $connected) { continue }
-  $items += [pscustomobject]@{
-    FriendlyName = $d.FriendlyName
-    InstanceId = $d.InstanceId
-    Class = $d.Class
-    Status = $d.Status
+  if (-not $connected) { return }
+  $seen[$id] = $true
+  [void]$items.Add([pscustomobject]@{
+    FriendlyName = $name
+    InstanceId = $id
+    Class = $cls
+    Status = $st
     IsConnected = $true
-  }
+  })
 }
-if ($items.Count -eq 0) {
-  $json = '[]'
-} else {
-  $json = ($items | ConvertTo-Json -Compress -Depth 3)
-}
+
+# MEDIA first — A2DP/HFP sinks live here and the class set is small.
+foreach ($d in @(Get-PnpDevice -Class MEDIA -Status OK -ErrorAction SilentlyContinue)) { Add-IfConnected $d }
+# Bluetooth class leaf devices (name-filtered inside Add-IfConnected).
+foreach ($d in @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue)) { Add-IfConnected $d }
+
+if ($items.Count -eq 0) { $json = '[]' }
+else { $json = ($items | ConvertTo-Json -Compress -Depth 3) }
 [System.IO.File]::WriteAllText($outFile, $json, [System.Text.UTF8Encoding]::new($false))
 `
 }
@@ -889,36 +889,28 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
   }
 }
 
-function snapshotAddsDevice(devices) {
-  if (!pnpSeeded) return false
-  for (const device of devices) {
-    const groupKey = device.groupKey || deviceGroupKey(device.name)
-    const already =
-      known.has(device.id) ||
-      [...known.values()].some((d) => (d.groupKey || deviceGroupKey(d.name)) === groupKey)
-    if (!already) return true
-  }
-  return false
-}
-
 function scheduleConnectProbe(reason) {
-  // IsConnected often flips after A2DP is already playing — re-scan a few times.
-  connectProbeLeft = 3
+  // Fast MEDIA-class scans from Node while IsConnected catches up to audio.
+  connectProbeLeft = 8
   if (connectProbeTimer) clearTimeout(connectProbeTimer)
+  const gaps = [100, 150, 200, 300, 400, 500, 700, 1000]
+  let i = 0
   const tick = () => {
     connectProbeTimer = null
     if (connectProbeLeft <= 0) return
     connectProbeLeft -= 1
-    snapshotOnce(`${reason}:probe`, { immediate: true })
+    const gap = gaps[Math.min(i, gaps.length - 1)]
+    i += 1
+    snapshotOnce(`${reason}:probe${i}`, { immediate: true })
       .catch(() => {})
       .finally(() => {
         if (connectProbeLeft > 0) {
-          connectProbeTimer = setTimeout(tick, 350)
+          connectProbeTimer = setTimeout(tick, gap)
           connectProbeTimer.unref?.()
         }
       })
   }
-  connectProbeTimer = setTimeout(tick, 280)
+  connectProbeTimer = setTimeout(tick, gaps[0])
   connectProbeTimer.unref?.()
 }
 
@@ -927,14 +919,14 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
   // cannot turn the next event into a full toast flood.
   const effectiveSeed = seedOnly || !pnpSeeded
   rememberPaired(devices)
-  const hasNew = snapshotAddsDevice(devices)
-  // Apply immediately on seed, explicit immediate, or when a new headset appears.
-  if (effectiveSeed || immediate || hasNew) {
+  const forceImmediate = immediate || effectiveSeed || /device-change|probe|event/i.test(reason)
+  if (forceImmediate) {
     if (applyDebounceTimer) {
       clearTimeout(applyDebounceTimer)
       applyDebounceTimer = null
     }
     pendingSnapshot = null
+    const before = known.size
     applySnapshot(devices, reason, { seedOnly: effectiveSeed })
     pnpSeeded = true
     lastWatchError = ''
@@ -946,10 +938,16 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
       mode: 'event',
       immediate: true,
     })
-    if (!effectiveSeed && !hasNew && /device-change/i.test(reason)) {
+    // Event arrived but still no connected headset → keep probing IsConnected.
+    if (
+      !effectiveSeed &&
+      known.size === before &&
+      devices.length === 0 &&
+      /device-change:event/i.test(reason)
+    ) {
       scheduleConnectProbe(reason)
     }
-    if (hasNew && connectProbeTimer) {
+    if (known.size > before && connectProbeTimer) {
       clearTimeout(connectProbeTimer)
       connectProbeTimer = null
       connectProbeLeft = 0
@@ -974,9 +972,7 @@ function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } 
       names: pending.devices.map((d) => d.name),
       mode: 'event',
     })
-    // No visible change yet after a device event → IsConnected may still be false.
-    if (/device-change/i.test(pending.reason)) scheduleConnectProbe(pending.reason)
-  }, 80)
+  }, 50)
   applyDebounceTimer.unref?.()
 }
 
@@ -998,32 +994,31 @@ async function snapshotOnce(reason = 'manual', options = {}) {
 }
 
 /**
- * Long-running PowerShell: subscribe to Win32_DeviceChangeEvent (arrival/removal),
- * debounce bursts, then dump connected BT audio JSON to a stable UTF-8 file and
- * print "SNAPSHOT" on stdout so Node can re-read without CP936 corruption.
+ * Long-running PowerShell: DeviceChange → immediate MEDIA-class snapshot (no coalesce wait).
+ * Node runs a short probe chain if IsConnected still lags behind audio.
  */
 function buildWatcherScript(outFilePs) {
   const collect = psCollectConnectedScript(outFilePs)
-  // After each emit, print a single ASCII marker line. Node re-reads $outFile as UTF-8.
   return `
 $ErrorActionPreference = 'Continue'
 $outFile = '${outFilePs}'
 
-function Write-BtSnapshotMarker {
+function Write-BtSnapshotMarker([string]$why) {
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
   try {
 ${collect
   .split('\n')
   .map((line) => `    ${line}`)
   .join('\n')}
-    [Console]::Out.WriteLine('SNAPSHOT')
+    $sw.Stop()
+    [Console]::Out.WriteLine(('SNAPSHOT why={0} ms={1}' -f $why, [int]$sw.ElapsedMilliseconds))
     [Console]::Out.Flush()
   } catch {
     [Console]::Error.WriteLine(('SNAPSHOT_ERROR ' + $_.Exception.Message))
   }
 }
 
-# Seed immediately so Node can mark pnpSeeded without waiting for a plug event.
-Write-BtSnapshotMarker
+Write-BtSnapshotMarker 'seed'
 
 $query = 'SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 OR EventType = 3'
 $watcher = $null
@@ -1035,20 +1030,21 @@ try {
   while ($true) {
     try {
       $null = $watcher.WaitForNextEvent()
-      # Short coalesce only — long waits made toast lag behind audio.
-      $deadline = [datetime]::UtcNow.AddMilliseconds(160)
-      while ([datetime]::UtcNow -lt $deadline) {
+      # Immediate first snapshot — audio may already be up by the time IsConnected flips.
+      Write-BtSnapshotMarker 'event'
+      # Drain burst without delaying the first marker above.
+      $drainUntil = [datetime]::UtcNow.AddMilliseconds(80)
+      $extra = 0
+      while ([datetime]::UtcNow -lt $drainUntil) {
         try {
-          $watcher.Options.Timeout = [System.TimeSpan]::FromMilliseconds(40)
+          $watcher.Options.Timeout = [System.TimeSpan]::FromMilliseconds(15)
           $null = $watcher.WaitForNextEvent()
-        } catch {
-          break
-        }
+          $extra++
+        } catch { break }
       }
       $watcher.Options.Timeout = [System.TimeSpan]::FromSeconds(5)
-      Write-BtSnapshotMarker
+      if ($extra -gt 0) { Write-BtSnapshotMarker 'event-burst' }
     } catch {
-      # Timeout: idle keep-alive so the process stays responsive to kill.
       continue
     }
   }
@@ -1163,13 +1159,24 @@ function startWatcher() {
       log('device watcher snapshot error', { error: lastWatchError }, 'warn')
       return
     }
-    if (text !== 'SNAPSHOT') {
+    if (!text.startsWith('SNAPSHOT')) {
       // Ignore stray PS noise.
       return
     }
+    // "SNAPSHOT why=event ms=42"
+    const whyMatch = text.match(/why=([^\s]+)/i)
+    const msMatch = text.match(/ms=(\d+)/i)
+    const why = whyMatch ? whyMatch[1] : 'device-change'
+    const scanMs = msMatch ? Number(msMatch[1]) : null
     try {
       const devices = parseEndpointFile(outFile)
-      queueSnapshot(devices, 'device-change')
+      if (scanMs != null) {
+        log('device watcher snapshot', { why, scanMs, count: devices.length }, scanMs > 800 ? 'warn' : 'info')
+      }
+      queueSnapshot(devices, why === 'seed' ? 'seed' : `device-change:${why}`, {
+        seedOnly: why === 'seed',
+        immediate: true,
+      })
     } catch (error) {
       lastWatchError = error instanceof Error ? error.message : String(error)
       log('device watcher apply failed', { error: lastWatchError }, 'warn')
