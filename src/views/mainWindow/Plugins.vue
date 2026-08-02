@@ -252,9 +252,12 @@ async function onTestExternal(p: ExternalPluginInfo) {
   if (!p.enabled || p.error || testingId.value) return
   testingId.value = p.id
   try {
-    // Do NOT call loadExternalPlugins here: toast window has its own Pinia and already
-    // loads on mount. Re-scanning + revoking Blob URLs under a live card freezes the
-    // toast WebView; publish alone is enough (same path as rest test + bus).
+    // mtime-aware rebuild (no force): disk edits to ui/settings produce a new fingerprint.
+    // Then tell the toast window to clear its card cache and pick up fresh blob URLs so
+    // live PluginHostCards remount instead of sticking to the first import of the session.
+    await loadExternalPlugins()
+    const { emit } = await import('@tauri-apps/api/event')
+    await emit('catrace:reload-external-plugins')
     await publishEvent({
       id: '',
       event_type: `${p.id}.tick`,

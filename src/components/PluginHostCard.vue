@@ -15,7 +15,10 @@ import { getPluginUiSource } from '../api/tauri'
 import SdkToastCard from './SdkToastCard.vue'
 import { ensurePluginRuntime } from '../plugins/pluginRuntime'
 import { wrapPluginSource } from '../plugins/pluginApi'
-import { getPluginHostCardCache } from './pluginHostCardCache'
+import {
+  getPluginHostCardCache,
+  getPluginHostCardCacheGeneration,
+} from './pluginHostCardCache'
 
 const props = defineProps<{
   event: BusEvent
@@ -37,7 +40,7 @@ const emit = defineEmits<{
 
 const registry = usePluginRegistry()
 
-/** Process-wide: never re-defineAsyncComponent for the same plugin in one toast session. */
+/** Process-wide: avoid re-defineAsyncComponent for the same plugin+blob in one session. */
 const cardCache = getPluginHostCardCache()
 
 function renderSdkFallback(message: string, level: string = 'warning') {
@@ -76,8 +79,8 @@ async function loadFromPluginId(id: string): Promise<Component> {
   return loadFromBlobUrl(blobUrl)
 }
 
-function cacheKey(): string {
-  const pid =
+function pluginIdentity(): string {
+  return (
     props.pluginId ||
     (props.event.source &&
     typeof props.event.source === 'object' &&
@@ -85,7 +88,16 @@ function cacheKey(): string {
       ? (props.event.source as { name: string }).name
       : '') ||
     props.event.kind
-  return pid || props.event.kind
+  )
+}
+
+/**
+ * Cache by plugin id + reload generation.
+ * uiUrl is intentionally not part of the key: registry CardComponent is the
+ * authority after loadExternalPlugins; generation bump forces remount on hot reload.
+ */
+function cacheKey(): string {
+  return pluginIdentity() || props.event.kind
 }
 
 function resolveCard(): Component {
@@ -174,6 +186,7 @@ function handleCardAction(actionId: string) {
 }
 
 const cardComp = shallowRef<Component>(resolveCard())
+const cacheGen = getPluginHostCardCacheGeneration()
 
 onMounted(() => {
   console.info('[PluginHostCard] mount', {
@@ -183,8 +196,12 @@ onMounted(() => {
     t: Date.now(),
   })
 })
-/** Only remount when the plugin identity changes — not on every event revision/id. */
-const cardKey = computed(() => cacheKey())
+
+/**
+ * Remount when plugin identity or host cache generation changes.
+ * Event id/revision alone must not thrash the card.
+ */
+const cardKey = computed(() => `${cacheKey()}@g${cacheGen.value}`)
 
 watch(
   cardKey,

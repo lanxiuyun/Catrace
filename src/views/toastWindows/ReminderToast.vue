@@ -231,10 +231,20 @@ onMounted(async () => {
 
   // Plugins page refresh → reload external card UI without app restart.
   unlistenReloadPlugins = await listen('catrace:reload-external-plugins', () => {
-    clearPluginHostCardCache()
-    void loadExternalPlugins({ force: true }).catch((e) => {
-      console.warn('[toast] reload external plugins failed', e)
-    })
+    void loadExternalPlugins({ force: true })
+      .then(() => {
+        // Registry first, then bust cache so remount resolves the new Card once.
+        const reg = usePluginRegistry()
+        for (const n of notifications.value) {
+          if (!n.pluginId || n.leaving) continue
+          const handle = reg.getPlugin(n.pluginId) || reg.getPluginForKind(n.kind)
+          if (handle?.uiUrl) n.uiUrl = handle.uiUrl
+        }
+        clearPluginHostCardCache()
+      })
+      .catch((e) => {
+        console.warn('[toast] reload external plugins failed', e)
+      })
   })
 
   // Event Bus → Toast 统一渲染线（rest / timer / agent 等 display_mode=toast 的 active 事件）
