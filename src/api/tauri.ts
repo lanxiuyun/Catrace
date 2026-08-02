@@ -440,6 +440,8 @@ export interface ExternalPluginInfo {
   hasUi: boolean
   hasBackground: boolean
   hasSettings: boolean
+  /** Max mtime of ui/settings sources (ms); used to bust frontend blob cache on edit. */
+  contentMtimeMs?: number
   anomalous: boolean
   error?: string | null
 }

@@ -8,18 +8,14 @@ const pluginId = process.env.CATRACE_PLUGIN_ID || 'bt-music'
 const isWindows = process.platform === 'win32'
 
 const DEFAULT_CONFIG = {
-  /** Master switch inside plugin settings (sidecar may still run). */
-  listenEnabled: true,
-  /** Match if device name contains any keyword; empty = all BT audio. */
-  nameKeywords: [],
+  // Plugin enable starts the sidecar — always watch all BT audio headsets.
   playerPath: '',
   playerArgs: [],
-  notifyDisconnect: true,
-  /** Connect → spawn player without waiting for toast action. */
-  autoLaunchOnConnect: false,
-  /** Disconnect → send system media pause key. */
-  pauseOnDisconnect: false,
-  /** 0 = sticky until dismiss; >0 = auto-hide seconds */
+  /** none | notify | launch */
+  connectAction: 'notify',
+  /** none | pause | close */
+  disconnectAction: 'none',
+  /** 0 = sticky until dismiss; >0 = auto-hide seconds (connect notify only) */
   connectedAutoHideSec: 5,
   disconnectedAutoHideSec: 3,
 }
@@ -27,7 +23,6 @@ const DEFAULT_CONFIG = {
 /** @type {typeof DEFAULT_CONFIG} */
 let config = {
   ...DEFAULT_CONFIG,
-  nameKeywords: [...DEFAULT_CONFIG.nameKeywords],
   playerArgs: [...DEFAULT_CONFIG.playerArgs],
 }
 
@@ -73,58 +68,34 @@ function clampAutoHideSec(value, fallback) {
   return Math.min(600, Math.max(3, rounded))
 }
 
-function normalizeKeywords(input) {
-  const raw = []
-  if (Array.isArray(input)) {
-    for (const item of input) {
-      const s = String(item || '').trim()
-      if (s) raw.push(s)
-    }
-  } else if (typeof input === 'string') {
-    for (const part of input.split(/[,，;；\n]+/)) {
-      const s = part.trim()
-      if (s) raw.push(s)
-    }
-  }
-  const seen = new Set()
-  const out = []
-  for (const k of raw) {
-    const key = k.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(k)
-    if (out.length >= 20) break
-  }
-  return out
+function normalizeConnectAction(value, legacy = {}) {
+  if (value === 'none' || value === 'notify' || value === 'launch') return value
+  if (legacy.autoLaunchOnConnect === true) return 'launch'
+  return 'notify'
+}
+
+function normalizeDisconnectAction(value, legacy = {}) {
+  if (value === 'none' || value === 'pause' || value === 'close') return value
+  // legacy notify-on-disconnect → none (product no longer toasts on disconnect)
+  if (value === 'notify') return 'none'
+  if (legacy.pauseOnDisconnect === true) return 'pause'
+  return 'none'
 }
 
 function normalizeConfig(input = {}) {
   const next = {
     ...config,
-    nameKeywords: [...(config.nameKeywords || [])],
     playerArgs: [...(config.playerArgs || [])],
   }
-  if (typeof input.listenEnabled === 'boolean') next.listenEnabled = input.listenEnabled
-  if (Array.isArray(input.nameKeywords) || typeof input.nameKeywords === 'string') {
-    next.nameKeywords = normalizeKeywords(input.nameKeywords)
-  } else if (typeof input.nameFilter === 'string' && input.nameFilter.trim()) {
-    // legacy single filter string → one keyword
-    next.nameKeywords = normalizeKeywords([input.nameFilter])
-  }
+  // legacy listenEnabled / nameKeywords / nameFilter / launchDelayMs ignored
   if (typeof input.playerPath === 'string') next.playerPath = input.playerPath.trim()
   if (Array.isArray(input.playerArgs)) {
     next.playerArgs = input.playerArgs.map((v) => String(v))
   } else if (typeof input.playerArgs === 'string') {
     next.playerArgs = splitArgs(input.playerArgs)
   }
-  if (typeof input.notifyDisconnect === 'boolean') next.notifyDisconnect = input.notifyDisconnect
-  if (typeof input.autoLaunchOnConnect === 'boolean') {
-    next.autoLaunchOnConnect = input.autoLaunchOnConnect
-  }
-  if (typeof input.pauseOnDisconnect === 'boolean') {
-    next.pauseOnDisconnect = input.pauseOnDisconnect
-  }
-  // legacy launchDelayMs ignored — always start immediately
+  next.connectAction = normalizeConnectAction(input.connectAction, input)
+  next.disconnectAction = normalizeDisconnectAction(input.disconnectAction, input)
   if (
     typeof input.connectedAutoHideSec === 'number' ||
     typeof input.connectedAutoHideSec === 'string'
@@ -151,60 +122,85 @@ function splitArgs(value) {
   )
 }
 
-function matchesFilter(name) {
-  const keywords = Array.isArray(config.nameKeywords) ? config.nameKeywords : []
-  if (!keywords.length) return true
-  const hay = String(name || '').toLowerCase()
-  return keywords.some((k) => hay.includes(String(k).toLowerCase()))
-}
-
 function autoHideMs(sec) {
   const s = clampAutoHideSec(sec, 0)
   return s <= 0 ? 0 : s * 1000
 }
 
-function publishConnected(device, reason) {
-  if (!config.listenEnabled) return
-  const hideMs = autoHideMs(config.connectedAutoHideSec)
-  const sticky = hideMs <= 0
+/** @type {{ path: string, name: string, iconDataUrl: string }} */
+let playerMeta = { path: '', name: '', iconDataUrl: '' }
+
+function playerDisplayName(playerPath) {
+  const base = path.basename(String(playerPath || '').trim())
+  if (!base) return ''
+  return base.replace(/\.exe$/i, '') || base
+}
+
+async function extractExeIconDataUrl(playerPath) {
+  if (!isWindows || !playerPath) return ''
+  const pathLit = psSingleQuote(playerPath)
+  const script = `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+$path = ${pathLit}
+if (-not (Test-Path -LiteralPath $path)) { Write-Output ''; exit 0 }
+$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+if ($null -eq $icon) { Write-Output ''; exit 0 }
+$bmp = $icon.ToBitmap()
+$ms = New-Object System.IO.MemoryStream
+$bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+$b64 = [Convert]::ToBase64String($ms.ToArray())
+$ms.Dispose(); $bmp.Dispose(); $icon.Dispose()
+Write-Output $b64
+`
+  try {
+    const b64 = String(await runPowerShell(script) || '').trim()
+    if (!b64 || b64.length < 32) return ''
+    return `data:image/png;base64,${b64}`
+  } catch {
+    return ''
+  }
+}
+
+async function refreshPlayerMeta() {
+  const playerPath = String(config.playerPath || '').trim()
+  const name = playerDisplayName(playerPath)
+  if (!playerPath) {
+    playerMeta = { path: '', name: '', iconDataUrl: '' }
+    return playerMeta
+  }
+  if (playerMeta.path === playerPath && playerMeta.iconDataUrl) {
+    playerMeta = { path: playerPath, name, iconDataUrl: playerMeta.iconDataUrl }
+    return playerMeta
+  }
+  const iconDataUrl = await extractExeIconDataUrl(playerPath)
+  playerMeta = { path: playerPath, name, iconDataUrl }
+  return playerMeta
+}
+
+function buildConnectedPayload(device, reason) {
   const payload = {
     deviceId: device.id,
-    deviceName: device.name,
+    deviceName: device.name || '蓝牙耳机',
     source: device.source,
     reason,
     pluginId,
     publishedAt: new Date().toISOString(),
+    playerPath: playerMeta.path || config.playerPath || '',
+    playerName: playerMeta.name || playerDisplayName(config.playerPath),
+    playerIconDataUrl: playerMeta.iconDataUrl || '',
   }
-  if (!sticky) payload.auto_hide_ms = hideMs
+  const hideMs = autoHideMs(config.connectedAutoHideSec)
+  if (hideMs > 0) payload.auto_hide_ms = hideMs
+  return { payload, hideMs }
+}
 
-  // Quiet auto-launch still gets a short toast unless user set 0 sticky.
-  send({
-    v: 1,
-    op: 'publish',
-    event: {
-      eventType: 'bt-music.connected',
-      kind: 'bt-music',
-      title: '耳机已连接',
-      body: device.name || '蓝牙音频设备',
-      level: 'success',
-      sticky,
-      actions: config.autoLaunchOnConnect
-        ? [{ id: 'dismiss', label: sticky ? '知道了' : '关闭' }]
-        : sticky
-          ? [
-              { id: 'open-player', label: '打开听歌' },
-              { id: 'dismiss', label: '知道了' },
-            ]
-          : [
-              { id: 'open-player', label: '打开听歌' },
-              { id: 'dismiss', label: '关闭' },
-            ],
-      payload,
-      dedupeKey: `bt-music:connected:${device.id}`,
-    },
-  })
+function publishConnected(device, reason) {
+  const action = normalizeConnectAction(config.connectAction, config)
 
-  if (config.autoLaunchOnConnect) {
+  if (action === 'none') return
+
+  if (action === 'launch') {
     openPlayer(device.name).catch((error) => {
       log(
         'auto-launch failed',
@@ -212,42 +208,63 @@ function publishConnected(device, reason) {
         'warn',
       )
     })
+    return
   }
+
+  // action === 'notify'
+  const finish = () => {
+    const { payload, hideMs } = buildConnectedPayload(device, reason)
+    const sticky = hideMs <= 0
+    send({
+      v: 1,
+      op: 'publish',
+      event: {
+        eventType: 'bt-music.connected',
+        kind: 'bt-music',
+        title: '耳机已连接',
+        body: device.name || '蓝牙耳机',
+        level: 'success',
+        sticky,
+        actions: [
+          { id: 'open-player', label: '打开听歌' },
+          { id: 'dismiss', label: sticky ? '知道了' : '关闭' },
+        ],
+        payload,
+        dedupeKey: `bt-music:connected:${device.id}`,
+      },
+    })
+  }
+
+  // Use cache when ready; otherwise refresh icon once then emit.
+  const want = String(config.playerPath || '').trim()
+  if (!want || (playerMeta.path === want && (playerMeta.iconDataUrl || !isWindows))) {
+    finish()
+    return
+  }
+  refreshPlayerMeta()
+    .catch(() => {})
+    .finally(() => finish())
 }
 
 function publishDisconnected(device, reason) {
-  if (!config.listenEnabled) return
-  if (config.pauseOnDisconnect) {
-    sendMediaPause().catch(() => {})
-  }
-  if (!config.notifyDisconnect) return
-  const hideMs = autoHideMs(config.disconnectedAutoHideSec)
-  const sticky = hideMs <= 0
-  const payload = {
-    deviceId: device.id,
-    deviceName: device.name,
-    source: device.source,
-    reason,
-    pluginId,
-    publishedAt: new Date().toISOString(),
-  }
-  if (!sticky) payload.auto_hide_ms = hideMs
+  const action = normalizeDisconnectAction(config.disconnectAction, config)
 
-  send({
-    v: 1,
-    op: 'publish',
-    event: {
-      eventType: 'bt-music.disconnected',
-      kind: 'bt-music',
-      title: '耳机已断开',
-      body: device.name || '蓝牙音频设备',
-      level: 'info',
-      sticky,
-      actions: [{ id: 'dismiss', label: '关闭' }],
-      payload,
-      dedupeKey: `bt-music:disconnected:${device.id}`,
-    },
-  })
+  if (action === 'none') return
+
+  if (action === 'pause') {
+    sendMediaPause().catch(() => {})
+    return
+  }
+
+  if (action === 'close') {
+    closePlayer().catch((error) => {
+      log(
+        'close player failed',
+        { error: error instanceof Error ? error.message : String(error) },
+        'warn',
+      )
+    })
+  }
 }
 
 function psSingleQuote(value) {
@@ -571,6 +588,56 @@ async function openPlayer(deviceName) {
   }
 }
 
+async function closePlayer() {
+  const playerPath = String(config.playerPath || '').trim()
+  if (!playerPath) {
+    log('close-player skipped: no playerPath configured', {}, 'warn')
+    return { ok: false, error: '请先在设置里选择听歌程序' }
+  }
+  if (!isWindows) {
+    return { ok: false, error: 'close player only on Windows' }
+  }
+  const base = path.basename(playerPath)
+  const exeName = base.toLowerCase().endsWith('.exe') ? base.slice(0, -4) : base
+  const pathLit = psSingleQuote(playerPath)
+  const nameLit = psSingleQuote(exeName)
+  // Prefer matching full path; fall back to process name.
+  const script = `
+$ErrorActionPreference = 'SilentlyContinue'
+$path = ${pathLit}
+$name = ${nameLit}
+$procs = @(Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object {
+  try {
+    if (-not $_.Path) { return $true }
+    [string]::Equals($_.Path, $path, [System.StringComparison]::OrdinalIgnoreCase)
+  } catch { $true }
+})
+if ($procs.Count -eq 0) {
+  Write-Output 'OK closed=0'
+  exit 0
+}
+$n = 0
+foreach ($p in $procs) {
+  try {
+    Stop-Process -Id $p.Id -Force -ErrorAction Stop
+    $n++
+  } catch {}
+}
+Write-Output (('OK closed={0}' -f $n))
+`
+  try {
+    const stdout = await runPowerShell(script)
+    const m = String(stdout || '').match(/OK closed=(\d+)/i)
+    const closed = m ? Number(m[1]) : 0
+    log('closed player', { path: playerPath, closed })
+    return { ok: true, closed, path: playerPath }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    log('close player failed', { path: playerPath, message }, 'warn')
+    return { ok: false, error: message }
+  }
+}
+
 async function sendMediaPause() {
   if (!isWindows) return { ok: false, error: 'pause only on Windows' }
   // VK_MEDIA_PLAY_PAUSE = 0xB3 — toggles pause on most players / system mixer.
@@ -802,7 +869,6 @@ function parseEndpointFile(outFile) {
     })
     .filter(Boolean)
     .filter((d) => isBluetoothAudioCandidate(d))
-    .filter((d) => matchesFilter(d.name) || matchesFilter(displayNameFor(d)))
     .map((d) => ({
       ...d,
       name: displayNameFor(d),
@@ -1175,17 +1241,17 @@ function statusPayload() {
     platform: process.platform,
     pid: process.pid,
     watchSupported: isWindows,
-    listenEnabled: config.listenEnabled,
-    watchEnabled: config.listenEnabled,
+    listenEnabled: true,
+    watchEnabled: true,
     watchMode: isWindows ? 'device-change-event' : 'none',
     watcherPid: watcherChild?.pid || null,
     pnpSeeded,
-    nameKeywords: [...(config.nameKeywords || [])],
     playerPath: config.playerPath,
     playerArgs: config.playerArgs,
-    notifyDisconnect: config.notifyDisconnect,
-    autoLaunchOnConnect: config.autoLaunchOnConnect,
-    pauseOnDisconnect: config.pauseOnDisconnect,
+    playerName: playerMeta.name || playerDisplayName(config.playerPath),
+    playerIconDataUrl: playerMeta.iconDataUrl || '',
+    connectAction: normalizeConnectAction(config.connectAction, config),
+    disconnectAction: normalizeDisconnectAction(config.disconnectAction, config),
     connectedAutoHideSec: config.connectedAutoHideSec,
     disconnectedAutoHideSec: config.disconnectedAutoHideSec,
     lastWatchError: lastWatchError || null,
@@ -1194,19 +1260,13 @@ function statusPayload() {
   }
 }
 
-function filterSignature(cfg) {
-  return JSON.stringify({
-    on: cfg.listenEnabled !== false,
-    keys: [...(cfg.nameKeywords || [])].map((k) => String(k).toLowerCase()).sort(),
-  })
-}
-
 function applyHostConfig(input) {
-  const prevSig = filterSignature(config)
+  const prevPath = String(config.playerPath || '').trim()
   config = normalizeConfig(input)
   log('config applied', { config })
-  if (isWindows && pnpSeeded && prevSig !== filterSignature(config)) {
-    snapshotOnce('filter-change', { immediate: true }).catch(() => {})
+  const nextPath = String(config.playerPath || '').trim()
+  if (nextPath !== prevPath || (nextPath && !playerMeta.iconDataUrl)) {
+    refreshPlayerMeta().catch(() => {})
   }
 }
 
@@ -1260,15 +1320,7 @@ if ($items.Count -eq 0) { $json = '[]' } else { $json = ($items | ConvertTo-Json
 `
   try {
     await runPowerShell(script)
-    // Reuse parser without name keyword filter by temporarily clearing keywords.
-    const saved = config.nameKeywords
-    config.nameKeywords = []
-    let devices = []
-    try {
-      devices = parseEndpointFile(outFile)
-    } finally {
-      config.nameKeywords = saved
-    }
+    const devices = parseEndpointFile(outFile)
     rememberPaired(devices)
     return [...pairedCatalog.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
   } finally {

@@ -31,6 +31,7 @@ import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
 import SdkToastCard from '../../components/SdkToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
+import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
 import type { EventAction, EventLevel, EventProgress } from '../../types/event'
 import { usePluginRegistry } from '../../stores/pluginRegistry'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
@@ -138,6 +139,7 @@ let unlistenDebug: (() => void) | null = null
 let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 let unlistenDismissAgent: (() => void) | null = null
+let unlistenReloadPlugins: (() => void) | null = null
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -227,6 +229,14 @@ onMounted(async () => {
     loadAgentSound()
   })
 
+  // Plugins page refresh → reload external card UI without app restart.
+  unlistenReloadPlugins = await listen('catrace:reload-external-plugins', () => {
+    clearPluginHostCardCache()
+    void loadExternalPlugins({ force: true }).catch((e) => {
+      console.warn('[toast] reload external plugins failed', e)
+    })
+  })
+
   // Event Bus → Toast 统一渲染线（rest / timer / agent 等 display_mode=toast 的 active 事件）
   unlistenBusEvent = await listen<BusEvent>('catrace:event', (ev) => {
     handleBusEvent(ev.payload)
@@ -280,6 +290,8 @@ onUnmounted(() => {
   unlistenBusEvent = null
   unlistenDismissAgent?.()
   unlistenDismissAgent = null
+  unlistenReloadPlugins?.()
+  unlistenReloadPlugins = null
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()

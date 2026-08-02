@@ -82,6 +82,8 @@ pub struct ExternalPluginInfo {
     pub has_background: bool,
     pub has_settings: bool,
     pub has_sidecar: bool,
+    /// Max mtime (unix ms) of ui/settings entry files — frontend uses this to bust blob cache.
+    pub content_mtime_ms: u64,
     pub anomalous: bool,
     pub error: Option<String>,
 }
@@ -179,6 +181,7 @@ impl PluginManager {
                             has_background: false,
                             has_settings: false,
                             has_sidecar: false,
+                            content_mtime_ms: 0,
                             anomalous: false,
                             error: Some(e),
                         },
@@ -469,6 +472,8 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         .and_then(|value| value.as_bool())
         .unwrap_or(m.enabled_by_default);
 
+    let content_mtime_ms = file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
+
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
             id: m.id,
@@ -487,6 +492,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             has_background: background_abs.is_some(),
             has_settings: settings_abs.is_some(),
             has_sidecar: sidecar.is_some(),
+            content_mtime_ms,
             anomalous: false,
             error: None,
         },
@@ -495,6 +501,16 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         settings_abs,
         sidecar,
     })
+}
+
+fn file_mtime_ms(path: Option<&PathBuf>) -> u64 {
+    let Some(p) = path else { return 0 };
+    std::fs::metadata(p)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn sidecar_spec(

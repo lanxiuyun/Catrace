@@ -1,46 +1,60 @@
-/** Bluetooth headset toast card. */
+/** Bluetooth headset toast — compact row: app icon + "Name 已连接" + launch + close. */
 const { h } = globalThis.__CATRACE_VUE__ || {}
 if (typeof h !== 'function') throw new Error('Catrace plugin Vue runtime missing')
 
 const STYLE_ID = 'catrace-plugin-bt-music-css'
 const CSS = `
-.bt-music {
-  display:flex; flex-direction:column; gap:0.625rem; width:100%;
-  --accent:#2563eb; --title:#1e3a8a; --body:#1d4ed8; --bg:#eff6ff; --soft:#dbeafe;
-  color:var(--title);
-  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+.bt-root { position:relative; width:100%; box-sizing:border-box; }
+.bt-row {
+  display:flex; align-items:center; gap:0.5rem; width:100%;
+  padding:0.0625rem 0.0625rem 0.375rem 0.0625rem; box-sizing:border-box;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
-.bt-music .header { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; }
-.bt-music .left { display:flex; align-items:center; gap:0.5rem; min-width:0; }
-.bt-music .icon {
-  flex-shrink:0; width:1.75rem; height:1.75rem; border-radius:0.5rem;
-  background:var(--soft); color:var(--accent);
+.bt-icon {
+  flex-shrink:0; width:2rem; height:2rem; border-radius:0.5rem;
+  object-fit:contain; background:#f1f5f9;
+  box-shadow:0 0.0625rem 0.125rem rgba(15,23,42,0.06);
+}
+.bt-icon.fallback {
   display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(145deg,#7c3aed,#6366f1);
+  color:#fff; font-size:0.875rem; font-weight:800;
 }
-.bt-music .title {
-  margin:0; font-size:0.9375rem; font-weight:700; color:var(--title);
+.bt-mid { flex:1; min-width:0; display:flex; flex-direction:column; gap:0.0625rem; }
+.bt-title {
+  margin:0; font-size:0.8125rem; font-weight:700; color:#0f172a; line-height:1.3;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.bt-music .badge {
-  flex-shrink:0; padding:0.1875rem 0.4375rem; border-radius:999px;
-  background:var(--soft); color:var(--accent); font-size:0.6875rem; font-weight:700;
+.bt-sub {
+  margin:0; font-size:0.6875rem; font-weight:500; color:#64748b; line-height:1.25;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.bt-music .body { margin:0; color:var(--body); font-size:0.8125rem; line-height:1.5; }
-.bt-music .meta {
-  display:grid; grid-template-columns:auto 1fr; gap:0.25rem 0.5rem;
-  padding:0.5rem 0.625rem; border-radius:0.5rem; background:var(--bg); font-size:0.75rem;
+.bt-right { flex-shrink:0; display:flex; align-items:center; gap:0.25rem; }
+.bt-launch {
+  border:0; border-radius:999px; padding:0.3125rem 0.625rem; min-height:1.625rem;
+  background:#2563eb; color:#fff; font-size:0.6875rem; font-weight:700;
+  cursor:pointer; white-space:nowrap; line-height:1.2;
+  box-shadow:0 0.0625rem 0.25rem rgba(37,99,235,0.28);
 }
-.bt-music .meta strong { color:var(--accent); font-weight:700; }
-.bt-music .meta span { color:#1e40af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bt-music .actions { display:flex; flex-wrap:wrap; gap:0.375rem; }
-.bt-music button {
-  border:0; border-radius:0.375rem; padding:0.375rem 0.625rem;
-  cursor:pointer; font-size:0.75rem; font-weight:700;
+.bt-launch:hover { filter:brightness(1.05); }
+.bt-x {
+  flex-shrink:0; width:1.25rem; height:1.25rem; border:none; background:transparent;
+  border-radius:999px; color:#94a3b8; font-size:0.875rem; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
 }
-.bt-music .primary { background:var(--accent); color:#fff; }
-.bt-music .ghost { background:var(--soft); color:var(--title); }
-.bt-music button:hover { filter:brightness(0.97); }
-.bt-music.disconnected { --accent:#64748b; --title:#334155; --body:#475569; --bg:#f8fafc; --soft:#e2e8f0; }
+.bt-x:hover { background:#f1f5f9; color:#475569; }
+.bt-bar-wrap {
+  position:absolute; left:0.5rem; right:0.5rem; bottom:0; height:0.125rem;
+  pointer-events:none; overflow:hidden; border-radius:999px; background:rgba(37,99,235,0.08);
+}
+.bt-bar {
+  height:100%; border-radius:999px;
+  background:linear-gradient(90deg,#2563eb,#93c5fd);
+  transform-origin:left center;
+  animation:bt-shrink var(--toast-auto-hide-ms, 5000ms) linear forwards;
+}
+.bt-bar.paused { animation-play-state:paused; }
+@keyframes bt-shrink { from { transform:scaleX(1); } to { transform:scaleX(0); } }
 `
 
 function ensureStyles() {
@@ -52,31 +66,21 @@ function ensureStyles() {
   document.head.appendChild(style)
 }
 
-function headsetIcon() {
-  return h(
-    'svg',
-    {
-      class: 'icon',
-      width: 18,
-      height: 18,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: 'currentColor',
-      'stroke-width': 2,
-      'stroke-linecap': 'round',
-      'stroke-linejoin': 'round',
-    },
-    [
-      h('path', { d: 'M3 14v-3a9 9 0 0 1 18 0v3' }),
-      h('path', { d: 'M21 16a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z' }),
-      h('path', { d: 'M3 16a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z' }),
-    ],
-  )
+function playerLabel(payload) {
+  const name = String(payload.playerName || '').trim()
+  if (name) return name.toLowerCase().endsWith('.exe') ? name : `${name}.exe`
+  const path = String(payload.playerPath || '').trim()
+  if (!path) return ''
+  const base = path.split(/[/\\]/).pop() || path
+  return base
 }
 
 export default {
   name: 'BtMusicCard',
-  props: { event: { type: Object, required: true } },
+  props: {
+    event: { type: Object, required: true },
+    isHovered: { type: Boolean, default: false },
+  },
   emits: ['close', 'action'],
   created() {
     ensureStyles()
@@ -84,42 +88,49 @@ export default {
   render() {
     const event = this.event || {}
     const payload = event.payload || {}
-    const disconnected = String(event.eventType || '').includes('disconnected')
-    const badge = disconnected ? 'DISCONNECTED' : 'CONNECTED'
-    const actions = event.actions || []
+    const deviceName = String(payload.deviceName || event.body || '蓝牙耳机').trim() || '蓝牙耳机'
+    const exe = playerLabel(payload)
+    const playerIcon = String(payload.playerIconDataUrl || '')
+    const letter = (exe || deviceName || '?').replace(/\.exe$/i, '').slice(0, 1).toUpperCase()
 
-    return h('div', { class: ['bt-music', disconnected ? 'disconnected' : ''] }, [
-      h('div', { class: 'header' }, [
-        h('div', { class: 'left' }, [
-          headsetIcon(),
-          h('h2', { class: 'title' }, event.title || (disconnected ? '耳机已断开' : '耳机已连接')),
+    // Title: "荣耀亲选耳夹式耳机 已连接"
+    const title = `${deviceName} 已连接`
+
+    return h('div', { class: 'bt-root' }, [
+      h('div', { class: 'bt-row' }, [
+        playerIcon
+          ? h('img', { class: 'bt-icon', src: playerIcon, alt: '' })
+          : h('div', { class: 'bt-icon fallback' }, letter),
+        h('div', { class: 'bt-mid' }, [
+          h('h2', { class: 'bt-title' }, title),
+          exe ? h('p', { class: 'bt-sub' }, `已关联: ${exe}`) : null,
         ]),
-        h('span', { class: 'badge' }, badge),
+        h('div', { class: 'bt-right' }, [
+          h(
+            'button',
+            {
+              class: 'bt-launch',
+              type: 'button',
+              onClick: () => this.$emit('action', 'open-player'),
+            },
+            '启动程序',
+          ),
+          h(
+            'button',
+            {
+              class: 'bt-x',
+              type: 'button',
+              'aria-label': '关闭',
+              onClick: () => this.$emit('close'),
+            },
+            '×',
+          ),
+        ]),
       ]),
-      h('p', { class: 'body' }, event.body || payload.deviceName || ''),
-      h('div', { class: 'meta' }, [
-        h('strong', '设备'),
-        h('span', String(payload.deviceName || event.body || '-')),
-        h('strong', '来源'),
-        h('span', String(payload.source || payload.reason || '-')),
-      ]),
-      actions.length
-        ? h(
-            'div',
-            { class: 'actions' },
-            actions.map((action, index) =>
-              h(
-                'button',
-                {
-                  key: action.id,
-                  class: index === 0 && !disconnected ? 'primary' : 'ghost',
-                  type: 'button',
-                  onClick: () => this.$emit('action', action.id),
-                },
-                action.label,
-              ),
-            ),
-          )
+      !event.sticky
+        ? h('div', { class: 'bt-bar-wrap' }, [
+            h('div', { class: ['bt-bar', this.isHovered ? 'paused' : ''] }),
+          ])
         : null,
     ])
   },

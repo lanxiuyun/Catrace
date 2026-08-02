@@ -15,6 +15,7 @@ import { getPluginUiSource } from '../api/tauri'
 import SdkToastCard from './SdkToastCard.vue'
 import { ensurePluginRuntime } from '../plugins/pluginRuntime'
 import { wrapPluginSource } from '../plugins/pluginApi'
+import { getPluginHostCardCache } from './pluginHostCardCache'
 
 const props = defineProps<{
   event: BusEvent
@@ -33,7 +34,7 @@ const emit = defineEmits<{
 const registry = usePluginRegistry()
 
 /** Process-wide: never re-defineAsyncComponent for the same plugin in one toast session. */
-const cardCache = new Map<string, Component>()
+const cardCache = getPluginHostCardCache()
 
 function renderSdkFallback(message: string, level: string = 'warning') {
   return h(SdkToastCard, {

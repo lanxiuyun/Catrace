@@ -84,6 +84,9 @@ async function refreshExternal() {
     externalList.value = await listExternalPlugins()
     // force: user clicked refresh / toggled enable — rebuild Card blobs.
     await loadExternalPlugins({ force: true })
+    // Toast window has its own Pinia — ask it to reload UI too.
+    const { emit } = await import('@tauri-apps/api/event')
+    await emit('catrace:reload-external-plugins')
   } catch (e) {
     console.warn('[plugins page] refresh failed', e)
   } finally {

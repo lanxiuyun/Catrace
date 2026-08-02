@@ -19,10 +19,14 @@ let lastFingerprint = ''
 function fingerprint(list: ExternalPluginInfo[]): string {
   return list
     .filter((p) => !p.error)
-    .map(
-      (p) =>
-        `${p.id}@${p.version}:${p.enabled ? 1 : 0}:${p.main || ''}:${p.hasUi ? 1 : 0}:${p.hasSettings ? 1 : 0}:${p.settings || ''}`,
-    )
+    .map((p) => {
+      // mtime so disk edits to ui/settings bust the skip-rebuild short-circuit.
+      const mtime =
+        typeof (p as ExternalPluginInfo & { contentMtimeMs?: number }).contentMtimeMs === 'number'
+          ? (p as ExternalPluginInfo & { contentMtimeMs?: number }).contentMtimeMs
+          : 0
+      return `${p.id}@${p.version}:${p.enabled ? 1 : 0}:${p.main || ''}:${p.hasUi ? 1 : 0}:${p.hasSettings ? 1 : 0}:${p.settings || ''}:m${mtime}`
+    })
     .sort()
     .join('|')
 }
@@ -154,6 +158,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
  *
  * UI/settings loading: Rust reads source → Blob URL → dynamic import.
  * Concurrent calls coalesce; unchanged fingerprint skips Blob rebuild.
+ * Disk edits to ui/settings change contentMtimeMs and rebuild automatically.
  */
 export async function loadExternalPlugins(
   opts: { force?: boolean } = {},
