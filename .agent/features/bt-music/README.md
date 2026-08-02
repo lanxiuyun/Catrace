@@ -28,7 +28,7 @@ Debug 构建 junction：`tools/plugin-demo/bt-music` → `app_data/plugins/bt-mu
 - Settings 只用宿主注入的 naive 组件（`NInput`/`NSwitch`/`NSelect`/`NTag`/`NButton`，**无** `NInputNumber`）。
 - **Settings 产品文案**：不暴露 sidecar / PnP / DEVPKEY / payload。面板：1 触发设备与监听、2 听歌程序与自动化、3 通知偏好（连接/断开驻留左右两栏）。
 - **多关键词**：`nameKeywords: string[]`（任一匹配）；legacy `nameFilter` 读入时迁成单关键词。可从 `listPairedDevices` 快速点选。
-- **自动化**：`autoLaunchOnConnect`（连接后延迟 `launchDelayMs` 启动）；`pauseOnDisconnect`（断开发媒体 Play/Pause 键）。
+- **自动化**：`autoLaunchOnConnect`（连接后立即启动）；`pauseOnDisconnect`（断开发媒体 Play/Pause 键）。
 - **监听总闸**：`listenEnabled`（关则不 publish / 不自动动作；sidecar 仍可跑）。
 - **启用即系统事件监听**：无轮询间隔；PowerShell `ManagementEventWatcher`。
 - 首轮成功快照只 seed；Toast 默认连接 5s / 断开 3s；听歌程序默认空。

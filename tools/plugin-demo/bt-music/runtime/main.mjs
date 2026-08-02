@@ -19,8 +19,6 @@ const DEFAULT_CONFIG = {
   autoLaunchOnConnect: false,
   /** Disconnect → send system media pause key. */
   pauseOnDisconnect: false,
-  /** Delay before spawn / after connect, ms (0–10000). */
-  launchDelayMs: 1500,
   /** 0 = sticky until dismiss; >0 = auto-hide seconds */
   connectedAutoHideSec: 5,
   disconnectedAutoHideSec: 3,
@@ -75,12 +73,6 @@ function clampAutoHideSec(value, fallback) {
   return Math.min(600, Math.max(3, rounded))
 }
 
-function clampLaunchDelayMs(value, fallback = 1500) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return fallback
-  return Math.min(10_000, Math.max(0, Math.round(n)))
-}
-
 function normalizeKeywords(input) {
   const raw = []
   if (Array.isArray(input)) {
@@ -132,12 +124,7 @@ function normalizeConfig(input = {}) {
   if (typeof input.pauseOnDisconnect === 'boolean') {
     next.pauseOnDisconnect = input.pauseOnDisconnect
   }
-  if (
-    typeof input.launchDelayMs === 'number' ||
-    typeof input.launchDelayMs === 'string'
-  ) {
-    next.launchDelayMs = clampLaunchDelayMs(input.launchDelayMs, next.launchDelayMs)
-  }
+  // legacy launchDelayMs ignored — always start immediately
   if (
     typeof input.connectedAutoHideSec === 'number' ||
     typeof input.connectedAutoHideSec === 'string'
@@ -169,10 +156,6 @@ function matchesFilter(name) {
   if (!keywords.length) return true
   const hay = String(name || '').toLowerCase()
   return keywords.some((k) => hay.includes(String(k).toLowerCase()))
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function autoHideMs(sec) {
@@ -222,7 +205,7 @@ function publishConnected(device, reason) {
   })
 
   if (config.autoLaunchOnConnect) {
-    openPlayer(device.name, { delayed: true }).catch((error) => {
+    openPlayer(device.name).catch((error) => {
       log(
         'auto-launch failed',
         { error: error instanceof Error ? error.message : String(error) },
@@ -546,14 +529,12 @@ Write-Output (("OK pid={0} started={1} activated={2}" -f $pidOut, $started, $act
   }
 }
 
-async function openPlayer(deviceName, { delayed = false } = {}) {
+async function openPlayer(deviceName) {
   const playerPath = String(config.playerPath || '').trim()
   if (!playerPath) {
     log('open-player skipped: no playerPath configured', { deviceName }, 'warn')
     return { ok: false, error: '请先在设置里选择听歌程序' }
   }
-  const delay = delayed ? clampLaunchDelayMs(config.launchDelayMs, 0) : 0
-  if (delay > 0) await sleep(delay)
   const args = Array.isArray(config.playerArgs) ? config.playerArgs.map((v) => String(v)) : []
   try {
     if (isWindows) {
@@ -563,12 +544,11 @@ async function openPlayer(deviceName, { delayed = false } = {}) {
         args,
         pid: result.pid,
         deviceName,
-        delayMs: delay,
         started: result.started,
         activated: result.activated,
         via: 'start-process-activate',
       })
-      return { ...result, delayMs: delay }
+      return result
     }
     const child = spawn(playerPath, args, {
       detached: true,
@@ -581,10 +561,9 @@ async function openPlayer(deviceName, { delayed = false } = {}) {
       args,
       pid: child.pid,
       deviceName,
-      delayMs: delay,
       via: 'spawn',
     })
-    return { ok: true, pid: child.pid, path: playerPath, delayMs: delay, started: true, activated: false }
+    return { ok: true, pid: child.pid, path: playerPath, started: true, activated: false }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     log('open player failed', { path: playerPath, message }, 'error')
@@ -1207,7 +1186,6 @@ function statusPayload() {
     notifyDisconnect: config.notifyDisconnect,
     autoLaunchOnConnect: config.autoLaunchOnConnect,
     pauseOnDisconnect: config.pauseOnDisconnect,
-    launchDelayMs: config.launchDelayMs,
     connectedAutoHideSec: config.connectedAutoHideSec,
     disconnectedAutoHideSec: config.disconnectedAutoHideSec,
     lastWatchError: lastWatchError || null,
@@ -1338,7 +1316,7 @@ function handleRequest(message) {
         break
       }
       case 'openPlayer': {
-        openPlayer(params.deviceName, { delayed: params.delayed === true })
+        openPlayer(params.deviceName)
           .then((result) => respond(requestId, result.ok, result, result.error))
           .catch((error) =>
             respond(requestId, false, null, error instanceof Error ? error.message : String(error)),

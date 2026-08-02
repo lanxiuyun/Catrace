@@ -108,15 +108,6 @@ function normalizeKeywords(list) {
   return out
 }
 
-const DELAY_OPTIONS = [
-  { label: '立即启动', value: 0 },
-  { label: '延迟 0.5 秒', value: 500 },
-  { label: '延迟 1 秒', value: 1000 },
-  { label: '延迟 1.5 秒（推荐）', value: 1500 },
-  { label: '延迟 2 秒', value: 2000 },
-  { label: '延迟 3 秒', value: 3000 },
-]
-
 const DEFAULT_CONFIG = {
   listenEnabled: true,
   nameKeywords: [],
@@ -125,7 +116,6 @@ const DEFAULT_CONFIG = {
   notifyDisconnect: true,
   autoLaunchOnConnect: false,
   pauseOnDisconnect: false,
-  launchDelayMs: 1500,
   connectedAutoHideSec: 5,
   disconnectedAutoHideSec: 3,
 }
@@ -146,7 +136,6 @@ export default {
     const notifyDisconnect = ref(DEFAULT_CONFIG.notifyDisconnect)
     const autoLaunchOnConnect = ref(DEFAULT_CONFIG.autoLaunchOnConnect)
     const pauseOnDisconnect = ref(DEFAULT_CONFIG.pauseOnDisconnect)
-    const launchDelayMs = ref(DEFAULT_CONFIG.launchDelayMs)
     const connectedAutoHideSec = ref(DEFAULT_CONFIG.connectedAutoHideSec)
     const disconnectedAutoHideSec = ref(DEFAULT_CONFIG.disconnectedAutoHideSec)
     let saveTimer = null
@@ -167,7 +156,6 @@ export default {
         notifyDisconnect: !!notifyDisconnect.value,
         autoLaunchOnConnect: !!autoLaunchOnConnect.value,
         pauseOnDisconnect: !!pauseOnDisconnect.value,
-        launchDelayMs: Number(launchDelayMs.value) || 0,
         connectedAutoHideSec: clampAutoHideSec(
           connectedAutoHideSec.value,
           DEFAULT_CONFIG.connectedAutoHideSec,
@@ -196,7 +184,6 @@ export default {
       if (typeof cfg.pauseOnDisconnect === 'boolean') {
         pauseOnDisconnect.value = cfg.pauseOnDisconnect
       }
-      if (typeof cfg.launchDelayMs === 'number') launchDelayMs.value = cfg.launchDelayMs
       if (typeof cfg.connectedAutoHideSec === 'number') {
         connectedAutoHideSec.value = clampAutoHideSec(
           cfg.connectedAutoHideSec,
@@ -227,7 +214,6 @@ export default {
       nameKeywords.value = cfg.nameKeywords
       connectedAutoHideSec.value = cfg.connectedAutoHideSec
       disconnectedAutoHideSec.value = cfg.disconnectedAutoHideSec
-      launchDelayMs.value = cfg.launchDelayMs
 
       await plugin.config.set(cfg)
       try {
@@ -291,7 +277,7 @@ export default {
     async function testOpenPlayer() {
       await run('open', async () => {
         await persistAndSync({ quiet: true })
-        const result = await plugin.sidecar.request('openPlayer', { delayed: false })
+        const result = await plugin.sidecar.request('openPlayer', {})
         // Host may return the RPC body directly, or wrap it.
         const body = result && typeof result === 'object' && 'result' in result ? result.result : result
         const ok = body?.ok === true || (body && body.pid && body.path)
@@ -473,29 +459,16 @@ export default {
                 button('浏览', 'pick', pickPlayer),
               ]),
             ]),
-            h('div', { class: 'cols' }, [
-              h('div', { class: 'field' }, [
-                h('span', { class: 'label' }, '启动参数（可选）'),
-                h(NInput, {
-                  value: playerArgs.value,
-                  'onUpdate:value': (v) => {
-                    playerArgs.value = v
-                    scheduleSave()
-                  },
-                  placeholder: '例如 --autoplay',
-                }),
-              ]),
-              h('div', { class: 'field' }, [
-                h('span', { class: 'label' }, '音频建立延迟缓冲'),
-                h(NSelect, {
-                  value: launchDelayMs.value,
-                  options: DELAY_OPTIONS,
-                  'onUpdate:value': (v) => {
-                    launchDelayMs.value = Number(v) || 0
-                    scheduleSave()
-                  },
-                }),
-              ]),
+            h('div', { class: 'field' }, [
+              h('span', { class: 'label' }, '启动参数（可选）'),
+              h(NInput, {
+                value: playerArgs.value,
+                'onUpdate:value': (v) => {
+                  playerArgs.value = v
+                  scheduleSave()
+                },
+                placeholder: '例如 --autoplay',
+              }),
             ]),
             h('div', { class: 'switch-row' }, [
               h('span', { class: 'switch-label' }, '自动静默启动软件'),
