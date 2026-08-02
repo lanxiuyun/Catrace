@@ -20,6 +20,10 @@ import { getPluginHostCardCache } from './pluginHostCardCache'
 const props = defineProps<{
   event: BusEvent
   isHovered?: boolean
+  /** Host toast remaining lifetime (ms) — drives plugin progress bars. */
+  remainingMs?: number
+  /** Host toast total lifetime (ms). */
+  totalMs?: number
   /** Blob/asset URL when registry already prepared one. */
   uiUrl?: string | null
   /** Plugin id — used to fetch source if Card not in registry yet. */
@@ -196,6 +200,8 @@ watch(
     :is="cardComp"
     :event="event"
     :is-hovered="isHovered"
+    :remaining-ms="remainingMs ?? 0"
+    :total-ms="totalMs ?? 0"
     @close="emit('close')"
     @action="handleCardAction"
   />

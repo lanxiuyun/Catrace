@@ -1029,7 +1029,8 @@ function scrollStackToBottom() {
 function startTimer(item: ToastItem) {
   stopTimer(item)
   item.lastStartAt = Date.now()
-  item.totalMs = item.remainingMs
+  // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
+  if (!(item.totalMs > 0)) item.totalMs = item.remainingMs
   item.closeTimer = setTimeout(() => {
     removeNotification(item.id, true)
   }, item.remainingMs)
@@ -1397,6 +1398,8 @@ async function handleUpdateInstall(item: ToastItem) {
           v-else-if="item.busEvent && (item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'))"
           :event="item.busEvent"
           :is-hovered="item.isHovered"
+          :remaining-ms="item.remainingMs"
+          :total-ms="item.totalMs"
           :ui-url="item.uiUrl"
           :plugin-id="item.pluginId"
           @close="handleClose(item)"

@@ -1,4 +1,4 @@
-/** Bluetooth headset toast — compact row: app icon + "Name 已连接" + launch + close. */
+/** Bluetooth headset toast — compact row; progress bar pauses with host hover timer. */
 const { h } = globalThis.__CATRACE_VUE__ || {}
 if (typeof h !== 'function') throw new Error('Catrace plugin Vue runtime missing')
 
@@ -48,13 +48,17 @@ const CSS = `
   pointer-events:none; overflow:hidden; border-radius:999px; background:rgba(37,99,235,0.08);
 }
 .bt-bar {
-  height:100%; border-radius:999px;
+  height:100%; width:100%; border-radius:999px;
   background:linear-gradient(90deg,#2563eb,#93c5fd);
   transform-origin:left center;
+  /* Same contract as Rest/Sdk cards: one CSS timeline, pause on hover only. */
   animation:bt-shrink var(--toast-auto-hide-ms, 5000ms) linear forwards;
 }
 .bt-bar.paused { animation-play-state:paused; }
-@keyframes bt-shrink { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+@keyframes bt-shrink {
+  from { transform:scaleX(1); }
+  to { transform:scaleX(0); }
+}
 `
 
 function ensureStyles() {
@@ -71,8 +75,7 @@ function playerLabel(payload) {
   if (name) return name.toLowerCase().endsWith('.exe') ? name : `${name}.exe`
   const path = String(payload.playerPath || '').trim()
   if (!path) return ''
-  const base = path.split(/[/\\]/).pop() || path
-  return base
+  return path.split(/[/\\]/).pop() || path
 }
 
 export default {
@@ -93,16 +96,13 @@ export default {
     const playerIcon = String(payload.playerIconDataUrl || '')
     const letter = (exe || deviceName || '?').replace(/\.exe$/i, '').slice(0, 1).toUpperCase()
 
-    // Title: "荣耀亲选耳夹式耳机 已连接"
-    const title = `${deviceName} 已连接`
-
     return h('div', { class: 'bt-root' }, [
       h('div', { class: 'bt-row' }, [
         playerIcon
           ? h('img', { class: 'bt-icon', src: playerIcon, alt: '' })
           : h('div', { class: 'bt-icon fallback' }, letter),
         h('div', { class: 'bt-mid' }, [
-          h('h2', { class: 'bt-title' }, title),
+          h('h2', { class: 'bt-title' }, `${deviceName} 已连接`),
           exe ? h('p', { class: 'bt-sub' }, `已关联: ${exe}`) : null,
         ]),
         h('div', { class: 'bt-right' }, [
