@@ -6,7 +6,7 @@ Local external plugin samples for Catrace M10.
 |---------|------|
 | `timer/` | First-party **定时提醒** (settings + scheduling) |
 | `sidecar-echo/` | Complete native sidecar demo: lifecycle, JSONL publish/log, custom Toast UI, and action round-trip |
-| `bt-music/` | Bluetooth/audio connect Toast → open player (sidecar poll + mock simulate) |
+| `bt-music/` | Bluetooth headset connect Toast → open player (OS device-change events on enable) |
 
 Debug builds junction packages under `tools/plugin-demo/` into `app_data/plugins/`.
 
@@ -19,22 +19,24 @@ Target M15 scenario: device connect → Toast → open player. **No host Bluetoo
 ```
 tools/plugin-demo/bt-music/
   manifest.json         # id=bt-music, sidecar node runtime/main.mjs
-  runtime/main.mjs      # Windows AudioEndpoint poll + simulate RPC + open-player on resolved
+  runtime/main.mjs      # Win32_DeviceChangeEvent watcher + IsConnected snapshot + open-player
   ui.mjs                # custom toast card
-  settings.mjs          # filter / player path / 模拟连接
+  settings.mjs          # product UI: trigger / player / toast stay
 ```
 
-- Enable plugin → sidecar starts; settings「模拟连接」calls `sidecar.request('simulateConnect')` → publish `bt-music.connected`.
-- Toast action `open-player` → host `resolved` → sidecar `spawn` configured `playerPath` (default `notepad.exe`).
-- Optional Windows poll: BTHENUM/BTHHFENUM PnP nodes with `DEVPKEY_Device_IsConnected=True` (paired-only stays silent); name filter narrows noise. Non-Windows: simulate only.
-- Config via `plugin.config` + `setConfig` RPC (host config push optional).
+- Enable plugin → sidecar starts a long-lived PowerShell `ManagementEventWatcher` on `Win32_DeviceChangeEvent` (arrival/removal). On event (and once at start), re-scan BTHENUM/BTHHFENUM with `DEVPKEY_Device_IsConnected=True`. First snapshot seeds only; later deltas publish.
+- Settings UI is product-facing only (no sidecar/PnP jargon, no poll interval, no status dump). Three sections: trigger filter, player path, toast stay seconds.
+- Toast action `open-player` → host `resolved` → sidecar `spawn` configured `playerPath` (must be set).
+- Toast duration defaults: connected 5s / disconnected 3s (0 = sticky; ≥3 → `payload.auto_hide_ms`). Settings auto-save + `setConfig`.
+- Non-Windows: sidecar runs but watcher is a no-op (watchSupported=false).
 
 ## Hand test
 
-1. `pnpm tauri dev` → Plugins → enable **蓝牙听歌** → open settings.
-2. **模拟连接** → Toast with device name; **打开听歌** opens notepad (or chosen path).
-3. **模拟断开** → disconnect Toast (if switch on).
-4. Disable plugin → sidecar exits.
+1. `pnpm tauri dev` → Plugins → enable **蓝牙听歌** → pick a music app under 听歌程序.
+2. Connect a Bluetooth headset → CONNECTED Toast; **打开听歌** opens the chosen app.
+3. Optionally change 弹窗偏好 seconds → reconnect and confirm auto-hide.
+4. Disconnect → DISCONNECTED Toast if「断开时也提醒」on.
+5. Disable plugin → sidecar exits.
 
 ---
 

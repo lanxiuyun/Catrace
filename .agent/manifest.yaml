@@ -306,6 +306,9 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-02-bt-music设置页产品化去开发者术语.md
+  - .agent/devlog/2026-08-02-bt-music轮询改为Win32设备变更事件监听.md
+  - .agent/devlog/2026-08-02-bt-music去掉模拟卡并启用即监听与Toast倒计时.md
   - .agent/devlog/2026-08-02-外部插件开发完整指南与生成Skill.md
   - .agent/devlog/2026-08-01-bt-music外部插件连接Toast与IsConnected门控.md
   - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md

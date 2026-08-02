@@ -1,8 +1,8 @@
 {
   "id": "bt-music",
   "name": "蓝牙听歌",
-  "version": "0.1.0",
-  "description": "蓝牙/音频设备连接后 Toast 提醒，可一键打开听歌程序（sidecar 监听 + mock 演示）",
+  "version": "0.2.2",
+  "description": "监听蓝牙耳机连接，快速弹窗并启动指定音乐软件",
   "main": "ui.mjs",
   "settings": "settings.mjs",
   "events": [

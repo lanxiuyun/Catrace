@@ -85,7 +85,7 @@ export default {
     const event = this.event || {}
     const payload = event.payload || {}
     const disconnected = String(event.eventType || '').includes('disconnected')
-    const badge = disconnected ? 'DISCONNECTED' : payload.source === 'mock' ? 'MOCK' : 'CONNECTED'
+    const badge = disconnected ? 'DISCONNECTED' : 'CONNECTED'
     const actions = event.actions || []
 
     return h('div', { class: ['bt-music', disconnected ? 'disconnected' : ''] }, [

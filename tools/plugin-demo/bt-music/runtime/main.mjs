@@ -8,13 +8,14 @@ const pluginId = process.env.CATRACE_PLUGIN_ID || 'bt-music'
 const isWindows = process.platform === 'win32'
 
 const DEFAULT_CONFIG = {
-  // Off by default — avoid toast spam from local endpoints until user opts in.
-  watchEnabled: false,
+  // Plugin enable starts the sidecar — always watch (no opt-in gate).
   nameFilter: '',
-  playerPath: isWindows ? 'notepad.exe' : '',
+  playerPath: '',
   playerArgs: [],
-  pollIntervalMs: 4000,
   notifyDisconnect: true,
+  /** 0 = sticky until dismiss; >0 = auto-hide seconds */
+  connectedAutoHideSec: 5,
+  disconnectedAutoHideSec: 3,
 }
 
 /** @type {typeof DEFAULT_CONFIG} */
@@ -22,10 +23,19 @@ let config = { ...DEFAULT_CONFIG }
 
 /** @type {Map<string, { id: string, name: string, source: string, groupKey: string }>} */
 const known = new Map()
-let pollTimer = null
-let lastPollError = ''
+let lastWatchError = ''
 /** First successful PnP snapshot only seeds; later deltas may publish. */
 let pnpSeeded = false
+
+/** @type {import('node:child_process').ChildProcessWithoutNullStreams | null} */
+let watcherChild = null
+/** @type {readline.Interface | null} */
+let watcherRl = null
+let watcherGeneration = 0
+/** Coalesce bursty DeviceChange events on the Node side too. */
+let applyDebounceTimer = null
+/** @type {{ devices: any[], reason: string } | null} */
+let pendingSnapshot = null
 
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`)
 const log = (message, data, level = 'info') =>
@@ -38,9 +48,16 @@ function respond(requestId, ok, result, error) {
   send(message)
 }
 
+function clampAutoHideSec(value, fallback) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  const rounded = Math.round(n)
+  if (rounded <= 0) return 0
+  return Math.min(600, Math.max(3, rounded))
+}
+
 function normalizeConfig(input = {}) {
   const next = { ...config }
-  if (typeof input.watchEnabled === 'boolean') next.watchEnabled = input.watchEnabled
   if (typeof input.nameFilter === 'string') next.nameFilter = input.nameFilter.trim()
   if (typeof input.playerPath === 'string') next.playerPath = input.playerPath.trim()
   if (Array.isArray(input.playerArgs)) {
@@ -48,12 +65,25 @@ function normalizeConfig(input = {}) {
   } else if (typeof input.playerArgs === 'string') {
     next.playerArgs = splitArgs(input.playerArgs)
   }
-  if (typeof input.pollIntervalMs === 'number' && Number.isFinite(input.pollIntervalMs)) {
-    next.pollIntervalMs = Math.min(60_000, Math.max(1500, Math.round(input.pollIntervalMs)))
-  }
   if (typeof input.notifyDisconnect === 'boolean') {
     next.notifyDisconnect = input.notifyDisconnect
   }
+  if (
+    typeof input.connectedAutoHideSec === 'number' ||
+    typeof input.connectedAutoHideSec === 'string'
+  ) {
+    next.connectedAutoHideSec = clampAutoHideSec(input.connectedAutoHideSec, next.connectedAutoHideSec)
+  }
+  if (
+    typeof input.disconnectedAutoHideSec === 'number' ||
+    typeof input.disconnectedAutoHideSec === 'string'
+  ) {
+    next.disconnectedAutoHideSec = clampAutoHideSec(
+      input.disconnectedAutoHideSec,
+      next.disconnectedAutoHideSec,
+    )
+  }
+  // legacy pollIntervalMs ignored
   return next
 }
 
@@ -73,7 +103,24 @@ function matchesFilter(name) {
     .includes(filter)
 }
 
+function autoHideMs(sec) {
+  const s = clampAutoHideSec(sec, 0)
+  return s <= 0 ? 0 : s * 1000
+}
+
 function publishConnected(device, reason) {
+  const hideMs = autoHideMs(config.connectedAutoHideSec)
+  const sticky = hideMs <= 0
+  const payload = {
+    deviceId: device.id,
+    deviceName: device.name,
+    source: device.source,
+    reason,
+    pluginId,
+    publishedAt: new Date().toISOString(),
+  }
+  if (!sticky) payload.auto_hide_ms = hideMs
+
   send({
     v: 1,
     op: 'publish',
@@ -83,19 +130,17 @@ function publishConnected(device, reason) {
       title: '耳机已连接',
       body: device.name || '蓝牙音频设备',
       level: 'success',
-      sticky: true,
-      actions: [
-        { id: 'open-player', label: '打开听歌' },
-        { id: 'dismiss', label: '知道了' },
-      ],
-      payload: {
-        deviceId: device.id,
-        deviceName: device.name,
-        source: device.source,
-        reason,
-        pluginId,
-        publishedAt: new Date().toISOString(),
-      },
+      sticky,
+      actions: sticky
+        ? [
+            { id: 'open-player', label: '打开听歌' },
+            { id: 'dismiss', label: '知道了' },
+          ]
+        : [
+            { id: 'open-player', label: '打开听歌' },
+            { id: 'dismiss', label: '关闭' },
+          ],
+      payload,
       dedupeKey: `bt-music:connected:${device.id}`,
     },
   })
@@ -103,6 +148,18 @@ function publishConnected(device, reason) {
 
 function publishDisconnected(device, reason) {
   if (!config.notifyDisconnect) return
+  const hideMs = autoHideMs(config.disconnectedAutoHideSec)
+  const sticky = hideMs <= 0
+  const payload = {
+    deviceId: device.id,
+    deviceName: device.name,
+    source: device.source,
+    reason,
+    pluginId,
+    publishedAt: new Date().toISOString(),
+  }
+  if (!sticky) payload.auto_hide_ms = hideMs
+
   send({
     v: 1,
     op: 'publish',
@@ -112,41 +169,33 @@ function publishDisconnected(device, reason) {
       title: '耳机已断开',
       body: device.name || '蓝牙音频设备',
       level: 'info',
-      sticky: false,
+      sticky,
       actions: [{ id: 'dismiss', label: '关闭' }],
-      payload: {
-        deviceId: device.id,
-        deviceName: device.name,
-        source: device.source,
-        reason,
-        pluginId,
-        publishedAt: new Date().toISOString(),
-        auto_hide_ms: 5000,
-      },
+      payload,
       dedupeKey: `bt-music:disconnected:${device.id}`,
     },
   })
 }
 
 function openPlayer(deviceName) {
-  const path = config.playerPath || (isWindows ? 'notepad.exe' : '')
-  if (!path) {
+  const playerPath = String(config.playerPath || '').trim()
+  if (!playerPath) {
     log('open-player skipped: no playerPath configured', { deviceName }, 'warn')
-    return { ok: false, error: 'playerPath empty' }
+    return { ok: false, error: '请先在设置里选择听歌程序' }
   }
   try {
-    const child = spawn(path, config.playerArgs || [], {
+    const child = spawn(playerPath, config.playerArgs || [], {
       detached: true,
       stdio: 'ignore',
       shell: false,
       windowsHide: true,
     })
     child.unref()
-    log('opened player', { path, args: config.playerArgs, pid: child.pid, deviceName })
-    return { ok: true, pid: child.pid, path }
+    log('opened player', { path: playerPath, args: config.playerArgs, pid: child.pid, deviceName })
+    return { ok: true, pid: child.pid, path: playerPath }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    log('open player failed', { path, message }, 'error')
+    log('open player failed', { path: playerPath, message }, 'error')
     return { ok: false, error: message }
   }
 }
@@ -259,13 +308,12 @@ function displayNameFor(device) {
   return name || raw
 }
 
-async function listWindowsAudioEndpoints() {
-  // Write JSON to a UTF-8 file — console stdout on Chinese Windows is often CP936.
-  // Paired headsets keep PnP Status=OK forever; only DEVPKEY_Device_IsConnected
-  // flips True while the radio link is up. Require isConnected=true.
-  const outFile = path.join(os.tmpdir(), `catrace-bt-music-endpoints-${process.pid}.json`)
-  const outFilePs = outFile.replace(/'/g, "''")
-  const script = `
+/**
+ * PowerShell body that writes a UTF-8 JSON array of connected BT audio PnP nodes
+ * to $outFile. Shared by one-shot list and the event watcher.
+ */
+function psCollectConnectedScript(outFilePs) {
+  return `
 $ErrorActionPreference = 'Stop'
 $outFile = '${outFilePs}'
 $raw = @(Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object {
@@ -305,58 +353,70 @@ if ($items.Count -eq 0) {
 }
 [System.IO.File]::WriteAllText($outFile, $json, [System.Text.UTF8Encoding]::new($false))
 `
-  try {
-    await runPowerShell(script)
-    if (!fs.existsSync(outFile)) return []
-    const raw = fs.readFileSync(outFile, 'utf8').trim()
-    if (!raw) return []
-    let parsed
-    try {
-      parsed = JSON.parse(raw)
-    } catch (error) {
-      lastPollError = `json parse failed: ${error instanceof Error ? error.message : String(error)}`
-      log('device list json parse failed', { preview: raw.slice(0, 200) }, 'warn')
-      return []
-    }
-    const list = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
-    const mapped = list
-      .map((item) => {
-        const name = String(item.FriendlyName || item.friendlyName || '').trim()
-        const id = String(item.InstanceId || item.instanceId || name).trim()
-        const className = String(item.Class || item.class || '').trim()
-        const status = String(item.Status || item.status || '').trim()
-        const isConnected = item.IsConnected === true || item.isConnected === true
-        if (!id || !name) return null
-        // Paired-but-idle nodes stay Status=OK; only IsConnected means link up.
-        if (!isConnected) return null
-        if (/^error$/i.test(status)) return null
-        if (/^media$/i.test(className) && !/^ok$/i.test(status)) return null
-        return {
-          id,
-          name,
-          className,
-          status,
-          source: 'pnp-bt-audio',
-          groupKey: deviceGroupKey(name),
-        }
-      })
-      .filter(Boolean)
-      .filter((d) => isBluetoothAudioCandidate(d))
-      .filter((d) => matchesFilter(d.name) || matchesFilter(displayNameFor(d)))
-      .map((d) => ({
-        ...d,
-        name: displayNameFor(d),
-      }))
+}
 
-    // One toast per headset group (collapse Hands-Free + Stereo / A2DP + HFP).
-    const groups = new Map()
-    for (const device of mapped) {
-      const key = device.groupKey
-      const bucket = groups.get(key) || []
-      bucket.push(device)
-      groups.set(key, bucket)
-    }
-    return [...groups.values()].map((bucket) => pickPreferredEndpoint(bucket))
+function parseEndpointFile(outFile) {
+  if (!fs.existsSync(outFile)) return []
+  const raw = fs.readFileSync(outFile, 'utf8').trim()
+  if (!raw) return []
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    lastWatchError = `json parse failed: ${error instanceof Error ? error.message : String(error)}`
+    log('device list json parse failed', { preview: raw.slice(0, 200) }, 'warn')
+    return []
+  }
+  const list = Array.isArray(parsed) ? parsed : parsed ? [parsed] : []
+  const mapped = list
+    .map((item) => {
+      const name = String(item.FriendlyName || item.friendlyName || '').trim()
+      const id = String(item.InstanceId || item.instanceId || name).trim()
+      const className = String(item.Class || item.class || '').trim()
+      const status = String(item.Status || item.status || '').trim()
+      const isConnected = item.IsConnected === true || item.isConnected === true
+      if (!id || !name) return null
+      // Paired-but-idle nodes stay Status=OK; only IsConnected means link up.
+      if (!isConnected) return null
+      if (/^error$/i.test(status)) return null
+      if (/^media$/i.test(className) && !/^ok$/i.test(status)) return null
+      return {
+        id,
+        name,
+        className,
+        status,
+        source: 'pnp-bt-audio',
+        groupKey: deviceGroupKey(name),
+      }
+    })
+    .filter(Boolean)
+    .filter((d) => isBluetoothAudioCandidate(d))
+    .filter((d) => matchesFilter(d.name) || matchesFilter(displayNameFor(d)))
+    .map((d) => ({
+      ...d,
+      name: displayNameFor(d),
+    }))
+
+  // One toast per headset group (collapse Hands-Free + Stereo / A2DP + HFP).
+  const groups = new Map()
+  for (const device of mapped) {
+    const key = device.groupKey
+    const bucket = groups.get(key) || []
+    bucket.push(device)
+    groups.set(key, bucket)
+  }
+  return [...groups.values()].map((bucket) => pickPreferredEndpoint(bucket))
+}
+
+async function listWindowsAudioEndpoints() {
+  // Write JSON to a UTF-8 file — console stdout on Chinese Windows is often CP936.
+  // Paired headsets keep PnP Status=OK forever; only DEVPKEY_Device_IsConnected
+  // flips True while the radio link is up. Require isConnected=true.
+  const outFile = path.join(os.tmpdir(), `catrace-bt-music-endpoints-${process.pid}.json`)
+  const outFilePs = outFile.replace(/'/g, "''")
+  try {
+    await runPowerShell(psCollectConnectedScript(outFilePs))
+    return parseEndpointFile(outFile)
   } finally {
     try {
       fs.unlinkSync(outFile)
@@ -373,11 +433,10 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
     const groupKey = device.groupKey || deviceGroupKey(device.name)
     const already =
       known.has(device.id) ||
-      [...known.values()].some((d) => d.source !== 'mock' && (d.groupKey || deviceGroupKey(d.name)) === groupKey)
+      [...known.values()].some((d) => (d.groupKey || deviceGroupKey(d.name)) === groupKey)
     if (already) {
       // Refresh stored record id/name if same group reappeared under new endpoint id.
       for (const [id, prev] of [...known.entries()]) {
-        if (prev.source === 'mock') continue
         if ((prev.groupKey || deviceGroupKey(prev.name)) !== groupKey) continue
         if (id !== device.id) known.delete(id)
       }
@@ -391,7 +450,6 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
   if (seedOnly) return
 
   for (const [id, device] of [...known.entries()]) {
-    if (device.source === 'mock') continue
     const groupKey = device.groupKey || deviceGroupKey(device.name)
     if (nextGroupKeys.has(groupKey)) continue
     known.delete(id)
@@ -399,42 +457,246 @@ function applySnapshot(devices, reason, { seedOnly = false } = {}) {
   }
 }
 
-async function pollOnce(reason = 'poll', options = {}) {
-  if (!isWindows) {
-    lastPollError = 'watch only implemented on Windows; use simulate in settings'
-    return
-  }
-  if (!config.watchEnabled) return
-  try {
-    const devices = await listWindowsAudioEndpoints()
-    lastPollError = ''
-    // Always seed the first successful snapshot so a failed startup seed
-    // cannot turn the next poll into a full toast flood.
-    const seedOnly = options.seedOnly === true || !pnpSeeded
-    applySnapshot(devices, reason, { seedOnly })
+function queueSnapshot(devices, reason, { seedOnly = false, immediate = false } = {}) {
+  // Always seed the first successful snapshot so a failed startup seed
+  // cannot turn the next event into a full toast flood.
+  const effectiveSeed = seedOnly || !pnpSeeded
+  if (effectiveSeed || immediate) {
+    if (applyDebounceTimer) {
+      clearTimeout(applyDebounceTimer)
+      applyDebounceTimer = null
+    }
+    pendingSnapshot = null
+    applySnapshot(devices, reason, { seedOnly: effectiveSeed })
     pnpSeeded = true
-    log('device poll ok', {
+    lastWatchError = ''
+    log('device snapshot applied', {
       reason,
-      seedOnly,
+      seedOnly: effectiveSeed,
       count: devices.length,
       names: devices.map((d) => d.name),
+      mode: 'event',
+    })
+    return
+  }
+
+  pendingSnapshot = { devices, reason }
+  if (applyDebounceTimer) clearTimeout(applyDebounceTimer)
+  applyDebounceTimer = setTimeout(() => {
+    applyDebounceTimer = null
+    const pending = pendingSnapshot
+    pendingSnapshot = null
+    if (!pending) return
+    applySnapshot(pending.devices, pending.reason, { seedOnly: false })
+    pnpSeeded = true
+    lastWatchError = ''
+    log('device snapshot applied', {
+      reason: pending.reason,
+      seedOnly: false,
+      count: pending.devices.length,
+      names: pending.devices.map((d) => d.name),
+      mode: 'event',
+    })
+  }, 350)
+  applyDebounceTimer.unref?.()
+}
+
+async function snapshotOnce(reason = 'manual', options = {}) {
+  if (!isWindows) {
+    lastWatchError = 'watch only implemented on Windows'
+    return
+  }
+  try {
+    const devices = await listWindowsAudioEndpoints()
+    queueSnapshot(devices, reason, {
+      seedOnly: options.seedOnly === true,
+      immediate: options.immediate === true || options.seedOnly === true,
     })
   } catch (error) {
-    lastPollError = error instanceof Error ? error.message : String(error)
-    log('device poll failed', { error: lastPollError }, 'warn')
+    lastWatchError = error instanceof Error ? error.message : String(error)
+    log('device snapshot failed', { error: lastWatchError, reason }, 'warn')
   }
 }
 
-function schedulePoll() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+/**
+ * Long-running PowerShell: subscribe to Win32_DeviceChangeEvent (arrival/removal),
+ * debounce bursts, then dump connected BT audio JSON to a stable UTF-8 file and
+ * print "SNAPSHOT" on stdout so Node can re-read without CP936 corruption.
+ */
+function buildWatcherScript(outFilePs) {
+  const collect = psCollectConnectedScript(outFilePs)
+  // After each emit, print a single ASCII marker line. Node re-reads $outFile as UTF-8.
+  return `
+$ErrorActionPreference = 'Continue'
+$outFile = '${outFilePs}'
+
+function Write-BtSnapshotMarker {
+  try {
+${collect
+  .split('\n')
+  .map((line) => `    ${line}`)
+  .join('\n')}
+    [Console]::Out.WriteLine('SNAPSHOT')
+    [Console]::Out.Flush()
+  } catch {
+    [Console]::Error.WriteLine(('SNAPSHOT_ERROR ' + $_.Exception.Message))
   }
-  if (!isWindows || !config.watchEnabled) return
-  pollTimer = setInterval(() => {
-    pollOnce('poll').catch(() => {})
-  }, config.pollIntervalMs)
-  pollTimer.unref?.()
+}
+
+# Seed immediately so Node can mark pnpSeeded without waiting for a plug event.
+Write-BtSnapshotMarker
+
+$query = 'SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 OR EventType = 3'
+$watcher = $null
+try {
+  $watcher = New-Object System.Management.ManagementEventWatcher
+  $watcher.Query = New-Object System.Management.WqlEventQuery($query)
+  $watcher.Options.Timeout = [System.TimeSpan]::FromSeconds(5)
+  $watcher.Start()
+  while ($true) {
+    try {
+      $null = $watcher.WaitForNextEvent()
+      # Coalesce PnP storms (A2DP+HFP+services arrive together).
+      $deadline = [datetime]::UtcNow.AddMilliseconds(700)
+      while ([datetime]::UtcNow -lt $deadline) {
+        try {
+          $watcher.Options.Timeout = [System.TimeSpan]::FromMilliseconds(80)
+          $null = $watcher.WaitForNextEvent()
+        } catch {
+          break
+        }
+      }
+      $watcher.Options.Timeout = [System.TimeSpan]::FromSeconds(5)
+      Write-BtSnapshotMarker
+    } catch {
+      # Timeout: idle keep-alive so the process stays responsive to kill.
+      continue
+    }
+  }
+} finally {
+  if ($null -ne $watcher) {
+    try { $watcher.Stop() } catch {}
+    try { $watcher.Dispose() } catch {}
+  }
+}
+`
+}
+
+function stopWatcher() {
+  watcherGeneration += 1
+  if (applyDebounceTimer) {
+    clearTimeout(applyDebounceTimer)
+    applyDebounceTimer = null
+  }
+  pendingSnapshot = null
+  if (watcherRl) {
+    try {
+      watcherRl.removeAllListeners()
+      watcherRl.close()
+    } catch {
+      /* ignore */
+    }
+    watcherRl = null
+  }
+  if (watcherChild) {
+    const child = watcherChild
+    watcherChild = null
+    try {
+      child.kill()
+    } catch {
+      /* ignore */
+    }
+    // Windows: ensure the PowerShell tree dies.
+    if (isWindows && child.pid) {
+      try {
+        spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+          windowsHide: true,
+          stdio: 'ignore',
+        }).unref?.()
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+function startWatcher() {
+  if (!isWindows) return
+  stopWatcher()
+  const generation = watcherGeneration
+  const outFile = path.join(os.tmpdir(), `catrace-bt-music-watch-${process.pid}.json`)
+  const outFilePs = outFile.replace(/'/g, "''")
+  const script = buildWatcherScript(outFilePs)
+
+  const child = spawn(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  watcherChild = child
+
+  let stderrBuf = ''
+  child.stderr.on('data', (chunk) => {
+    stderrBuf += chunk.toString('utf8')
+    if (stderrBuf.length > 4000) stderrBuf = stderrBuf.slice(-2000)
+  })
+
+  child.on('error', (error) => {
+    if (generation !== watcherGeneration) return
+    lastWatchError = error instanceof Error ? error.message : String(error)
+    log('device watcher failed to start', { error: lastWatchError }, 'error')
+  })
+
+  child.on('exit', (code, signal) => {
+    if (generation !== watcherGeneration) return
+    watcherChild = null
+    if (watcherRl) {
+      try {
+        watcherRl.close()
+      } catch {
+        /* ignore */
+      }
+      watcherRl = null
+    }
+    lastWatchError = `watcher exited code=${code} signal=${signal || ''} ${stderrBuf.trim()}`.trim()
+    log('device watcher exited; restarting in 2s', { code, signal, stderr: stderrBuf.slice(0, 400) }, 'warn')
+    setTimeout(() => {
+      if (generation !== watcherGeneration) return
+      startWatcher()
+    }, 2000).unref?.()
+  })
+
+  watcherRl = readline.createInterface({ input: child.stdout })
+  watcherRl.on('line', (line) => {
+    if (generation !== watcherGeneration) return
+    const text = String(line || '').trim()
+    if (!text) return
+    if (text.startsWith('SNAPSHOT_ERROR')) {
+      lastWatchError = text.slice('SNAPSHOT_ERROR'.length).trim()
+      log('device watcher snapshot error', { error: lastWatchError }, 'warn')
+      return
+    }
+    if (text !== 'SNAPSHOT') {
+      // Ignore stray PS noise.
+      return
+    }
+    try {
+      const devices = parseEndpointFile(outFile)
+      queueSnapshot(devices, 'device-change')
+    } catch (error) {
+      lastWatchError = error instanceof Error ? error.message : String(error)
+      log('device watcher apply failed', { error: lastWatchError }, 'warn')
+    }
+  })
+
+  log('device watcher started', {
+    pid: child.pid,
+    outFile,
+    query: 'Win32_DeviceChangeEvent EventType=2|3',
+  })
 }
 
 function statusPayload() {
@@ -443,45 +705,29 @@ function statusPayload() {
     platform: process.platform,
     pid: process.pid,
     watchSupported: isWindows,
-    watchEnabled: config.watchEnabled,
+    watchEnabled: true,
+    watchMode: isWindows ? 'device-change-event' : 'none',
+    watcherPid: watcherChild?.pid || null,
     pnpSeeded,
-    pollIntervalMs: config.pollIntervalMs,
     nameFilter: config.nameFilter,
     playerPath: config.playerPath,
     playerArgs: config.playerArgs,
     notifyDisconnect: config.notifyDisconnect,
-    lastPollError: lastPollError || null,
+    connectedAutoHideSec: config.connectedAutoHideSec,
+    disconnectedAutoHideSec: config.disconnectedAutoHideSec,
+    lastWatchError: lastWatchError || null,
     devices: [...known.values()],
   }
 }
 
-function simulateConnect(params = {}) {
-  const name = String(params.deviceName || params.name || 'WH-1000XM5 (模拟)').trim()
-  const id = String(params.deviceId || params.id || `mock:${name.toLowerCase()}`).trim()
-  const device = { id, name, source: 'mock', groupKey: deviceGroupKey(name) }
-  known.set(id, device)
-  publishConnected(device, 'simulate')
-  return device
-}
-
-function simulateDisconnect(params = {}) {
-  const idHint = params.deviceId || params.id
-  const nameHint = params.deviceName || params.name
-  let device = null
-  if (idHint && known.has(String(idHint))) {
-    device = known.get(String(idHint))
-  } else if (nameHint) {
-    device = [...known.values()].find((d) => d.name === nameHint) || null
-  } else {
-    device =
-      [...known.values()].reverse().find((d) => d.source === 'mock') ||
-      [...known.values()].at(-1) ||
-      null
+function applyHostConfig(input) {
+  const prevFilter = config.nameFilter
+  config = normalizeConfig(input)
+  log('config applied', { config })
+  // Name filter change should re-evaluate current set without waiting for plug.
+  if (isWindows && prevFilter !== config.nameFilter && pnpSeeded) {
+    snapshotOnce('filter-change', { immediate: true }).catch(() => {})
   }
-  if (!device) return null
-  known.delete(device.id)
-  publishDisconnected(device, 'simulate')
-  return device
 }
 
 function handleRequest(message) {
@@ -499,36 +745,12 @@ function handleRequest(message) {
         respond(requestId, true, { devices: [...known.values()] })
         break
       case 'setConfig': {
-        const wasEnabled = config.watchEnabled
-        config = normalizeConfig(params)
-        if (!config.watchEnabled) {
-          // Drop PnP-known devices on disable so next enable re-seeds cleanly.
-          for (const [id, device] of [...known.entries()]) {
-            if (device.source !== 'mock') known.delete(id)
-          }
-          pnpSeeded = false
-        }
-        schedulePoll()
-        log('config updated', { config })
+        applyHostConfig(params)
         respond(requestId, true, statusPayload())
-        if (config.watchEnabled && isWindows && (!wasEnabled || !pnpSeeded)) {
-          pnpSeeded = false
-          pollOnce('watch-enabled', { seedOnly: true }).catch(() => {})
-        }
-        break
-      }
-      case 'simulateConnect': {
-        const device = simulateConnect(params)
-        respond(requestId, true, { device, status: statusPayload() })
-        break
-      }
-      case 'simulateDisconnect': {
-        const device = simulateDisconnect(params)
-        respond(requestId, true, { device, status: statusPayload() })
         break
       }
       case 'refresh': {
-        pollOnce('manual-refresh')
+        snapshotOnce('manual-refresh', { immediate: true })
           .then(() => respond(requestId, true, statusPayload()))
           .catch((error) =>
             respond(requestId, false, null, error instanceof Error ? error.message : String(error)),
@@ -548,20 +770,23 @@ function handleRequest(message) {
   }
 }
 
+function shutdown() {
+  log('graceful shutdown', { devices: known.size })
+  stopWatcher()
+  process.exit(0)
+}
+
 send({ v: 1, op: 'ready' })
 log('bt-music sidecar ready', {
   pluginId,
   pid: process.pid,
   platform: process.platform,
   protocol: process.env.CATRACE_PROTOCOL_VERSION,
+  watchMode: isWindows ? 'device-change-event' : 'none',
 })
 
-schedulePoll()
-if (isWindows && config.watchEnabled) {
-  // Seed current endpoints without toast spam; only later deltas notify.
-  setTimeout(() => {
-    pollOnce('startup', { seedOnly: true }).catch(() => {})
-  }, 800)
+if (isWindows) {
+  startWatcher()
 }
 
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
@@ -573,25 +798,12 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
 
   if (message.op === 'shutdown') {
-    log('graceful shutdown', { devices: known.size })
-    process.exit(0)
+    shutdown()
+    return
   }
 
   if (message.op === 'config' && message.config && typeof message.config === 'object') {
-    const wasEnabled = config.watchEnabled
-    config = normalizeConfig(message.config)
-    if (!config.watchEnabled) {
-      for (const [id, device] of [...known.entries()]) {
-        if (device.source !== 'mock') known.delete(id)
-      }
-      pnpSeeded = false
-    }
-    schedulePoll()
-    log('host config applied', { config })
-    if (config.watchEnabled && isWindows && (!wasEnabled || !pnpSeeded)) {
-      pnpSeeded = false
-      pollOnce('host-config', { seedOnly: true }).catch(() => {})
-    }
+    applyHostConfig(message.config)
     return
   }
 
@@ -608,9 +820,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
     })
     if (message.actionId === 'open-player') {
       const deviceName =
-        message.payload?.deviceName ||
-        message.event?.payload?.deviceName ||
-        undefined
+        message.payload?.deviceName || message.event?.payload?.deviceName || undefined
       openPlayer(deviceName)
     }
   }
