@@ -59,6 +59,7 @@ features:
     docs:
       - .agent/features/bt-music/README.md
       - .agent/features/bt-music/windows-pnp-用IsConnected区分配对与真连接-以及轮询去重.md
+      - .agent/features/bt-music/连接断开动作模型与紧凑Toast卡.md
     related:
       - desktop-event-os
       - toast-window
@@ -72,6 +73,7 @@ features:
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
       - .agent/features/toast-window/连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md
       - .agent/features/toast-window/外部插件toast卡热更新-generation缓存与reload顺序.md
+      - .agent/features/toast-window/toast自动隐藏进度条-CSS动画与hover暂停必须同源.md
       - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
     related:
@@ -270,6 +272,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-02-set_plugin_config整包写入冲掉外部插件enabled.md
   - .agent/bugs/2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md
   - .agent/bugs/2026-08-01-bt-music轮询把仅配对设备当成已连接并多弹Toast.md
   - .agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md
@@ -310,6 +313,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-02-bt-music产品化动作模型与Toast紧凑卡.md
   - .agent/devlog/2026-08-02-外部插件toast热更新-generation与reload顺序.md
   - .agent/devlog/2026-08-02-bt-music设置页产品化去开发者术语.md
   - .agent/devlog/2026-08-02-bt-music轮询改为Win32设备变更事件监听.md
