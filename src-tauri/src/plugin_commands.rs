@@ -220,7 +220,7 @@ fn record_memory_activity(
     });
 }
 
-fn record_storage_activity(
+pub(crate) fn record_storage_activity(
     app: &tauri::AppHandle,
     plugins: &PluginManager,
     plugin_id: &str,
@@ -463,7 +463,7 @@ pub fn plugin_log(
     Ok(())
 }
 
-fn validate_storage_key(key: &str) -> Result<(), String> {
+pub(crate) fn validate_storage_key(key: &str) -> Result<(), String> {
     if key.is_empty() || key.contains(':') {
         return Err("plugin storage key cannot be empty or contain colon".into());
     }

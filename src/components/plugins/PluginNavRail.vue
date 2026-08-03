@@ -14,6 +14,8 @@ export interface PluginNavItem {
   anomalous: boolean
   version?: string
   tone: string
+  hasSidecar?: boolean
+  sidecarRunning?: boolean
 }
 
 interface Props {
@@ -153,6 +155,11 @@ function openDir() {
               <div class="item-name">
                 {{ p.name }}
                 <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
+                <span
+                  v-if="p.hasSidecar"
+                  class="sidecar-tag"
+                  :class="{ running: p.sidecarRunning }"
+                >{{ t('plugins.external.sidecarBadge') }}</span>
                 <span v-if="p.anomalous" class="anomaly-tag">{{ t('plugins.external.anomalous') }}</span>
               </div>
               <div class="item-sub">{{ p.subtitle }}</div>
@@ -185,6 +192,7 @@ function openDir() {
               </svg>
               {{ t('plugins.exploreMore') }}
             </button>
+            <p class="trust-note">{{ t('plugins.external.trustNote') }}</p>
           </div>
       </div>
     </page-scroll>
@@ -450,6 +458,25 @@ function openDir() {
   line-height: 1.25rem;
 }
 
+.sidecar-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.sidecar-tag.running {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .anomaly-tag-lg {
   padding-inline: 0.5rem;
   font-size: 0.6875rem;
@@ -508,5 +535,13 @@ function openDir() {
   border-color: #a78bfa;
   background: #faf5ff;
   color: #7c3aed;
+}
+
+.trust-note {
+  margin: 0.625rem 0 0;
+  padding: 0 0.125rem;
+  color: #94a3b8;
+  font-size: 0.625rem;
+  line-height: 1.45;
 }
 </style>

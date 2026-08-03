@@ -1,7 +1,7 @@
 # Plugin Native Sidecar Runtime（M15）
 
 > **设计真源**。决策：[2026-07-30-plugin-native-sidecar-runtime](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md)  
-> Status: M15.1–M15.2 真机验收通过（lifecycle + publish/log + resolved 回传 + sidecar-echo）；M15.3 storage/UI 未做；扫描期路径/解释器安全校验按产品决策不做
+> Status: M15.1–M15.3 完成（lifecycle + publish/log + resolved + storage 往返 + Plugins UI runtime 状态 + 信任文案）；扫描期路径/解释器安全校验按产品决策不做
 > 上级路线图：[step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md)
 
 ## 0. 一句话
@@ -84,10 +84,10 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 |------|------|------|
 | `src-tauri/src/plugin_sidecar.rs` | 启停、stdout JSONL、stdin resolved/shutdown、杀进程树；写 stdin 不持 running 锁 | ✅ M15.1–M15.2 |
 | `plugins.rs` | 解析 `sidecar` → `PluginSidecarSpec` / 列表；与 enable/rescan 同步 | ✅ |
-| `plugin_commands.rs` | publish/log 入站与 background 共用校验路径 | ✅ publish/log；storage 待 M15.3 |
+| `plugin_commands.rs` | publish/log 入站与 background 共用校验路径 | ✅ publish/log/storage |
 | `bus.rs` | resolve 后 `notify_plugin_resolved` → sidecar stdin | ✅ |
 | `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点 | ✅ |
-| Plugins UI / anomaly | sidecar 运行态展示 | ⏳ M15.3 |
+| Plugins UI / anomaly | sidecar 运行态展示 | ✅ M15.3 |
 
 启停触发与 M11 对齐：
 
@@ -133,7 +133,7 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 | op | 时机 |
 |----|------|
 | `config` | 启动后推送整包 config；config 变更可再推 |
-| `storage.get.result` | 应答 get |
+| `response` | 应答 sidecar 请求（含 `storage.get` / `storage.set`） |
 | `resolved` | 用户点 Toast action / dismiss（Plugin 源） |
 | `shutdown` | 禁用前尽量优雅退出；随后仍 SIGKILL/taskkill 兜底 |
 | `activity`（可选 v1.1） | 周期推送 activity 快照，免 sidecar 再调别的 |
@@ -268,13 +268,13 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 2. ~~**PluginSidecarManager 启停 + 杀进程树**~~ ✅  
 3. ~~**stdout 行解析 → publish/log**~~ ✅  
 4. ~~**stdin：shutdown + resolved 转发**~~ ✅  
-5. **storage get/set 往返** ⏳ M15.3  
-6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ⏳ M15.3  
+5. **storage get/set 往返** ✅ M15.3  
+6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ✅ M15.3  
 7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
 8. **桌面能力完整 demo** ✅ 真机验收：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
 9. **bt-music demo** ✅ 包已落地并手测（模拟全链路 + Windows `IsConnected` 真连接门控；见 [[bt-music]]）
 10. （可选）`plugin_open_path` 给无 sidecar 插件
-11. 信任文案补「sidecar = 本机任意代码」⏳
+11. 信任文案补「sidecar = 本机任意代码」✅
 
 ## 12. 完成定义（M15）
 
@@ -284,10 +284,12 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 - [x] Toast action resolve 能到达 sidecar stdin  
 - [x] `sidecar-echo` 手测通过（回传留卡 / 完成卸卡 / 不冻窗）  
 - [x] Settings → 通用 sidecar RPC → Node 桌面能力手测通过（环境 / 文件 / 目录 / 进程 / GET）
-- [ ] 文档与 m10 信任说明更新「sidecar = 本机代码」  
+- [x] 文档与 m10 信任说明更新「sidecar = 本机代码」  
 - [x] **无** 蓝牙/业务专用 Rust API  
-- [ ] sidecar storage request/response（M15.3）  
-- [ ] Plugins UI runtime 状态（M15.3）  
+- [x] sidecar storage request/response（M15.3）  
+- [x] Plugins UI runtime 状态（M15.3）  
+
+落地细节见 [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md)。
 
 ## 13. 风险
 

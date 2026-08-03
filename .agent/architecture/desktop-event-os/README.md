@@ -8,7 +8,7 @@ Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event
 Plugin Ecosystem  →  Event SDK  →  Event Bus  →  Notification Engine  →  Desktop Runtime (Tauri/Rust)
 ```
 
-当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；连续高内存、连续磁盘写入、单次大数据或刷事件都会记录插件 id 并显示“异常” Tag；不限流、不丢弃。**M15.1–M15.2 真机验收**：可选 Native Sidecar 已落地（`PluginSidecarManager` + JSONL + `sidecar-echo`）；M15.3 待 storage/UI。见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。**不做插件市场。**
+当前：**第二阶段已完成真机验收，第三阶段 M11 插件后台运行时也已通过启动、禁用、重新启用和 10 秒 Toast 真机验收**。M11 为每个启用插件创建独立隐藏 WebView，运行 `background.mjs`，并提供 publish/activity/storage/logger 最小宿主能力。M11.1 已删除插件 manifest 的 `permissions` 字段，保留身份/所有权/命名空间隔离；连续高内存、连续磁盘写入、单次大数据或刷事件都会记录插件 id 并显示“异常” Tag；不限流、不丢弃。**M15 完成**：可选 Native Sidecar 已落地（`PluginSidecarManager` + JSONL + storage 往返 + Plugins UI runtime 状态 + 信任文案）。见 [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md)。**不做插件市场。**
 
 ## 模块布局
 
@@ -70,6 +70,7 @@ tools/plugin-demo/            # M10/M11 demo + M15 sidecar-echo
 - [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 第二阶段开发计划真源
 - [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — 第三阶段：Plugin Runtime 路线图（含 M15）
 - [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) — M15 可选 Native Sidecar 设计真源
+- [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
 - [../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md](../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md) — Trusted Local Plugin Model 与必须保留的隔离边界
 - [../../decisions/2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — 可选 sidecar、宿主只提供原语
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表

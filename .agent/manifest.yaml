@@ -5,6 +5,7 @@ features:
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
+      - .agent/features/plugin-center/插件中心-sidecar本机进程徽章与信任文案展示.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
       - .agent/features/plugin-center/插件开关必须在持久化成功后再刷新列表.md
       - .agent/features/plugin-center/插件面板和导航栏组件化拆分.md
@@ -13,6 +14,8 @@ features:
       - settings
       - event-sdk
       - timer-plugin
+      - desktop-event-os
+      - bt-music
   reminder:
     docs:
       - .agent/features/reminder/README.md
@@ -225,6 +228,7 @@ architecture:
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
+      - .agent/architecture/desktop-event-os/sidecar-storage往返协议与Plugins-UI运行态约定.md
       - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
       - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
@@ -313,6 +317,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-03-M15.3-sidecar-storage与Plugins-UI运行态.md
   - .agent/devlog/2026-08-02-bt-music产品化动作模型与Toast紧凑卡.md
   - .agent/devlog/2026-08-02-外部插件toast热更新-generation与reload顺序.md
   - .agent/devlog/2026-08-02-bt-music设置页产品化去开发者术语.md
@@ -331,5 +336,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: M15.1-M15.2 真机验收（sidecar 生命周期 + 通用 RPC + bt-music 场景 demo）
-  next: M15.3 storage + Plugins UI sidecar 运行态；信任文案补「sidecar = 本机代码」
+  phase: M15 完成（sidecar lifecycle + storage 往返 + Plugins UI runtime + 信任文案）
+  next: Step 3 收尾评估 / Step 4 候选（插件安装体验、市场评估、内置插件迁移）

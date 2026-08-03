@@ -65,6 +65,23 @@ enum SidecarOutput {
         #[serde(default)]
         error: Option<String>,
     },
+    #[serde(rename = "storage.get")]
+    StorageGet {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        key: String,
+    },
+    #[serde(rename = "storage.set")]
+    StorageSet {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        key: String,
+        value: serde_json::Value,
+    },
 }
 
 fn default_log_level() -> String {
@@ -74,6 +91,13 @@ fn default_log_level() -> String {
 impl PluginSidecarManager {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn is_running(&self, plugin_id: &str) -> bool {
+        self.running
+            .lock()
+            .map(|running| running.contains_key(plugin_id))
+            .unwrap_or(false)
     }
 
     pub fn schedule_sync(&self, app: tauri::AppHandle, plugins: PluginManager) {
@@ -467,6 +491,107 @@ fn handle_stdout_line(
             };
             let _ = pending.sender.send(response);
         }
+        SidecarOutput::StorageGet {
+            v,
+            request_id,
+            key,
+        } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] storage.get rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match crate::plugin_commands::validate_storage_key(&key)
+                .and_then(|_| {
+                    let db = app.state::<crate::db::Db>();
+                    let raw = db
+                        .get_plugin_storage(plugin_id, &key)
+                        .map_err(|e| e.to_string())?;
+                    match raw {
+                        None => Ok(None),
+                        Some(text) => serde_json::from_str::<serde_json::Value>(&text)
+                            .map(Some)
+                            .map_err(|e| format!("invalid stored JSON: {e}")),
+                    }
+                }) {
+                Ok(value) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": value,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+        SidecarOutput::StorageSet {
+            v,
+            request_id,
+            key,
+            value,
+        } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] storage.set rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match crate::plugin_commands::validate_storage_key(&key).and_then(|_| {
+                let json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
+                let db = app.state::<crate::db::Db>();
+                db.set_plugin_storage(plugin_id, &key, &json)
+                    .map_err(|e| e.to_string())?;
+                crate::plugin_commands::record_storage_activity(app, plugins, plugin_id, json.len());
+                Ok(())
+            }) {
+                Ok(()) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": true,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+    }
+}
+
+fn reply_sidecar(manager: &PluginSidecarManager, plugin_id: &str, response: &serde_json::Value) {
+    let stdin = manager
+        .running
+        .lock()
+        .ok()
+        .and_then(|running| running.get(plugin_id).map(|sidecar| sidecar.stdin.clone()));
+    let Some(stdin) = stdin else {
+        log_warn!(
+            "plugin-sidecar",
+            "[{plugin_id}] storage response dropped: sidecar not running"
+        );
+        return;
+    };
+    if let Err(error) = write_message(&stdin, response) {
+        log_warn!(
+            "plugin-sidecar",
+            "[{plugin_id}] storage response write failed: {error}"
+        );
     }
 }
 
@@ -551,6 +676,39 @@ mod tests {
         );
         assert!(matches!(log, Ok(SidecarOutput::Log { .. })));
         assert_eq!(default_log_level(), "info");
+    }
+
+    #[test]
+    fn parses_storage_get_and_set_messages() {
+        let get = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"storage.get","requestId":"r1","key":"cfg"}"#,
+        )
+        .expect("storage.get parses");
+        assert!(matches!(
+            get,
+            SidecarOutput::StorageGet {
+                request_id,
+                key,
+                ..
+            } if request_id == "r1" && key == "cfg"
+        ));
+        let set = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"storage.set","requestId":"r2","key":"cfg","value":{"n":1}}"#,
+        )
+        .expect("storage.set parses");
+        match set {
+            SidecarOutput::StorageSet {
+                request_id,
+                key,
+                value,
+                ..
+            } => {
+                assert_eq!(request_id, "r2");
+                assert_eq!(key, "cfg");
+                assert_eq!(value, serde_json::json!({"n": 1}));
+            }
+            other => panic!("expected storage.set, got {other:?}"),
+        }
     }
     #[test]
     fn send_resolved_does_not_hold_running_lock_while_writing() {

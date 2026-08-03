@@ -126,6 +126,26 @@ plugins/
 
 - 宿主**不会**替你 `npm install`
 - Windows 上若用 `node`，需用户已安装并在 PATH 中
+- 启用后插件中心会显示「本机进程」运行态；信任模型视 sidecar 为本机代码
+
+#### sidecar 直接读写宿主 KV（M15.3）
+
+sidecar stdout 可发（身份由宿主 running map 绑定，勿自报 pluginId）：
+
+```json
+{"v":1,"op":"storage.get","requestId":"r1","key":"cfg"}
+{"v":1,"op":"storage.set","requestId":"r2","key":"cfg","value":{"n":1}}
+```
+
+宿主 stdin 统一用 `response` 应答（与 RPC 同形）：
+
+```json
+{"v":1,"op":"response","requestId":"r1","ok":true,"result":{"n":1}}
+{"v":1,"op":"response","requestId":"r2","ok":false,"error":"..."}
+```
+
+- key 非空且不含 `:`；与 background `plugin.storage` **同一** SQLite 命名空间
+- settings 用户配置仍优先 `plugin.config`；sidecar storage 适合进程侧运行态/缓存
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted（设计已定；M15.1–M15.2 已实现并真机验收 sidecar-echo；M15.3 storage/UI 与信任文案仍待）
+Accepted（设计已定；M15.1–M15.3 已实现：lifecycle + storage 往返 + Plugins UI runtime + 信任文案）
 
 ## Context
 

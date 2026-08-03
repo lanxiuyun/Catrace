@@ -433,6 +433,7 @@ export interface ExternalPluginInfo {
   main?: string | null
   background?: string | null
   settings?: string | null
+  sidecar?: unknown | null
   events: string[]
   enabled: boolean
   enabledByDefault: boolean
@@ -440,6 +441,8 @@ export interface ExternalPluginInfo {
   hasUi: boolean
   hasBackground: boolean
   hasSettings: boolean
+  hasSidecar: boolean
+  sidecarRunning: boolean
   /** Max mtime of ui/settings sources (ms); used to bust frontend blob cache on edit. */
   contentMtimeMs?: number
   anomalous: boolean

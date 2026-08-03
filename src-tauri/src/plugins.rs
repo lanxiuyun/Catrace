@@ -74,6 +74,7 @@ pub struct ExternalPluginInfo {
     pub background: Option<String>,
     pub settings: Option<String>,
     pub sidecar: Option<PluginSidecarManifest>,
+    pub sidecar_running: bool,
     pub events: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
@@ -181,6 +182,7 @@ impl PluginManager {
                             has_background: false,
                             has_settings: false,
                             has_sidecar: false,
+                            sidecar_running: false,
                             content_mtime_ms: 0,
                             anomalous: false,
                             error: Some(e),
@@ -492,6 +494,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             has_background: background_abs.is_some(),
             has_settings: settings_abs.is_some(),
             has_sidecar: sidecar.is_some(),
+            sidecar_running: false, // This will be set by the caller querying the running map
             content_mtime_ms,
             anomalous: false,
             error: None,
@@ -659,7 +662,15 @@ pub fn list_external_plugins(
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
     sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
-    let list = mgr.rescan(&app)?;
+    let mut list = mgr.rescan(&app)?;
+    
+    // Inject sidecar_running status
+    for plugin in &mut list {
+        if plugin.has_sidecar {
+            plugin.sidecar_running = sidecars.inner().is_running(&plugin.id);
+        }
+    }
+
     windows.schedule_sync(app.clone(), mgr.inner().clone());
     sidecars.schedule_sync(app.clone(), mgr.inner().clone());
     Ok(list)
@@ -674,9 +685,16 @@ pub fn set_external_plugin_enabled(
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
-    let info = mgr.set_enabled(&app, &id, enabled)?;
+    let mut info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
+    // Sync sidecar lifecycle before reporting runtime status so the UI
+    // does not lag one refresh behind enable/disable.
+    if let Err(e) = sidecars.inner().sync(&app, mgr.inner()) {
+        log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
+    }
+    if info.has_sidecar {
+        info.sidecar_running = sidecars.inner().is_running(&info.id);
+    }
     Ok(info)
 }
 

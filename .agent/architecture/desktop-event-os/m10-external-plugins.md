@@ -156,7 +156,7 @@ list/get/patch/resolve 允许 `Sdk | Plugin` 源。
 
 ## 信任模型
 
-本地插件 ≈ VS Code 本地扩展：代码跑在应用 WebView。**仅安装信任的包。**
+本地插件 ≈ VS Code 本地扩展：代码默认跑在应用 WebView。声明 `sidecar` 的插件还会启动本机子进程（node/exe 等），等同执行本机代码。**仅安装信任的来源。**
 首版：保留 kind 拒绝 + enable 门闩 + 无远程 `main`。
 M10.2 可选：iframe sandbox、invoke ACL。
 
