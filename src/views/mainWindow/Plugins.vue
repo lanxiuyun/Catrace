@@ -14,6 +14,9 @@ import {
   listExternalPlugins,
   setExternalPluginEnabled,
   openPluginsDir,
+  installExternalPlugin,
+  pickPluginFolder,
+  pickPluginZip,
   publishEvent,
   getAgentNotificationEnabled,
   type ExternalPluginInfo,
@@ -254,6 +257,68 @@ async function onOpenDir() {
   }
 }
 
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function installFromPath(sourcePath: string) {
+  loading.value = true
+  try {
+    let result = await installExternalPlugin(sourcePath, false).catch(async (error) => {
+      const text = errorText(error)
+      if (!/already installed|overwrite/i.test(text)) throw error
+      const idMatch = text.match(/plugin '([^']+)'/i) || text.match(/plugin «([^»]+)»/i)
+      const id = idMatch?.[1] || 'plugin'
+      const ok = window.confirm(t('plugins.external.installOverwriteConfirm', { id }))
+      if (!ok) {
+        message.info(t('plugins.external.installCancelled'))
+        return null
+      }
+      return installExternalPlugin(sourcePath, true)
+    })
+    if (!result) return
+    await refreshExternal()
+    await loadExternalPlugins()
+    selectedId.value = result.id
+    message.success(
+      result.overwritten
+        ? t('plugins.external.installOverwriteOk', {
+            name: result.name,
+            version: result.version,
+          })
+        : t('plugins.external.installOk', {
+            name: result.name,
+            version: result.version,
+          }),
+    )
+  } catch (error) {
+    console.warn('[plugins page] install failed', error)
+    message.error(t('plugins.external.installFailed', { error: errorText(error) }))
+  } finally {
+    loading.value = false
+  }
+}
+
+async function onInstallFolder() {
+  try {
+    const path = await pickPluginFolder()
+    if (!path) return
+    await installFromPath(path)
+  } catch (error) {
+    message.error(t('plugins.external.installFailed', { error: errorText(error) }))
+  }
+}
+
+async function onInstallZip() {
+  try {
+    const path = await pickPluginZip()
+    if (!path) return
+    await installFromPath(path)
+  } catch (error) {
+    message.error(t('plugins.external.installFailed', { error: errorText(error) }))
+  }
+}
+
 async function onTestExternal(p: ExternalPluginInfo) {
   if (!p.enabled || p.error || testingId.value) return
   testingId.value = p.id
@@ -302,6 +367,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
       :loading="loading"
       @refresh="refreshExternal"
       @open-dir="onOpenDir"
+      @install-folder="onInstallFolder"
+      @install-zip="onInstallZip"
     />
 
     <!-- 主内容 -->

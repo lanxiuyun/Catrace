@@ -70,6 +70,7 @@ tools/plugin-demo/            # M10/M11 demo + M15 sidecar-echo
 - [step2-roadmap-event-core-and-signal-core.md](step2-roadmap-event-core-and-signal-core.md) — 第二阶段开发计划真源
 - [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — 第三阶段：Plugin Runtime 路线图（含 M15）
 - [step3-收尾评估-核心目标已达成与Step4候选.md](step3-收尾评估-核心目标已达成与Step4候选.md) — Step 3 关账结论与 Step 4 排序
+- [step4-roadmap-plugin-ecosystem.md](step4-roadmap-plugin-ecosystem.md) — Step 4：本地安装 / 打包约定
 - [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) — M15 可选 Native Sidecar 设计真源
 - [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
 - [../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md](../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md) — Trusted Local Plugin Model 与必须保留的隔离边界

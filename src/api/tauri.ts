@@ -453,6 +453,39 @@ export async function listExternalPlugins(): Promise<ExternalPluginInfo[]> {
   return invoke('list_external_plugins')
 }
 
+export interface PluginInstallResult {
+  id: string
+  name: string
+  version: string
+  overwritten: boolean
+  path: string
+}
+
+/** Install a local plugin folder or zip into app plugins dir. Does not enable. */
+export async function installExternalPlugin(
+  sourcePath: string,
+  overwrite = false,
+): Promise<PluginInstallResult> {
+  return invoke('install_external_plugin', { sourcePath, overwrite })
+}
+
+export async function pickPluginZip(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: 'Plugin zip', extensions: ['zip'] }],
+  })
+  return typeof selected === 'string' && selected ? selected : null
+}
+
+export async function pickPluginFolder(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+  })
+  return typeof selected === 'string' && selected ? selected : null
+}
+
 export async function setExternalPluginEnabled(
   id: string,
   enabled: boolean,

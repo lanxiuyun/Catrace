@@ -4,8 +4,8 @@
 
 ## Files involved
 
-- `src/views/mainWindow/Plugins.vue` — 容器：导航、`.plugin-detail` 外壳、内置/外部详情、禁用灰显。
-- `src/components/plugins/PluginNavRail.vue` — 左侧导航（搜索、列表、刷新、打开目录、sidecar Tag、信任文案）。
+- `src/views/mainWindow/Plugins.vue` — 容器：导航、`.plugin-detail` 外壳、内置/外部详情、禁用灰显、本地安装。
+- `src/components/plugins/PluginNavRail.vue` — 左侧导航（搜索、列表、刷新、安装文件夹/zip、打开目录、sidecar Tag、信任文案）。
 - `src/components/plugins/PluginPanelHeader.vue` — 详情顶栏（图标 + 标题/副标题 + 开关 + 可选本机进程 badge）。
 - `src/components/plugins/PluginSection.vue` — Section 卡片（标题 + 描述 + 白底容器）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐业务面板。

@@ -1175,6 +1175,7 @@ pub fn run() {
             event_http::set_event_sdk_enabled,
             event_http::rotate_event_sdk_token,
             plugins::list_external_plugins,
+            plugins::install_external_plugin,
             plugins::set_external_plugin_enabled,
             plugins::get_plugin_ui_url,
             plugins::get_plugin_ui_source,

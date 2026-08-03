@@ -792,6 +792,317 @@ pub fn get_plugins_dir(app: AppHandle) -> Result<String, String> {
     Ok(root.to_string_lossy().to_string())
 }
 
+/// Result of installing a local plugin package (folder or zip).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInstallResult {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub overwritten: bool,
+    pub path: String,
+}
+
+const MAX_INSTALL_ZIP_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_INSTALL_UNPACKED_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_INSTALL_FILE_COUNT: usize = 5_000;
+
+/// Install a plugin from a local folder or `.zip` into `<app_data>/plugins/<id>/`.
+/// Does not enable the plugin. Same id requires `overwrite: true`.
+#[tauri::command]
+pub fn install_external_plugin(
+    app: AppHandle,
+    mgr: State<'_, PluginManager>,
+    windows: State<'_, crate::plugin_window::PluginWindowManager>,
+    sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
+    source_path: String,
+    overwrite: bool,
+) -> Result<PluginInstallResult, String> {
+    let source = PathBuf::from(source_path.trim());
+    if source.as_os_str().is_empty() {
+        return Err("source path is empty".into());
+    }
+    if !source.exists() {
+        return Err(format!("path not found: {}", source.display()));
+    }
+
+    let root = plugins_root(&app)?;
+    fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
+
+    let staging = root.join(format!(
+        ".install-staging-{}-{}",
+        std::process::id(),
+        uuid::Uuid::new_v4()
+    ));
+    if staging.exists() {
+        remove_path_all(&staging)?;
+    }
+    fs::create_dir_all(&staging).map_err(|e| format!("create staging: {e}"))?;
+
+    let install_result = (|| {
+        if source.is_file() {
+            unpack_plugin_zip(&source, &staging)?;
+        } else if source.is_dir() {
+            copy_dir_filtered(&source, &staging)?;
+        } else {
+            return Err(format!("unsupported path type: {}", source.display()));
+        }
+
+        let package_root = find_plugin_package_root(&staging)?;
+        let manifest = read_install_manifest(&package_root)?;
+        validate_id(&manifest.id)?;
+        if manifest.name.trim().is_empty() {
+            return Err("manifest name is required".into());
+        }
+        if manifest.version.trim().is_empty() {
+            return Err("manifest version is required".into());
+        }
+
+        let dest = root.join(&manifest.id);
+        let overwritten = dest.exists();
+        if overwritten && !overwrite {
+            return Err(format!(
+                "plugin '{}' already installed; pass overwrite to replace",
+                manifest.id
+            ));
+        }
+
+        // Refuse installing over the selected source itself.
+        if paths_equal(&source, &dest) {
+            return Err("source path is already the installed plugin directory".into());
+        }
+
+        let staged_final = root.join(format!(
+            ".install-final-{}-{}",
+            manifest.id,
+            uuid::Uuid::new_v4()
+        ));
+        if staged_final.exists() {
+            remove_path_all(&staged_final)?;
+        }
+        // Move package contents into a sibling temp dir named for atomic replace.
+        fs::rename(&package_root, &staged_final).or_else(|_| {
+            copy_dir_filtered(&package_root, &staged_final)?;
+            remove_path_all(&package_root)
+        })?;
+
+        // Ensure directory name will match id after rename to dest.
+        if overwritten {
+            // Keep enabled flag in plugin_config; only replace files.
+            remove_path_all(&dest)?;
+        }
+        fs::rename(&staged_final, &dest).map_err(|e| {
+            let _ = remove_path_all(&staged_final);
+            format!("install rename failed: {e}")
+        })?;
+
+        // Soft-validate by loading; keep files even if optional entries warn.
+        if let Err(e) = load_one(&app, &dest) {
+            log_warn!(
+                "plugins",
+                "installed {} but load reported: {e}",
+                manifest.id
+            );
+        }
+
+        log_info!(
+            "plugins",
+            "installed plugin {} v{} (overwrite={overwritten}) from {}",
+            manifest.id,
+            manifest.version,
+            source.display()
+        );
+
+        Ok(PluginInstallResult {
+            id: manifest.id.clone(),
+            name: manifest.name,
+            version: manifest.version,
+            overwritten,
+            path: dest.to_string_lossy().to_string(),
+        })
+    })();
+
+    let _ = remove_path_all(&staging);
+
+    let result = install_result?;
+    // Refresh cache + schedule runtimes (new package is disabled by default unless enabledByDefault).
+    let _ = mgr.rescan(&app)?;
+    windows.schedule_sync(app.clone(), mgr.inner().clone());
+    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
+    Ok(result)
+}
+
+#[derive(Debug, Deserialize)]
+struct InstallManifest {
+    id: String,
+    name: String,
+    version: String,
+}
+
+fn read_install_manifest(dir: &Path) -> Result<InstallManifest, String> {
+    let path = dir.join("manifest.json");
+    if !path.is_file() {
+        return Err("missing manifest.json".into());
+    }
+    let raw = fs::read_to_string(&path).map_err(|e| format!("read manifest: {e}"))?;
+    if raw.len() > 64 * 1024 {
+        return Err("manifest too large".into());
+    }
+    serde_json::from_str(&raw).map_err(|e| format!("invalid manifest json: {e}"))
+}
+
+fn find_plugin_package_root(staging: &Path) -> Result<PathBuf, String> {
+    if staging.join("manifest.json").is_file() {
+        return Ok(staging.to_path_buf());
+    }
+    let mut matches = Vec::new();
+    let entries = fs::read_dir(staging).map_err(|e| format!("read staging: {e}"))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() && path.join("manifest.json").is_file() {
+            matches.push(path);
+        }
+    }
+    match matches.len() {
+        1 => Ok(matches.remove(0)),
+        0 => Err("no manifest.json found in package (folder or zip root / one nested folder)".into()),
+        _ => Err("multiple plugin packages found; package must contain a single plugin".into()),
+    }
+}
+
+fn unpack_plugin_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
+    let meta = fs::metadata(zip_path).map_err(|e| format!("stat zip: {e}"))?;
+    if meta.len() > MAX_INSTALL_ZIP_BYTES {
+        return Err(format!(
+            "zip too large (max {} MiB)",
+            MAX_INSTALL_ZIP_BYTES / (1024 * 1024)
+        ));
+    }
+    let file = fs::File::open(zip_path).map_err(|e| format!("open zip: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("invalid zip: {e}"))?;
+    let mut total_unpacked: u64 = 0;
+    let mut file_count = 0usize;
+
+    for i in 0..archive.len() {
+        let mut entry = archive
+            .by_index(i)
+            .map_err(|e| format!("zip entry {i}: {e}"))?;
+        let name = entry.name().to_string();
+        if name.contains("..") {
+            return Err(format!("zip path traversal rejected: {name}"));
+        }
+        let rel = match entry.enclosed_name() {
+            Some(p) => p.to_path_buf(),
+            None => return Err(format!("zip unsafe path rejected: {name}")),
+        };
+        let out_path = dest.join(&rel);
+        if !out_path.starts_with(dest) {
+            return Err(format!("zip path escaped dest: {name}"));
+        }
+
+        if entry.is_dir() {
+            fs::create_dir_all(&out_path).map_err(|e| format!("mkdir {}: {e}", out_path.display()))?;
+            continue;
+        }
+
+        file_count += 1;
+        if file_count > MAX_INSTALL_FILE_COUNT {
+            return Err(format!(
+                "zip has too many files (max {MAX_INSTALL_FILE_COUNT})"
+            ));
+        }
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+        }
+        let mut outfile =
+            fs::File::create(&out_path).map_err(|e| format!("create {}: {e}", out_path.display()))?;
+        let written = std::io::copy(&mut entry, &mut outfile)
+            .map_err(|e| format!("extract {}: {e}", out_path.display()))?;
+        total_unpacked = total_unpacked.saturating_add(written);
+        if total_unpacked > MAX_INSTALL_UNPACKED_BYTES {
+            return Err(format!(
+                "unpacked size too large (max {} MiB)",
+                MAX_INSTALL_UNPACKED_BYTES / (1024 * 1024)
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn copy_dir_filtered(src: &Path, dest: &Path) -> Result<(), String> {
+    fs::create_dir_all(dest).map_err(|e| format!("create {}: {e}", dest.display()))?;
+    let mut file_count = 0usize;
+    let mut total: u64 = 0;
+    copy_dir_filtered_inner(src, dest, &mut file_count, &mut total)
+}
+
+fn copy_dir_filtered_inner(
+    src: &Path,
+    dest: &Path,
+    file_count: &mut usize,
+    total: &mut u64,
+) -> Result<(), String> {
+    for entry in fs::read_dir(src).map_err(|e| format!("read {}: {e}", src.display()))? {
+        let entry = entry.map_err(|e| format!("read dir entry: {e}"))?;
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+        if name == "." || name == ".." || name == ".git" || name == "node_modules" {
+            continue;
+        }
+        let from = entry.path();
+        let to = dest.join(&file_name);
+        let ft = entry
+            .file_type()
+            .map_err(|e| format!("file type {}: {e}", from.display()))?;
+        if ft.is_dir() {
+            fs::create_dir_all(&to).map_err(|e| format!("mkdir {}: {e}", to.display()))?;
+            copy_dir_filtered_inner(&from, &to, file_count, total)?;
+        } else if ft.is_file() {
+            *file_count += 1;
+            if *file_count > MAX_INSTALL_FILE_COUNT {
+                return Err(format!(
+                    "package has too many files (max {MAX_INSTALL_FILE_COUNT})"
+                ));
+            }
+            let meta = fs::metadata(&from).map_err(|e| format!("stat {}: {e}", from.display()))?;
+            *total = total.saturating_add(meta.len());
+            if *total > MAX_INSTALL_UNPACKED_BYTES {
+                return Err(format!(
+                    "package too large (max {} MiB)",
+                    MAX_INSTALL_UNPACKED_BYTES / (1024 * 1024)
+                ));
+            }
+            fs::copy(&from, &to)
+                .map_err(|e| format!("copy {} -> {}: {e}", from.display(), to.display()))?;
+        }
+    }
+    Ok(())
+}
+
+fn remove_path_all(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let meta = fs::symlink_metadata(path).map_err(|e| format!("stat {}: {e}", path.display()))?;
+    if meta.file_type().is_symlink() {
+        fs::remove_file(path)
+            .or_else(|_| fs::remove_dir(path))
+            .map_err(|e| format!("remove symlink {}: {e}", path.display()))?;
+        return Ok(());
+    }
+    if meta.is_dir() {
+        fs::remove_dir_all(path).map_err(|e| format!("remove dir {}: {e}", path.display()))?;
+    } else {
+        fs::remove_file(path).map_err(|e| format!("remove file {}: {e}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn paths_equal(a: &Path, b: &Path) -> bool {
+    let canon = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    canon(a) == canon(b)
+}
+
 /// Called from setup after PluginManager is managed.
 pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
     #[cfg(debug_assertions)]
