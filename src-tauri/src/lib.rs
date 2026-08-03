@@ -3,6 +3,7 @@ mod db;
 mod eye;
 mod log;
 mod media_audio;
+mod memorial_day;
 mod reminder;
 mod reminder_toast;
 mod report;
@@ -846,6 +847,34 @@ fn test_notification(
     );
 }
 
+/// Debug：获取所有已配置纪念日日期列表。
+#[tauri::command]
+fn get_memorial_dates() -> Vec<memorial_day::MemorialDate> {
+    memorial_day::memorial_dates()
+}
+
+/// Debug：强制弹出指定月/日的纪念日彩蛋 toast（临时预览样式用）。
+#[tauri::command]
+fn test_memorial_toast(
+    app_handle: tauri::AppHandle,
+    db: tauri::State<db::Db>,
+    store: tauri::State<ReminderWindowStore>,
+    month: u32,
+    day: u32,
+) {
+    let locale = db.get_setting("locale", "zh-CN");
+    let Some(theme) = memorial_day::preview_memorial_theme(month, day, &locale) else {
+        return;
+    };
+    reminder_toast::create_memorial_toast_window(
+        &app_handle,
+        0,
+        &theme,
+        "memorial",
+        &store,
+    );
+}
+
 #[tauri::command]
 fn start_notification_test(
     interval_seconds: u64,
@@ -1426,6 +1455,14 @@ pub fn run() {
                             &locale,
                             &store_for_settle,
                         );
+
+                        // 纪念日彩蛋提醒（6–20 点且当天未弹过时弹出一次）
+                        memorial_day::show_memorial_notification(
+                            &app_handle,
+                            &locale,
+                            &store_for_settle,
+                            &db_clone,
+                        );
                     }
                 }
             });
@@ -1508,6 +1545,8 @@ pub fn run() {
             get_today_records,
             get_app_stats,
             test_notification,
+            test_memorial_toast,
+            get_memorial_dates,
             start_notification_test,
             stop_notification_test,
             water::test_water_notification,

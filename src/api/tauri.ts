@@ -92,6 +92,21 @@ export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
 
+export interface MemorialDate {
+  month: number
+  day: number
+}
+
+/** Debug：获取所有已配置纪念日日期列表 */
+export async function getMemorialDates(): Promise<MemorialDate[]> {
+  return invoke('get_memorial_dates')
+}
+
+/** Debug：强制弹出指定月/日的纪念日彩蛋 toast（临时预览样式用） */
+export async function testMemorialToast(month: number, day: number): Promise<void> {
+  return invoke('test_memorial_toast', { month, day })
+}
+
 /** 开始循环测试通知，每隔 intervalSeconds 秒触发一次 */
 export async function startNotificationTest(intervalSeconds: number): Promise<void> {
   return invoke('start_notification_test', { intervalSeconds })

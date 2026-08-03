@@ -29,10 +29,11 @@ import RestTimerBall from '../components/RestTimerBall.vue'
 import EyeToastCard from '../components/EyeToastCard.vue'
 import AgentToastCard, { type AgentEntry } from '../components/AgentToastCard.vue'
 import PermissionToastCard, { type PermissionItem } from '../components/PermissionToastCard.vue'
+import MemorialToastCard from '../components/MemorialToastCard.vue'
 
 const { t } = useI18n()
 
-type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission'
+type ToastKind = 'rest' | 'water' | 'eye' | 'update' | 'rest-timer' | 'agent' | 'permission' | 'memorial'
 
 interface ToastItem {
   id: number
@@ -67,6 +68,10 @@ interface ToastItem {
   restStreak?: number
   isComplete?: boolean
   endTimer?: ReturnType<typeof setTimeout> | null
+  // memorial fields
+  memorialTag?: string
+  memorialIcon?: string
+  memorialCategory?: 'history' | 'life'
 }
 
 const notifications = ref<ToastItem[]>([])
@@ -189,6 +194,9 @@ onMounted(async () => {
     requestId?: number
     toolName?: string
     toolInput?: unknown
+    tag?: string
+    icon?: string
+    category?: 'history' | 'life'
   }) => {
     logFrontend('info', `[toast-fe] addToastNotification kind=${payload.kind} requestId=${payload.requestId ?? '-'} tool=${payload.toolName ?? '-'}`).catch(() => {})
     addNotification({
@@ -209,6 +217,9 @@ onMounted(async () => {
       requestId: payload.requestId,
       toolName: payload.toolName,
       toolInput: payload.toolInput,
+      tag: payload.tag,
+      icon: payload.icon,
+      category: payload.category,
     })
   }
 
@@ -491,6 +502,9 @@ async function addNotification(payload: {
   requestId?: number
   toolName?: string
   toolInput?: unknown
+  tag?: string
+  icon?: string
+  category?: 'history' | 'life'
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -573,7 +587,8 @@ async function addNotification(payload: {
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
-  const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : AUTO_HIDE_MS
+  const isMemorial = payload.kind === 'memorial'
+  const autoHideMs = payload.kind === 'eye' ? EYE_AUTO_HIDE_MS : payload.kind === 'memorial' ? 0 : AUTO_HIDE_MS
   const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
     id,
@@ -583,7 +598,7 @@ async function addNotification(payload: {
     boundary: payload.boundary ?? 0,
     visible: false,
     isHovered: false,
-    remainingMs: isUpdate || isAgentSticky ? 0 : autoHideMs,
+    remainingMs: isUpdate || isAgentSticky || isMemorial ? 0 : autoHideMs,
     closeTimer: null,
     lastStartAt: 0,
     version: payload.version || '',
@@ -607,6 +622,9 @@ async function addNotification(payload: {
         }]
       : undefined,
     totalMs: autoHideMs,
+    memorialTag: payload.tag,
+    memorialIcon: payload.icon,
+    memorialCategory: payload.category,
   }
 
   // 新通知加到底部（数组末尾）
@@ -620,7 +638,7 @@ async function addNotification(payload: {
     }
   })
 
-  if (!isUpdate && !isAgentSticky) {
+  if (!isUpdate && !isAgentSticky && !isMemorial) {
     startTimer(item)
   }
   await adjustWindowSize()
@@ -652,14 +670,14 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
-  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky/permission 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  // 护眼提醒 hover 不暂停倒计时；休息计时/sticky/permission/纪念日 卡片不依赖 hover 控制生命周期
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'memorial' || item.sticky) return
   item.isHovered = true
   stopTimer(item)
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  if (item.kind === 'eye' || item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'memorial' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -970,6 +988,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-rest-timer': item.kind === 'rest-timer',
           'toast-card-agent': item.kind === 'agent',
           'toast-card-permission': item.kind === 'permission',
+          'toast-card-memorial': item.kind === 'memorial',
         }"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
@@ -1005,8 +1024,18 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
         />
 
+        <MemorialToastCard
+          v-else-if="item.kind === 'memorial'"
+          :title="item.title"
+          :body="item.body"
+          :tag="item.memorialTag || ''"
+          :icon="item.memorialIcon || ''"
+          :category="item.memorialCategory || 'life'"
+          @close="handleClose(item)"
+        />
+
         <!-- Header -->
-        <div v-if="item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="header">
+        <div v-if="item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission' && item.kind !== 'memorial'" class="header">
           <div class="header-left">
             <div class="pulse-dot" />
             <h2 v-if="item.kind === 'update'" class="title">
@@ -1028,7 +1057,7 @@ async function handleUpdateInstall(item: ToastItem) {
 
         <!-- Progress bar (auto-hide timer, not shown for update / rest-timer / agent / permission / sticky cards) -->
         <div
-          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && item.kind !== 'permission' && !item.sticky"
+          v-if="item.kind !== 'eye' && item.kind !== 'update' && item.kind !== 'rest-timer' && item.kind !== 'agent' && item.kind !== 'permission' && item.kind !== 'memorial' && !item.sticky"
           class="progress-bar"
           :class="{ paused: item.isHovered }"
         />
@@ -1044,7 +1073,7 @@ async function handleUpdateInstall(item: ToastItem) {
         </div>
 
         <!-- Body -->
-        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission'" class="body-text">{{ item.body }}</p>
+        <p v-if="item.kind !== 'update' && item.kind !== 'eye' && item.kind !== 'agent' && item.kind !== 'permission' && item.kind !== 'memorial'" class="body-text">{{ item.body }}</p>
 
         <!-- Update changelog -->
         <div
@@ -1279,6 +1308,15 @@ async function handleUpdateInstall(item: ToastItem) {
   }
 }
 
+.toast-card-memorial {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
 /* Agent / permission / eye / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
 .toast-card-agent,
 .toast-card-permission {
@@ -1511,6 +1549,7 @@ async function handleUpdateInstall(item: ToastItem) {
   line-height: 1.5;
   margin: 0 0 0.625rem 0;
   word-break: break-word;
+  white-space: pre-line;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;

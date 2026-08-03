@@ -185,6 +185,7 @@ const countdown = computed(() => Math.max(0, Math.ceil(remaining.value / 1000)))
   line-height: 1.5;
   margin: 0.5rem 0 0.625rem;
   word-break: break-word;
+  white-space: pre-line;
 }
 
 .actions {

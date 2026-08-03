@@ -114,6 +114,108 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
     });
 }
 
+/// 创建或复用 toast 通知窗口（纪念日专用，携带完整主题）。
+pub fn create_memorial_toast_window(
+    app_handle: &tauri::AppHandle,
+    boundary: i64,
+    theme: &crate::memorial_day::MemorialTheme,
+    kind: &str,
+    store: &ReminderWindowStore,
+) {
+    use crate::memorial_day::MemorialCategory;
+
+    let data = ReminderWindowData {
+        kind: kind.to_string(),
+        boundary,
+        title: theme.title.to_string(),
+        body: theme.body.to_string(),
+        break_minutes: 0,
+        fullscreen_bg: None,
+        fullscreen_opacity: 0,
+        fullscreen_fit_mode: String::new(),
+        fullscreen_element_transforms: String::new(),
+    };
+    store
+        .lock()
+        .unwrap()
+        .insert(TOAST_WINDOW_LABEL.to_string(), data.clone());
+
+    let category_str = match theme.category {
+        MemorialCategory::History => "history",
+        MemorialCategory::Life => "life",
+    };
+    let payload = serde_json::json!({
+        "kind": data.kind,
+        "boundary": data.boundary,
+        "title": data.title,
+        "body": data.body,
+        "tag": theme.tag,
+        "icon": theme.icon,
+        "category": category_str,
+    });
+
+    let app = app_handle.clone();
+    tauri::async_runtime::spawn(async move {
+        let _guard = TOAST_MUTEX.lock().await;
+
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            let js = format!(
+                "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+                payload
+            );
+            let _ = window.eval(&js);
+            let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+            let _ = window.eval(route_js);
+            window_manager::show_reminder_no_activate(&app, &window);
+            return;
+        }
+
+        if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            return;
+        }
+
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            TOAST_WINDOW_LABEL,
+            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+        )
+        .title("Catrace")
+        .inner_size(TOAST_WINDOW_WIDTH, TOAST_WINDOW_MIN_HEIGHT)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .accept_first_mouse(true)
+        .visible_on_all_workspaces(true)
+        .maximizable(false)
+        .background_color(tauri::window::Color(0, 0, 0, 0))
+        .shadow(false)
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false);
+
+        match builder.build() {
+            Ok(window) => {
+                let _ = position_toast_window(&window, &app);
+                window_manager::show_reminder_no_activate(&app, &window);
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
+                let _ = window.eval(route_js);
+
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                let js = format!(
+                    "if (window.addToastNotification) {{ window.addToastNotification({}); }}",
+                    payload
+                );
+                let _ = window.eval(&js);
+            }
+            Err(e) => {
+                log_error!("toast-win", "build failed: {}", e);
+            }
+        }
+    });
+}
+
 /// 创建或复用 toast 通知窗口。
 /// - 窗口已存在时直接复用（优先）。
 /// - 窗口不存在时兜底创建。

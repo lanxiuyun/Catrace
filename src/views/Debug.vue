@@ -14,6 +14,7 @@ import {
   NAlert,
   NSwitch,
   NInputNumber,
+  NSelect,
 } from 'naive-ui'
 import {
   getMediaDebugInfo,
@@ -22,6 +23,9 @@ import {
   setToastDebugMode,
   startNotificationTest,
   stopNotificationTest,
+  getMemorialDates,
+  testMemorialToast,
+  type MemorialDate,
 } from '../api/tauri'
 
 const { t } = useI18n()
@@ -32,8 +36,18 @@ const errorMsg = ref<string | null>(null)
 const toastDebugMode = ref(false)
 const testRunning = ref(false)
 const testInterval = ref(15)
+const memorialDate = ref('8-15')
+const memorialDates = ref<MemorialDate[]>([])
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
+
+async function loadMemorialDates() {
+  try {
+    memorialDates.value = await getMemorialDates()
+  } catch (e: any) {
+    console.error(e)
+  }
+}
 
 async function loadToastDebugMode() {
   try {
@@ -70,6 +84,15 @@ async function stopTest() {
   }
 }
 
+async function previewMemorialToast() {
+  try {
+    const [month, day] = memorialDate.value.split('-').map(Number)
+    await testMemorialToast(month, day)
+  } catch (e: any) {
+    console.error(e)
+  }
+}
+
 async function refresh(manual = false) {
   if (manual) loading.value = true
   errorMsg.value = null
@@ -95,6 +118,7 @@ onActivated(() => {
   mounted = true
   startRefreshLoop()
   loadToastDebugMode()
+  loadMemorialDates()
 })
 
 onDeactivated(() => {
@@ -147,6 +171,21 @@ onDeactivated(() => {
             type="error"
             @click="stopTest"
           >{{ t('debug.notificationTest.stop') }}</n-button>
+          <n-space align="center" :size="8">
+            <span class="debug-switch-label">纪念日预览</span>
+            <n-select
+              v-model:value="memorialDate"
+              :options="memorialDates.map((d) => ({
+                label: `${d.month}月${d.day}日`,
+                value: `${d.month}-${d.day}`,
+              }))"
+              style="width: 8rem"
+              size="small"
+            />
+            <n-button size="small" secondary @click="previewMemorialToast">
+              预览
+            </n-button>
+          </n-space>
         </n-space>
       </n-card>
 
