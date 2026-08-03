@@ -227,6 +227,7 @@ architecture:
       - .agent/architecture/desktop-event-os/m10-external-plugins.md
       - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
       - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
+      - .agent/architecture/desktop-event-os/step3-收尾评估-核心目标已达成与Step4候选.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
       - .agent/architecture/desktop-event-os/sidecar-storage往返协议与Plugins-UI运行态约定.md
       - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
@@ -317,6 +318,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-03-Step3收尾评估-核心完成可关账.md
   - .agent/devlog/2026-08-03-M15.3-sidecar-storage与Plugins-UI运行态.md
   - .agent/devlog/2026-08-02-bt-music产品化动作模型与Toast紧凑卡.md
   - .agent/devlog/2026-08-02-外部插件toast热更新-generation与reload顺序.md
@@ -335,6 +337,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-  phase: M15 完成（sidecar lifecycle + storage 往返 + Plugins UI runtime + 信任文案）
-  next: Step 3 收尾评估 / Step 4 候选（插件安装体验、市场评估、内置插件迁移）
+  plan: .agent/architecture/desktop-event-os/step3-收尾评估-核心目标已达成与Step4候选.md
+  phase: Step 3 已关账（M11–M15 核心完成；M12/M14 暂缓）
+  next: Step 4 首选「从文件夹/zip 安装插件」；或先真机勾 M15.3 手测清单

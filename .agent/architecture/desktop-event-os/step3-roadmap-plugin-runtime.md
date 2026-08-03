@@ -11,9 +11,11 @@ Step 3 的目标是把插件从「被动渲染 Toast 卡片」升级为「主动
 ```
 Step 1  休息提醒核心（legacy）
 Step 2  Event Core + Signal Core + M9/M10 外部入口（已完成）
-Step 3  Plugin Runtime：隐藏 WebView 后台 + 可选 Native Sidecar（M15）
-Step 4  （未来）跨应用自动化、AI agent 接入、插件市场评估
+Step 3  Plugin Runtime：隐藏 WebView 后台 + 可选 Native Sidecar（M15）✅ 2026-08-03 关账
+Step 4  （候选）安装体验、打包约定、M14 试点、市场评估；再往后跨应用/AI
 ```
+
+收尾评估真源：[step3-收尾评估-核心目标已达成与Step4候选.md](step3-收尾评估-核心目标已达成与Step4候选.md)。
 
 **选型决策（已定）**：
 
@@ -339,9 +341,9 @@ Sidecar 设计真源：[plugin-native-sidecar-runtime.md](plugin-native-sidecar-
 
 ### M13 完成定义
 
-- [ ] 外部插件 settings 组件在 Plugins.vue 详情页渲染。
-- [ ] settings 面板与 background 共享 storage 互通。
-- [ ] 官方 timer 插件覆盖内置定时提醒核心场景，不重复触发。
+- [x] 外部插件 settings 组件在 Plugins.vue 详情页渲染（timer / bt-music / sidecar-echo 已落地）。
+- [x] settings 面板与 background 共享 storage / config 互通（`plugin.config` + `plugin.storage`）。
+- [ ] 官方 timer 插件覆盖内置定时提醒核心场景、不重复触发（与 M14 绑定，暂缓）。
 
 ### M15 完成定义
 
