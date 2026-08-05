@@ -1,16 +1,53 @@
-# Catrace
+<div align="center">
+  <img src="src-tauri/assets/catrace.png" width="128" height="128" alt="Catrace Logo">
+</div>
 
-[English](README_EN.md) | 中文
+<h1 align="center">Catrace</h1>
 
-🏠 官网主页：https://lanxiuyun.github.io/Catrace
+<div align="center">
+  <strong>帮你平衡工作与休息的小工具</strong><br>
+  久坐提醒 · 强制休息 · 喝水打卡
+</div>
 
-一个帮你平衡工作与休息的小工具。
+<div align="center">
+  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
+    <img src="https://img.shields.io/github/v/release/lanxiuyun/Catrace?style=flat-square&color=7C3AED&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="Latest Release">
+  </a>
+  <a href="https://github.com/lanxiuyun/Catrace/releases">
+    <img src="https://img.shields.io/github/downloads/lanxiuyun/Catrace/total?style=flat-square&color=7C3AED&label=%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0" alt="Downloads">
+  </a>
+  <a href="https://github.com/lanxiuyun/Catrace">
+    <img src="https://img.shields.io/github/stars/lanxiuyun/Catrace?style=flat-square&color=7C3AED&label=Stars" alt="Stars">
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square" alt="Platform">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="License">
+  </a>
+</div>
+
+<div align="center">
+  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
+    ⬇️ <strong>点击下载最新版本</strong>
+  </a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="https://lanxiuyun.github.io/Catrace">
+    🏠 <strong>官网主页</strong>
+  </a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="https://github.com/lanxiuyun/Catrace">
+    💖 <strong>觉得有用就star一下吧~</strong>
+  </a>
+</p>
+
+<div align="center">
+  <a href="README_EN.md">English</a> | 中文
+</div>
+
+---
 
 参与开发请参阅 [贡献指南](CONTRIBUTING.md)。
 
 ![Catrace Dashboard](.readme/dashboard.png)
-
-## [下载最新版本](https://github.com/lanxiuyun/Catrace/releases)
 
 ## 它是干嘛的
 
