@@ -2,7 +2,9 @@
   <img src="src-tauri/icons/icon.png" width="128" height="128" alt="Catrace Logo">
 </p>
 
-<h1 align="center">Catrace</h1>
+<p align="center">
+  <b>Catrace</b>
+</p>
 
 <p align="center">
   <strong>帮你平衡工作与休息的小工具</strong><br>
@@ -26,17 +28,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
-    ⬇️ <strong>点击下载最新版本</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://lanxiuyun.github.io/Catrace">
-    🏠 <strong>官网主页</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://github.com/lanxiuyun/Catrace">
-    💖 <strong>觉得有用就star一下吧~</strong>
-  </a>
+  <a href="https://github.com/lanxiuyun/Catrace/releases/latest"><img src="https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC-7C3AED?style=for-the-badge&logo=github&logoColor=white" alt="Download"></a>
+  &nbsp;
+  <a href="https://lanxiuyun.github.io/Catrace"><img src="https://img.shields.io/badge/%E5%AE%98%E7%BD%91%E4%B8%BB%E9%A1%B5-2563EB?style=for-the-badge" alt="Website"></a>
+  &nbsp;
+  <a href="https://github.com/lanxiuyun/Catrace"><img src="https://img.shields.io/badge/Star%20%E6%94%AF%E6%8C%81-F472B6?style=for-the-badge&logo=github&logoColor=white" alt="Star"></a>
 </p>
 
 <p align="center">
