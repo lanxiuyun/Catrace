@@ -83,6 +83,10 @@ pub struct ExternalPluginInfo {
     pub has_background: bool,
     pub has_settings: bool,
     pub has_sidecar: bool,
+    /// Sidecar command requires a Node.js runtime (bare `node`/`nodejs`, or a .js/.mjs/.cjs entry).
+    pub needs_node: bool,
+    /// A Node.js runtime was detected on this machine (PATH + common install locations).
+    pub node_available: bool,
     /// Max mtime (unix ms) of ui/settings entry files — frontend uses this to bust blob cache.
     pub content_mtime_ms: u64,
     pub anomalous: bool,
@@ -182,6 +186,8 @@ impl PluginManager {
                             has_background: false,
                             has_settings: false,
                             has_sidecar: false,
+                            needs_node: false,
+                            node_available: false,
                             sidecar_running: false,
                             content_mtime_ms: 0,
                             anomalous: false,
@@ -206,8 +212,10 @@ impl PluginManager {
             .filter(|p| p.info.anomalous)
             .map(|p| p.info.id.clone())
             .collect();
+        let node_ok = node_available();
         for plugin in &mut found {
             plugin.info.anomalous = previous_anomalies.contains(&plugin.info.id);
+            plugin.info.node_available = node_ok;
         }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
@@ -265,6 +273,13 @@ impl PluginManager {
             .ok_or_else(|| format!("plugin not found: {id}"))?;
         if p.info.error.is_some() {
             return Err("cannot enable invalid plugin".into());
+        }
+        if enabled && p.info.needs_node && !p.info.node_available {
+            return Err(
+                "this plugin requires a Node.js runtime, but none was found on this machine; \
+                 install Node.js and restart Catrace"
+                    .into(),
+            );
         }
         crate::plugin_config::set_plugin_config_entry(
             app,
@@ -469,6 +484,10 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         .sidecar
         .as_ref()
         .map(|manifest| sidecar_spec(dir, &m.id, &m.version, manifest));
+    let needs_node = sidecar
+        .as_ref()
+        .map(|spec| command_requires_node(&spec.command))
+        .unwrap_or(false);
 
     let enabled = crate::plugin_config::get_plugin_config_entry(app, &m.id, "enabled")?
         .and_then(|value| value.as_bool())
@@ -494,6 +513,8 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             has_background: background_abs.is_some(),
             has_settings: settings_abs.is_some(),
             has_sidecar: sidecar.is_some(),
+            needs_node,
+            node_available: false, // filled by rescan() once per scan
             sidecar_running: false, // This will be set by the caller querying the running map
             content_mtime_ms,
             anomalous: false,
@@ -548,6 +569,78 @@ fn sidecar_spec(
     }
 }
 
+/// 判断 sidecar 的 command 是否依赖 Node.js 解释器。
+/// command 语义是单个可执行文件（参数在 manifest.args）。
+/// 命中：basename 是 `node`/`nodejs`（含 node.exe / node.cmd），
+/// 或解析后以 .js / .mjs / .cjs 结尾。
+fn command_requires_node(command: &str) -> bool {
+    let trimmed = command.trim();
+    let base = Path::new(trimmed)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    let stem = base
+        .strip_suffix(".exe")
+        .or_else(|| base.strip_suffix(".cmd"))
+        .unwrap_or(&base);
+    if stem == "node" || stem == "nodejs" {
+        return true;
+    }
+    let ext = Path::new(trimmed)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    matches!(ext.as_str(), "js" | "mjs" | "cjs")
+}
+
+fn node_on_path() -> bool {
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    let names: &[&str] = if cfg!(windows) {
+        &["node", "node.exe", "node.cmd"]
+    } else {
+        &["node"]
+    };
+    std::env::split_paths(&path).any(|dir| names.iter().any(|name| dir.join(name).is_file()))
+}
+
+/// 机器上是否可用的 Node.js 运行时（PATH + 常见安装位置）。
+pub fn node_available() -> bool {
+    if node_on_path() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        for cand in [
+            r"C:\Program Files\nodejs\node.exe",
+            r"C:\Program Files (x86)\nodejs\node.exe",
+        ] {
+            if Path::new(cand).is_file() {
+                return true;
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let mut candidates: Vec<std::path::PathBuf> = vec![
+            "/opt/homebrew/bin/node".into(), // Apple Silicon Homebrew
+            "/usr/local/bin/node".into(),    // Intel Homebrew / 常规
+            "/usr/bin/node".into(),
+        ];
+        if let Some(home) = std::env::var_os("HOME") {
+            let home = std::path::PathBuf::from(home);
+            candidates.push(home.join(".nvm/current/bin/node"));
+            candidates.push(home.join(".local/share/fnm/aliases/default/bin/node"));
+            candidates.push(home.join(".volta/bin/node"));
+        }
+        if candidates.into_iter().any(|p| p.is_file()) {
+            return true;
+        }
+    }
+    false
+}
+
 fn sidecar_fingerprint(
     version: &str,
     command: &str,
@@ -562,7 +655,6 @@ fn sidecar_fingerprint(
         cwd.display()
     )
 }
-
 fn resolve_entry(dir: &Path, entry: Option<&str>, field: &str) -> Result<Option<PathBuf>, String> {
     let Some(entry) = entry.map(str::trim).filter(|s| !s.is_empty()) else {
         return Ok(None);
@@ -628,7 +720,7 @@ fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{sidecar_spec, PluginSidecarManifest};
+    use super::{command_requires_node, sidecar_spec, PluginSidecarManifest};
     use std::collections::HashMap;
     use std::path::Path;
 
@@ -650,6 +742,20 @@ mod tests {
         assert_eq!(spec.args, manifest.args);
         assert_eq!(spec.cwd, Path::new("/plugins/demo").join("../runtime"));
         assert_eq!(spec.env, manifest.env);
+    }
+
+    #[test]
+    fn command_requires_node_heuristic() {
+        assert!(command_requires_node("node"));
+        assert!(command_requires_node("node runtime/main.mjs"));
+        assert!(command_requires_node("nodejs"));
+        assert!(command_requires_node("node.exe"));
+        assert!(command_requires_node(r"C:\Program Files\nodejs\node.exe"));
+        assert!(command_requires_node("runtime/main.mjs"));
+        assert!(command_requires_node("./runtime/main.cjs"));
+        assert!(!command_requires_node("runtime/main.py"));
+        assert!(!command_requires_node("../tools/custom-runner"));
+        assert!(!command_requires_node("C:\\bin\\my-tool.exe"));
     }
 }
 

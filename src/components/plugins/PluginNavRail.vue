@@ -16,6 +16,7 @@ export interface PluginNavItem {
   tone: string
   hasSidecar?: boolean
   sidecarRunning?: boolean
+  runtimeBlocked?: boolean
 }
 
 interface Props {
@@ -306,6 +307,7 @@ onBeforeUnmount(() => {
                   class="sidecar-tag"
                   :class="{ running: p.sidecarRunning }"
                 >{{ t('plugins.external.sidecarBadge') }}</span>
+                <span v-if="p.runtimeBlocked" class="node-tag">{{ t('plugins.external.nodeMissingTag') }}</span>
                 <span v-if="p.anomalous" class="anomaly-tag">{{ t('plugins.external.anomalous') }}</span>
               </div>
               <div class="item-sub">{{ p.subtitle }}</div>
@@ -733,6 +735,19 @@ onBeforeUnmount(() => {
   border-color: #a7f3d0;
   background: #ecfdf5;
   color: #047857;
+}
+
+.node-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.25rem;
 }
 
 .anomaly-tag-lg {

@@ -27,6 +27,10 @@ const { t } = useI18n()
 const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
+function runtimeBlocked(p: ExternalPluginInfo) {
+  return p.needsNode && !p.nodeAvailable
+}
+
 const VISIBLE_PLUGIN_IDS = ['rest', 'agent'] as const
 type VisiblePluginId = (typeof VISIBLE_PLUGIN_IDS)[number]
 
@@ -141,11 +145,13 @@ const plugins = computed((): PluginNavItem[] => {
   const externals: PluginNavItem[] = externalList.value.map((p) => ({
     id: p.id,
     name: p.name,
-    subtitle: p.error
-      ? p.error
-      : p.description || t('plugins.external.localPackage'),
+    subtitle: runtimeBlocked(p)
+      ? t('plugins.external.nodeMissingTag')
+      : p.error
+        ? p.error
+        : p.description || t('plugins.external.localPackage'),
     external: true,
-    enabled: p.enabled,
+    enabled: p.enabled && !runtimeBlocked(p),
     registered: !p.error,
     error: p.error ?? null,
     anomalous: p.anomalous,
@@ -153,6 +159,7 @@ const plugins = computed((): PluginNavItem[] => {
     tone: 'external',
     hasSidecar: p.hasSidecar,
     sidecarRunning: p.sidecarRunning,
+    runtimeBlocked: runtimeBlocked(p),
   }))
   return [...builtins, ...externals].sort((a, b) => {
     if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
@@ -168,6 +175,11 @@ const fallbackDetail: Record<VisiblePluginId, Component> = {
 const selectedExternal = computed(() =>
   externalList.value.find((p) => p.id === selectedId.value) ?? null,
 )
+
+const selectedBlocked = computed(() => {
+  const ext = selectedExternal.value
+  return !!ext && runtimeBlocked(ext)
+})
 
 const isBuiltinSelected = computed(() =>
   (VISIBLE_PLUGIN_IDS as readonly string[]).includes(selectedId.value),
@@ -198,16 +210,20 @@ const activeHeader = computed(() => {
   // External plugins: header switch = external enabled (not settings expose).
   if (selectedExternal.value) {
     const ext = selectedExternal.value
+    const blocked = runtimeBlocked(ext)
     return {
       title: ext.name,
-      subtitle: ext.description || t('plugins.external.noDescription'),
-      enabled: ext.enabled && !ext.error,
+      subtitle: blocked
+        ? t('plugins.external.nodeMissingTag')
+        : ext.description || t('plugins.external.noDescription'),
+      enabled: ext.enabled && !ext.error && !blocked,
       loading: toggleBusy.value === ext.id,
       switchAria: t('plugins.external.switchAria'),
       onToggle: (val: boolean) => onToggleExternal(ext.id, val),
       icon: 'external',
       hasSidecar: !!ext.hasSidecar,
       sidecarRunning: !!ext.sidecarRunning,
+      runtimeBlocked: blocked,
     }
   }
   if (isBuiltinSelected.value && ActiveDetail.value) {
@@ -221,6 +237,7 @@ const activeHeader = computed(() => {
       icon: selectedId.value,
       hasSidecar: false,
       sidecarRunning: false,
+      runtimeBlocked: false,
     }
   }
   return null
@@ -229,6 +246,10 @@ const activeHeader = computed(() => {
 async function onToggleExternal(id: string, enabled: boolean) {
   const previous = externalList.value.find((p) => p.id === id)
   if (!previous) return
+  if (enabled && runtimeBlocked(previous)) {
+    message.error(t('plugins.external.nodeMissingBlocked'))
+    return
+  }
   externalList.value = externalList.value.map((p) =>
     p.id === id ? { ...p, enabled } : p,
   )
@@ -241,6 +262,7 @@ async function onToggleExternal(id: string, enabled: boolean) {
     await loadExternalPlugins()
   } catch (e) {
     console.warn('[plugins page] toggle failed', e)
+    message.error(errorText(e))
     externalList.value = externalList.value.map((p) =>
       p.id === id ? previous : p,
     )
@@ -382,6 +404,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
         :switch-aria-label="activeHeader.switchAria"
         :has-sidecar="activeHeader.hasSidecar"
         :sidecar-running="activeHeader.sidecarRunning"
+        :runtime-blocked="activeHeader.runtimeBlocked"
         @update:enabled="activeHeader.onToggle"
       >
         <template #icon>
@@ -411,7 +434,35 @@ async function onTestExternal(p: ExternalPluginInfo) {
       </plugin-panel-header>
 
       <page-scroll fill-content class="plugin-scroll">
-        <div v-if="ActiveDetail" class="plugin-detail-wrapper">
+        <div v-if="selectedBlocked" class="plugin-detail-wrapper">
+          <div class="plugin-detail-content">
+            <div class="plugin-detail">
+              <div class="runtime-block-card">
+                <h3 class="runtime-block-title">
+                  {{ t('plugins.external.nodeMissingTitle') }}
+                </h3>
+                <p class="runtime-block-desc">
+                  {{ t('plugins.external.nodeMissingDesc') }}
+                </p>
+                <ol class="runtime-steps">
+                  <li>{{ t('plugins.external.nodeStepInstall') }}</li>
+                  <li>{{ t('plugins.external.nodeStepRestart') }}</li>
+                </ol>
+                <div class="runtime-actions">
+                  <a
+                    href="https://nodejs.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn-primary node-link"
+                  >
+                    {{ t('plugins.external.nodeInstallCta') }}
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="ActiveDetail" class="plugin-detail-wrapper">
           <div
             class="plugin-detail-content"
             :class="{ 'is-disabled': activeHeader && !activeHeader.enabled }"
@@ -530,6 +581,47 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: #fff;
   color: #94a3b8;
   font-size: 0.875rem;
+}
+
+.runtime-block-card {
+  padding: 2rem;
+  border-radius: 0.875rem;
+  border: 0.0625rem solid #fde68a;
+  background: #fffbeb;
+}
+
+.runtime-block-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.runtime-block-desc {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #78350f;
+}
+
+.runtime-steps {
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: #78350f;
+}
+
+.runtime-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.node-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .ext-error {

@@ -10,12 +10,14 @@ interface Props {
   switchAriaLabel?: string
   hasSidecar?: boolean
   sidecarRunning?: boolean
+  runtimeBlocked?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
   hasSidecar: false,
   sidecarRunning: false,
+  runtimeBlocked: false,
 })
 
 const { t } = useI18n()
@@ -51,6 +53,9 @@ function onUpdate(value: boolean) {
             <span class="sidecar-dot" aria-hidden="true" />
             {{ t('plugins.external.sidecarBadge') }}
           </span>
+          <span v-if="runtimeBlocked" class="node-badge">
+            {{ t('plugins.external.nodeMissingTag') }}
+          </span>
         </div>
         <p class="panel-subtitle">{{ subtitle }}</p>
       </div>
@@ -59,6 +64,7 @@ function onUpdate(value: boolean) {
     <n-switch
       :value="enabled"
       :loading="loading"
+      :disabled="runtimeBlocked"
       :aria-label="switchAriaLabel"
       @update:value="onUpdate"
     />
@@ -149,6 +155,21 @@ function onUpdate(value: boolean) {
 
 .sidecar-badge.running .sidecar-dot {
   background: #10b981;
+}
+
+.node-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
 }
 
 .panel-subtitle {

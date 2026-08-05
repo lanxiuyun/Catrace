@@ -443,6 +443,10 @@ export interface ExternalPluginInfo {
   hasSettings: boolean
   hasSidecar: boolean
   sidecarRunning: boolean
+  /** Sidecar command requires a Node.js runtime. */
+  needsNode: boolean
+  /** A Node.js runtime was detected on this machine. */
+  nodeAvailable: boolean
   /** Max mtime of ui/settings sources (ms); used to bust frontend blob cache on edit. */
   contentMtimeMs?: number
   anomalous: boolean
