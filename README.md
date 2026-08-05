@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>帮你平衡工作与休息的小工具</strong><br>
-  久坐提醒 · 强制休息 · 喝水打卡 · 护眼提醒
+  久坐提醒 · 喝水打卡 · Agent通知
 </p>
 
 <p align="center">
