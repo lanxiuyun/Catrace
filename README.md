@@ -18,9 +18,6 @@
   <a href="https://github.com/lanxiuyun/Catrace/releases">
     <img src="https://img.shields.io/github/downloads/lanxiuyun/Catrace/total?style=flat-square&color=7C3AED&label=%E4%B8%8B%E8%BD%BD%E6%AC%A1%E6%95%B0" alt="Downloads">
   </a>
-  <a href="https://github.com/lanxiuyun/Catrace">
-    <img src="https://img.shields.io/github/stars/lanxiuyun/Catrace?style=flat-square&color=7C3AED&label=Stars" alt="Stars">
-  </a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square" alt="Platform">
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="License">
