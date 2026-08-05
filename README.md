@@ -43,7 +43,7 @@
   <a href="README_EN.md">English</a> | 中文
 </p>
 
----
+<hr style="height:1px;border:none;background:#e1e4e8;">
 
 ![Catrace Dashboard](.readme/dashboard.png)
 
