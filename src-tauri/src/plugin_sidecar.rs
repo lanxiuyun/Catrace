@@ -405,6 +405,19 @@ fn spawn_sidecar(
             }
         }
     });
+
+    // Push persisted plugin config so runtime state (e.g. bt-music playerPath)
+    // is available immediately after spawn, not only after the settings page
+    // pushes it via setConfig.
+    if let Ok(Some(config)) =
+        crate::plugin_config::get_plugin_config::<serde_json::Value>(app, &spec.id)
+    {
+        let message = serde_json::json!({ "v": 1, "op": "config", "config": config });
+        if let Err(e) = write_message(&stdin, &message) {
+            log_warn!("plugin-sidecar", "push config to {} failed: {e}", spec.id);
+        }
+    }
+
     Ok(SpawnedSidecar { child, stdin })
 }
 
