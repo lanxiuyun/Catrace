@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src-tauri/assets/catrace.png" width="128" height="128" alt="Catrace Logo">
+  <img src="src-tauri/icons/icon.png" width="128" height="128" alt="Catrace Logo">
 </p>
 
 <h1 align="center">Catrace</h1>
