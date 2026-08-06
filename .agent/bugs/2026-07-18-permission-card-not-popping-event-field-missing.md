@@ -1,6 +1,6 @@
 # 2026-07-18 — 权限审批卡不弹：`/permission` body 缺 `event` 字段致 JSON 解析失败
 
-> 关联：P6 真审批，见 [devlog 2026-07-17-p6-permission-approve-deny](../devlog/2026-07-17-p6-permission-approve-deny.md) 与 [devlog 2026-07-18-p6-permission-card-not-popping-debug](../devlog/2026-07-18-p6-permission-card-not-popping-debug.md)。
+> 关联：P6 真审批与字段契约，见 [agent-notification README](../features/agent-notification/README.md) 与同目录 permission 子文档。
 
 ## 症状
 

@@ -30,7 +30,7 @@ HTTP **每请求一线程**（permission 阻塞不得卡住后续 /state）。�
 - `src-tauri/resources/catrace-agent-hook.cjs` — 状态 hook 脚本（**必须 .cjs**）；透传 `session_title`；PermissionRequest **不**走此脚本
 - `src-tauri/resources/agent-notify.wav` — 内置提示音
 - `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window` / `create_agent_permission_window` / `dismiss_agent_session_toast`
-- `src/views/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、**hover 生命周期豁免 permission**、`dismissAgentSession`
+- `src/views/toastWindows/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、**hover 生命周期豁免 permission**、`dismissAgentSession`
 - `src/components/AgentToastCard.vue` — 项目/事件/会话 title 分层、聚合、前往、layout 事件
 - `src/components/PermissionToastCard.vue` — Allow / Deny / 前往终端
 - `src/components/settings/AgentSettingsCard.vue` — 开关、安装、事件策略、提示音

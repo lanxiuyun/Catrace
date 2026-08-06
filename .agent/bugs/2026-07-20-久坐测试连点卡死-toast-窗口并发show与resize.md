@@ -9,7 +9,7 @@
 
 每次测试点击大致会：
 
-1. `test_notification` 发 `catrace-rest-timer` +（曾）`show_reminder_no_activate`
+1. `test_notification` 曾发 `catrace-rest-timer`（现已改 Bus upsert）+（曾）`show_reminder_no_activate`
 2. `show_notification` → `bus.publish`（`dedupe_key` 原先**存了不用**，每次新 UUID）
 3. `ensure_toast_window_visible` → spawn + `TOAST_MUTEX` + eval + Win32 show
 4. 前端 `handleBusEvent` → `addNotification` → **每次** `await adjustWindowSize()`（`setSize`/`setPosition`/`currentMonitor`）

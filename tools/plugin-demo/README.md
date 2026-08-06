@@ -1,41 +1,65 @@
-# Plugin demo — demo-timer
+# Plugin demo
 
-Sample **local external plugin** for Catrace M10.
+Local external plugin samples for Catrace M10.
 
-## Install
+| Package | Role |
+|---------|------|
+| `timer/` | First-party **定时提醒** (settings + scheduling) |
+| `sidecar-echo/` | Complete native sidecar demo: lifecycle, JSONL publish/log, custom Toast UI, and action round-trip |
+| `bt-music/` | Bluetooth headset connect Toast → open player (OS device-change events on enable) |
 
-1. Open Catrace → **Plugins** → **Open plugins folder**  
-   (or copy into `%APPDATA%/com.lanxiuyun.catrace/plugins/` / macOS Application Support `…/plugins/`).
-2. Copy this folder so the path is:
+Debug builds junction packages under `tools/plugin-demo/` into `app_data/plugins/`.
 
-   ```
-   <app_data>/plugins/demo-timer/manifest.json
-   <app_data>/plugins/demo-timer/ui.mjs
-   ```
+---
 
-   Directory name **must** equal `manifest.id` (`demo-timer`).
-3. In Plugins page → **Refresh** → enable **Demo Timer**.
-4. Click **Send test notification** on the detail panel (easiest path).
+# bt-music（蓝牙听歌）
 
-## Publish via HTTP
+Target M15 scenario: device connect → Toast → open player. **No host Bluetooth API.**
 
-Need Event SDK enabled + token (System Settings → Event SDK).
-
-```bash
-node tools/plugin-demo/publish.mjs --token <token>
+```
+tools/plugin-demo/bt-music/
+  manifest.json         # id=bt-music, sidecar node runtime/main.mjs
+  runtime/main.mjs      # Win32_DeviceChangeEvent watcher + IsConnected snapshot + open-player
+  ui.mjs                # custom toast card
+  settings.mjs          # panels: trigger keywords / player automation / toast stay
 ```
 
-Payload includes `plugin_id: "demo-timer"` so the host sets `source=plugin` and `kind=demo-timer`.
+- Enable plugin → sidecar starts a long-lived PowerShell `ManagementEventWatcher` on `Win32_DeviceChangeEvent`. On event (and once at start), re-scan with `DEVPKEY_Device_IsConnected=True`. First snapshot seeds only; later deltas publish.
+- Settings: multi keyword tags + paired-device quick pick; auto-launch / pause-on-disconnect; launch delay; toast stay seconds. No developer jargon dump.
+- Toast action `open-player` or `autoLaunchOnConnect` → sidecar `spawn` `playerPath` (required).
+- Non-Windows: watcher no-op.
 
-## Card contract (required)
+## Hand test
 
-- props: `event` (BusEvent), `isHovered?`
-- emits: `close`, `action(actionId)`
-- **Use `render` + `h` from `globalThis.__CATRACE_VUE__`** — no SFC template string, no `import 'vue'`
-- Host loads UI via **Blob URL** (not file/asset import)
+1. `pnpm tauri dev` → enable **蓝牙听歌** → set music app path; add keywords or pick paired device.
+2. Connect headset → CONNECTED Toast; with auto-launch on, app starts after delay.
+3. Disconnect → optional toast + optional media pause.
+4. Disable plugin → sidecar exits.
 
-See architecture: `.agent/architecture/desktop-event-os/m10-external-plugins.md`
+---
 
-## Trust
+# timer（定时提醒）
 
-Local plugins run in the app WebView. Only install packages you trust. No marketplace.
+First-party external plugin ported from the former built-in timer.
+
+```
+tools/plugin-demo/timer/
+  manifest.json      # id=timer, main/background/settings
+  background.mjs     # minute-aligned schedule + ack/snooze/skip
+  ui.mjs             # toast card
+  settings.mjs       # Plugins page rule CRUD
+```
+
+- Config key stays `plugin_config:timer` (rules migrate in place).
+- Runtime state in SQLite `plugin_storage(timer, runtime)`.
+- Toast actions resolve on the host; side-effects run in `background.mjs` via `catrace:plugin-event-resolved`.
+- Header switch = external plugin enabled; per-rule switches live in settings.
+- Rule modes: `interval` / `daily`. Interval only fires while user active; daily fires at HH:MM regardless of activity.
+- Interval option `reset_on_rest` (UI: 休息重置): if last real rest end falls after `last_fired_at`, restart from rest end. Host `plugin_get_last_real_rest` uses rest plugin `break_minutes`. Legacy `mode=active` → interval + reset.
+- Card stay: `sticky` (no auto-hide) or `card_duration_sec` (default 8, eye preset 25). Host reads `payload.auto_hide_ms`.
+
+## settings.mjs layout (all external plugins)
+
+Host `Plugins.vue` `.plugin-detail` owns **max-width / padding / gap** (including the narrow-viewport media query). Your settings root must **not** add outer padding or `max-width: 64rem` — including responsive rules that only fire on small windows (double inset vs built-in panels).
+
+Reference: `timer/settings.mjs` root `.timer-settings` is business-only. Full contract: `.agent/architecture/desktop-event-os/m10-external-plugins.md` →「settings.mjs 布局合同」。

@@ -27,14 +27,14 @@ Toast 前端旧逻辑：
 | FE `handleBusEvent` | `resolution.kind === 'superseded'` → **不卸载**可见卡；等后续 active 原地 upsert |
 | FE sdk/plugin | 同 `eventId` **或** 同 `dedupe_key` → 原地刷新字段，不 `remove+add` |
 | `PluginHostCard` | 按 **plugin id** 缓存组件实例；`cardKey` 不跟 event id/revision 走 |
-| 测试按钮 | **只** `publishEvent`；**禁止**每次测试 `loadExternalPlugins`；1s 限流（对齐 Rest） |
+| 测试按钮 | publish 前可 **mtime** `loadExternalPlugins()`（无 force）+ emit reload；**禁止无改动 force thrash**；1s 限流（对齐 Rest）。热更见 2026-08-02 bug |
 | `loadExternalPlugins` | 并发 single-flight；enabled 集合 fingerprint 未变则跳过 Blob 重建；用户刷新/开关才 `force` |
 
 ## 不要再做
 
 - 不要把所有 `resolved` 都当成「用户关卡」——`superseded` 是替换，不是 dismiss  
 - 不要在热路径上 revoke 正在显示的 Blob URL  
-- 不要为「确保 toast 有 registry」在每次测试时主窗重载插件（toast 窗自有 Pinia，mount 时已 load）
+- 不要为「确保 toast 有 registry」在每次测试时 **force** 重载并 revoke 活 Blob；需要热更时用 mtime load + `catrace:reload-external-plugins`（见 2026-08-02）
 
 ## 手测
 
@@ -55,4 +55,5 @@ Toast 前端旧逻辑：
 - [2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md](2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md)  
 - [2026-07-20-插件ui动态import-file-asset失败改blob加载.md](2026-07-20-插件ui动态import-file-asset失败改blob加载.md)  
 - [[desktop-event-os]] m10-external-plugins.md  
+- [2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md](2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md)
 - [[toast-window]]

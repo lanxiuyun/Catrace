@@ -1,13 +1,12 @@
-﻿import type { Component } from 'vue'
+import type { Component } from 'vue'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
-import WaterSettingsCard from '../components/settings/WaterSettingsCard.vue'
-import EyeSettingsCard from '../components/settings/EyeSettingsCard.vue'
 import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
 
 /**
  * 内置「插件」注册：设置/详情组件与 event_type 边界绑到 registry。
  * 产品可见列表由 Plugins.vue allowlist 控制，不必等于此处全部。
+ * 定时提醒已抽离为外部插件（tools/plugin-demo/timer）。
  */
 export function registerBuiltinPlugins() {
   const registry = usePluginRegistry()
@@ -32,25 +31,6 @@ export function registerBuiltinPlugins() {
       SettingsComponent: RestPluginPanel,
     },
     {
-      name: 'water',
-      displayName: '喝水提醒',
-      description: '定时喝水提醒',
-      events: ['reminder.water.due', 'kind:water'],
-      settingsKey: 'water',
-      // Backend force-off; UI restore deferred with plugin work.
-      settingsSurface: 'none',
-      SettingsComponent: WaterSettingsCard,
-    },
-    {
-      name: 'eye',
-      displayName: '护眼提醒',
-      description: '定时护眼提醒',
-      events: ['reminder.eye.due', 'kind:eye'],
-      settingsKey: 'eye',
-      settingsSurface: 'none',
-      SettingsComponent: EyeSettingsCard,
-    },
-    {
       name: 'agent',
       displayName: 'Agent 通知',
       description: 'AI Agent hook 通知与权限审批',
@@ -70,7 +50,6 @@ export function registerBuiltinPlugins() {
         displayName: b.displayName,
         description: b.description,
         events: b.events,
-        permissions: ['notification'],
         builtin: true,
       },
       onEvent: () => {

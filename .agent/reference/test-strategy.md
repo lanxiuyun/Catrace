@@ -12,10 +12,18 @@
 
 ## 前端
 
-无自动化测试，依赖手动验证。
+使用 Playwright 进行自动化验证，直接连接已运行的 `pnpm tauri dev`（`http://localhost:1420`）或生产构建产物。
+
+- 临时 / 探索性测试写在 `e2e-temp/`（已被 `.gitignore` 忽略）。
+- 除非用户明确要求，否则不启动浏览器 preview/dev server；也不依赖手动点击验证。
+- UI 断言优先用 DOM/截图，而不是截图后肉眼看。
 
 ## 运行
 
 ```bash
+# Rust
 cd src-tauri && cargo test
+
+# Playwright 连接本地 dev server（需先启动 pnpm tauri dev）
+pnpm exec playwright test e2e-temp/<your-spec>.ts --project=chromium
 ```

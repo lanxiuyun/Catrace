@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
 export interface AppConfig {
+  enabled?: boolean
   window_minutes: number
   break_minutes: number
   snooze_interval_minutes: number
@@ -20,6 +21,10 @@ export async function getConfig(): Promise<AppConfig> {
 /** 保存工作窗口与休息判定配置 */
 export async function setConfig(config: AppConfig): Promise<void> {
   return invoke('set_config', { config })
+}
+
+export async function setRestPluginEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_rest_plugin_enabled', { enabled })
 }
 
 /** 跳过当前 block 的提醒，直到下一个 block 边界 */
@@ -100,76 +105,6 @@ export async function startNotificationTest(intervalSeconds: number): Promise<vo
 /** 停止循环测试通知 */
 export async function stopNotificationTest(): Promise<void> {
   return invoke('stop_notification_test')
-}
-
-/** 发送一条测试喝水提醒 */
-export async function testWaterNotification(): Promise<void> {
-  return invoke('test_water_notification')
-}
-
-export interface EyeSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getEyeSettings(): Promise<EyeSettings> {
-  return invoke('get_eye_settings')
-}
-
-export async function setEyeSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_eye_settings', { enabled, intervalMinutes })
-}
-
-/** 发送一条测试护眼提醒 */
-export async function testEyeNotification(): Promise<void> {
-  return invoke('test_eye_notification')
-}
-
-/** 推迟护眼提醒 N 分钟 */
-export async function snoozeEyeReminder(minutes: number): Promise<void> {
-  return invoke('snooze_eye_reminder', { minutes })
-}
-
-/** 跳过本次护眼提醒 */
-export async function skipEyeReminder(): Promise<void> {
-  return invoke('skip_eye_reminder')
-}
-
-export interface WaterSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getWaterSettings(): Promise<WaterSettings> {
-  return invoke('get_water_settings')
-}
-
-export async function setWaterSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_water_settings', { enabled, intervalMinutes })
-}
-
-export async function recordWater(timestamp: number): Promise<void> {
-  return invoke('record_water', { timestamp })
-}
-
-export async function getWaterStats(): Promise<{ count: number; last_ts: number | null }> {
-  return invoke('get_water_stats')
-}
-
-export async function getWaterRecords(): Promise<{ records: number[] }> {
-  return invoke('get_water_records')
-}
-
-export async function deleteLastWater(): Promise<boolean> {
-  return invoke('delete_last_water')
-}
-
-export async function snoozeWaterReminder(minutes: number): Promise<void> {
-  return invoke('snooze_water_reminder', { minutes })
-}
-
-export async function skipWaterReminder(): Promise<void> {
-  return invoke('skip_water_reminder')
 }
 
 export interface AudioSessionInfo {
@@ -496,17 +431,59 @@ export interface ExternalPluginInfo {
   version: string
   description: string
   main?: string | null
+  background?: string | null
+  settings?: string | null
+  sidecar?: unknown | null
   events: string[]
-  permissions: string[]
   enabled: boolean
   enabledByDefault: boolean
   dir: string
   hasUi: boolean
+  hasBackground: boolean
+  hasSettings: boolean
+  hasSidecar: boolean
+  sidecarRunning: boolean
+  /** Max mtime of ui/settings sources (ms); used to bust frontend blob cache on edit. */
+  contentMtimeMs?: number
+  anomalous: boolean
   error?: string | null
 }
 
 export async function listExternalPlugins(): Promise<ExternalPluginInfo[]> {
   return invoke('list_external_plugins')
+}
+
+export interface PluginInstallResult {
+  id: string
+  name: string
+  version: string
+  overwritten: boolean
+  path: string
+}
+
+/** Install a local plugin folder or zip into app plugins dir. Does not enable. */
+export async function installExternalPlugin(
+  sourcePath: string,
+  overwrite = false,
+): Promise<PluginInstallResult> {
+  return invoke('install_external_plugin', { sourcePath, overwrite })
+}
+
+export async function pickPluginZip(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: 'Plugin zip', extensions: ['zip'] }],
+  })
+  return typeof selected === 'string' && selected ? selected : null
+}
+
+export async function pickPluginFolder(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+  })
+  return typeof selected === 'string' && selected ? selected : null
 }
 
 export async function setExternalPluginEnabled(
@@ -523,6 +500,20 @@ export async function getPluginUiUrl(id: string): Promise<string> {
 /** Read plugin ui.mjs source text (host loads via Blob URL). */
 export async function getPluginUiSource(id: string): Promise<string> {
   return invoke('get_plugin_ui_source', { id })
+}
+
+/** Read plugin settings.mjs source text (host loads via Blob URL). */
+export async function getPluginSettingsSource(id: string): Promise<string> {
+  return invoke('get_plugin_settings_source', { id })
+}
+
+/** Whole-object plugin config for main window / settings.mjs. */
+export async function getPluginConfig(pluginId: string): Promise<unknown | null> {
+  return invoke('get_plugin_config', { pluginId })
+}
+
+export async function setPluginConfig(pluginId: string, value: unknown): Promise<void> {
+  return invoke('set_plugin_config', { pluginId, value })
 }
 
 export async function openPluginsDir(): Promise<void> {

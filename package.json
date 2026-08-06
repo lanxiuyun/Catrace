@@ -1,7 +1,7 @@
 {
   "name": "catrace",
   "private": true,
-  "version": "26.7.18",
+  "version": "26.8.6",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -26,11 +26,14 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tauri-apps/cli": "^2",
     "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "^5.2.1",
+    "playwright": "^1.61.1",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
+    "vite-plugin-vue-devtools": "^8.1.5",
     "vue-tsc": "^2.1.10"
   }
 }

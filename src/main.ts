@@ -7,6 +7,7 @@ import { logFrontend } from './api/tauri'
 import { useEventHub } from './stores/eventHub'
 import { registerBuiltinPlugins } from './plugins/registerBuiltins'
 import { loadExternalPlugins } from './plugins/loadExternalPlugins'
+import { ensurePluginLogConsole } from './plugins/pluginApi'
 
 // 从 URL query 参数读取提醒类型（弹窗创建时传入）
 const url = new URL(window.location.href)
@@ -51,21 +52,27 @@ app.use(router)
 app.use(i18n)
 
 // Main window only: observe Event Bus (do not drive Toast rendering).
+const isPluginHost = window.location.hash.includes('plugin-host')
 const isToastOrReminder =
   reminder === 'popup' ||
   reminder === 'fullscreen' ||
   window.location.hash.includes('reminder-toast') ||
   window.location.hash.includes('reminder-popup') ||
-  window.location.hash.includes('reminder-fullscreen')
+  window.location.hash.includes('reminder-fullscreen') ||
+  isPluginHost
 if (!isToastOrReminder) {
   // Register before mount so #/plugins can resolve SettingsComponent immediately.
   registerBuiltinPlugins()
+  ensurePluginLogConsole()
 }
 
 // External plugins: Card map must exist in toast window; Settings list in main.
-void loadExternalPlugins().catch((e) => {
-  console.warn('[plugins] loadExternalPlugins failed', e)
-})
+// A background host loads only its own background source.
+if (!isPluginHost) {
+  void loadExternalPlugins().catch((e) => {
+    console.warn('[plugins] loadExternalPlugins failed', e)
+  })
+}
 
 app.mount('#app')
 

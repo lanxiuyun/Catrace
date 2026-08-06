@@ -5,16 +5,17 @@
 > **内容入口（Step 2）**：rest/water/eye/agent/permission/update 均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
 > Rust 侧 `ensure_toast_window_visible` 只保证窗口在位。详见  
 > [toast-renders-only-from-event-bus.md](../../architecture/desktop-event-os/toast-renders-only-from-event-bus.md)。  
-> 例外：`catrace-rest-timer`、`dismissAgentSession` eval。
+> 例外：`dismissAgentSession` eval；rest-timer 已走 Bus upsert（见子文档）。
 
 ## 涉及文件
 
 - `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用；agent/update/permission **publish bus**（不再 eval 内容）
 - `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
 - `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
+- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
+- `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
 
 ## 组件边界纪律
 
@@ -67,7 +68,23 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - 同 `event.id` 或 `dedupe_key` **原地更新** progress/title/actions（勿二次堆卡）
 - sticky sdk 不走 auto-hide；action → `resolve_event_action`
 
+
+## 外部插件卡热更新（开发期）
+
+- 改磁盘 `ui.mjs` 后：插件页**刷新**或**测试** → emit `catrace:reload-external-plugins`。
+- Toast：force `loadExternalPlugins` → 更新 live `uiUrl` → `clearPluginHostCardCache()`（generation++）→ 已挂载卡 remount。
+- 细节：[外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md)
+
+## 外部插件卡 + sticky action 回传
+
+- 外部插件 Toast 走 `PluginHostCard` + bus；`handlePluginAction` **只** `markEventResolved`，不本地卸卡。
+- bus `resolved` 且 `resolution.kind === 'superseded'`：**不卸卡**（等后续 active upsert）。
+- **仅** sticky 插件卡 + `resolution.kind === 'action'` + `action_id === 'echo'` 时 **留卡**，供 sidecar roundtrip 原地 upsert。
+- 其它 action（如 `dismiss`）/ dismissed / completed：正常 `removeNotification`。
+- 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
+
 ## 子文档
+- [外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md) — 开发期 ui.mjs 热更：generation 缓存与 reload 顺序
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
 
 - [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍

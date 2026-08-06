@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NSwitch, NButton, NTag, NRadioGroup, NRadioButton, NInput, NSlider, useMessage } from 'naive-ui'
+import { NButton, NTag, NRadioGroup, NRadioButton, NInput, NSlider, useMessage } from 'naive-ui'
 import {
   getAgentNotificationEnabled,
   setAgentNotificationEnabled,
@@ -18,6 +18,7 @@ import {
   type AgentEventModeEntry,
   type AgentSoundMode,
 } from '../../api/tauri'
+import PluginSection from './PluginSection.vue'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -94,12 +95,20 @@ onMounted(async () => {
 })
 
 async function toggleEnabled(val: boolean) {
+  const previous = enabled.value
+  enabled.value = val
+  window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+    detail: { id: 'agent', enabled: val },
+  }))
   enabledLoading.value = true
   try {
     await setAgentNotificationEnabled(val)
-    enabled.value = val
     message.success(t('settings.messages.saved'))
   } catch {
+    enabled.value = previous
+    window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', {
+      detail: { id: 'agent', enabled: previous },
+    }))
     message.error(t('settings.messages.saveFailed'))
   } finally {
     enabledLoading.value = false
@@ -171,219 +180,102 @@ async function handlePickSoundFile() {
     message.error(t('settings.messages.saveFailed'))
   }
 }
+
+defineExpose({
+  headerEnabled: enabled,
+  headerLoading: enabledLoading,
+  toggleEnabled,
+})
 </script>
 
 <template>
-  <div class="agent-panel">
-    <header class="panel-header">
-      <div class="header-left">
-        <div class="icon-badge" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 8V4H8" />
-            <rect width="16" height="12" x="4" y="8" rx="2" />
-            <path d="M2 14h2" />
-            <path d="M20 14h2" />
-            <path d="M15 13v2" />
-            <path d="M9 13v2" />
-          </svg>
-        </div>
-        <div class="header-text">
-          <h2 class="panel-title">{{ t('plugins.agent.name') }}</h2>
-          <p class="panel-subtitle">{{ t('plugins.agent.subtitle') }}</p>
-        </div>
+  <plugin-section :title="t('settings.agent.hookTitle')" :description="t('settings.agent.hookDesc')">
+    <div v-for="agent in agents" :key="agent" class="event-row">
+      <div class="agent-label">
+        <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
+        <n-tag v-if="installedMap[agent]" type="success" size="small">
+          {{ t('settings.agent.installed') }}
+        </n-tag>
+        <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
       </div>
-      <n-switch
-        :value="enabled"
-        :loading="enabledLoading"
-        :aria-label="t('plugins.agent.switchAria')"
-        @update:value="toggleEnabled"
-      />
-    </header>
+      <n-button
+        v-if="!installedMap[agent]"
+        size="small"
+        :loading="busyMap[agent]"
+        @click="install(agent)"
+      >
+        {{ t('settings.agent.installBtn') }}
+      </n-button>
+      <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
+        {{ t('settings.agent.uninstallBtn') }}
+      </n-button>
+    </div>
+  </plugin-section>
 
-    <template v-if="enabled">
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.hookTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.hookDesc') }}</p>
-          <div v-for="agent in agents" :key="agent" class="event-row">
-            <div class="agent-label">
-              <span class="event-name">{{ t(agentNameKeys[agent] || agent) }}</span>
-              <n-tag v-if="installedMap[agent]" type="success" size="small">
-                {{ t('settings.agent.installed') }}
-              </n-tag>
-              <n-tag v-else type="default" size="small">{{ t('settings.agent.notInstalled') }}</n-tag>
-            </div>
-            <n-button
-              v-if="!installedMap[agent]"
-              size="small"
-              :loading="busyMap[agent]"
-              @click="install(agent)"
-            >
-              {{ t('settings.agent.installBtn') }}
-            </n-button>
-            <n-button v-else size="small" :loading="busyMap[agent]" @click="uninstall(agent)">
-              {{ t('settings.agent.uninstallBtn') }}
-            </n-button>
-          </div>
-        </div>
-      </section>
+  <plugin-section :title="t('settings.agent.eventsTitle')" :description="t('settings.agent.eventsDesc')">
+    <div v-for="entry in eventModes" :key="entry.event" class="event-row">
+      <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
+      <n-radio-group
+        :value="entry.mode"
+        size="small"
+        :disabled="modeLoading[entry.event]"
+        @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
+      >
+        <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
+        <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
+        <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
+      </n-radio-group>
+    </div>
+  </plugin-section>
 
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.eventsTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.eventsDesc') }}</p>
-          <div v-for="entry in eventModes" :key="entry.event" class="event-row">
-            <span class="event-name">{{ t(eventNameKeys[entry.event] || entry.event) }}</span>
-            <n-radio-group
-              :value="entry.mode"
-              size="small"
-              :disabled="modeLoading[entry.event]"
-              @update:value="(m: AgentEventMode) => changeMode(entry.event, m)"
-            >
-              <n-radio-button value="off">{{ t('settings.agent.modeOff') }}</n-radio-button>
-              <n-radio-button value="auto">{{ t('settings.agent.modeAuto') }}</n-radio-button>
-              <n-radio-button value="sticky">{{ t('settings.agent.modeSticky') }}</n-radio-button>
-            </n-radio-group>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel-section">
-        <h3 class="section-title">{{ t('settings.agent.soundTitle') }}</h3>
-        <div class="section-card">
-          <p class="section-desc">{{ t('settings.agent.soundDesc') }}</p>
-          <div class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
-            <n-radio-group
-              :value="soundMode"
-              size="small"
-              :disabled="soundLoading"
-              @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
-            >
-              <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
-              <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
-              <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
-            </n-radio-group>
-          </div>
-          <div v-if="soundMode !== 'muted'" class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
-            <div class="sound-volume-row">
-              <n-slider
-                v-model:value="soundVolume"
-                :min="0"
-                :max="1"
-                :step="0.05"
-                :disabled="soundLoading"
-                style="width: 8rem"
-                @update:value="saveSoundVolume"
-              />
-              <span class="volume-value">{{ Math.round(soundVolume * 100) }}%</span>
-            </div>
-          </div>
-          <div v-if="soundMode === 'custom'" class="event-row">
-            <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
-            <div class="sound-path-row">
-              <n-input
-                v-model:value="soundPath"
-                size="small"
-                style="max-width: 12rem"
-                :placeholder="t('settings.agent.soundPathPlaceholder')"
-                @blur="saveSound"
-              />
-              <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
-                {{ t('settings.agent.soundPickFile') }}
-              </n-button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </template>
-
-    <p v-else class="disabled-hint">{{ t('plugins.agent.disabledHint') }}</p>
-  </div>
+  <plugin-section :title="t('settings.agent.soundTitle')" :description="t('settings.agent.soundDesc')">
+    <div class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundMode') }}</span>
+      <n-radio-group
+        :value="soundMode"
+        size="small"
+        :disabled="soundLoading"
+        @update:value="(m: AgentSoundMode) => { soundMode = m; saveSound() }"
+      >
+        <n-radio-button value="builtin">{{ t('settings.agent.soundBuiltin') }}</n-radio-button>
+        <n-radio-button value="custom">{{ t('settings.agent.soundCustom') }}</n-radio-button>
+        <n-radio-button value="muted">{{ t('settings.agent.soundMuted') }}</n-radio-button>
+      </n-radio-group>
+    </div>
+    <div v-if="soundMode !== 'muted'" class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundVolume') }}</span>
+      <div class="sound-volume-row">
+        <n-slider
+          v-model:value="soundVolume"
+          :min="0"
+          :max="1"
+          :step="0.05"
+          :disabled="soundLoading"
+          style="width: 8rem"
+          @update:value="saveSoundVolume"
+        />
+        <span class="value-display">{{ Math.round(soundVolume * 100) }}%</span>
+      </div>
+    </div>
+    <div v-if="soundMode === 'custom'" class="event-row">
+      <span class="event-name">{{ t('settings.agent.soundPath') }}</span>
+      <div class="sound-path-row">
+        <n-input
+          v-model:value="soundPath"
+          size="small"
+          style="max-width: 12rem"
+          :placeholder="t('settings.agent.soundPathPlaceholder')"
+          @blur="saveSound"
+        />
+        <n-button size="small" :loading="soundLoading" @click="handlePickSoundFile">
+          {{ t('settings.agent.soundPickFile') }}
+        </n-button>
+      </div>
+    </div>
+  </plugin-section>
 </template>
 
 <style scoped>
-.agent-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  min-width: 0;
-}
-
-.icon-badge {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.75rem;
-  background: #ede9fe;
-  color: #6d28d9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.header-text {
-  min-width: 0;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #2e1065;
-  line-height: 1.3;
-}
-
-.panel-subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
-  color: #8b7aab;
-  line-height: 1.4;
-}
-
-.panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #8b7aab;
-  text-transform: uppercase;
-  letter-spacing: 0.03rem;
-}
-
-.section-card {
-  background: #faf8ff;
-  border: 0.0625rem solid #ebe6f2;
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-}
-
-.section-desc {
-  margin: 0 0 0.5rem;
-  font-size: 0.75rem;
-  color: #8b7aab;
-  line-height: 1.4;
-}
-
 .event-row {
   display: flex;
   align-items: center;
@@ -393,12 +285,12 @@ async function handlePickSoundFile() {
 }
 
 .event-row + .event-row {
-  border-top: 0.0625rem solid #f0ebf7;
+  border-top: 0.0625rem solid #f1f5f9;
 }
 
 .event-name {
   font-size: 0.8125rem;
-  color: #555;
+  color: #334155;
 }
 
 .sound-path-row {
@@ -406,12 +298,7 @@ async function handlePickSoundFile() {
   align-items: center;
   gap: 0.5rem;
   max-width: 18rem;
-  flex: 1;
   justify-content: flex-end;
-}
-
-.sound-path-row .n-input {
-  flex: 1;
 }
 
 .sound-volume-row {
@@ -421,10 +308,10 @@ async function handlePickSoundFile() {
   min-width: 0;
 }
 
-.volume-value {
+.value-display {
   font-size: 0.75rem;
-  color: #666;
-  min-width: 2.5rem;
+  color: #64748b;
+  min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -434,12 +321,5 @@ async function handlePickSoundFile() {
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
-}
-
-.disabled-hint {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: #8b7aab;
-  line-height: 1.5;
 }
 </style>

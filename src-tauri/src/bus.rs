@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 use crate::event::{
-    now_ms, validate_event_shape, BusEvent, DisplayMode, EventPatch, EventResolution, EventStatus,
-    ResolutionKind,
+    now_ms, validate_event_shape, BusEvent, DisplayMode, EventPatch, EventResolution, EventSource,
+    EventStatus, ResolutionKind,
 };
 use crate::reminder_toast;
+use crate::log_info;
 
 static CHANNEL_CAPACITY: usize = 256;
 static MAX_RESOLVED_IN_REGISTRY: usize = 200;
@@ -267,6 +268,7 @@ impl EventBus {
             reg.resolve(&id, resolution)?
         };
         self.emit_event(out.clone());
+        self.notify_plugin_resolved(&out);
         Ok(out)
     }
 
@@ -276,12 +278,65 @@ impl EventBus {
         action_id: String,
         payload: Option<serde_json::Value>,
     ) -> Result<BusEvent, String> {
+        let started_at = std::time::Instant::now();
+        log_info!("plugin-sidecar", "resolve action start: event={id} action={action_id}");
         let out = {
             let mut reg = self.registry.write().map_err(|e| e.to_string())?;
             reg.resolve_action(&id, &action_id, payload)?
         };
         self.emit_event(out.clone());
+        log_info!(
+            "plugin-sidecar",
+            "resolve action emitted: event={id} action={action_id} elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        );
+        self.notify_plugin_resolved(&out);
+        log_info!(
+            "plugin-sidecar",
+            "resolve action done: event={id} action={action_id} elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        );
         Ok(out)
+    }
+
+    /// Forward resolve outcomes to the plugin background WebView so bg modules can react.
+    fn notify_plugin_resolved(&self, event: &BusEvent) {
+        let EventSource::Plugin { name } = &event.source else {
+            return;
+        };
+        let resolution = event.resolution.as_ref();
+        let payload = serde_json::json!({
+            "eventId": event.id,
+            "eventType": event.event_type,
+            "kind": event.kind,
+            "payload": event.payload,
+            "actionId": resolution.and_then(|r| r.action_id.clone()),
+            "resolutionKind": resolution.map(|r| match r.kind {
+                ResolutionKind::Completed => "completed",
+                ResolutionKind::Dismissed => "dismissed",
+                ResolutionKind::Action => "action",
+                ResolutionKind::Expired => "expired",
+                ResolutionKind::Superseded => "superseded",
+            }),
+            "resolutionPayload": resolution.and_then(|r| r.payload.clone()),
+        });
+        if let Some(win) = self
+            .app_handle
+            .get_webview_window(&format!("plugin-bg-{name}"))
+        {
+            let _ = win.emit("catrace:plugin-event-resolved", payload.clone());
+        }
+        if let Some(sidecars) = self
+            .app_handle
+            .try_state::<crate::plugin_sidecar::PluginSidecarManager>()
+        {
+            log_info!(
+                "plugin-sidecar",
+                "forward resolved: plugin={name} event={}",
+                event.id
+            );
+            sidecars.send_resolved(name, &payload);
+        }
     }
 
     pub fn active_events(&self) -> Result<Vec<BusEvent>, String> {

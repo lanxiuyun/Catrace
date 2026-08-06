@@ -5,6 +5,7 @@ import {
   h,
   markRaw,
   shallowRef,
+  onMounted,
   watch,
   type Component,
 } from 'vue'
@@ -12,10 +13,20 @@ import type { BusEvent } from '../types/event'
 import { usePluginRegistry } from '../stores/pluginRegistry'
 import { getPluginUiSource } from '../api/tauri'
 import SdkToastCard from './SdkToastCard.vue'
+import { ensurePluginRuntime } from '../plugins/pluginRuntime'
+import { wrapPluginSource } from '../plugins/pluginApi'
+import {
+  getPluginHostCardCache,
+  getPluginHostCardCacheGeneration,
+} from './pluginHostCardCache'
 
 const props = defineProps<{
   event: BusEvent
   isHovered?: boolean
+  /** Host toast remaining lifetime (ms) — drives plugin progress bars. */
+  remainingMs?: number
+  /** Host toast total lifetime (ms). */
+  totalMs?: number
   /** Blob/asset URL when registry already prepared one. */
   uiUrl?: string | null
   /** Plugin id — used to fetch source if Card not in registry yet. */
@@ -29,8 +40,8 @@ const emit = defineEmits<{
 
 const registry = usePluginRegistry()
 
-/** Process-wide: never re-defineAsyncComponent for the same plugin in one toast session. */
-const cardCache = new Map<string, Component>()
+/** Process-wide: avoid re-defineAsyncComponent for the same plugin+blob in one session. */
+const cardCache = getPluginHostCardCache()
 
 function renderSdkFallback(message: string, level: string = 'warning') {
   return h(SdkToastCard, {
@@ -53,15 +64,6 @@ const FallbackCard = markRaw({
   },
 }) as Component
 
-function ensurePluginVueRuntime() {
-  const g = globalThis as typeof globalThis & {
-    __CATRACE_VUE__?: Record<string, unknown>
-  }
-  if (!g.__CATRACE_VUE__) {
-    g.__CATRACE_VUE__ = { h, markRaw }
-  }
-}
-
 async function loadFromBlobUrl(url: string): Promise<Component> {
   const mod: Record<string, unknown> = await import(/* @vite-ignore */ url)
   const comp = (mod.default || mod.Card || mod.card) as Component | undefined
@@ -70,15 +72,15 @@ async function loadFromBlobUrl(url: string): Promise<Component> {
 }
 
 async function loadFromPluginId(id: string): Promise<Component> {
-  ensurePluginVueRuntime()
+  ensurePluginRuntime()
   const source = await getPluginUiSource(id)
-  const blob = new Blob([source], { type: 'text/javascript' })
+  const blob = new Blob([wrapPluginSource(id, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   return loadFromBlobUrl(blobUrl)
 }
 
-function cacheKey(): string {
-  const pid =
+function pluginIdentity(): string {
+  return (
     props.pluginId ||
     (props.event.source &&
     typeof props.event.source === 'object' &&
@@ -86,13 +88,31 @@ function cacheKey(): string {
       ? (props.event.source as { name: string }).name
       : '') ||
     props.event.kind
-  return pid || props.event.kind
+  )
+}
+
+/**
+ * Cache by plugin id + reload generation.
+ * uiUrl is intentionally not part of the key: registry CardComponent is the
+ * authority after loadExternalPlugins; generation bump forces remount on hot reload.
+ */
+function cacheKey(): string {
+  return pluginIdentity() || props.event.kind
 }
 
 function resolveCard(): Component {
   const key = cacheKey()
   const cached = cardCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    console.info('[PluginHostCard] cache hit', { key, eventId: props.event.id, t: Date.now() })
+    return cached
+  }
+  console.info('[PluginHostCard] resolve card', {
+    key,
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    hasUiUrl: !!props.uiUrl,
+  })
 
   const registered =
     registry.getCardComponent(props.event.kind) ||
@@ -154,9 +174,34 @@ function resolveCard(): Component {
   return FallbackCard
 }
 
+function handleCardAction(actionId: string) {
+  console.info('[PluginHostCard] action', {
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    actionId,
+    cacheKey: cacheKey(),
+    t: Date.now(),
+  })
+  emit('action', actionId)
+}
+
 const cardComp = shallowRef<Component>(resolveCard())
-/** Only remount when the plugin identity changes — not on every event revision/id. */
-const cardKey = computed(() => cacheKey())
+const cacheGen = getPluginHostCardCacheGeneration()
+
+onMounted(() => {
+  console.info('[PluginHostCard] mount', {
+    eventId: props.event.id,
+    pluginId: props.pluginId,
+    cacheKey: cacheKey(),
+    t: Date.now(),
+  })
+})
+
+/**
+ * Remount when plugin identity or host cache generation changes.
+ * Event id/revision alone must not thrash the card.
+ */
+const cardKey = computed(() => `${cacheKey()}@g${cacheGen.value}`)
 
 watch(
   cardKey,
@@ -172,7 +217,9 @@ watch(
     :is="cardComp"
     :event="event"
     :is-hovered="isHovered"
+    :remaining-ms="remainingMs ?? 0"
+    :total-ms="totalMs ?? 0"
     @close="emit('close')"
-    @action="(id: string) => emit('action', id)"
+    @action="handleCardAction"
   />
 </template>

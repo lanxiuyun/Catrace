@@ -142,4 +142,4 @@ let _ = window.hide(); // 防御：二次隐藏
 | 文件 | 说明 |
 |------|------|
 | `src/api/tauri.ts` | 前端 invoke 封装 |
-| `src/views/ReminderPopup.vue` | Popup UI + 输入框激活逻辑 |
+| `src/views/toastWindows/ReminderPopup.vue` | Popup UI + 输入框激活逻辑 |
