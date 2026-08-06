@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { getVersion } from '@tauri-apps/api/app'
 
 const { t } = useI18n()
+const version = ref('')
+
+onMounted(async () => {
+  version.value = await getVersion()
+})
 </script>
 
 <template>
@@ -11,7 +18,7 @@ const { t } = useI18n()
       <div class="brand-block">
         <div class="brand-copy">
           <strong>Catrace</strong>
-          <span>v26.7.18</span>
+          <span>v{{ version }}</span>
         </div>
       </div>
 
