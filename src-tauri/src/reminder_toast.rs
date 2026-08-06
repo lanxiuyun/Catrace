@@ -93,6 +93,7 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
         .always_on_top(true)
         .transparent(true)
         .accept_first_mouse(true)
+        .focused(false)
         .visible_on_all_workspaces(true)
         .maximizable(false)
         // 调试背景由前端 CSS 控制，这里始终使用透明背景
@@ -153,6 +154,7 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
         .always_on_top(true)
         .transparent(true)
         .accept_first_mouse(true)
+        .focused(false)
         .visible_on_all_workspaces(true)
         .maximizable(false)
         .background_color(tauri::window::Color(0, 0, 0, 0))
