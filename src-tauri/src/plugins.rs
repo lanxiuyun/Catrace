@@ -1103,8 +1103,129 @@ fn paths_equal(a: &Path, b: &Path) -> bool {
     canon(a) == canon(b)
 }
 
+/// Seed official plugins bundled as Tauri resources (`$RESOURCES/plugins/<id>`)
+/// into `<app_data>/plugins/<id>` on first run, or replace them when the bundled
+/// version is strictly newer. Resource dir is read-only on most installs, so we
+/// must copy to app_data where users can edit / toggle / upgrade them.
+/// Release-only: in debug builds demo plugins are junction-linked instead, so the
+/// hot iteration flow in `ensure_dev_plugin_links` is preserved.
+#[cfg(not(debug_assertions))]
+fn seed_bundled_plugins(app: &AppHandle) {
+    let Ok(res_dir) = app.path().resource_dir() else {
+        return;
+    };
+    let bundled_root = res_dir.join("plugins");
+    if !bundled_root.is_dir() {
+        log_info!(
+            "plugins",
+            "no bundled plugins to seed at {}",
+            bundled_root.display()
+        );
+        return;
+    }
+    let Ok(target_root) = plugins_root(app) else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(&target_root) {
+        log_warn!("plugins", "seed: create plugins dir failed: {e}");
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(&bundled_root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if !src.is_dir() {
+            continue;
+        }
+        let Some(name) = src.file_name().and_then(|s| s.to_str()).map(String::from) else {
+            continue;
+        };
+        if name.starts_with('.') || !src.join("manifest.json").is_file() {
+            continue;
+        }
+
+        let bundled_version = read_manifest_version(&src);
+        let dest = target_root.join(&name);
+        let existed = dest.exists();
+        let should_seed = match read_manifest_version(&dest) {
+            None => true,
+            Some(installed) => match bundled_version {
+                Some(ref bundled) => compare_versions(bundled, &installed) > 0,
+                None => false,
+            },
+        };
+        if !should_seed {
+            continue;
+        }
+
+        match replace_plugin_package(&src, &dest) {
+            Ok(()) => {
+                let action = if existed { "upgraded" } else { "seeded" };
+                log_info!(
+                    "plugins",
+                    "bundled plugin {name} {action} (v{})",
+                    bundled_version.as_deref().unwrap_or("?")
+                );
+            }
+            Err(e) => log_warn!("plugins", "seed bundled plugin {name} failed: {e}"),
+        }
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn read_manifest_version(dir: &Path) -> Option<String> {
+    let raw = fs::read_to_string(dir.join("manifest.json")).ok()?;
+    let m: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    m.get("version")?.as_str().map(String::from)
+}
+
+/// Replace `dest` with a copy of `src` (skip install-time dirs), atomically-ish:
+/// copy to a temp sibling first, then swap so a crash never leaves a half package.
+#[cfg(not(debug_assertions))]
+fn replace_plugin_package(src: &Path, dest: &Path) -> Result<(), String> {
+    let parent = dest.parent().ok_or("plugin dest has no parent")?;
+    let tmp = parent.join(format!(".seed-{}", std::process::id()));
+    if tmp.exists() {
+        remove_path_all(&tmp)?;
+    }
+    copy_dir_filtered(src, &tmp)?;
+    if dest.exists() {
+        remove_path_all(dest)?;
+    }
+    fs::rename(&tmp, dest).map_err(|e| {
+        let _ = remove_path_all(&tmp);
+        format!("seed rename failed: {e}")
+    })
+}
+
+/// Numeric semver-ish compare (e.g. "0.10.0" > "0.3.0"). >0 when a>b.
+#[cfg(not(debug_assertions))]
+fn compare_versions(a: &str, b: &str) -> i32 {
+    fn parts(s: &str) -> Vec<u32> {
+        s.split('.')
+            .map(|p| p.chars().take_while(|c| c.is_ascii_digit()).collect::<String>())
+            .filter_map(|p| p.parse::<u32>().ok())
+            .collect()
+    }
+    let pa = parts(a);
+    let pb = parts(b);
+    for i in 0..pa.len().max(pb.len()) {
+        let x = pa.get(i).copied().unwrap_or(0);
+        let y = pb.get(i).copied().unwrap_or(0);
+        if x != y {
+            return if x > y { 1 } else { -1 };
+        }
+    }
+    0
+}
+
 /// Called from setup after PluginManager is managed.
 pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
+    #[cfg(not(debug_assertions))]
+    seed_bundled_plugins(app);
+
     #[cfg(debug_assertions)]
     ensure_dev_plugin_links(app);
 
