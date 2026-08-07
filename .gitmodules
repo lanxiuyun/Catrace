@@ -1,0 +1,3 @@
+[submodule "tools/plugin-demo"]
+	path = tools/plugin-demo
+	url = https://github.com/lanxiuyun/catrace-plugin.git
