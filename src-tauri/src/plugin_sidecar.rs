@@ -6,7 +6,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 use serde::Deserialize;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
@@ -462,7 +462,7 @@ fn handle_stdout_line(
             data,
         } => {
             let _ = v;
-            log_plugin_message(plugin_id, &level, &message, data.as_ref());
+            log_plugin_message(app, plugin_id, &level, &message, data.as_ref());
         }
         SidecarOutput::Response {
             v,
@@ -609,6 +609,7 @@ fn reply_sidecar(manager: &PluginSidecarManager, plugin_id: &str, response: &ser
 }
 
 fn log_plugin_message(
+    app: &tauri::AppHandle,
     plugin_id: &str,
     level: &str,
     message: &str,
@@ -620,6 +621,17 @@ fn log_plugin_message(
         "warn" => log_warn!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         _ => log_info!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
     }
+    // Mirror JS plugin_api_log: forward to main DevTools via catrace:plugin-log
+    let _ = app.emit_to(
+        "main",
+        "catrace:plugin-log",
+        serde_json::json!({
+            "pluginId": plugin_id,
+            "level": level,
+            "message": message,
+            "data": data,
+        }),
+    );
 }
 
 fn write_message(stdin: &Arc<Mutex<ChildStdin>>, value: &serde_json::Value) -> Result<(), String> {
