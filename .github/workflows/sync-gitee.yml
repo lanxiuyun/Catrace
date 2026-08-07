@@ -1,0 +1,33 @@
+name: Sync to Gitee
+
+on:
+  push:
+    branches:
+      - main
+      - release
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: gitee-sync
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mirror to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::error::缺少 GITEE_TOKEN secret。请在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中新增 GITEE_TOKEN（Gitee 私人令牌，需 projects 权限）。"
+            exit 1
+          fi
+          git remote add gitee "https://${GITEE_TOKEN}@gitee.com/lanxiuyun/Catrace.git"
+          git push gitee --mirror --force
