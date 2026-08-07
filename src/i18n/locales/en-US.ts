@@ -497,7 +497,7 @@ export default {
     external: {
       badge: 'Local',
       localPackage: 'Local plugin package',
-      refresh: 'Refresh',
+      refresh: 'Reload plugins',
       openDir: 'Open plugins folder',
       install: 'Install plugin',
       installFolder: 'Install from folder...',
@@ -519,7 +519,6 @@ export default {
       main: 'UI entry',
       noUi: 'No custom card (falls back to Sdk card)',
       dir: 'Install path',
-      trustNote: 'Trust model: local plugins run in the app WebView; plugins with a sidecar also start a native subprocess (node/exe). Only install packages you trust. No plugin marketplace.',
       sidecarBadge: 'Native',
       sidecarRunning: 'Native process running',
       sidecarStopped: 'Native process stopped',

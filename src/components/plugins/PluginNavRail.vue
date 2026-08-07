@@ -299,7 +299,12 @@ onBeforeUnmount(() => {
             </div>
             <div class="item-text">
               <div class="item-name">
-                {{ p.name }}
+                <span class="item-name-text">{{ p.name }}</span>
+              </div>
+              <div
+                v-if="(p.external && p.version) || p.hasSidecar || p.anomalous"
+                class="item-meta"
+              >
                 <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
                 <span
                   v-if="p.hasSidecar"
@@ -323,8 +328,6 @@ onBeforeUnmount(() => {
           <p v-if="!filteredItems.length" class="list-hint">
             {{ t('plugins.searchEmpty') }}
           </p>
-
-          <p v-if="!query" class="trust-note">{{ t('plugins.external.trustNote') }}</p>
       </div>
     </page-scroll>
   </aside>
@@ -688,10 +691,30 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: #1e293b;
   line-height: 1.3;
+  min-width: 0;
+}
+
+.item-name-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-meta {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin-top: 0.15rem;
+}
+
+.item-meta .ver,
+.item-meta .sidecar-tag,
+.item-meta .anomaly-tag {
+  flex-shrink: 0;
 }
 
 .ver {
@@ -767,12 +790,5 @@ onBeforeUnmount(() => {
 .status-dot.error {
   background: #ef4444;
   box-shadow: 0 0 0 0.125rem #fee2e2;
-}
-
-.trust-note {
-  margin: 0.75rem 0.25rem 0.25rem;
-  color: #94a3b8;
-  font-size: 0.625rem;
-  line-height: 1.45;
 }
 </style>

@@ -497,7 +497,7 @@ export default {
     external: {
       badge: '本地',
       localPackage: '本地插件包',
-      refresh: '刷新列表',
+      refresh: '重载插件',
       openDir: '打开插件目录',
       install: '安装插件',
       installFolder: '从文件夹安装...',
@@ -518,7 +518,6 @@ export default {
       main: 'UI 入口',
       noUi: '无自定义卡（走通用 Sdk 卡）',
       dir: '安装路径',
-      trustNote: '信任模型：本地插件代码运行在应用 WebView 中；声明 sidecar 的插件还会启动本机子进程（node/exe 等）。仅安装你信任的来源。无插件市场。',
       sidecarBadge: '本机进程',
       sidecarRunning: '本机进程运行中',
       sidecarStopped: '本机进程未运行',
