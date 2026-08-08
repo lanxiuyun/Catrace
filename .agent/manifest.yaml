@@ -230,6 +230,7 @@ architecture:
       - .agent/architecture/desktop-event-os/step3-收尾评估-核心目标已达成与Step4候选.md
       - .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
+      - .agent/architecture/desktop-event-os/sidecar孤儿进程清理-Windows-Job-Object实现.md
       - .agent/architecture/desktop-event-os/sidecar-storage往返协议与Plugins-UI运行态约定.md
       - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
       - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
@@ -278,6 +279,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md
   - .agent/bugs/2026-08-02-set_plugin_config整包写入冲掉外部插件enabled.md
   - .agent/bugs/2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md
   - .agent/bugs/2026-08-01-bt-music轮询把仅配对设备当成已连接并多弹Toast.md
@@ -319,6 +321,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
   - .agent/devlog/2026-08-03-Step4-S4.1本地文件夹与zip安装插件.md
   - .agent/devlog/2026-08-03-Step3收尾评估-核心完成可关账.md
   - .agent/devlog/2026-08-03-M15.3-sidecar-storage与Plugins-UI运行态.md
@@ -340,5 +343,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
-  phase: S4.1 本地安装完成（文件夹/zip → plugins；覆盖确认）
-  next: S4.1 真机手测；或 S4.2 第三方插件 zip/打包约定文档
+  phase: S4.1 本地安装完成（文件夹/zip → plugins；覆盖确认）；sidecar 孤儿进程 Job Object 兜底已完成（2026-08-08）
+  next: S4.1 真机手测；或 S4.2 第三方插件 zip/打包约定文档；sidecar Job Object 真机验收（强杀宿主确认端口释放）

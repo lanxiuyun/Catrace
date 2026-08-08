@@ -291,11 +291,15 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 
 落地细节见 [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md)。
 
+### 后续增强（M15 之后）
+
+- [x] **孤儿进程兜底（2026-08-08）**：Windows 上 sidecar 挂 Job Object `KILL_ON_JOB_CLOSE`，宿主崩溃/强杀/更新重启也不留孤儿占端口。见 [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) 与 [../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md](../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md)。
+
 ## 13. 风险
 
 | 风险 | 缓解 |
 |------|------|
-| 孤儿进程 | Job Object / 进程组；exit 钩子 |
+| 孤儿进程 | ✅ **已实现**：Windows 上 spawn 每个 sidecar 挂 Job Object（`KILL_ON_JOB_CLOSE`），宿主任何退出路径 OS 自动杀整树；见 [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) |
 | Malicious plugin | Enable-means-trust warning; no marketplace; install trusted sources only |
 | Node 未安装 | 明确错误；推荐自带 exe 或 ps1 |
 | stdio 死锁 | 读 stdout/stderr 独立线程；写 stdin 带队列 |
@@ -310,5 +314,7 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 - [2026-07-24-step3-宿主能力改为随具体插件按需提供.md](../../decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md)  
 - [2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — ADR  
 - [../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md](../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md) — echo 回传卡死  
+- [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收孤儿进程（Job Object）  
+- [../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md](../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md) — 孤儿占端口 bug 报告
 - [../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md) — sticky action 留卡规则  
 - [../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md](../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md) — 本轮 devlog  
