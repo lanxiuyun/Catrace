@@ -23,6 +23,9 @@ struct RunningSidecar {
     fingerprint: String,
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
+    #[cfg(windows)]
+    #[allow(dead_code)] // held for RAII: closing it on drop kills the job tree
+    job: Option<SidecarJob>,
 }
 
 #[derive(Clone, Default)]
@@ -184,6 +187,8 @@ impl PluginSidecarManager {
                     fingerprint: spec.fingerprint.clone(),
                     child: spawned.child,
                     stdin: spawned.stdin,
+                    #[cfg(windows)]
+                    job: spawned.job,
                 },
             );
             log_info!("plugin-sidecar", "started sidecar for {id}");
@@ -367,6 +372,68 @@ impl Drop for PluginSidecarManager {
 struct SpawnedSidecar {
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
+    #[cfg(windows)]
+    job: Option<SidecarJob>,
+}
+
+/// Windows-only guard: a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+/// While this handle is alive, every process in the job is terminated when the
+/// last handle to the job is closed — which the OS does automatically when the
+/// Catrace process exits, including crash / force-kill / update-restart where
+/// `Drop` never runs. That prevents orphaned sidecars from keeping their port.
+#[cfg(windows)]
+struct SidecarJob(windows::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+unsafe impl Send for SidecarJob {}
+
+#[cfg(windows)]
+unsafe impl Sync for SidecarJob {}
+
+#[cfg(windows)]
+impl SidecarJob {
+    fn create_and_assign(child: &Child) -> Option<Self> {
+        use std::os::windows::io::AsRawHandle;
+        use windows::core::PCWSTR;
+        use windows::Win32::Foundation::{CloseHandle, HANDLE};
+        use windows::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+            JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        unsafe {
+            let job = CreateJobObjectW(None, PCWSTR::null()).ok()?;
+            let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            let size = std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32;
+            if SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &info as *const _ as *const core::ffi::c_void,
+                size,
+            )
+            .is_err()
+            {
+                let _ = CloseHandle(job);
+                return None;
+            }
+            let process_handle = HANDLE(child.as_raw_handle());
+            if AssignProcessToJobObject(job, process_handle).is_err() {
+                let _ = CloseHandle(job);
+                return None;
+            }
+            Some(Self(job))
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for SidecarJob {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = windows::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
 }
 
 fn spawn_sidecar(
@@ -447,7 +514,32 @@ fn spawn_sidecar(
         }
     }
 
-    Ok(SpawnedSidecar { child, stdin })
+    #[cfg(windows)]
+    let job = match SidecarJob::create_and_assign(&child) {
+        Some(job) => {
+            log_info!(
+                "plugin-sidecar",
+                "assigned sidecar {} to kill-on-close job",
+                spec.id
+            );
+            Some(job)
+        }
+        None => {
+            log_warn!(
+                "plugin-sidecar",
+                "could not assign sidecar {} to kill-on-close job; orphan cleanup degraded",
+                spec.id
+            );
+            None
+        }
+    };
+
+    Ok(SpawnedSidecar {
+        child,
+        stdin,
+        #[cfg(windows)]
+        job,
+    })
 }
 
 fn handle_stdout_line(
