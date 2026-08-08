@@ -101,15 +101,40 @@ impl PluginSidecarManager {
     }
 
     pub fn schedule_sync(&self, app: tauri::AppHandle, plugins: PluginManager) {
+        self.schedule_sync_impl(app, plugins, false);
+    }
+
+    /// Same as `schedule_sync`, but restarts every running sidecar (not just
+    /// crashed/fingerprint-changed ones). Used by the explicit reload/refresh.
+    pub fn schedule_sync_force(&self, app: tauri::AppHandle, plugins: PluginManager) {
+        self.schedule_sync_impl(app, plugins, true);
+    }
+
+    fn schedule_sync_impl(&self, app: tauri::AppHandle, plugins: PluginManager, force: bool) {
         let manager = self.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = manager.sync(&app, &plugins) {
+            if let Err(e) = manager.sync_impl(&app, &plugins, force) {
                 log_warn!("plugin-sidecar", "sidecar sync failed: {e}");
             }
         });
     }
 
     pub fn sync(&self, app: &tauri::AppHandle, plugins: &PluginManager) -> Result<(), String> {
+        self.sync_impl(app, plugins, false)
+    }
+
+    /// Synchronous variant used by enable/disable toggle so the response can
+    /// report fresh `sidecar_running`. Restarts every running sidecar.
+    pub fn sync_force(&self, app: &tauri::AppHandle, plugins: &PluginManager) -> Result<(), String> {
+        self.sync_impl(app, plugins, true)
+    }
+
+    fn sync_impl(
+        &self,
+        app: &tauri::AppHandle,
+        plugins: &PluginManager,
+        force: bool,
+    ) -> Result<(), String> {
         let _sync_guard = self.sync_lock.lock().map_err(|e| e.to_string())?;
         let desired = plugins.sidecar_plugins()?;
         let desired_map: HashMap<_, _> = desired
@@ -129,16 +154,20 @@ impl PluginSidecarManager {
             }
         }
         for spec in desired {
-            let restart = match running.get_mut(&spec.id) {
-                Some(sidecar) => {
-                    sidecar
-                        .child
-                        .try_wait()
-                        .map_err(|e| format!("check plugin sidecar {} status: {e}", spec.id))?
-                        .is_some()
-                        || sidecar.fingerprint != spec.fingerprint
+            let restart = if force {
+                true
+            } else {
+                match running.get_mut(&spec.id) {
+                    Some(sidecar) => {
+                        sidecar
+                            .child
+                            .try_wait()
+                            .map_err(|e| format!("check plugin sidecar {} status: {e}", spec.id))?
+                            .is_some()
+                            || sidecar.fingerprint != spec.fingerprint
+                    }
+                    None => true,
                 }
-                None => true,
             };
             if !restart {
                 continue;

@@ -449,8 +449,12 @@ export interface ExternalPluginInfo {
   error?: string | null
 }
 
-export async function listExternalPlugins(): Promise<ExternalPluginInfo[]> {
-  return invoke('list_external_plugins')
+export async function listExternalPlugins(opts?: {
+  restartSidecars?: boolean
+}): Promise<ExternalPluginInfo[]> {
+  return invoke('list_external_plugins', {
+    restartSidecars: opts?.restartSidecars ?? false,
+  })
 }
 
 export interface PluginInstallResult {

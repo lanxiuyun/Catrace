@@ -81,10 +81,10 @@ async function refreshBuiltinEnabled() {
   }
 }
 
-async function refreshExternal() {
+async function refreshExternal(restartSidecars = false) {
   loading.value = true
   try {
-    externalList.value = await listExternalPlugins()
+    externalList.value = await listExternalPlugins({ restartSidecars })
     // force: user clicked refresh / toggled enable — rebuild Card blobs.
     await loadExternalPlugins({ force: true })
     // Toast window has its own Pinia — ask it to reload UI too.
@@ -365,7 +365,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
       v-model:search-query="searchQuery"
       :items="plugins"
       :loading="loading"
-      @refresh="refreshExternal"
+      @refresh="() => refreshExternal(true)"
       @open-dir="onOpenDir"
       @install-folder="onInstallFolder"
       @install-zip="onInstallZip"

@@ -661,6 +661,7 @@ pub fn list_external_plugins(
     mgr: State<'_, PluginManager>,
     windows: State<'_, crate::plugin_window::PluginWindowManager>,
     sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
+    restart_sidecars: Option<bool>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
     let mut list = mgr.rescan(&app)?;
     
@@ -672,7 +673,13 @@ pub fn list_external_plugins(
     }
 
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
+    // Explicit reload/refresh restarts sidecars so on-disk changes take effect;
+    // passive rescans (startup, toast init) keep the diff-based sync.
+    if restart_sidecars.unwrap_or(false) {
+        sidecars.schedule_sync_force(app.clone(), mgr.inner().clone());
+    } else {
+        sidecars.schedule_sync(app.clone(), mgr.inner().clone());
+    }
     Ok(list)
 }
 
@@ -688,8 +695,9 @@ pub fn set_external_plugin_enabled(
     let mut info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app.clone(), mgr.inner().clone());
     // Sync sidecar lifecycle before reporting runtime status so the UI
-    // does not lag one refresh behind enable/disable.
-    if let Err(e) = sidecars.inner().sync(&app, mgr.inner()) {
+    // does not lag one refresh behind enable/disable. Force: restart every
+    // enabled sidecar so on-disk/manifest changes never leave stale state.
+    if let Err(e) = sidecars.inner().sync_force(&app, mgr.inner()) {
         log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
     }
     if info.has_sidecar {
