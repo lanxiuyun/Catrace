@@ -2,8 +2,6 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { currentMonitor } from '@tauri-apps/api/window'
-import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
 import { listen } from '@tauri-apps/api/event'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -13,6 +11,7 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
+  setToastHitRegions,
   getActivitySnapshot,
   dismissRestTimer,
   getAgentSoundDataUrl,
@@ -140,6 +139,7 @@ let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 let unlistenDismissAgent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
+let unlistenHoverExit: (() => void) | null = null
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -186,20 +186,11 @@ const AUTO_HIDE_MS = 8000
 const MIN_AUTO_HIDE_MS = 3000
 const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
 const MAX_NOTIFICATIONS = 5
-const CARD_HEIGHT = 128
-const CARD_GAP = 8
-const PADDING = 16
-const WINDOW_WIDTH = 360
 
 // 临时调试信息
 const debugInfo = ref({
   count: 0,
-  calcHeight: 0,
-  beforeSize: { width: 0, height: 0 },
-  beforePos: { x: 0, y: 0 },
-  sf: 1,
-  afterSize: { width: 0, height: 0 },
-  afterPos: { x: 0, y: 0 },
+  rects: 0,
   error: '',
 })
 
@@ -264,16 +255,31 @@ onMounted(async () => {
     dismissAgentSession(ev.payload)
   })
 
-  // 监听内容高度变化，自动调整窗口尺寸
+  // 光标离开卡片（Rust 切换回整窗穿透）时，WebView 收不到 mouseleave，
+  // 由 Rust emit 事件驱动前端清 hover 并恢复自动消失计时。
+  unlistenHoverExit = await listen('catrace:toast-hover-exit', () => {
+    const hovered = notifications.value.filter((n) => n.isHovered)
+    logFrontend('info', `[toast-fe] hover-exit event hovered=[${hovered.map((n) => `${n.id}:${n.kind}:${n.remainingMs}`).join(',')}]`).catch(() => {})
+    for (const item of hovered) {
+      handleMouseLeave(item)
+    }
+  })
+
+  // 监听布局变化，周期上报卡片可交互矩形（全屏覆盖窗的命中区域）
   await nextTick()
   if (stackRef.value) {
     resizeObserver = new ResizeObserver(() => {
       if (!isAnimating.value) {
-        adjustWindowSize()
+        scheduleHitRegionReport()
       }
     })
     resizeObserver.observe(stackRef.value)
   }
+
+  // 周期上报兜底：覆盖 FLIP / 滑入动画期间的矩形移动
+  hitReportInterval = setInterval(() => {
+    void reportHitRegions()
+  }, 200)
 
   // 读取初始通知
   try {
@@ -302,6 +308,12 @@ onUnmounted(() => {
   unlistenDismissAgent = null
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
+  unlistenHoverExit?.()
+  unlistenHoverExit = null
+  if (hitReportInterval) {
+    clearInterval(hitReportInterval)
+    hitReportInterval = null
+  }
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -314,103 +326,51 @@ function setCardRef(el: unknown, id: number) {
   }
 }
 
-function calcWindowHeight(count: number): number {
-  if (count <= 0) return 0
-  return PADDING * 2 + count * CARD_HEIGHT + (count - 1) * CARD_GAP
-}
+// ---------- 可交互区域（hit region）上报 ----------
 
-let adjustInFlight: Promise<void> | null = null
-let adjustQueued = false
+let hitReportInterval: ReturnType<typeof setInterval> | null = null
+let hitReportScheduled = false
+let lastRectsJson = '[]'
+let lastHeartbeatAt = 0
 
-async function adjustWindowSize() {
-  if (adjustInFlight) {
-    adjustQueued = true
-    return adjustInFlight
-  }
-  adjustInFlight = runAdjustWindowSize().finally(() => {
-    adjustInFlight = null
-    if (adjustQueued) {
-      adjustQueued = false
-      void adjustWindowSize()
+/** 收集所有非离开态卡片的窗口内逻辑坐标（CSS px），上报给 Rust 做命中测试。 */
+async function reportHitRegions() {
+  const rects: Array<{ x: number; y: number; width: number; height: number }> = []
+  for (const n of notifications.value) {
+    if (n.leaving) continue
+    const el = cardRefs.value.get(n.id)
+    if (el) {
+      const r = el.getBoundingClientRect()
+      rects.push({ x: r.left, y: r.top, width: r.width, height: r.height })
     }
-  })
-  return adjustInFlight
-}
-
-async function runAdjustWindowSize() {
-  if (isAnimating.value) {
-    // 动画中不要丢请求，结束后再量一次
-    adjustQueued = true
-    return
   }
-
-  const count = notifications.value.length
-  if (count === 0) return
-
-  // 等 DOM 渲染完成
-  await nextTick()
-
+  debugInfo.value.count = notifications.value.length
+  debugInfo.value.rects = rects.length
+  // 心跳日志：确认 toast 前端 JS 事件循环仍存活（每 30s 一次）
+  const now = Date.now()
+  if (now - lastHeartbeatAt >= 30_000) {
+    lastHeartbeatAt = now
+    logFrontend('info', `[toast-fe] heartbeat alive count=${notifications.value.length} rects=${rects.length} lastRectsJson=${lastRectsJson === '[]' ? 'empty' : 'set'}`).catch(() => {})
+  }
+  const json = JSON.stringify(rects)
+  if (json === lastRectsJson) return
+  lastRectsJson = json
   try {
-    const win = getCurrentWebviewWindow()
-    const monitor = await currentMonitor()
-    const sf = monitor?.scaleFactor ?? 1
-    const workArea = monitor?.workArea
-
-    const workAreaX = workArea ? workArea.position.x / sf : 0
-    const workAreaY = workArea ? workArea.position.y / sf : 0
-    const workAreaWidth = workArea ? workArea.size.width / sf : (window.screen.availWidth || window.innerWidth)
-    const workAreaHeight = workArea ? workArea.size.height / sf : (window.screen.availHeight || window.innerHeight)
-
-    // 量内容栈总高度（含被 max-height 隐藏的溢出部分），再加 root 内边距得到窗口总高。
-    // scrollHeight 包含 stack 自身为阴影留出的 1rem*2 padding，需减去。
-    // 优先按每张卡 scrollHeight 累加：stack 被窗口卡住时，单靠 stack.scrollHeight
-    // 偶发偏小（尤其 agent 聚合卡刚展开），导致底部按钮被裁。
-    let contentHeight = 0
-    let measuredCards = 0
-    for (const n of notifications.value) {
-      const el = cardRefs.value.get(n.id)
-      if (el) {
-        contentHeight += el.scrollHeight
-        measuredCards += 1
-      }
-    }
-    if (measuredCards > 0) {
-      contentHeight += Math.max(0, measuredCards - 1) * CARD_GAP
-    } else {
-      const rawStackHeight = stackRef.value?.scrollHeight
-      contentHeight = rawStackHeight != null ? rawStackHeight - 32 : calcWindowHeight(count)
-    }
-    // 窗口高度不超过工作区高度，避免超出屏幕
-    const newHeightLogical = Math.min(workAreaHeight, contentHeight + PADDING * 2)
-    // 贴右下角：x = 工作区右边缘 - 窗口宽度，y = 工作区下边缘 - 窗口高度
-    const newXLogical = workAreaX + workAreaWidth - WINDOW_WIDTH
-    const newYLogical = workAreaY + workAreaHeight - newHeightLogical
-
-    debugInfo.value = {
-      ...debugInfo.value,
-      count,
-      calcHeight: newHeightLogical,
-      beforeSize: { width: 0, height: 0 },
-      beforePos: { x: 0, y: 0 },
-      sf,
-      error: '',
-    }
-
-    await win.setSize(new LogicalSize(WINDOW_WIDTH, newHeightLogical))
-    await win.setPosition(new LogicalPosition(newXLogical, newYLogical))
-
-    const afterSize = await win.innerSize()
-    const afterPos = await win.innerPosition()
-    debugInfo.value = {
-      ...debugInfo.value,
-      afterSize: { width: afterSize.width, height: afterSize.height },
-      afterPos: { x: afterPos.x, y: afterPos.y },
-    }
-    logFrontend('info', `[toast-fe] adjustWindowSize count=${count} contentH=${contentHeight.toFixed(0)} calcH=${newHeightLogical.toFixed(0)} pos=(${newXLogical.toFixed(0)},${newYLogical.toFixed(0)}) afterSize=${afterSize.width}x${afterSize.height} afterPos=(${afterPos.x},${afterPos.y}) sf=${sf}`).catch(() => {})
-  } catch (e: any) {
-    debugInfo.value.error = String(e?.message ?? e)
-    logFrontend('error', `[toast-fe] adjustWindowSize 异常: ${String(e?.message ?? e)}`).catch(() => {})
+    await setToastHitRegions(rects)
+    logFrontend('info', `[toast-fe] hit regions updated count=${rects.length} json=${json}`).catch(() => {})
+  } catch (e) {
+    debugInfo.value.error = String(e)
   }
+}
+
+/** 布局变化后尽快补一次上报（resize 触发 / 动画结束）。 */
+function scheduleHitRegionReport() {
+  if (hitReportScheduled) return
+  hitReportScheduled = true
+  nextTick(() => {
+    hitReportScheduled = false
+    void reportHitRegions()
+  })
 }
 
 function updateRestTimer(payload: {
@@ -489,7 +449,7 @@ function updateRestTimer(payload: {
   // 用户仍在休息：重启每 2 秒活跃轮询，并刷新基线
   startRestPoll()
 
-  adjustWindowSize()
+  scheduleHitRegionReport()
 }
 
 /** 启动休息计时卡片的活跃轮询：先取一次快照作基线，之后每 2 秒比对 */
@@ -697,7 +657,7 @@ function handleBusEvent(event: BusEvent) {
         existing.totalMs = 0
       }
       seenBusEventIds.add(event.id)
-      void nextTick(() => adjustWindowSize())
+      void nextTick(() => scheduleHitRegionReport())
       return
     }
   }
@@ -763,7 +723,7 @@ function handleBusEvent(event: BusEvent) {
         existing.totalMs = autoHideMs
         startTimer(existing)
       }
-      void adjustWindowSize()
+      void scheduleHitRegionReport()
       return
     }
   }
@@ -809,6 +769,8 @@ function markEventResolved(eventId: string | undefined, actionId?: string) {
     console.warn('[sidecar-action] resolve skipped: missing eventId', { actionId })
     return
   }
+  const stack = (new Error().stack || '').split('\n').slice(2, 5).join(' | ')
+  logFrontend('info', `[toast-fe] markEventResolved eventId=${eventId} actionId=${actionId ?? '-'} stack=${stack}`).catch(() => {})
   const startedAt = performance.now()
   console.info('[sidecar-action] resolve invoke:start', {
     eventId,
@@ -909,7 +871,7 @@ async function addNotification(payload: {
       if (found) found.visible = true
       logFrontend('info', `[toast-fe] permission 卡已 push id=${id} requestId=${item.permission?.requestId ?? '-'} visible=${found?.visible}`).catch(() => {})
     })
-    await adjustWindowSize()
+    await scheduleHitRegionReport()
     scrollStackToBottom()
     return
   }
@@ -940,7 +902,7 @@ async function addNotification(payload: {
       // client 尺寸变化，必须主动重算窗口高度，否则卡片底部（前往/全部已读）被裁切。
       await nextTick()
       await new Promise<void>((r) => requestAnimationFrame(() => r()))
-      await adjustWindowSize()
+      await scheduleHitRegionReport()
       scrollStackToBottom()
       return
     }
@@ -1020,7 +982,7 @@ async function addNotification(payload: {
   if (!isSticky) {
     startTimer(item)
   }
-  await adjustWindowSize()
+  await scheduleHitRegionReport()
   scrollStackToBottom()
 }
 
@@ -1042,6 +1004,7 @@ function startTimer(item: ToastItem) {
   // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
   if (!(item.totalMs > 0)) item.totalMs = item.remainingMs
   item.closeTimer = setTimeout(() => {
+    logFrontend('info', `[toast-fe] auto-hide timer fired id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}`).catch(() => {})
     removeNotification(item.id, true)
   }, item.remainingMs)
 }
@@ -1058,6 +1021,14 @@ function stopTimer(item: ToastItem) {
 function handleMouseEnter(item: ToastItem) {
   // 休息计时 / sticky / permission 卡片不依赖 hover 控制生命周期
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  logFrontend('info', `[toast-fe] mouseEnter id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs} totalMs=${item.totalMs}`).catch(() => {})
+  // 只允许一张卡处于 hover 态：整窗穿透时 WebView 可能漏发 mouseleave，
+  // 导致多张卡同时 isHovered=true，一个 hover-exit 事件会删掉一整堆。
+  for (const n of notifications.value) {
+    if (n !== item && n.isHovered) {
+      handleMouseLeave(n)
+    }
+  }
   item.isHovered = true
   stopTimer(item)
 }
@@ -1066,9 +1037,16 @@ function handleMouseLeave(item: ToastItem) {
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
+    logFrontend('info', `[toast-fe] mouseLeave resume id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}`).catch(() => {})
     startTimer(item)
   } else if (item.kind !== 'update') {
-    removeNotification(item.id, true)
+    // hover 暂停把剩余时间拖到 0 的卡片，离开时不再立即删除：
+    // 否则光标一碰（真实 mouseleave 或 Rust hover-exit 事件）整堆卡片连锁消失。
+    // 改为重置完整自动隐藏时长，卡片仍在最后一次交互后按时自动消失。
+    logFrontend('info', `[toast-fe] mouseLeave reset id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}->full`).catch(() => {})
+    item.remainingMs = item.totalMs > 0 ? item.totalMs : AUTO_HIDE_MS
+    item.totalMs = item.remainingMs
+    startTimer(item)
   }
 }
 
@@ -1092,6 +1070,9 @@ function removeNotification(id: number, animate: boolean) {
   // 已经在关闭动画中，避免重复触发
   if (item.leaving) return
 
+  const stack = (new Error().stack || '').split('\n').slice(2, 7).join(' | ')
+  logFrontend('info', `[toast-fe] removeNotification id=${id} kind=${item.kind} remainingMs=${item.remainingMs} hovered=${item.isHovered} animate=${animate} stack=${stack}`).catch(() => {})
+
   // 审批卡被栈顶挤掉 / 关窗 / session 销项时，必须 timeout 挂起请求，
   // 否则 Claude 的 PermissionRequest http hook 一直等，agent 线程卡死。
   // 已决策/已超时的卡 resolve 会返回 false，无害。
@@ -1112,7 +1093,7 @@ function removeNotification(id: number, animate: boolean) {
   if (!animate) {
     notifications.value = notifications.value.filter((n) => n.id !== id)
     cardRefs.value.delete(id)
-    adjustWindowSize()
+    scheduleHitRegionReport()
     if (notifications.value.length === 0) {
       closeWindow()
     }
@@ -1182,7 +1163,7 @@ function removeNotification(id: number, animate: boolean) {
       notifications.value = notifications.value.filter((n) => n.id !== id)
       cardRefs.value.delete(id)
       isAnimating.value = false
-      adjustWindowSize()
+      scheduleHitRegionReport()
       if (notifications.value.length === 0) {
         closeWindow()
       }
@@ -1191,6 +1172,8 @@ function removeNotification(id: number, animate: boolean) {
 }
 
 async function closeWindow() {
+  const stack = (new Error().stack || '').split('\n').slice(2, 6).join(' | ')
+  logFrontend('info', `[toast-fe] closeWindow stack=${stack}`).catch(() => {})
   try {
     await closeReminderWindow('reminder-toast')
   } catch {
@@ -1226,7 +1209,7 @@ async function handleSkip(item: ToastItem) {
 
 function toggleUpdateDetails(item: ToastItem) {
   item.showUpdateBody = !item.showUpdateBody
-  nextTick(() => adjustWindowSize())
+  nextTick(() => scheduleHitRegionReport())
 }
 
 /**
@@ -1256,7 +1239,7 @@ function dismissAgentSession(sessionId: string) {
       removeNotification(item.id, true)
     } else {
       item.agentEntries = next
-      nextTick(() => adjustWindowSize())
+      nextTick(() => scheduleHitRegionReport())
     }
   }
 }
@@ -1364,7 +1347,7 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
           @dismiss-all="handleClose(item)"
           @dismiss-entry="(sid) => dismissAgentSession(sid)"
-          @layout="() => nextTick(() => adjustWindowSize())"
+          @layout="() => nextTick(() => scheduleHitRegionReport())"
         />
 
         <PermissionToastCard
@@ -1448,12 +1431,7 @@ async function handleUpdateInstall(item: ToastItem) {
     <!-- 调试面板 -->
     <div v-if="showDebug" class="debug-panel">
       <div>count: {{ debugInfo.count }}</div>
-      <div>calcH: {{ debugInfo.calcHeight }}</div>
-      <div>beforeSize: {{ debugInfo.beforeSize.width }}x{{ debugInfo.beforeSize.height }}</div>
-      <div>beforePos: {{ debugInfo.beforePos.x }},{{ debugInfo.beforePos.y }}</div>
-      <div>sf: {{ debugInfo.sf }}</div>
-      <div>afterSize: {{ debugInfo.afterSize.width }}x{{ debugInfo.afterSize.height }}</div>
-      <div>afterPos: {{ debugInfo.afterPos.x }},{{ debugInfo.afterPos.y }}</div>
+      <div>rects: {{ debugInfo.rects }}</div>
       <div v-if="debugInfo.error" class="debug-error">err: {{ debugInfo.error }}</div>
     </div>
   </div>
@@ -1500,7 +1478,7 @@ async function handleUpdateInstall(item: ToastItem) {
 }
 
 .toast-card {
-  width: 100%;
+  width: 22.5rem;
   max-height: 37.5rem;
   background: #ffffff;
   border-radius: 0.5rem;

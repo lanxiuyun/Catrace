@@ -30,3 +30,8 @@ pub fn show_reminder_no_activate(_app_handle: &tauri::AppHandle, window: &tauri:
         shared_show_window(&window);
     });
 }
+
+/// 切换点击穿透（macOS/Linux 走 tao 标准实现，无 Windows 的 VISIBLE 标志问题）
+pub fn set_ignore_cursor_events_raw<R: Runtime>(window: &WebviewWindow<R>, ignore: bool) {
+    let _ = window.set_ignore_cursor_events(ignore);
+}
