@@ -7,7 +7,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, HTTRANSPARENT, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
     SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_NCHITTEST, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOPMOST, WS_EX_TRANSPARENT, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    WS_EX_NOACTIVATE, WS_EX_TRANSPARENT, SWP_NOACTIVATE, SWP_SHOWWINDOW,
 };
 
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
@@ -61,11 +61,6 @@ fn ensure_hit_test_subclass(window: &WebviewWindow<tauri::Wry>) {
         );
     }
     TOAST_HITTEST_SUBCLASSED.store(true, Ordering::SeqCst);
-    crate::log_info!(
-        "toast-hit",
-        "installed WM_NCHITTEST subclass hwnd=0x{:x}",
-        hwnd.0 as usize
-    );
 }
 
 fn cast_to_wry<R: Runtime>(window: &WebviewWindow<R>) -> &WebviewWindow<tauri::Wry> {
@@ -95,18 +90,6 @@ pub fn set_ignore_cursor_events_raw(window: &WebviewWindow<tauri::Wry>, ignore: 
         } else {
             new_style & !(WS_EX_TRANSPARENT.0 as isize)
         };
-        crate::log_info!(
-            "toast-hit",
-            "raw style hwnd=0x{:x} ignore={} before=0x{:x} after=0x{:x} transparent={} layered={} topmost={} noactivate={}",
-            hwnd.0 as usize,
-            ignore,
-            style,
-            new_style,
-            (style & WS_EX_TRANSPARENT.0 as isize) != 0,
-            (style & WS_EX_LAYERED.0 as isize) != 0,
-            (style & WS_EX_TOPMOST.0 as isize) != 0,
-            (style & WS_EX_NOACTIVATE.0 as isize) != 0,
-        );
         if new_style != style {
             let _ = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style);
             let _ = SetWindowPos(
@@ -117,14 +100,6 @@ pub fn set_ignore_cursor_events_raw(window: &WebviewWindow<tauri::Wry>, ignore: 
                 0,
                 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            );
-            let applied = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-            crate::log_info!(
-                "toast-hit",
-                "raw applied hwnd=0x{:x} now=0x{:x} transparent_after={}",
-                hwnd.0 as usize,
-                applied,
-                (applied & WS_EX_TRANSPARENT.0 as isize) != 0,
             );
         }
     }
@@ -209,7 +184,6 @@ pub fn hide_window_internal<R: Runtime>(
     _app_handle: &AppHandle<R>,
     window: &WebviewWindow<R>,
 ) {
-    crate::log_info!("toast-hide", "hide_window_internal label={}", window.label());
     if is_reminder_window(window) {
         shared_hide_window(window);
         let wry_window = cast_to_wry(window);

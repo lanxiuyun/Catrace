@@ -16,7 +16,6 @@ import {
   dismissRestTimer,
   getAgentSoundDataUrl,
   getAgentSoundSettings,
-  logFrontend,
   resolvePermission,
   resolveEvent,
   resolveEventAction,
@@ -259,7 +258,6 @@ onMounted(async () => {
   // 由 Rust emit 事件驱动前端清 hover 并恢复自动消失计时。
   unlistenHoverExit = await listen('catrace:toast-hover-exit', () => {
     const hovered = notifications.value.filter((n) => n.isHovered)
-    logFrontend('info', `[toast-fe] hover-exit event hovered=[${hovered.map((n) => `${n.id}:${n.kind}:${n.remainingMs}`).join(',')}]`).catch(() => {})
     for (const item of hovered) {
       handleMouseLeave(item)
     }
@@ -331,7 +329,6 @@ function setCardRef(el: unknown, id: number) {
 let hitReportInterval: ReturnType<typeof setInterval> | null = null
 let hitReportScheduled = false
 let lastRectsJson = '[]'
-let lastHeartbeatAt = 0
 
 /** 收集所有非离开态卡片的窗口内逻辑坐标（CSS px），上报给 Rust 做命中测试。 */
 async function reportHitRegions() {
@@ -346,18 +343,11 @@ async function reportHitRegions() {
   }
   debugInfo.value.count = notifications.value.length
   debugInfo.value.rects = rects.length
-  // 心跳日志：确认 toast 前端 JS 事件循环仍存活（每 30s 一次）
-  const now = Date.now()
-  if (now - lastHeartbeatAt >= 30_000) {
-    lastHeartbeatAt = now
-    logFrontend('info', `[toast-fe] heartbeat alive count=${notifications.value.length} rects=${rects.length} lastRectsJson=${lastRectsJson === '[]' ? 'empty' : 'set'}`).catch(() => {})
-  }
   const json = JSON.stringify(rects)
   if (json === lastRectsJson) return
   lastRectsJson = json
   try {
     await setToastHitRegions(rects)
-    logFrontend('info', `[toast-fe] hit regions updated count=${rects.length} json=${json}`).catch(() => {})
   } catch (e) {
     debugInfo.value.error = String(e)
   }
@@ -682,8 +672,6 @@ function handleBusEvent(event: BusEvent) {
   if (seenBusEventIds.has(event.id)) return
   seenBusEventIds.add(event.id)
 
-  logFrontend('info', `[toast-fe] bus event kind=${kind} id=${event.id}`).catch(() => {})
-
   // 同 dedupe_key：原地刷新已有卡（不 remove+add），连点只重置内容/计时，不抖窗口
   if (dedupeKey) {
     const existing = notifications.value.find(
@@ -769,8 +757,6 @@ function markEventResolved(eventId: string | undefined, actionId?: string) {
     console.warn('[sidecar-action] resolve skipped: missing eventId', { actionId })
     return
   }
-  const stack = (new Error().stack || '').split('\n').slice(2, 5).join(' | ')
-  logFrontend('info', `[toast-fe] markEventResolved eventId=${eventId} actionId=${actionId ?? '-'} stack=${stack}`).catch(() => {})
   const startedAt = performance.now()
   console.info('[sidecar-action] resolve invoke:start', {
     eventId,
@@ -839,7 +825,6 @@ async function addNotification(payload: {
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
-    logFrontend('info', `[toast-fe] permission 分支进入 requestId=${payload.requestId ?? '-'} notifications=${notifications.value.length}`).catch(() => {})
     playAgentSound()
     while (notifications.value.length >= MAX_NOTIFICATIONS) {
       removeNotification(notifications.value[0].id, false)
@@ -869,7 +854,6 @@ async function addNotification(payload: {
     requestAnimationFrame(() => {
       const found = notifications.value.find((n) => n.id === id)
       if (found) found.visible = true
-      logFrontend('info', `[toast-fe] permission 卡已 push id=${id} requestId=${item.permission?.requestId ?? '-'} visible=${found?.visible}`).catch(() => {})
     })
     await scheduleHitRegionReport()
     scrollStackToBottom()
@@ -1004,7 +988,6 @@ function startTimer(item: ToastItem) {
   // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
   if (!(item.totalMs > 0)) item.totalMs = item.remainingMs
   item.closeTimer = setTimeout(() => {
-    logFrontend('info', `[toast-fe] auto-hide timer fired id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}`).catch(() => {})
     removeNotification(item.id, true)
   }, item.remainingMs)
 }
@@ -1021,7 +1004,6 @@ function stopTimer(item: ToastItem) {
 function handleMouseEnter(item: ToastItem) {
   // 休息计时 / sticky / permission 卡片不依赖 hover 控制生命周期
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
-  logFrontend('info', `[toast-fe] mouseEnter id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs} totalMs=${item.totalMs}`).catch(() => {})
   // 只允许一张卡处于 hover 态：整窗穿透时 WebView 可能漏发 mouseleave，
   // 导致多张卡同时 isHovered=true，一个 hover-exit 事件会删掉一整堆。
   for (const n of notifications.value) {
@@ -1037,13 +1019,11 @@ function handleMouseLeave(item: ToastItem) {
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
-    logFrontend('info', `[toast-fe] mouseLeave resume id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}`).catch(() => {})
     startTimer(item)
   } else if (item.kind !== 'update') {
     // hover 暂停把剩余时间拖到 0 的卡片，离开时不再立即删除：
     // 否则光标一碰（真实 mouseleave 或 Rust hover-exit 事件）整堆卡片连锁消失。
     // 改为重置完整自动隐藏时长，卡片仍在最后一次交互后按时自动消失。
-    logFrontend('info', `[toast-fe] mouseLeave reset id=${item.id} kind=${item.kind} remainingMs=${item.remainingMs}->full`).catch(() => {})
     item.remainingMs = item.totalMs > 0 ? item.totalMs : AUTO_HIDE_MS
     item.totalMs = item.remainingMs
     startTimer(item)
@@ -1069,9 +1049,6 @@ function removeNotification(id: number, animate: boolean) {
   const item = notifications.value[index]
   // 已经在关闭动画中，避免重复触发
   if (item.leaving) return
-
-  const stack = (new Error().stack || '').split('\n').slice(2, 7).join(' | ')
-  logFrontend('info', `[toast-fe] removeNotification id=${id} kind=${item.kind} remainingMs=${item.remainingMs} hovered=${item.isHovered} animate=${animate} stack=${stack}`).catch(() => {})
 
   // 审批卡被栈顶挤掉 / 关窗 / session 销项时，必须 timeout 挂起请求，
   // 否则 Claude 的 PermissionRequest http hook 一直等，agent 线程卡死。
@@ -1172,8 +1149,6 @@ function removeNotification(id: number, animate: boolean) {
 }
 
 async function closeWindow() {
-  const stack = (new Error().stack || '').split('\n').slice(2, 6).join(' | ')
-  logFrontend('info', `[toast-fe] closeWindow stack=${stack}`).catch(() => {})
   try {
     await closeReminderWindow('reminder-toast')
   } catch {
