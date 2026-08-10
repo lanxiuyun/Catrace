@@ -991,6 +991,8 @@ function startTimer(item: ToastItem) {
   // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
   if (!(item.totalMs > 0)) item.totalMs = item.remainingMs
   item.closeTimer = setTimeout(() => {
+    // 自动消失路径必须把后端事件 resolve，否则刷新/水合时旧 toast 会复活
+    markEventResolved(item.eventId)
     removeNotification(item.id, true)
   }, item.remainingMs)
 }
@@ -1378,6 +1380,10 @@ async function handleUpdateInstall(item: ToastItem) {
      负 margin 拉回，保证卡片宽度/窗口高度不变 */
   margin: -1rem;
   padding: 1rem;
+  /* 始终预留右侧滚动条 gutter：滚动条出现/消失都不引起卡片右缘位移。
+     右侧视觉留白恒为 16px = padding-right 6px + scrollbar gutter 10px */
+  padding-right: 0.375rem;
+  scrollbar-gutter: stable;
 }
 
 /* 卡片超出窗口高度时的可见滚动条（透明全屏窗，竖条贴近右缘） */
