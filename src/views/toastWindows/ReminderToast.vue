@@ -181,10 +181,13 @@ const REST_POLL_MS = 2000
 const REST_TIMER_REMOVE_DELAY_MS = 4000
 
 const AUTO_HIDE_MS = 8000
+/** 卡片离场动画时长（与 CSS .toast-card.leaving 的 transition 一致）。 */
+const LEAVE_ANIMATION_MS = 350
+/** 滚动条宽度（与 CSS .toast-stack::-webkit-scrollbar 一致），用于命中区域。 */
+const TOAST_SCROLLBAR_W = 10
 /** Clamp plugin/sdk payload auto-hide (ms). 0 only valid when sticky. */
 const MIN_AUTO_HIDE_MS = 3000
 const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
-const MAX_NOTIFICATIONS = 5
 
 // 临时调试信息
 const debugInfo = ref({
@@ -340,6 +343,13 @@ async function reportHitRegions() {
       const r = el.getBoundingClientRect()
       rects.push({ x: r.left, y: r.top, width: r.width, height: r.height })
     }
+  }
+  // 卡片超出窗口高度出现滚动条时，把滚动条竖条也纳入命中区域，
+  // 否则整窗穿透态下无法点击/拖动滚动条。
+  const stack = stackRef.value
+  if (stack && stack.scrollHeight > stack.clientHeight) {
+    const r = stack.getBoundingClientRect()
+    rects.push({ x: r.right - TOAST_SCROLLBAR_W, y: r.top, width: TOAST_SCROLLBAR_W, height: r.height })
   }
   debugInfo.value.count = notifications.value.length
   debugInfo.value.rects = rects.length
@@ -826,9 +836,6 @@ async function addNotification(payload: {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
     playAgentSound()
-    while (notifications.value.length >= MAX_NOTIFICATIONS) {
-      removeNotification(notifications.value[0].id, false)
-    }
     const id = ++idCounter
     const item: ToastItem = {
       id,
@@ -894,11 +901,7 @@ async function addNotification(payload: {
     playAgentSound()
   }
 
-  // 限制最大数量，移除最旧的通知（不带动画，避免和进入动画打架）
-  while (notifications.value.length >= MAX_NOTIFICATIONS) {
-    removeNotification(notifications.value[0].id, false)
-  }
-
+  // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
@@ -1030,18 +1033,6 @@ function handleMouseLeave(item: ToastItem) {
   }
 }
 
-function captureRects(excludeLeaving = false): Map<number, DOMRect> {
-  const map = new Map<number, DOMRect>()
-  for (const n of notifications.value) {
-    if (excludeLeaving && n.leaving) continue
-    const el = cardRefs.value.get(n.id)
-    if (el) {
-      map.set(n.id, el.getBoundingClientRect())
-    }
-  }
-  return map
-}
-
 function removeNotification(id: number, animate: boolean) {
   const index = notifications.value.findIndex((n) => n.id === id)
   if (index === -1) return
@@ -1066,86 +1057,31 @@ function removeNotification(id: number, animate: boolean) {
     stopRestPoll()
   }
 
-  // 不带动画：直接移除并刷新窗口
   if (!animate) {
-    notifications.value = notifications.value.filter((n) => n.id !== id)
-    cardRefs.value.delete(id)
-    scheduleHitRegionReport()
-    if (notifications.value.length === 0) {
-      closeWindow()
-    }
+    // 不带动画：直接移除并刷新窗口
+    doRemoveCard(id)
     return
   }
 
-  // 带动画：先记录老位置，做 FLIP，让剩余卡片掉下来
-  const oldRects = captureRects(false)
+  // 带动画：只切 `.leaving` class 让卡片在原位淡出滑出。
+  // 不做 fixed 定位 + transform 的 FLIP —— 透明全屏 WebView2 上改 DOM 定位
+  // 并强制重排会把 GPU 合成器卡死（toast 窗口冻结）；剩余卡片在移除后自然补位。
   item.leaving = true
   isAnimating.value = true
+  setTimeout(() => {
+    doRemoveCard(id)
+    isAnimating.value = false
+  }, LEAVE_ANIMATION_MS)
+}
 
-  nextTick(() => {
-    const leavingEl = cardRefs.value.get(id)
-    const oldRect = oldRects.get(id)
-
-    // 把要关闭的卡片固定在老位置，脱离文档流，腾出空间让上面的卡片掉下来
-    if (leavingEl && oldRect) {
-      leavingEl.style.position = 'fixed'
-      leavingEl.style.top = `${oldRect.top}px`
-      leavingEl.style.left = `${oldRect.left}px`
-      leavingEl.style.width = `${oldRect.width}px`
-      leavingEl.style.height = `${oldRect.height}px`
-      leavingEl.style.margin = '0'
-      leavingEl.style.zIndex = '10'
-      leavingEl.style.pointerEvents = 'none'
-    }
-
-    // 现在剩余卡片已经重新排布，记录新位置
-    const newRects = captureRects(true)
-
-    // 给剩余卡片加上反向偏移，让它们看起来还在老位置
-    for (const n of notifications.value) {
-      if (n.leaving) continue
-      const el = cardRefs.value.get(n.id)
-      const oldPos = oldRects.get(n.id)
-      const newPos = newRects.get(n.id)
-      if (!el || !oldPos || !newPos) continue
-
-      const dy = oldPos.top - newPos.top
-      if (Math.abs(dy) > 0.5) {
-        el.style.transition = 'none'
-        el.style.transform = `translateY(${dy}px)`
-      }
-    }
-
-    // 强制重排，让上面的 transform 先生效
-    stackRef.value?.offsetHeight
-
-    // 然后释放 transform，卡片就会从老位置平滑掉落到新位置
-    for (const n of notifications.value) {
-      if (n.leaving) continue
-      const el = cardRefs.value.get(n.id)
-      if (!el) continue
-      el.style.transition = ''
-      el.style.transform = ''
-    }
-
-    // 被关闭的卡片向右滑出并淡出
-    if (leavingEl) {
-      leavingEl.style.transition = 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease'
-      leavingEl.style.transform = 'translateX(120%)'
-      leavingEl.style.opacity = '0'
-    }
-
-    // 动画结束后真正从数据里移除，并调整窗口大小
-    setTimeout(() => {
-      notifications.value = notifications.value.filter((n) => n.id !== id)
-      cardRefs.value.delete(id)
-      isAnimating.value = false
-      scheduleHitRegionReport()
-      if (notifications.value.length === 0) {
-        closeWindow()
-      }
-    }, 350)
-  })
+/** 真正从数据里移除一张卡，刷新命中区域，空栈时关窗。 */
+function doRemoveCard(id: number) {
+  notifications.value = notifications.value.filter((n) => n.id !== id)
+  cardRefs.value.delete(id)
+  scheduleHitRegionReport()
+  if (notifications.value.length === 0) {
+    closeWindow()
+  }
 }
 
 async function closeWindow() {
@@ -1437,15 +1373,30 @@ async function handleUpdateInstall(item: ToastItem) {
   width: 100%;
   max-height: 100%;
   overflow-y: auto;
-  scrollbar-width: none;
+  overflow-x: hidden;
   /* overflow 会把卡片阴影裁掉；四边各借 16px padding 放阴影，
      负 margin 拉回，保证卡片宽度/窗口高度不变 */
   margin: -1rem;
   padding: 1rem;
 }
 
+/* 卡片超出窗口高度时的可见滚动条（透明全屏窗，竖条贴近右缘） */
+.toast-stack {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+}
 .toast-stack::-webkit-scrollbar {
-  display: none;
+  width: 10px;
+}
+.toast-stack::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toast-stack::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+}
+.toast-stack::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .toast-root.debug-bg {
@@ -1476,6 +1427,14 @@ async function handleUpdateInstall(item: ToastItem) {
 .toast-card.visible {
   transform: translateX(0) scale(1);
   opacity: 1;
+}
+
+/* 离场动画：只切 class，依赖 .toast-card 自带的 transition 淡出滑出。
+   不做 fixed 定位 / transform FLIP，避免透明全屏 WebView2 合成器冻结。 */
+.toast-card.leaving {
+  transform: translateX(120%) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Agent / permission / sdk / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
