@@ -636,15 +636,43 @@ fn close_reminder_window(
     app_handle: tauri::AppHandle,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) -> Result<(), String> {
+    log_info!(
+        "toast-win",
+        "close_reminder_window[{}] called (前端生命周期结束)",
+        label
+    );
     if let Some(window) = app_handle.get_webview_window(&label) {
         // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
         if label == window_manager::TOAST_WINDOW_LABEL
             || label == window_manager::POPUP_WINDOW_LABEL
         {
+            log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
             window_manager::hide_window_internal(&app_handle, &window);
+            let visible_after = window
+                .is_visible()
+                .unwrap_or(false);
+            log_info!(
+                "toast-win",
+                "close_reminder_window[{}] hide returned, tao is_visible={}",
+                label,
+                visible_after
+            );
         } else {
-            window.close().map_err(|e| e.to_string())?;
+            let r = window.close();
+            log_info!(
+                "toast-win",
+                "close_reminder_window[{}] window.close() ok={}",
+                label,
+                r.is_ok()
+            );
+            r.map_err(|e| e.to_string())?;
         }
+    } else {
+        log_warn!(
+            "toast-win",
+            "close_reminder_window[{}] window NOT FOUND (已被销毁?)",
+            label
+        );
     }
     if label == window_manager::FULLSCREEN_WINDOW_LABEL {
         fullscreen_active.store(false, Ordering::SeqCst);

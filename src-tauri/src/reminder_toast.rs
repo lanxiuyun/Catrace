@@ -8,8 +8,8 @@ use tokio::sync::Mutex;
 use tauri::{Emitter, Manager};
 
 use crate::{
-    accessibility_permission_granted, log_error, log_info, window_manager, ReminderWindowData,
-    ReminderWindowStore,
+    accessibility_permission_granted, log_error, log_info, log_warn, window_manager,
+    ReminderWindowData, ReminderWindowStore,
 };
 
 const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
@@ -36,9 +36,24 @@ static TOAST_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 /// 穿透轮询线程只启动一次。
 static HIT_POLL_STARTED: AtomicBool = AtomicBool::new(false);
 
+/// 穿透轮询：窗口句柄消失（窗口被销毁）与否，只在状态翻转时记日志。
+static HIT_POLL_WINDOW_MISSING: AtomicBool = AtomicBool::new(false);
+/// 穿透轮询：窗口可见性翻转记录（tao 缓存 vs 实际 Win32 可能不同步，靠日志观察）。
+static HIT_POLL_PREV_VISIBLE: AtomicBool = AtomicBool::new(false);
+
 /// 当前窗口的实际穿透状态（true=整窗穿透），穿透轮询与 show 路径共享，
 /// 避免两者各自维护状态导致不同步。
 static TOAST_IGNORING: AtomicBool = AtomicBool::new(true);
+
+/// 跨平台取窗口句柄描述（仅 Windows 有意义，macOS 返回占位）。
+#[cfg(target_os = "windows")]
+fn toast_hwnd_debug(window: &tauri::WebviewWindow) -> String {
+    format!("{:?}", window.hwnd())
+}
+#[cfg(not(target_os = "windows"))]
+fn toast_hwnd_debug(_window: &tauri::WebviewWindow) -> String {
+    "n/a".to_string()
+}
 
 /// 获取 HIT_RECTS 锁；容忍被污染（panic 后恢复），避免锁级联崩溃。
 fn hit_rects() -> std::sync::MutexGuard<'static, Vec<HitRect>> {
@@ -48,13 +63,16 @@ fn hit_rects() -> std::sync::MutexGuard<'static, Vec<HitRect>> {
 /// 前端上报可交互区域（窗口内逻辑坐标）。
 #[tauri::command]
 pub fn set_toast_hit_regions(rects: Vec<HitRect>) {
-    {
+    let changed = {
         let mut guard = hit_rects();
         if *guard == rects {
             return;
         }
+        let len = rects.len();
         *guard = rects;
-    }
+        len
+    };
+    log_info!("toast-win", "hit regions updated: {} rects", changed);
 }
 
 /// 穿透轮询线程入口：捕获内层 panic 后自动重启，避免丢失穿透控制。
@@ -91,10 +109,28 @@ fn hit_poll_loop_inner() {
             continue;
         };
         let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) else {
+            if !HIT_POLL_WINDOW_MISSING.swap(true, Ordering::SeqCst) {
+                log_warn!(
+                    "toast-win",
+                    "hit-poll: toast window GONE from app (destroyed?), poll goes dormant"
+                );
+            }
             continue;
         };
+        if HIT_POLL_WINDOW_MISSING.swap(false, Ordering::SeqCst) {
+            log_info!("toast-win", "hit-poll: toast window present again (rebuilt)");
+        }
 
         let visible = window.is_visible().unwrap_or(false);
+        let prev_visible = HIT_POLL_PREV_VISIBLE.swap(visible, Ordering::SeqCst);
+        if prev_visible != visible {
+            log_info!(
+                "toast-win",
+                "hit-poll: visible {} -> {} (tao is_visible)",
+                prev_visible,
+                visible
+            );
+        }
         let ignoring = TOAST_IGNORING.load(Ordering::SeqCst);
 
         if !visible {
@@ -203,15 +239,40 @@ fn fit_toast_window_to_cursor_monitor(
     Ok(())
 }
 
+/// 挂载 Toast 窗口生命周期诊断日志：窗口是否被真正销毁（前端兜底 close 会走这条路），
+/// 以及是否收到意外的 CloseRequested。
+fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
+    window.on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::CloseRequested { .. } => {
+                log_warn!(
+                    "toast-win",
+                    "on_window_event: CloseRequested (前端可能兜底调了 webview.close())"
+                );
+            }
+            tauri::WindowEvent::Destroyed => {
+                log_warn!(
+                    "toast-win",
+                    "on_window_event: Destroyed — 窗口已销毁，下次显示会重建"
+                );
+            }
+            _ => {}
+        }
+    });
+}
+
 /// 在应用启动时预创建 Toast 窗口（隐藏），避免通知到达时才动态创建导致抢焦点。
 /// 同时启动穿透轮询线程（全局仅一次）。
 pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
+    log_info!("toast-win", "prepare: start");
     let _ = TOAST_APP_HANDLE.set(app_handle.clone());
     if !HIT_POLL_STARTED.swap(true, Ordering::SeqCst) {
+        log_info!("toast-win", "prepare: spawning hit-poll thread");
         thread::spawn(hit_poll_loop);
     }
 
     if app_handle.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+        log_info!("toast-win", "prepare: window already exists, skip build");
         return;
     }
 
@@ -240,12 +301,23 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
 
         match builder.build() {
             Ok(window) => {
+                log_info!("toast-win", "prepare: built fresh window");
+                attach_toast_diagnostics(&window);
                 // 全屏铺满光标所在屏，默认整窗穿透
-                let _ = fit_toast_window_to_cursor_monitor(&window, &app);
+                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                    log_error!("toast-win", "prepare: fit failed: {}", e);
+                }
                 TOAST_IGNORING.store(true, Ordering::SeqCst);
                 let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 // Windows 上 .visible(false) 偶尔不会立即生效，创建后再显式 hide 一次作为防御
-                let _ = window.hide();
+                let hide_ok = window.hide().is_ok();
+                let visible_after = window.is_visible().unwrap_or(false);
+                log_info!(
+                    "toast-win",
+                    "prepare: hide ok={} visible_after={}",
+                    hide_ok,
+                    visible_after
+                );
             }
             Err(e) => {
                 log_error!("toast-win", "prepare failed: {}", e);
@@ -267,25 +339,40 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
     let app = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         let _guard = TOAST_MUTEX.lock().await;
+        log_info!("toast-win", "ensure: acquired TOAST_MUTEX");
 
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
             if window.is_visible().unwrap_or(false) {
+                log_info!("toast-win", "ensure: already visible (double-check under lock), skip");
                 return;
             }
+            log_info!(
+                "toast-win",
+                "ensure: reuse existing window, hwnd={}",
+                toast_hwnd_debug(&window)
+            );
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; if (!location.hash.includes('reminder-toast')) { location.hash = '#/reminder-toast'; }";
             let _ = window.eval(route_js);
             // 光标可能已换屏：重新铺满光标所在屏；show 前强制回到整窗穿透态，
             // 避免窗口刚出现时吞掉整屏点击（卡片可交互由穿透轮询接管）。
-            let _ = fit_toast_window_to_cursor_monitor(&window, &app);
+            if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                log_error!("toast-win", "ensure: reuse fit failed: {}", e);
+            }
             TOAST_IGNORING.store(true, Ordering::SeqCst);
             let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
             window_manager::show_reminder_no_activate(&app, &window);
+            log_info!("toast-win", "ensure: shown (reuse path)");
             return;
         }
 
         if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            log_info!("toast-win", "ensure: window appeared between checks, skip");
             return;
         }
+        log_warn!(
+            "toast-win",
+            "ensure: window does NOT exist — previous instance destroyed, rebuilding"
+        );
 
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
@@ -309,14 +396,23 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
 
         match builder.build() {
             Ok(window) => {
-                let _ = fit_toast_window_to_cursor_monitor(&window, &app);
+                log_info!("toast-win", "ensure: built fresh window (rebuild path)");
+                attach_toast_diagnostics(&window);
+                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                    log_error!("toast-win", "ensure: build fit failed: {}", e);
+                }
                 TOAST_IGNORING.store(true, Ordering::SeqCst);
                 let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
-                let _ = window.eval(route_js);
+                let eval_ok = window.eval(route_js).is_ok();
+                log_info!(
+                    "toast-win",
+                    "ensure: rebuild path route eval ok={}",
+                    eval_ok
+                );
             }
             Err(e) => {
                 log_error!("toast-win", "build failed: {}", e);
@@ -362,6 +458,7 @@ pub fn create_toast_window(
         // 窗口已存在：前端会在 adjustWindowSize 里自己贴到当前显示器右下角，
         // Rust 端只需追加通知并显示，避免两边 reposition 打架。
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            log_info!("toast-win", "create_toast_window: reuse, injecting kind={}", data.kind);
             let payload = serde_json::json!({
                 "kind": data.kind,
                 "boundary": data.boundary,
@@ -377,14 +474,20 @@ pub fn create_toast_window(
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
             let _ = window.eval(route_js);
             window_manager::show_reminder_no_activate(&app, &window);
+            log_info!("toast-win", "create_toast_window: shown (reuse path)");
             return;
         }
 
         // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
         // 加锁期间二次检查，避免重复创建窗口
         if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
+            log_info!("toast-win", "create_toast_window: appeared between checks, skip");
             return;
         }
+        log_warn!(
+            "toast-win",
+            "create_toast_window: window missing — legacy fallback creating fresh"
+        );
 
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
@@ -408,7 +511,11 @@ pub fn create_toast_window(
 
         match builder.build() {
             Ok(window) => {
-                let _ = fit_toast_window_to_cursor_monitor(&window, &app);
+                log_info!("toast-win", "create_toast_window: built fresh window");
+                attach_toast_diagnostics(&window);
+                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                    log_error!("toast-win", "create_toast_window: fit failed: {}", e);
+                }
                 TOAST_IGNORING.store(true, Ordering::SeqCst);
                 let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 window_manager::show_reminder_no_activate(&app, &window);
@@ -437,6 +544,14 @@ pub fn dismiss_agent_session_toast(app_handle: &tauri::AppHandle, session_id: &s
 
 fn try_publish_toast_event(app_handle: &tauri::AppHandle, event: crate::event::BusEvent) -> bool {
     use tauri::Manager;
+    log_info!(
+        "toast-win",
+        "bus.publish event_type={} kind={} sticky={:?} dedupe={:?}",
+        event.event_type,
+        event.kind,
+        event.sticky,
+        event.dedupe_key
+    );
     if let Some(bus) = app_handle.try_state::<crate::bus::EventBus>() {
         match bus.inner().publish(event) {
             Ok(_) => true,

@@ -10,6 +10,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_NOACTIVATE, WS_EX_TRANSPARENT, SWP_NOACTIVATE, SWP_SHOWWINDOW,
 };
 
+use crate::{log_info, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
 fn window_hwnd(window: &WebviewWindow<tauri::Wry>) -> Option<HWND> {
@@ -53,11 +54,17 @@ fn ensure_hit_test_subclass(window: &WebviewWindow<tauri::Wry>) {
         return;
     }
     unsafe {
-        let _ = SetWindowSubclass(
+        let r = SetWindowSubclass(
             hwnd,
             Some(toast_hit_test_proc),
             TOAST_HITTEST_SUBCLASS_ID,
             0,
+        );
+        log_info!(
+            "toast-win",
+            "ensure_hit_test_subclass: hwnd={:?} ok={}",
+            hwnd,
+            r.as_bool()
         );
     }
     TOAST_HITTEST_SUBCLASSED.store(true, Ordering::SeqCst);
@@ -76,8 +83,19 @@ fn cast_to_wry<R: Runtime>(window: &WebviewWindow<R>) -> &WebviewWindow<tauri::W
 /// （= 一移到卡片上窗口就消失），并丢掉 `WS_EX_LAYERED` 破坏透明。
 pub fn set_ignore_cursor_events_raw(window: &WebviewWindow<tauri::Wry>, ignore: bool) {
     ensure_hit_test_subclass(window);
+    let prev = TOAST_PASSTHROUGH.load(Ordering::SeqCst);
     TOAST_PASSTHROUGH.store(ignore, Ordering::SeqCst);
+    if prev != ignore {
+        log_info!(
+            "toast-win",
+            "passthrough {} -> {} ({})",
+            prev,
+            ignore,
+            window.label()
+        );
+    }
     let Some(hwnd) = window_hwnd(window) else {
+        log_warn!("toast-win", "set_ignore: no hwnd for {}", window.label());
         return;
     };
     unsafe {
@@ -91,8 +109,8 @@ pub fn set_ignore_cursor_events_raw(window: &WebviewWindow<tauri::Wry>, ignore: 
             new_style & !(WS_EX_TRANSPARENT.0 as isize)
         };
         if new_style != style {
-            let _ = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style);
-            let _ = SetWindowPos(
+            let prev_style = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style);
+            let p_ok = SetWindowPos(
                 hwnd,
                 Some(HWND(std::ptr::null_mut())),
                 0,
@@ -100,6 +118,14 @@ pub fn set_ignore_cursor_events_raw(window: &WebviewWindow<tauri::Wry>, ignore: 
                 0,
                 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            )
+            .is_ok();
+            log_info!(
+                "toast-win",
+                "set_ignore: ext-style update ignore={} prev_style={:#x} pos_ok={}",
+                ignore,
+                prev_style,
+                p_ok
             );
         }
     }
@@ -150,8 +176,16 @@ fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
     if let Some(hwnd) = window_hwnd(window) {
         unsafe {
             apply_no_activate_style(hwnd);
-            let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            let prev = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+            log_info!(
+                "toast-win",
+                "ShowWindow(SW_SHOWNOACTIVATE) hwnd={:?} prev_visible={}",
+                hwnd,
+                prev.as_bool()
+            );
         }
+    } else {
+        log_warn!("toast-win", "show_no_activate: no hwnd");
     }
     let _ = window.unminimize();
 }
@@ -163,11 +197,13 @@ pub fn show_window_internal<R: Runtime>(
     no_activate: bool,
     _pinned: bool,
 ) {
+    let label = window.label().to_string();
     if !is_reminder_window(window) {
         shared_show_window(window);
         return;
     }
 
+    log_info!("toast-win", "show_internal[{}] no_activate={}", label, no_activate);
     let wry_window = cast_to_wry(window);
     if no_activate {
         show_no_activate(wry_window);
@@ -177,6 +213,13 @@ pub fn show_window_internal<R: Runtime>(
         }
         shared_show_window(window);
     }
+    let visible_now = window.is_visible().unwrap_or(false);
+    log_info!(
+        "toast-win",
+        "show_internal[{}] end, tao is_visible={}",
+        label,
+        visible_now
+    );
 }
 
 /// 内部实现：隐藏窗口
@@ -184,14 +227,31 @@ pub fn hide_window_internal<R: Runtime>(
     _app_handle: &AppHandle<R>,
     window: &WebviewWindow<R>,
 ) {
+    let label = window.label().to_string();
     if is_reminder_window(window) {
+        log_info!("toast-win", "hide_internal[{}] start", label);
         shared_hide_window(window);
         let wry_window = cast_to_wry(window);
         if let Some(hwnd) = window_hwnd(wry_window) {
             unsafe {
-                let _ = ShowWindow(hwnd, SW_HIDE);
+                let prev = ShowWindow(hwnd, SW_HIDE);
+                log_info!(
+                    "toast-win",
+                    "ShowWindow(SW_HIDE) hwnd={:?} prev_visible={}",
+                    hwnd,
+                    prev.as_bool()
+                );
             }
+        } else {
+            log_warn!("toast-win", "hide_internal[{}] no hwnd", label);
         }
+        let visible_now = window.is_visible().unwrap_or(false);
+        log_info!(
+            "toast-win",
+            "hide_internal[{}] end, tao is_visible={}",
+            label,
+            visible_now
+        );
     } else {
         shared_hide_window(window);
     }
