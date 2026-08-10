@@ -181,8 +181,9 @@ const REST_POLL_MS = 2000
 const REST_TIMER_REMOVE_DELAY_MS = 4000
 
 const AUTO_HIDE_MS = 8000
-/** 卡片离场动画时长（与 CSS .toast-card.leaving 的 transition 一致）。 */
-const LEAVE_ANIMATION_MS = 350
+/** 卡片离场后移除时机：等 opacity 淡完（0.25s）即视为不可见，立即移除让剩余卡片掉落；
+ *  transform 0.35s 滑出屏幕后的尾部已不可见，无需等待，避免「隐形卡占位」造成的掉卡延迟。 */
+const LEAVE_ANIMATION_MS = 250
 /** 滚动条宽度（与 CSS .toast-stack::-webkit-scrollbar 一致），用于命中区域。 */
 const TOAST_SCROLLBAR_W = 10
 /** Clamp plugin/sdk payload auto-hide (ms). 0 only valid when sticky. */
@@ -1238,6 +1239,7 @@ async function handleUpdateInstall(item: ToastItem) {
         class="toast-card"
         :class="{
           visible: item.visible,
+          leaving: item.leaving,
           'toast-card-timer': item.kind === 'timer',
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
@@ -1438,9 +1440,12 @@ async function handleUpdateInstall(item: ToastItem) {
 /* 离场动画：只切 class，依赖 .toast-card 自带的 transition 淡出滑出。
    不做 fixed 定位 / transform FLIP，避免透明全屏 WebView2 合成器冻结。 */
 .toast-card.leaving {
-  transform: translateX(120%) scale(0.96);
+  transform: translateX(120%);
   opacity: 0;
   pointer-events: none;
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease;
 }
 
 /* Agent / permission / sdk / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
