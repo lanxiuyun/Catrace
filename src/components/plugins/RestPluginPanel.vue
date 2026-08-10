@@ -126,9 +126,12 @@ defineExpose({
 </script>
 
 <template>
-  <plugin-section :title="t('plugins.rest.timingSection')" :description="t('plugins.rest.timingSectionDesc')">
+  <plugin-section :title="t('plugins.rest.timingSection')">
     <div class="event-row">
-      <span class="event-name">{{ t('plugins.rest.windowTitle') }}</span>
+      <div class="event-label">
+        <span class="event-name">{{ t('plugins.rest.windowTitle') }}</span>
+        <span class="event-desc">{{ t('plugins.rest.windowDesc') }}</span>
+      </div>
       <div class="slider-value-row">
         <n-slider
           v-model:value="config.window_minutes"
@@ -142,7 +145,10 @@ defineExpose({
       </div>
     </div>
     <div class="event-row">
-      <span class="event-name">{{ t('plugins.rest.breakTitle') }}</span>
+      <div class="event-label">
+        <span class="event-name">{{ t('plugins.rest.breakTitle') }}</span>
+        <span class="event-desc">{{ t('plugins.rest.breakDesc') }}</span>
+      </div>
       <div class="slider-value-row">
         <n-slider
           v-model:value="config.break_minutes"
@@ -156,7 +162,10 @@ defineExpose({
       </div>
     </div>
     <div class="event-row">
-      <span class="event-name">{{ t('plugins.rest.snoozeTitle') }}</span>
+      <div class="event-label">
+        <span class="event-name">{{ t('plugins.rest.snoozeTitle') }}</span>
+        <span class="event-desc">{{ t('plugins.rest.snoozeDesc') }}</span>
+      </div>
       <div class="slider-value-row">
         <n-slider
           v-model:value="config.snooze_interval_minutes"
@@ -222,9 +231,22 @@ defineExpose({
   align-items: flex-start;
 }
 
+.event-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
 .event-name {
   font-size: 0.8125rem;
   color: #334155;
+}
+
+.event-desc {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.4;
 }
 
 .slider-value-row {
