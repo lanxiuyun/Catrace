@@ -18,3 +18,4 @@ toast window 光标穿透，并且能交互卡片（已完成）
 优化toast卡片的消失速度（已完成）
 toast window 使用 n-scrollbar 来显示滚动高度(已废弃，当前版本的滚动区域更简洁。)
 优化sms插件描述
+测试 toast window 弹出是否会影响全屏游戏
