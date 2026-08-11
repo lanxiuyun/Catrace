@@ -23,7 +23,7 @@ pub enum SpecialDayCategory {
 #[derive(Clone, serde::Serialize)]
 pub struct SpecialDayTheme {
     pub category: SpecialDayCategory,
-    /// 标签文字，如「历史铭记」「生活致敬」
+    /// 标签文字，如「历史铭记」「生活节日」
     pub tag: &'static str,
     /// 图标 emoji
     pub icon: &'static str,
@@ -171,52 +171,52 @@ fn special_day_theme_for(month: u32, day: u32, locale: &str) -> Option<SpecialDa
 
 fn zh_special_day_theme(month: u32, day: u32) -> Option<SpecialDayTheme> {
     Some(match (month, day) {
-        // —— 节日 / 生活致敬 ——
+        // —— 节日 / 生活节日 ——
         (1, 1) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "🎊",
             title: "元旦",
             body: "新的一年，也别忘了站起来走走。",
         },
         (3, 8) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "🌸",
             title: "国际妇女节",
             body: "不被定义，自有光芒。愿你成为自己的风暴，也成为自己的港湾。",
         },
         (4, 1) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "🃏",
             title: "愚人节",
             body: "认真工作，偶尔也开个无伤大雅的玩笑。",
         },
         (5, 1) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "🛠️",
             title: "劳动节",
             body: "休息也是生产力的一部分，今天也请善待自己。",
         },
         (5, 4) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "⚡",
             title: "五四青年节",
             body: "青春无关年龄，在于心底的那份热忱。保持好奇，无畏前行。",
         },
         (6, 1) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "🎈",
             title: "儿童节",
             body: "心里住着个小孩，工作也会轻松点。",
         },
         (10, 1) => SpecialDayTheme {
             category: SpecialDayCategory::Life,
-            tag: "生活致敬",
+            tag: "生活节日",
             icon: "flag-cn",
             title: "国庆节",
             body: "山河无恙，家国安宁。愿你今天也有片刻舒展。",
