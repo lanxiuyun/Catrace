@@ -97,21 +97,6 @@ export async function testNotification(): Promise<void> {
   return invoke('test_notification')
 }
 
-export interface SpecialDayDate {
-  month: number
-  day: number
-}
-
-/** Debug：获取所有已配置特殊日日期列表 */
-export async function getSpecialDayDates(): Promise<SpecialDayDate[]> {
-  return invoke('get_special_day_dates')
-}
-
-/** Debug：强制弹出指定月/日的特殊日彩蛋 toast */
-export async function testSpecialDayToast(month: number, day: number): Promise<void> {
-  return invoke('test_special_day_toast', { month, day })
-}
-
 /** 开始循环测试通知，每隔 intervalSeconds 秒触发一次 */
 export async function startNotificationTest(intervalSeconds: number): Promise<void> {
   return invoke('start_notification_test', { intervalSeconds })

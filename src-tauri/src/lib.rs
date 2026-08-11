@@ -330,22 +330,6 @@ fn set_toast_debug_mode(
         .map_err(|e| e.to_string())
 }
 
-/// Debug：获取所有已配置特殊日日期列表。
-#[tauri::command]
-fn get_special_day_dates() -> Vec<special_day::SpecialDayDate> {
-    special_day::special_day_dates()
-}
-
-/// Debug：强制弹出指定月/日的特殊日彩蛋 toast。
-#[tauri::command]
-fn test_special_day_toast(app_handle: tauri::AppHandle, db: tauri::State<db::Db>, month: u32, day: u32) {
-    let locale = db.get_setting("locale", "zh-CN");
-    let Some(theme) = special_day::preview_special_day_theme(month, day, &locale) else {
-        return;
-    };
-    let _ = special_day::publish_special_day_toast(&app_handle, &theme);
-}
-
 #[tauri::command]
 fn get_today_stats(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
     let (active, rest) = db.get_today_stats().map_err(|e| e.to_string())?;
@@ -1193,8 +1177,6 @@ pub fn run() {
             get_today_records,
             get_app_stats,
             rest_plugin::test_notification,
-            test_special_day_toast,
-            get_special_day_dates,
             rest_plugin::start_notification_test,
             rest_plugin::stop_notification_test,
             get_media_debug_info,

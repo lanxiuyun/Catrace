@@ -33,31 +33,6 @@ pub struct SpecialDayTheme {
     pub body: &'static str,
 }
 
-/// 特殊日日期（供前端选择器使用）。
-#[derive(serde::Serialize)]
-pub struct SpecialDayDate {
-    pub month: u32,
-    pub day: u32,
-}
-
-/// 返回所有已配置特殊日的列表。
-pub fn special_day_dates() -> Vec<SpecialDayDate> {
-    vec![
-        SpecialDayDate { month: 1, day: 1 },
-        SpecialDayDate { month: 3, day: 8 },
-        SpecialDayDate { month: 4, day: 1 },
-        SpecialDayDate { month: 5, day: 1 },
-        SpecialDayDate { month: 5, day: 4 },
-        SpecialDayDate { month: 6, day: 1 },
-        SpecialDayDate { month: 7, day: 7 },
-        SpecialDayDate { month: 8, day: 15 },
-        SpecialDayDate { month: 9, day: 3 },
-        SpecialDayDate { month: 9, day: 18 },
-        SpecialDayDate { month: 10, day: 1 },
-        SpecialDayDate { month: 12, day: 13 },
-    ]
-}
-
 /// 若今天是已知特殊日，返回完整主题；否则 None。
 pub fn today_special_day_theme(locale: &str) -> Option<SpecialDayTheme> {
     let now = Local::now().date_naive();
@@ -100,11 +75,6 @@ pub fn show_special_day_notification(app_handle: &tauri::AppHandle, locale: &str
     if publish_special_day_toast(app_handle, &theme) {
         let _ = db.set_setting("special_day_toast_shown_date", &today);
     }
-}
-
-/// 强制预览指定月/日的特殊日彩蛋（Debug 用）。
-pub fn preview_special_day_theme(month: u32, day: u32, locale: &str) -> Option<SpecialDayTheme> {
-    special_day_theme_for(month, day, locale)
 }
 
 /// 经 Event Bus 下发 kind=special 的 sticky toast。
