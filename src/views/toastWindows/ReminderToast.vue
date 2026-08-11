@@ -28,6 +28,7 @@ import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
 import SdkToastCard from '../../components/SdkToastCard.vue'
+import SpecialDayToastCard from '../../components/SpecialDayToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
 import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
 import type { EventAction, EventLevel, EventProgress } from '../../types/event'
@@ -44,6 +45,7 @@ const BUILTIN_TOAST_KINDS = [
   'agent',
   'permission',
   'sdk',
+  'special',
 ] as const
 type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
 /** Builtin kinds plus external plugin kinds (string). */
@@ -104,6 +106,10 @@ interface ToastItem {
   uiUrl?: string
   // timer rule id from payload
   ruleId?: string
+  // special-day fields
+  specialTag?: string
+  specialIcon?: string
+  specialCategory?: 'history' | 'life'
 }
 
 function resolveAutoHideMs(event: BusEvent | undefined | null, sticky: boolean): number {
@@ -708,10 +714,22 @@ function handleBusEvent(event: BusEvent) {
         if (typeof p.rule_id === 'string') existing.ruleId = p.rule_id
         if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       }
+      if (kind === 'special') {
+        existing.sticky = true
+        existing.specialTag = typeof p.tag === 'string' ? p.tag : existing.specialTag
+        existing.specialIcon = typeof p.icon === 'string' ? p.icon : existing.specialIcon
+        if (p.category === 'history' || p.category === 'life') {
+          existing.specialCategory = p.category
+        }
+        stopTimer(existing)
+        existing.remainingMs = 0
+        existing.totalMs = 0
+      }
       // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
       const stickyPlugin = isPluginEvent && !!event.sticky
       if (
         kind !== 'permission' &&
+        kind !== 'special' &&
         !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) &&
         kind !== 'update' &&
         !(kind === 'sdk' && event.sticky) &&
@@ -760,6 +778,12 @@ function handleBusEvent(event: BusEvent) {
     pluginId,
     uiUrl: pluginHandle?.uiUrl,
     ruleId: typeof p.rule_id === 'string' ? p.rule_id : undefined,
+    tag: typeof p.tag === 'string' ? p.tag : undefined,
+    icon: typeof p.icon === 'string' ? p.icon : undefined,
+    category:
+      p.category === 'history' || p.category === 'life'
+        ? p.category
+        : undefined,
   })
 }
 
@@ -833,6 +857,9 @@ async function addNotification(payload: {
   pluginId?: string
   uiUrl?: string
   ruleId?: string
+  tag?: string
+  icon?: string
+  category?: 'history' | 'life'
 }) {
   // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
   if (payload.kind === 'permission') {
@@ -908,7 +935,8 @@ async function addNotification(payload: {
   const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const isPluginSticky = !!payload.pluginId && !!payload.sticky
-  const isSticky = isUpdate || isAgentSticky || isSdkSticky || isPluginSticky
+  const isSpecial = payload.kind === 'special'
+  const isSticky = isUpdate || isAgentSticky || isSdkSticky || isPluginSticky || isSpecial
   const autoHideMs = isSticky
     ? 0
     : resolveAutoHideMs(payload.busEvent, false)
@@ -933,7 +961,7 @@ async function addNotification(payload: {
     downloadReceived: 0,
     event: payload.event,
     agentState: payload.agentState,
-    sticky: isAgentSticky || isSdkSticky || isPluginSticky,
+    sticky: isAgentSticky || isSdkSticky || isPluginSticky || isSpecial,
     agentEntries: isAgent
       ? [{
           event: payload.event || '',
@@ -954,6 +982,9 @@ async function addNotification(payload: {
     pluginId: payload.pluginId,
     uiUrl: payload.uiUrl,
     ruleId: payload.ruleId,
+    specialTag: payload.tag,
+    specialIcon: payload.icon,
+    specialCategory: payload.category,
   }
 
   // 新通知加到底部（数组末尾）
@@ -1008,8 +1039,8 @@ function stopTimer(item: ToastItem) {
 }
 
 function handleMouseEnter(item: ToastItem) {
-  // 休息计时 / sticky / permission 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  // 休息计时 / sticky / permission / 特殊日 卡片不依赖 hover 控制生命周期
+  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'special' || item.sticky) return
   // 只允许一张卡处于 hover 态：整窗穿透时 WebView 可能漏发 mouseleave，
   // 导致多张卡同时 isHovered=true，一个 hover-exit 事件会删掉一整堆。
   for (const n of notifications.value) {
@@ -1022,7 +1053,7 @@ function handleMouseEnter(item: ToastItem) {
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.sticky) return
+  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'special' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -1246,6 +1277,7 @@ async function handleUpdateInstall(item: ToastItem) {
           'toast-card-agent': item.kind === 'agent',
           'toast-card-permission': item.kind === 'permission',
           'toast-card-sdk': item.kind === 'sdk',
+          'toast-card-special': item.kind === 'special',
           'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
         }"
         :style="item.totalMs > 0 ? { '--toast-auto-hide-ms': `${item.totalMs}ms` } : undefined"
@@ -1299,6 +1331,16 @@ async function handleUpdateInstall(item: ToastItem) {
           :body="item.body"
           :rest-streak="item.restStreak"
           :break-minutes="item.breakMinutes"
+          @close="handleClose(item)"
+        />
+
+        <SpecialDayToastCard
+          v-else-if="item.kind === 'special'"
+          :title="item.title"
+          :body="item.body"
+          :tag="item.specialTag || ''"
+          :icon="item.specialIcon || ''"
+          :category="item.specialCategory || 'life'"
           @close="handleClose(item)"
         />
 
@@ -1453,6 +1495,15 @@ async function handleUpdateInstall(item: ToastItem) {
 .toast-card-permission,
 .toast-card-sdk {
   min-height: auto;
+}
+
+.toast-card-special {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
 }
 
 /* Agent notification theming — dynamic per event */

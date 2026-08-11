@@ -14,6 +14,7 @@ import {
   NAlert,
   NSwitch,
   NInputNumber,
+  NSelect,
 } from 'naive-ui'
 import {
   getMediaDebugInfo,
@@ -22,6 +23,9 @@ import {
   setToastDebugMode,
   startNotificationTest,
   stopNotificationTest,
+  getSpecialDayDates,
+  testSpecialDayToast,
+  type SpecialDayDate,
   getRecentSignalMinutes,
   getSignalRuntimeConfig,
   type SignalMinuteRecord,
@@ -38,11 +42,21 @@ const errorMsg = ref<string | null>(null)
 const toastDebugMode = ref(false)
 const testRunning = ref(false)
 const testInterval = ref(15)
+const specialDayDate = ref('8-15')
+const specialDayDates = ref<SpecialDayDate[]>([])
 const signalMinutes = ref<SignalMinuteRecord[]>([])
 const signalRuntime = ref<SignalRuntimeConfig | null>(null)
 const signalError = ref<string | null>(null)
 let mounted = true
 let timer: ReturnType<typeof setTimeout> | null = null
+
+async function loadSpecialDayDates() {
+  try {
+    specialDayDates.value = await getSpecialDayDates()
+  } catch (e: any) {
+    console.error(e)
+  }
+}
 
 async function loadToastDebugMode() {
   try {
@@ -74,6 +88,15 @@ async function stopTest() {
   try {
     await stopNotificationTest()
     testRunning.value = false
+  } catch (e: any) {
+    console.error(e)
+  }
+}
+
+async function previewSpecialDayToast() {
+  try {
+    const [month, day] = specialDayDate.value.split('-').map(Number)
+    await testSpecialDayToast(month, day)
   } catch (e: any) {
     console.error(e)
   }
@@ -137,6 +160,7 @@ onActivated(() => {
   mounted = true
   startRefreshLoop()
   loadToastDebugMode()
+  loadSpecialDayDates()
 })
 
 onDeactivated(() => {
@@ -190,6 +214,21 @@ onDeactivated(() => {
             type="error"
             @click="stopTest"
           >{{ t('debug.notificationTest.stop') }}</n-button>
+          <n-space align="center" :size="8">
+            <span class="debug-switch-label">特殊日预览</span>
+            <n-select
+              v-model:value="specialDayDate"
+              :options="specialDayDates.map((d) => ({
+                label: `${d.month}月${d.day}日`,
+                value: `${d.month}-${d.day}`,
+              }))"
+              style="width: 8rem"
+              size="small"
+            />
+            <n-button size="small" secondary @click="previewSpecialDayToast">
+              预览
+            </n-button>
+          </n-space>
         </n-space>
       </n-card>
 

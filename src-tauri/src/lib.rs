@@ -5,6 +5,7 @@ mod event;
 mod event_http;
 mod log;
 mod media_audio;
+mod special_day;
 mod plugin_api;
 mod plugin_commands;
 mod plugin_config;
@@ -327,6 +328,22 @@ fn set_toast_debug_mode(
     // 通过 Tauri 事件广播状态变更，Toast 窗口前端监听并实时更新背景
     app.emit("catrace-toast-debug-changed", enabled)
         .map_err(|e| e.to_string())
+}
+
+/// Debug：获取所有已配置特殊日日期列表。
+#[tauri::command]
+fn get_special_day_dates() -> Vec<special_day::SpecialDayDate> {
+    special_day::special_day_dates()
+}
+
+/// Debug：强制弹出指定月/日的特殊日彩蛋 toast。
+#[tauri::command]
+fn test_special_day_toast(app_handle: tauri::AppHandle, db: tauri::State<db::Db>, month: u32, day: u32) {
+    let locale = db.get_setting("locale", "zh-CN");
+    let Some(theme) = special_day::preview_special_day_theme(month, day, &locale) else {
+        return;
+    };
+    let _ = special_day::publish_special_day_toast(&app_handle, &theme);
 }
 
 #[tauri::command]
@@ -1085,6 +1102,15 @@ pub fn run() {
                         &fullscreen_active_for_settle,
                         &event_bus_for_settle,
                     );
+
+                    // 特殊日彩蛋（6–20 点且当天未弹过时弹出一次）
+                    if active {
+                        special_day::show_special_day_notification(
+                            &app_handle,
+                            &locale,
+                            &db_clone,
+                        );
+                    }
                 }
             });
 
@@ -1167,6 +1193,8 @@ pub fn run() {
             get_today_records,
             get_app_stats,
             rest_plugin::test_notification,
+            test_special_day_toast,
+            get_special_day_dates,
             rest_plugin::start_notification_test,
             rest_plugin::stop_notification_test,
             get_media_debug_info,
