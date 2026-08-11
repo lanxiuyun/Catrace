@@ -260,8 +260,10 @@ reference:
   - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
+  - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 decisions:
+  - .agent/decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md
   - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
   - .agent/decisions/2026-07-29-外部插件设置优先卡片内联编辑而非-NModal.md
   - .agent/decisions/2026-07-27-插件详情边距由宿主统一-不再用-PluginPanelShell.md
@@ -323,6 +325,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-11-插件抽离catrace-plugin仓库与文档skill.md
   - .agent/devlog/2026-08-11-toast全屏覆盖与点击穿透.md
   - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
   - .agent/devlog/2026-08-03-Step4-S4.1本地文件夹与zip安装插件.md
@@ -345,6 +348,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
-  phase: S4.1 本地安装完成；sidecar Job Object 兜底完成（2026-08-08）；Toast 全屏覆盖 + 点击穿透完成（2026-08-11）
-  next: S4.1 真机手测；或 S4.2 第三方插件 zip/打包约定文档；多屏/DPI 下 Toast 覆盖层真机复核
+  plan: .agent/architecture/desktop-event-os/README.md
+  phase: Step 2–4 已全部关账；插件抽离 catrace-plugin 仓库 + submodule 挂载（2026-08-11）
+  next: Step 4+：M14 试点 / 市场评估 / AI（更后）；多屏/DPI 下 Toast 覆盖层真机复核；推送宿主 catraceV2 与插件仓库 docs 提交

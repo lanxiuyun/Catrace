@@ -35,7 +35,7 @@ src/
 ├── plugins/registerBuiltins.ts / loadExternalPlugins.ts  # Blob 加载 ui.mjs
 ├── types/event.ts
 tools/event-sdk/              # M9 generic publish
-tools/plugin-demo/            # M10/M11 demo + M15 sidecar-echo
+tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodule → catrace-plugin）
 ```
 
 ## 文档索引
