@@ -44,7 +44,7 @@
 
 ## What it does
 
-In one sentence: install Catrace and a helpful little assistant sits in the corner of your screen. It reminds you to take a break and shows you notifications that matter to you — all as cards popping up in the bottom-right corner, without interrupting what you're doing.
+**Catrace** pops up cards in the bottom-right corner with what you need to know — it reminds you to take a break from sitting too long, and plugins push updates (AI activity, GitHub, phone messages).
 
 Ready to use out of the box:
 
