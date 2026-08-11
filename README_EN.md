@@ -44,46 +44,43 @@
 
 ## What it does
 
-Catrace shows desktop notifications as unified cards — reminding you to take a break, surfacing your AI agents' latest activity, and forwarding notifications from your phone or community apps, all collected into the notification cards in the bottom-right corner of your screen. Built-in plugins work out of the box, and you can install external plugins to extend it — without interrupting your focus.
+In one sentence: install Catrace and a helpful little assistant sits in the corner of your screen. It reminds you to take a break and shows you notifications that matter to you — all as cards popping up in the bottom-right corner, without interrupting what you're doing.
 
-**Built-in plugins:**
+Ready to use out of the box:
 
-- **Rest reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It doesn't screenshot your screen or read what you're doing — it only quietly checks whether your mouse has moved or keyboard has been tapped, and reminds you to stand up and take a break when you've been working continuously for too long. Two reminder modes: floating notification cards and a full-screen overlay.
-- **Agent notifications** — If you're a heavy AI coding user, it keeps an eye on agents like Claude Code, Codex, Gemini CLI, and Kimi for you, and lets you approve or deny permission requests right on the card.
+- **Sedentary reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It watches whether your mouse and keyboard have moved, and when you've been working continuously for too long, it reminds you to stand up and move around. If cards are too gentle for you, you can set it to cover the whole screen to force a break.
+- **Scheduled reminders** — Set your own interval (e.g. drink water every hour) or a fixed daily time (e.g. clock out before you leave).
 
-**External plugins:**
+Want more? Catrace can "install" additional features (called plugins):
 
-- **Scheduled reminders** — Custom intervals or fixed daily times.
-- **Bluetooth music** (bt-music) — Shows a notification or launches your music app when Bluetooth headphones connect, and pauses or closes it on disconnect per your settings.
-- **GitHub notifications** — Fetches your GitHub unread notifications and pops a card when there's new activity.
-- **SmsForwarder notifications** — Forwards SMS or app notifications from an Android phone to your desktop as cards.
-- **Generic notify** (notify-demo) — A demo plugin that sends custom Toasts manually.
-- **Sidecar capability demo** (sidecar-echo) — Demonstrates sidecar capabilities such as reading/writing files, picking directories, and making HTTP requests.
+- **AI assistant activity** — When you're using AI coding tools like Claude or Codex, it pops a card showing what the AI is doing or when it needs your approval, so you don't have to keep switching back to the terminal. Great for heavy AI coding users.
+- **Bluetooth headphone music** — When headphones connect, automatically show a notification or launch your music app; on disconnect, pause or close it per your settings.
+- **GitHub activity** — Get a card when someone files an issue or stars your project.
+- **Phone message forwarding** — Forward SMS or app notifications from an Android phone to your desktop as cards (requires the SmsForwarder forwarding tool).
 
-**Plugin ecosystem** — Built-in plugins work out of the box; external plugins can be installed from a local folder or zip, enabling only what you need.
+**Plugin ecosystem** — Built-in features work out of the box; plugins you want can be installed from a local folder or archive, enabled when you need them and disabled when you don't.
 
 ## How it knows you're busy
 
-The rest reminder doesn't take screenshots of your screen, nor does it read what you're doing. The host does three things in the background to judge your state:
+Don't worry — it doesn't record your screen or read your files. It only judges how busy you are from two things:
 
-- **Sense** — Continuously collects three lightweight signals: the current foreground app (sampled once per second), keyboard presses, and mouse movement. Everything is stored locally and never uploaded.
-- **Judge** — Uses these signals to decide in real time whether you're working or resting: it tells "work" from "leisure" by the foreground app name, and on Windows it also checks system audio output to detect "screen consumption" — watching videos, listening to music, or live streams where you're staring at the screen with little keyboard/mouse activity.
-- **Settle** — Every minute it summarizes the signals (dominant app, key count, mouse distance) as the basis for rest reminders and every other plugin.
+- **Your mouse and keyboard** — whether they've moved, and for how long.
+- **Which app you have open** — a code editor, or a video player.
 
-How your work rhythm is measured:
+The rules are simple:
 
-- It starts counting from the first time you type or move the mouse today.
+- It starts counting from the first time you touch the mouse or keyboard today.
 - If you get up for water, reply to a message, or zone out — as long as you don't stop for a continuous stretch, it still considers you in the same work rhythm.
 - Only when you truly pause and stay still for several minutes does it mark that time as rest.
-- If you power through a full "work window" (say, 45 minutes) without enough rest in between, or you rest and then fill another full window, it pops up a gentle reminder: time to take a break.
+- If you power through a full "work window" (say, 45 minutes) without enough rest in between, or you rest and then fill another full window, it pops a card to gently remind you: time to get up and move.
+
+If you're quietly watching a video or listening to music, your mouse and keyboard may stay still for a while — Catrace also detects through system audio that you're still "using the screen," so it won't count that as rest. All this small data stays in your computer's local storage and is never uploaded.
 
 ## Plugin Center
 
-Catrace organizes all features as plugins that you can enable or disable on demand in the Plugin Center, and you can install third-party external plugins to extend its capabilities.
+All features live in a place called the Plugin Center — the list of features on the left, each feature's switch and settings on the right. You can see at a glance what's installed and what's enabled.
 
-- The left rail lists all plugins; the detail panel on the right manages each plugin's toggle, config, and status.
-- External plugins can be installed from a local folder or zip; they run alongside the host and push custom notification cards over the event bus.
-- For developers: Rubick-style plugin API plus a Sidecar runtime. See the [external plugin authoring guide](.agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md).
+Want to build your own plugins? Developers are welcome — see the [external plugin authoring guide](.agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md).
 
 ## Friends
 
