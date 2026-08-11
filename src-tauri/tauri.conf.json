@@ -1,12 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "catrace",
-  "version": "26.8.11",
+  "version": "26.8.12",
   "identifier": "com.lanxiuyun.catrace",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
+    "beforeBundleCommand": {
+      "cwd": "..",
+      "script": "node scripts/sync-plugins.mjs"
+    },
     "frontendDist": "../dist"
   },
   "app": {
@@ -33,9 +37,7 @@
     "createUpdaterArtifacts": true,
     "targets": ["nsis", "dmg", "app", "deb", "appimage"],
     "resources": {
-      "../tools/plugin-demo/timer": "plugins/timer",
-      "../tools/plugin-demo/bt-music": "plugins/bt-music",
-      "../tools/plugin-demo/sidecar-echo": "plugins/sidecar-echo"
+      ".bundled-plugins/": "plugins"
     },
     "icon": [
       "icons/32x32.png",
