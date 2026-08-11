@@ -6,10 +6,9 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
-    "beforeBundleCommand": {
+    "beforeBuildCommand": {
       "cwd": "..",
-      "script": "node scripts/sync-plugins.mjs"
+      "script": "node scripts/sync-plugins.mjs && pnpm build"
     },
     "frontendDist": "../dist"
   },
