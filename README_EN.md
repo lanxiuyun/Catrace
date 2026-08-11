@@ -44,7 +44,7 @@
 
 ## What it does
 
-Catrace is a desktop event system that keeps your time at the computer organized and healthier. It ships a set of ready-to-use plugins and quietly watches your usage in the background, reminding you when it's time — without interrupting your focus.
+Catrace shows desktop notifications as unified cards — reminding you to take a break, surfacing your AI agents' latest activity, and forwarding notifications from your phone or community apps, all collected into the notification cards in the bottom-right corner of your screen. Built-in plugins work out of the box, and you can install external plugins to extend it — without interrupting your focus.
 
 **Built-in plugins:**
 
