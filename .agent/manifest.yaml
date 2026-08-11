@@ -79,6 +79,7 @@ features:
       - .agent/features/toast-window/toast自动隐藏进度条-CSS动画与hover暂停必须同源.md
       - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
+      - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
     related:
       - reminder
       - water-reminder
@@ -279,6 +280,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-11-toast-全屏覆盖层空白区域无法点击穿透.md
   - .agent/bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md
   - .agent/bugs/2026-08-02-set_plugin_config整包写入冲掉外部插件enabled.md
   - .agent/bugs/2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md
@@ -321,6 +323,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-11-toast全屏覆盖与点击穿透.md
   - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
   - .agent/devlog/2026-08-03-Step4-S4.1本地文件夹与zip安装插件.md
   - .agent/devlog/2026-08-03-Step3收尾评估-核心完成可关账.md
@@ -343,5 +346,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
-  phase: S4.1 本地安装完成（文件夹/zip → plugins；覆盖确认）；sidecar 孤儿进程 Job Object 兜底已完成（2026-08-08）
-  next: S4.1 真机手测；或 S4.2 第三方插件 zip/打包约定文档；sidecar Job Object 真机验收（强杀宿主确认端口释放）
+  phase: S4.1 本地安装完成；sidecar Job Object 兜底完成（2026-08-08）；Toast 全屏覆盖 + 点击穿透完成（2026-08-11）
+  next: S4.1 真机手测；或 S4.2 第三方插件 zip/打包约定文档；多屏/DPI 下 Toast 覆盖层真机复核
