@@ -1,6 +1,4 @@
-更新版本号，安装新版本测试
 更新 readme，官网，发小红书
-纪念日提醒
 node自动安装
 插件页面支持设置图标
 codex 跳转页面 https://github.com/bohu8264/N-Agent-Bridge/releases/tag/v0.15.0-development
@@ -19,3 +17,5 @@ toast window 光标穿透，并且能交互卡片（已完成）
 toast window 使用 n-scrollbar 来显示滚动高度(已废弃，当前版本的滚动区域更简洁。)
 优化sms插件描述
 测试 toast window 弹出是否会影响全屏游戏
+更新版本号，安装新版本测试
+特殊日通知
