@@ -80,7 +80,7 @@
 
 所有功能都装在一个叫「插件中心」的地方，左边是功能列表，右边是每个功能的开关和设置。装了什么、开着哪些，一目了然。
 
-想自己动手做插件？欢迎开发者参与，详见 [外部插件开发指南](.agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md)。
+想自己动手做插件？欢迎开发者参与，插件仓库在 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin)。
 
 ## 友链
 

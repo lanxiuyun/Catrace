@@ -80,7 +80,7 @@ If you're quietly watching a video or listening to music, your mouse and keyboar
 
 All features live in a place called the Plugin Center — the list of features on the left, each feature's switch and settings on the right. You can see at a glance what's installed and what's enabled.
 
-Want to build your own plugins? Developers are welcome — see the [external plugin authoring guide](.agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md).
+Want to build your own plugins? Developers are welcome — check out the plugin repo at [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin).
 
 ## Friends
 
