@@ -473,6 +473,9 @@ struct Block {
 
 /// 在 [start, start + max_scan) 范围内找连续 break_m 休息
 /// 找到后延伸至所有连续休息结束，返回结束索引（不包含）
+///
+/// 若休息 streak 贴到窗口右缘仍未结束，继续向记录末尾扫描
+/// （否则「活跃 41 + 休息 4」会被误切成活跃 block，进行中休息不算完成）
 fn find_break_end(
     records: &[(i64, bool)],
     start: usize,
@@ -480,17 +483,25 @@ fn find_break_end(
     break_m: usize,
 ) -> Option<usize> {
     let mut rest_streak = 0;
-    for i in start..std::cmp::min(start + max_scan, records.len()) {
+    let hard_end = records.len();
+    let soft_end = std::cmp::min(start + max_scan, hard_end);
+    for i in start..hard_end {
+        if i >= soft_end && rest_streak == 0 {
+            break;
+        }
         if !records[i].1 {
             rest_streak += 1;
             if rest_streak >= break_m {
                 let mut end = i + 1;
-                while end < records.len() && !records[end].1 {
+                while end < hard_end && !records[end].1 {
                     end += 1;
                 }
                 return Some(end);
             }
         } else {
+            if i >= soft_end {
+                break;
+            }
             rest_streak = 0;
         }
     }
@@ -888,6 +899,57 @@ mod tests {
         assert_eq!(blocks[0].start, 0);
         assert_eq!(blocks[0].end, 20);
         assert_eq!(current, 20);
+    }
+
+    /// 活跃 41 + 休息跨出窗口右缘凑满 5：应切 Rest，而非先切 Active(45)
+    #[test]
+    fn test_compute_blocks_rest_crosses_window_edge() {
+        // 仅 4 连休贴边：不够 break，仍按 Active 切满窗
+        let records_short: Vec<(i64, bool)> = (0..45)
+            .map(|i| (i as i64 * 60, i < 41))
+            .collect();
+        let (blocks_short, current_short) =
+            compute_completed_blocks(&records_short, 45, 5);
+        assert_eq!(blocks_short.len(), 1);
+        assert_eq!(blocks_short[0].kind, BlockKind::Active);
+        assert_eq!(blocks_short[0].end, 45);
+        assert_eq!(current_short, 45);
+
+        // 第 5 分钟休息在 window 外（index 45）→ 必须延伸计数，整段 Rest
+        let records: Vec<(i64, bool)> = (0..46)
+            .map(|i| (i as i64 * 60, i < 41))
+            .collect();
+        let (blocks, current) = compute_completed_blocks(&records, 45, 5);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].kind, BlockKind::Rest);
+        assert_eq!(blocks[0].start, 0);
+        assert_eq!(blocks[0].end, 46);
+        assert_eq!(current, 46);
+
+        // 休息继续 → Rest 延伸
+        let mut records2 = records;
+        records2.push((46 * 60, false));
+        let (blocks2, current2) = compute_completed_blocks(&records2, 45, 5);
+        assert_eq!(blocks2.len(), 1);
+        assert_eq!(blocks2[0].kind, BlockKind::Rest);
+        assert_eq!(blocks2[0].end, 47);
+        assert_eq!(current2, 47);
+    }
+
+    /// 同上数据：第 5 分钟休息后 should_notify=false
+    #[test]
+    fn test_notify_rest_crosses_window_edge() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+        // 0-40 活跃，41-45 休息（5 连休，其中第 5 分钟在 window 外）
+        for i in 0..41 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        for i in 41..46 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        let (should, _) = db.check_should_notify(45, 5).unwrap();
+        assert!(!should);
     }
 
     #[test]
