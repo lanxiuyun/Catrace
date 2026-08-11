@@ -2,6 +2,8 @@
 //!
 //! 命中当天且在 6–20 点活跃 settle 时，经 Event Bus 弹出一次；全天仅一次。
 
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use chrono::{Datelike, Local, Timelike};
 
 use crate::db;
@@ -62,9 +64,27 @@ pub fn today_special_day_theme(locale: &str) -> Option<SpecialDayTheme> {
     special_day_theme_for(now.month(), now.day(), locale)
 }
 
+/// 检查节流：每 3 小时才真正跑一次日期判断，避免 settle 每分钟空转。
+const CHECK_INTERVAL_SECS: i64 = 3 * 60 * 60;
+
+/// 上次实际检查的 unix 秒（0 = 从未检查）。
+static LAST_CHECK_TS: AtomicI64 = AtomicI64::new(0);
+
 /// 弹出特殊日彩蛋 toast（当天仅一次，且仅在 6–20 点之间）。
-/// 走 Event Bus；bus 失败不挡主 settle 路径。
+/// 节流为每 3 小时检查一次；走 Event Bus；bus 失败不挡主 settle 路径。
 pub fn show_special_day_notification(app_handle: &tauri::AppHandle, locale: &str, db: &db::Db) {
+    let now_ts = Local::now().timestamp();
+    let last = LAST_CHECK_TS.load(Ordering::Relaxed);
+    if last != 0 && now_ts - last < CHECK_INTERVAL_SECS {
+        return;
+    }
+    let _ = LAST_CHECK_TS.compare_exchange(
+        last,
+        now_ts,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
+
     let now = Local::now();
     let hour = now.hour();
     if hour < 6 || hour > 20 {
