@@ -46,10 +46,22 @@
 
 Catrace is a desktop event system that keeps your time at the computer organized and healthier. It ships a set of ready-to-use plugins and quietly watches your usage in the background, reminding you when it's time — without interrupting your focus.
 
+**Built-in plugins:**
+
 - **Rest reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It watches your activity in the background and reminds you to stand up and take a break when you've been working continuously for too long.
-- **Agent notifications** — If you're a heavy AI coding user, it keeps an eye on agents like Claude Code, Codex, Gemini CLI, and Kimi for you.
+- **Agent notifications** — If you're a heavy AI coding user, it keeps an eye on agents like Claude Code, Codex, Gemini CLI, and Kimi for you, and lets you approve or deny permission requests right on the card.
+
+**External plugins:**
+
 - **Scheduled reminders** — Custom intervals or fixed daily times.
-- **Plugin ecosystem** — Install third-party external plugins to extend its capabilities, enabling only what you need.
+- **Bluetooth music** (bt-music) — Shows a notification or launches your music app when Bluetooth headphones connect, and pauses or closes it on disconnect per your settings.
+- **GitHub notifications** — Fetches your GitHub unread notifications and pops a card when there's new activity.
+- **LINUX DO notifications** — Checks linux.do notifications and shows replies/mentions/messages while you're active.
+- **SmsForwarder notifications** — Forwards SMS or app notifications from an Android phone to your desktop as cards.
+- **Generic notify** (notify-demo) — A demo plugin that sends custom Toasts manually.
+- **Sidecar capability demo** (sidecar-echo) — Demonstrates sidecar capabilities such as reading/writing files, picking directories, and making HTTP requests.
+
+**Plugin ecosystem** — Built-in plugins work out of the box; external plugins can be installed from a local folder or zip, enabling only what you need.
 
 ## How the rest reminder knows you're busy
 
