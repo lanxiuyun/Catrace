@@ -5,8 +5,8 @@
 <h1 align="center">Catrace</h1>
 
 <p align="center">
-  <strong>A small tool that helps you balance work and rest</strong><br>
-  Sedentary reminder · Forced breaks · Water check-in · Eye care
+  <strong>Desktop event system · Plugin runtime</strong><br>
+  Rest reminder · Agent notifications · Scheduled reminders · Plugin ecosystem
 </p>
 
 <p align="center">
@@ -44,10 +44,14 @@
 
 ## What it does
 
-Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore.
-Catrace is here to solve this problem — it quietly watches your activity in the background, and when it detects you've been working continuously for too long, it reminds you to stand up and take a break.
+Catrace is a desktop event system that keeps your time at the computer organized and healthier. It ships a set of ready-to-use plugins and quietly watches your usage in the background, reminding you when it's time — without interrupting your focus.
 
-## How it knows you're busy
+- **Rest reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It watches your activity in the background and reminds you to stand up and take a break when you've been working continuously for too long.
+- **Agent notifications** — If you're a heavy AI coding user, it keeps an eye on agents like Claude Code, Codex, Gemini CLI, and Kimi for you.
+- **Scheduled reminders** — Custom intervals or fixed daily times.
+- **Plugin ecosystem** — Install third-party external plugins to extend its capabilities, enabling only what you need.
+
+## How the rest reminder knows you're busy
 
 It doesn't take screenshots of your screen, nor does it read what you're doing. It simply checks whether your mouse has moved or your keyboard has been tapped.
 
@@ -59,32 +63,14 @@ Then it follows a simple set of rules:
 - Only when you truly pause and stay still for several minutes does it mark that time as rest.
 - If you power through a full "work window" (say, 45 minutes) without enough rest in between, or you rest and then fill another full window, it pops up a gentle reminder: time to take a break.
 
-## How it reminds you
+## How the rest reminder notifies you
 
-When it's time, Catrace reminds you to take a break using your chosen method. Two reminder modes are available:
+When it's time, the rest reminder plugin reminds you to take a break using your chosen method. Two reminder modes are available:
 
 - **Notification Reminder** — Floating notification cards stack in the bottom-right corner; each card has three buttons: "Remind in 5 min", "Remind in 10 min", and "Skip this time". Hovering a card pauses its countdown timer. When you start resting, an additional green liquid-ball timer appears: the liquid level rises with your rest progress and has a flowing wave animation, showing how long you've rested and whether you've reached the valid rest threshold. On Windows, the notification window does not steal the current input focus, so renaming files or typing in another app is not interrupted
 - **Fullscreen** — A full-screen overlay that forces you to stop and rest, with customizable background image, fit mode, and overlay opacity
 
 You can customize your work window length and rest threshold to find the rhythm that suits you best.
-
-## Water Reminder
-
-In addition to reminding you to stand up and rest, Catrace can also remind you to drink water at your chosen interval, so you don't forget to stay hydrated while busy.
-
-- Checks only when you are currently active; it won't bother you while resting.
-- Pops a blue water reminder Toast in the bottom-right corner, matching the Dashboard water widget theme; click "Drank" to log a glass.
-- Use the water widget on the Dashboard to manually add or remove today's drink count and view your drinking timeline.
-
-> As soon as you start resting (even just one minute), reminders stop automatically. They won't keep buzzing while you're on a break. They only resume after you get back to work.
-
-## Eye Care Reminder
-
-Staring at a screen for hours makes your eyes dry and tired, so Catrace can also remind you at your chosen interval to look away and relax your eyes.
-
-- Checks only when you are currently active; it won't bother you while resting.
-- Pops a green eye-care Toast card in the bottom-right corner that auto-closes after a 25-second countdown — no manual action needed.
-- The card has two buttons, "Snooze 5 min" and "Skip this time", so you can pace yourself.
 
 ## Agent Notifications
 
@@ -94,6 +80,15 @@ If you're a heavy user of AI coding agents, Catrace can also keep an eye on them
 - Each event has its own display policy: Off / Auto / Sticky.
 - Claude's permission requests (PermissionRequest) pop up a card where you can Approve or Deny directly — no need to switch back to the terminal.
 - The Settings page provides one-click hook install/uninstall per agent, plus a customizable notification sound.
+
+## Plugin Center
+
+Catrace is evolving into a "desktop event system" — built-in features are organized as plugins you can enable or disable on demand in the Plugin Center, and you can install third-party external plugins to extend its capabilities.
+
+- The left rail lists all plugins; the detail panel on the right manages each plugin's toggle, config, and status.
+- Built-in plugins: sedentary reminder, agent notifications.
+- External plugins: install from a local folder or zip; they run alongside the host and push custom Toast cards over the Event Bus. Scheduled reminders (custom intervals / fixed daily times) and the Bluetooth music plugin (bt-music, which notifies you or launches your music app when headphones connect) are typical examples.
+- For developers: Rubick-style plugin API plus a Sidecar runtime. See the [external plugin authoring guide](.agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md).
 
 ## Friends
 
