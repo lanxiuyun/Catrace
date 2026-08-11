@@ -56,7 +56,6 @@ Catrace is a desktop event system that keeps your time at the computer organized
 - **Scheduled reminders** — Custom intervals or fixed daily times.
 - **Bluetooth music** (bt-music) — Shows a notification or launches your music app when Bluetooth headphones connect, and pauses or closes it on disconnect per your settings.
 - **GitHub notifications** — Fetches your GitHub unread notifications and pops a card when there's new activity.
-- **LINUX DO notifications** — Checks linux.do notifications and shows replies/mentions/messages while you're active.
 - **SmsForwarder notifications** — Forwards SMS or app notifications from an Android phone to your desktop as cards.
 - **Generic notify** (notify-demo) — A demo plugin that sends custom Toasts manually.
 - **Sidecar capability demo** (sidecar-echo) — Demonstrates sidecar capabilities such as reading/writing files, picking directories, and making HTTP requests.
