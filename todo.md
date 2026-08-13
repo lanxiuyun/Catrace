@@ -10,6 +10,8 @@ ReminderToast.vue 重构
 api 调整为 webhook?先了解一下先
 agent通知抽离
 久坐提醒抽离
+sms插件：com.android.mms 添加进黑名单无效 — 锁屏时通知 package name 是 com.android.mms，一旦添加，后续锁屏短信不会推送；需增加 title 黑名单过滤：包名是 com.android.mms 时按 title 匹配黑名单（已做：title 过滤 + block-app 按发送者拉黑 + 黑名单自动排序，插件 v0.1.2）
+app黑名单自动排序：输入新项后，下次进入设置页自动排序（已做：失焦排序 + localeCompare zh 拼音排序）
 
 ## 已完成
 toast window 光标穿透，并且能交互卡片（已完成）
