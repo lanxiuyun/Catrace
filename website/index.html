@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Catrace — 桌面事件系统 · 休息提醒与插件通知</title>
+  <title>Catrace — 桌面事件系统 · 插件运行时</title>
   <meta name="description" content="Catrace 是桌面端事件系统：久坐/定时提醒、AI Agent 进度、GitHub 与手机消息等，统一在右下角 Toast 卡片呈现。本地运行，不上传数据，免费开源。">
   <link rel="icon" type="image/png" href="favicon.png">
   <style>
@@ -571,6 +571,194 @@
       color: var(--text-secondary);
     }
 
+    /* Plugin showcase */
+    .plugin-showcase {
+      max-width: 72rem;
+      margin: 4rem auto;
+      padding: 0 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .plugin-showcase {
+        margin: 5rem auto;
+        padding: 0 2rem;
+      }
+    }
+
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-top: 2.5rem;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-layout {
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 3rem;
+        align-items: start;
+      }
+    }
+
+    .showcase-frame {
+      position: relative;
+      border-radius: 2rem;
+      background: #161226;
+      box-shadow:
+        0 0 0 0.0625rem rgba(255, 255, 255, 0.06),
+        0 2rem 4rem rgba(0, 0, 0, 0.45),
+        inset 0 0 1.5rem rgba(0, 0, 0, 0.4);
+      border: 0.5rem solid #1e1935;
+      overflow: hidden;
+      aspect-ratio: 16 / 10;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-frame {
+        position: sticky;
+        top: 10vh;
+        aspect-ratio: 4 / 3;
+      }
+    }
+
+    /* 屏幕黑色区域 */
+    .showcase-frame::before {
+      content: "";
+      position: absolute;
+      top: 1.75rem;
+      left: 1rem;
+      right: 1rem;
+      bottom: 2rem;
+      background: #000;
+      border-radius: 0.75rem;
+      z-index: 1;
+    }
+
+    /* 顶部刘海 */
+    .device-notch {
+      position: absolute;
+      top: 0.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4.5rem;
+      height: 1.25rem;
+      background: #1e1935;
+      border-radius: 9999px;
+      z-index: 4;
+      box-shadow: inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.08);
+    }
+
+    /* 底部 Home 指示条 */
+    .device-home {
+      position: absolute;
+      bottom: 0.625rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3.5rem;
+      height: 0.25rem;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+      z-index: 4;
+    }
+
+    .showcase-frame img {
+      position: absolute;
+      top: 1.75rem;
+      left: 1rem;
+      right: 1rem;
+      bottom: 2rem;
+      width: calc(100% - 2rem);
+      height: calc(100% - 3.75rem);
+      object-fit: contain;
+      padding: 0.75rem;
+      opacity: 0;
+      transform: scale(0.96) translateY(1rem);
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 2;
+      border-radius: 0.75rem;
+    }
+
+    .showcase-frame img.active {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    .showcase-panels {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panels {
+        gap: 0;
+      }
+    }
+
+    .showcase-panel {
+      background: var(--card);
+      border: 0.0625rem solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      opacity: 0.45;
+      transform: translateY(0);
+      transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panel {
+        min-height: 70vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        border-radius: 0;
+        padding: 1.5rem 0;
+        opacity: 0.35;
+      }
+    }
+
+    .showcase-panel.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panel.active {
+        opacity: 1;
+      }
+    }
+
+    .showcase-panel .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 9999px;
+      padding: 0.25rem 0.625rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.02em;
+    }
+
+    .showcase-panel h4 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+
+    .showcase-panel p {
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
     /* Quote */
     .quote {
       max-width: 47.5rem;
@@ -823,9 +1011,6 @@
       <a class="btn btn-ghost" href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">
         GitHub
       </a>
-      <button type="button" class="btn btn-ghost" id="hot-reload-test-btn" onclick="alert('热更新 OK · ' + new Date().toLocaleTimeString())">
-        🔥 热更新测试
-      </button>
     </div>
   </section>
 
@@ -934,6 +1119,13 @@
     <p class="section-subtitle">内置功能开箱即用；想更强就从本地文件夹或 zip 装插件。随用随开，不用就关。</p>
     <div class="plugin-grid">
       <div class="plugin-card">
+        <span class="tag">内置</span>
+        <div>
+          <h3>定时提醒</h3>
+          <p>间隔提醒 + 定点提醒，每条都有自己的标题、正文和停留秒数；卡片上可稍后或跳过。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
         <span class="tag">AI</span>
         <div>
           <h3>AI 助手动态</h3>
@@ -961,11 +1153,49 @@
           <p>安卓短信或 App 通知转发到电脑 Toast（需搭配 SmsForwarder 等工具）。</p>
         </div>
       </div>
+      <div class="plugin-card">
+        <span class="tag">社区</span>
+        <div>
+          <h3>LINUX DO 通知</h3>
+          <p>linux.do 论坛有新的回复、@我或点赞时，桌面弹卡提醒。</p>
+        </div>
+      </div>
     </div>
     <p class="plugin-foot">
-      开发者想自己写插件？仓库在
+      仓库里还有 notify-demo、sidecar-echo 等演示插件。开发者想自己写？看
       <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">catrace-plugin</a>
     </p>
+  </section>
+
+  <section class="plugin-showcase" id="gallery">
+    <h2 class="section-title">插件消息，统一 Toast 呈现</h2>
+    <p class="section-subtitle">无论手机通知、耳机连接还是验证码，都收敛到右下角同一张卡片。</p>
+    <div class="showcase-layout">
+      <div class="showcase-frame" id="showcase-frame">
+        <div class="device-notch"></div>
+        <div class="device-home"></div>
+        <img src="assets/plugin-sms.png" data-index="0" alt="SmsForwarder 通知插件：安卓通知转发到电脑 Toast" class="active">
+        <img src="assets/plugin-bt-music.webp" data-index="1" alt="蓝牙听歌插件：耳机连接后弹出通知">
+        <img src="assets/plugin-trae-sms.webp" data-index="2" alt="手机消息转发插件：接收 Trae 验证码">
+      </div>
+      <div class="showcase-panels" id="showcase-panels">
+        <div class="showcase-panel active" data-index="0">
+          <span class="tag">📱 手机消息转发</span>
+          <h4>安卓通知直达桌面</h4>
+          <p>短信、App 通知、验证码……转发到电脑右下角，可一键复制或拉黑应用。</p>
+        </div>
+        <div class="showcase-panel" data-index="1">
+          <span class="tag">🎧 蓝牙听歌</span>
+          <h4>耳机连上自动提醒</h4>
+          <p>蓝牙耳机连接 / 断开时弹卡，可自动打开你指定的音乐播放器。</p>
+        </div>
+        <div class="showcase-panel" data-index="2">
+          <span class="tag">🔑 验证码直达</span>
+          <h4>登录验证码直接弹卡</h4>
+          <p>手机收到 Trae 等登录验证码，桌面同步弹窗，不用反复低头看手机。</p>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="quote">
@@ -1020,9 +1250,43 @@
       <a href="https://github.com/lanxiuyun/Catrace/releases" target="_blank" rel="noopener">Releases</a>
       <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">插件仓库</a>
       <a href="https://github.com/lanxiuyun/Catrace/issues" target="_blank" rel="noopener">问题反馈</a>
+      <a href="https://linux.do/" target="_blank" rel="noopener">linux.do 社区</a>
     </p>
     <p style="margin-top:0.75rem;">© Catrace — AGPL-3.0 License</p>
   </footer>
+
+  <script>
+    (function () {
+      const frame = document.getElementById('showcase-frame');
+      const panels = document.getElementById('showcase-panels');
+      if (!frame || !panels) return;
+
+      const images = Array.from(frame.querySelectorAll('img[data-index]'));
+      const panelList = Array.from(panels.querySelectorAll('.showcase-panel[data-index]'));
+
+      function activate(index) {
+        images.forEach((img) => img.classList.toggle('active', img.dataset.index === String(index)));
+        panelList.forEach((panel) => panel.classList.toggle('active', panel.dataset.index === String(index)));
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              activate(entry.target.dataset.index);
+            }
+          });
+        },
+        {
+          root: null,
+          rootMargin: '-45% 0px -45% 0px',
+          threshold: 0,
+        }
+      );
+
+      panelList.forEach((panel) => observer.observe(panel));
+    })();
+  </script>
 
 </body>
 </html>
