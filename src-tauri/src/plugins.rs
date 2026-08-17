@@ -781,6 +781,12 @@ pub fn set_plugin_config(
         );
         return Err(e);
     }
+    // Settings panel only loads config on mount; toast "block app" writes via
+    // another window — notify so open settings.mjs can refresh blacklist UI.
+    let _ = app.emit(
+        "catrace:plugin-config-changed",
+        serde_json::json!({ "pluginId": plugin_id }),
+    );
     Ok(())
 }
 

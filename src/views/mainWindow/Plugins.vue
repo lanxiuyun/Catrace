@@ -44,6 +44,7 @@ const builtinEnabled = ref<Record<VisiblePluginId, boolean>>({
 let settingsStore: Store | null = null
 let unlistenPluginAnomaly: UnlistenFn | null = null
 let unlistenPluginConfigSaveFailed: UnlistenFn | null = null
+let unlistenPluginConfigChanged: UnlistenFn | null = null
 async function getSettingsStore() {
   if (!settingsStore) {
     settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
@@ -113,12 +114,24 @@ onMounted(async () => {
   }).then((unlisten) => {
     unlistenPluginConfigSaveFailed = unlisten
   })
+  // Bridge host config writes (e.g. toast block-app in plugin background window)
+  // into main-window CustomEvent so settings.mjs can refresh without remount.
+  void listen<{ pluginId?: string }>('catrace:plugin-config-changed', ({ payload }) => {
+    window.dispatchEvent(
+      new CustomEvent('catrace:plugin-config-changed', {
+        detail: { pluginId: payload?.pluginId },
+      }),
+    )
+  }).then((unlisten) => {
+    unlistenPluginConfigChanged = unlisten
+  })
   window.addEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
 onBeforeUnmount(() => {
   unlistenPluginAnomaly?.()
   unlistenPluginConfigSaveFailed?.()
+  unlistenPluginConfigChanged?.()
   window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
