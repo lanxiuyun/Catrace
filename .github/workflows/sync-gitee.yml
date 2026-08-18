@@ -30,4 +30,4 @@ jobs:
             exit 1
           fi
           git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/lanxiuyun/Catrace.git"
-          git push gitee --mirror --force
+          git push gitee --force --prune 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
