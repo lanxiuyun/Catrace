@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
 export interface AppConfig {
+  enabled?: boolean
   window_minutes: number
   break_minutes: number
   snooze_interval_minutes: number
@@ -20,6 +21,10 @@ export async function getConfig(): Promise<AppConfig> {
 /** 保存工作窗口与休息判定配置 */
 export async function setConfig(config: AppConfig): Promise<void> {
   return invoke('set_config', { config })
+}
+
+export async function setRestPluginEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_rest_plugin_enabled', { enabled })
 }
 
 /** 跳过当前 block 的提醒，直到下一个 block 边界 */
@@ -100,76 +105,6 @@ export async function startNotificationTest(intervalSeconds: number): Promise<vo
 /** 停止循环测试通知 */
 export async function stopNotificationTest(): Promise<void> {
   return invoke('stop_notification_test')
-}
-
-/** 发送一条测试喝水提醒 */
-export async function testWaterNotification(): Promise<void> {
-  return invoke('test_water_notification')
-}
-
-export interface EyeSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getEyeSettings(): Promise<EyeSettings> {
-  return invoke('get_eye_settings')
-}
-
-export async function setEyeSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_eye_settings', { enabled, intervalMinutes })
-}
-
-/** 发送一条测试护眼提醒 */
-export async function testEyeNotification(): Promise<void> {
-  return invoke('test_eye_notification')
-}
-
-/** 推迟护眼提醒 N 分钟 */
-export async function snoozeEyeReminder(minutes: number): Promise<void> {
-  return invoke('snooze_eye_reminder', { minutes })
-}
-
-/** 跳过本次护眼提醒 */
-export async function skipEyeReminder(): Promise<void> {
-  return invoke('skip_eye_reminder')
-}
-
-export interface WaterSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
-export async function getWaterSettings(): Promise<WaterSettings> {
-  return invoke('get_water_settings')
-}
-
-export async function setWaterSettings(enabled: boolean, intervalMinutes: number): Promise<void> {
-  return invoke('set_water_settings', { enabled, intervalMinutes })
-}
-
-export async function recordWater(timestamp: number): Promise<void> {
-  return invoke('record_water', { timestamp })
-}
-
-export async function getWaterStats(): Promise<{ count: number; last_ts: number | null }> {
-  return invoke('get_water_stats')
-}
-
-export async function getWaterRecords(): Promise<{ records: number[] }> {
-  return invoke('get_water_records')
-}
-
-export async function deleteLastWater(): Promise<boolean> {
-  return invoke('delete_last_water')
-}
-
-export async function snoozeWaterReminder(minutes: number): Promise<void> {
-  return invoke('snooze_water_reminder', { minutes })
-}
-
-export async function skipWaterReminder(): Promise<void> {
-  return invoke('skip_water_reminder')
 }
 
 export interface AudioSessionInfo {
@@ -327,6 +262,13 @@ export async function closeReminderWindow(label: string): Promise<void> {
   return invoke('close_reminder_window', { label })
 }
 
+/** Toast 全屏覆盖窗：上报可交互区域（窗口内逻辑坐标），其余区域整窗穿透 */
+export async function setToastHitRegions(
+  rects: Array<{ x: number; y: number; width: number; height: number }>,
+): Promise<void> {
+  return invoke('set_toast_hit_regions', { rects })
+}
+
 // ------------------------------------------------------------------
 // 窗口管理（无焦点提醒窗口）
 // ------------------------------------------------------------------
@@ -437,4 +379,200 @@ export async function pickAgentSoundFile(): Promise<string | null> {
 /** 返回提示音 data URL；muted 或读不到时返回 null */
 export async function getAgentSoundDataUrl(): Promise<string | null> {
   return invoke('get_agent_sound_data_url')
+}
+
+// ---------- Event Bus ----------
+
+import type { BusEvent, EventPatch, EventResolution } from '../types/event'
+
+export async function publishEvent(event: Partial<BusEvent> & Pick<BusEvent, 'event_type' | 'kind' | 'title'>): Promise<BusEvent> {
+  return invoke('publish_event', { event })
+}
+
+export async function updateEvent(id: string, patch: EventPatch): Promise<BusEvent> {
+  return invoke('update_event', { id, patch })
+}
+
+export async function resolveEvent(id: string, resolution: EventResolution): Promise<BusEvent> {
+  return invoke('resolve_event', { id, resolution })
+}
+
+export async function resolveEventAction(
+  id: string,
+  actionId: string,
+  payload?: unknown,
+): Promise<BusEvent> {
+  return invoke('resolve_event_action', { id, actionId, payload })
+}
+
+export async function getActiveEvents(): Promise<BusEvent[]> {
+  return invoke('get_active_events')
+}
+
+// ---------- Event SDK HTTP ----------
+
+export interface EventSdkStatus {
+  enabled: boolean
+  port: number
+  token: string
+  base_url: string
+}
+
+export async function getEventSdkStatus(): Promise<EventSdkStatus> {
+  return invoke('get_event_sdk_status')
+}
+
+export async function setEventSdkEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_event_sdk_enabled', { enabled })
+}
+
+export async function rotateEventSdkToken(): Promise<string> {
+  return invoke('rotate_event_sdk_token')
+}
+
+// ---------- External plugins ----------
+
+export interface ExternalPluginInfo {
+  id: string
+  name: string
+  version: string
+  description: string
+  main?: string | null
+  background?: string | null
+  settings?: string | null
+  sidecar?: unknown | null
+  events: string[]
+  enabled: boolean
+  enabledByDefault: boolean
+  dir: string
+  hasUi: boolean
+  hasBackground: boolean
+  hasSettings: boolean
+  hasSidecar: boolean
+  sidecarRunning: boolean
+  /** Max mtime of ui/settings sources (ms); used to bust frontend blob cache on edit. */
+  contentMtimeMs?: number
+  anomalous: boolean
+  error?: string | null
+}
+
+export async function listExternalPlugins(opts?: {
+  restartSidecars?: boolean
+}): Promise<ExternalPluginInfo[]> {
+  return invoke('list_external_plugins', {
+    restartSidecars: opts?.restartSidecars ?? false,
+  })
+}
+
+export interface PluginInstallResult {
+  id: string
+  name: string
+  version: string
+  overwritten: boolean
+  path: string
+}
+
+/** Install a local plugin folder or zip into app plugins dir. Does not enable. */
+export async function installExternalPlugin(
+  sourcePath: string,
+  overwrite = false,
+): Promise<PluginInstallResult> {
+  return invoke('install_external_plugin', { sourcePath, overwrite })
+}
+
+export async function pickPluginZip(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: 'Plugin zip', extensions: ['zip'] }],
+  })
+  return typeof selected === 'string' && selected ? selected : null
+}
+
+export async function pickPluginFolder(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    directory: true,
+  })
+  return typeof selected === 'string' && selected ? selected : null
+}
+
+export async function setExternalPluginEnabled(
+  id: string,
+  enabled: boolean,
+): Promise<ExternalPluginInfo> {
+  return invoke('set_external_plugin_enabled', { id, enabled })
+}
+
+export async function getPluginUiUrl(id: string): Promise<string> {
+  return invoke('get_plugin_ui_url', { id })
+}
+
+/** Read plugin ui.mjs source text (host loads via Blob URL). */
+export async function getPluginUiSource(id: string): Promise<string> {
+  return invoke('get_plugin_ui_source', { id })
+}
+
+/** Read plugin settings.mjs source text (host loads via Blob URL). */
+export async function getPluginSettingsSource(id: string): Promise<string> {
+  return invoke('get_plugin_settings_source', { id })
+}
+
+/** Whole-object plugin config for main window / settings.mjs. */
+export async function getPluginConfig(pluginId: string): Promise<unknown | null> {
+  return invoke('get_plugin_config', { pluginId })
+}
+
+export async function setPluginConfig(pluginId: string, value: unknown): Promise<void> {
+  return invoke('set_plugin_config', { pluginId, value })
+}
+
+export async function openPluginsDir(): Promise<void> {
+  return invoke('open_plugins_dir')
+}
+
+export async function getPluginsDir(): Promise<string> {
+  return invoke('get_plugins_dir')
+}
+
+// ---------- Signal ----------
+
+export interface SignalRuntimeConfig {
+  key_sequence_enabled: boolean
+  retention_hours: number
+  snapshot: Record<string, unknown>
+}
+
+export interface SignalMinuteRecord {
+  timestamp: number
+  dominant_process_name: string
+  foreground_sample_count: number
+  foreground_counts_json: string | null
+  key_count: number
+  key_sequence_json: string | null
+  key_sequence_enabled: boolean
+  mouse_distance_px: number
+  mouse_sample_count: number
+  mouse_seconds_json: string | null
+  collector_version: number
+}
+
+export async function setSignalKeySequenceEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_signal_key_sequence_enabled', { enabled })
+}
+
+export async function setSignalKeySequenceRetentionHours(hours: number): Promise<void> {
+  return invoke('set_signal_key_sequence_retention_hours', { hours })
+}
+
+export async function getSignalRuntimeConfig(): Promise<SignalRuntimeConfig> {
+  return invoke('get_signal_runtime_config')
+}
+
+export async function purgeKeySequences(): Promise<number> {
+  return invoke('purge_key_sequences')
+}
+
+export async function getRecentSignalMinutes(limit = 30): Promise<SignalMinuteRecord[]> {
+  return invoke('get_recent_signal_minutes', { limit })
 }

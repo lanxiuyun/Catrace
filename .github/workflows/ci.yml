@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -42,6 +44,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -65,6 +69,12 @@ jobs:
             src-tauri/target/
           key: ${{ matrix.platform }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: ${{ matrix.platform }}-cargo-
+
+      # cargo check 会触发 Tauri build script，tauri.conf.json 里的 resources
+      # 要求 .bundled-plugins/ 目录必须存在；release 流程由 beforeBuildCommand
+      # 调用 sync-plugins 生成，但 CI 的纯 cargo check 不会，所以提前 stage。
+      - name: Stage bundled plugins
+        run: node scripts/sync-plugins.mjs
 
       - name: Check
         run: cargo check --manifest-path src-tauri/Cargo.toml

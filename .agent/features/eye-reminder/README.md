@@ -1,69 +1,87 @@
 # 护眼提醒
 
-按间隔提醒用户看向远处休息眼睛，提醒卡片以 25 秒倒计时自动关闭，无需用户手动处理。
+护眼不再是内置模块，而是 **定时提醒插件（`timer`）** 的一条规则预设。  
+产品路径：插件中心 → 定时提醒 → 预设「护眼」，或自建间隔规则并打开「休息重置」。
+
+## 一句话
+
+连续活跃满 N 分钟（默认 20）弹一次护眼 Toast；若本轮间隔内发生过「真正休息」，则从休息结束重新计时。卡片默认停留 25 秒，也可改成常驻。
 
 ## 涉及文件
 
-- `src-tauri/src/eye.rs` — 状态机 `EyeReminderState`、设置读写、命令、每分钟结算检查
-- `src-tauri/src/lib.rs` — 每分钟活跃结算时调用 `eye::check_and_notify()`；注册 `snooze_eye_reminder` / `skip_eye_reminder` 命令
-- `src/components/EyeToastCard.vue` — 护眼提醒专用 Toast 卡片（标题 + 倒计时 + 进度条 + 绿色正文 + 稍后/跳过按钮）
-- `src/components/settings/EyeSettingsCard.vue` — 设置页护眼提醒卡片
-- `src/views/ReminderToast.vue` — 通用 Toast 堆叠容器，调度 `EyeToastCard`；通用 body 渲染已排除 `eye`（正文由卡片自渲染）
-- `src/api/tauri.ts` — 前端 API 封装
-- `src/i18n/locales/zh-CN.ts` / `en-US.ts` — 中英文字符串（按钮文案复用 `reminder.snooze5` / `reminder.skip`）
+| 路径 | 角色 |
+|------|------|
+| `tools/plugin-demo/timer/manifest.json` | 外部插件 id=`timer` |
+| `tools/plugin-demo/timer/background.mjs` | 分钟对齐调度；`reset_on_rest` + `plugin_get_last_real_rest` |
+| `tools/plugin-demo/timer/settings.mjs` | 规则 CRUD；护眼预设；卡片停留/常驻 |
+| `tools/plugin-demo/timer/ui.mjs` | Toast 卡 |
+| `src-tauri/src/plugin_commands.rs` | `plugin_get_last_real_rest`（阈值读久坐 `break_minutes`） |
+| `src-tauri/src/db.rs` | `get_last_real_rest_ts` |
+| `src/views/toastWindows/ReminderToast.vue` | 读 `payload.auto_hide_ms` / `event.sticky` 控制停留 |
 
-## 触发逻辑
+Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/timer`。详见 [[m10-external-plugins]] 与 `tools/plugin-demo/README.md`。
 
-一句话：**每连续用电脑满 N 分钟（默认 20）就弹一次护眼提醒；中途真正休息过，就从休息结束重新计时。**
+## 规则配置（护眼预设）
 
-判断「这一分钟该不该弹」分四步：
+| 字段 | 值 | 可否改 | 说明 |
+|------|----|--------|------|
+| `title` | `护眼提醒` | **否** | 固定示例名 |
+| `mode` | `interval` | **否** | 仅活跃分钟检查 |
+| `interval_minutes` | 默认 `20` | **可** | 用户可改间隔 |
+| `reset_on_rest` | `true` | **否** | UI「休息重置」固定开 |
+| `daily_times` | `[]` | **否** | 示例不做定点 |
+| `sticky` | 默认 `false` | 可 | 不常驻 / 可改 |
+| `card_duration_sec` | 默认 `25` | 可 | Toast 自动关闭秒数 |
+| `body` | 默认远眺文案 | 可 | 通知正文 |
+| `enabled` | 默认开 | 可 | 规则开关 |
 
-1. **只在活跃时检查。** 这一分钟用户敲了键盘或动了鼠标，才往下走；用户在休息，什么都不做。
-2. **定一个计时起点。** 取下面两个时间里更晚的那个：
-   - 上次弹护眼提醒的时间
-   - 上次真正休息结束的时间（连续不活动 ≥ `break_minutes` 分钟，才算一次「真正休息」）
-   - 谁更近就从谁开始数。两个都还没有（刚启动）→ 以现在为起点、本轮不弹，等满一个间隔再说。
-3. **到期就弹。** 「现在 − 起点」≥ 提醒间隔 → 弹右下角 Toast，并把「上次提醒时间」更新成现在。
-4. **同一秒只弹一次**，防止重复。
+实现：`settings.mjs` 的 `EYE_FIXED` / `applyEyeFixed` / `ensureBuiltinEyeRule`（始终恰好一条 eye）。详见 [[timer-plugin]]。
 
-例子（间隔 20 分钟、`break_minutes` 5 分钟）：
+用户无需再配独立休息阈值；真休息阈值仍读久坐插件 `break_minutes`。
 
-- 连续敲 20 分钟代码 → 弹。
-- 弹完接着敲 20 分钟 → 再弹。
-- 中间离开 10 分钟喝水（≥ 5 分钟，算真正休息）→ 回来后从「坐下那一刻」重新数 20 分钟。
-- 离开 3 分钟接个电话（< 5 分钟，不算休息）→ 不影响计时，回来接着之前的进度数。
+## 触发逻辑（`reset_on_rest`）
 
-> **为什么休息后是「查上次休息结束时间」，而不是在休息时直接把计时清零？**
-> 清零得由外层结算循环改写护眼模块内部的「上次提醒时间」，会把内部 key 和「休息后重置」这条规则泄漏出去，模块不再自包含。查一次今日记录（最多 1440 行，命中连续休息就停）就能把判断留在 eye 模块内部，概念上等价于「休息完重新计时」。
+每分钟 tick（对齐整分）：
 
-## UI
+1. 插件总开关 + 规则启用；未 snooze；活跃（`plugin_get_activity`）
+2. 无 `last_fired_at` → 只锚点不弹（防启用瞬间连弹）
+3. 开了休息重置时：调 `plugin_get_last_real_rest`
+   - 若 `lastRest > last_fired_at` → **真休息落在本轮间隔内** → 把 `last_fired_at` 写成 `lastRest` 并落盘 runtime
+4. `now - last_fired_at ≥ interval` → `plugin_publish_event`（`kind=timer`，`dedupe_key=reminder.timer.due:<ruleId>`）
 
-- 设置卡片使用绿色主题，与喝水提醒蓝色主题区分
-- Toast 卡片：脉冲点 + 标题、25 秒倒计时、绿色进度条、绿色正文、关闭按钮
-- 卡片底部两个按钮：「稍后5分钟」（`snooze_eye_reminder`）、「跳过本次」（`skip_eye_reminder`，等同推迟一个 `eye_interval`）
-- 倒计时位于进度条右侧，每秒刷新
-- Hover 不暂停倒计时，到时间自动关闭
-- 中文界面显示「护眼提醒」，英文为 "Eye Care Reminder"
+「真正休息」判定在宿主：连续空闲 ≥ 久坐插件 `break_minutes`（默认 5），见 `db.get_last_real_rest_ts`。
 
-## 状态机
+例子（间隔 20 分、久坐 break=5）：
 
-`EyeReminderState`（进程级，重启后重置）：
-- `last_reminder_sent` — 1 秒去重，防同一秒重复弹
-- `snooze_until` — 用户点「稍后」或「跳过」后写入；结算检查时若处于 snooze 期内则不弹。`snooze_until` 一过期自动失效，无需主动清除
+- 连续敲 20 分 → 弹
+- 弹完再敲 20 分 → 再弹
+- 中间离开 10 分（≥5 算真休息）→ 回来从休息结束重新数 20 分
+- 离开 3 分（<5）→ 不重置，接着原进度
 
-## 配置
+## Toast
 
-| 配置名 | 说明 | 默认值 |
-|--------|------|--------|
-| `eye_reminder_enabled` | 开启护眼提醒 | true |
-| `eye_interval_minutes` | 连续活跃多久提醒护眼（分钟） | 20 |
+- 宿主按 `sticky` / `payload.auto_hide_ms`（= `card_duration_sec * 1000`）计时
+- 进度条 CSS 变量 `--toast-auto-hide-ms` 跟 `totalMs` 对齐
+- 动作：`ack` / `snooze_5` / `skip`（背景脚本经 `catrace:plugin-event-resolved` 处理）
 
-## 测试
+## 存储
 
-`eye.rs` 包含 2 个测试：`can_send_reminder` 1 秒去重、`is_snoozed` 推迟逻辑。
+| 层 | 位置 |
+|----|------|
+| 可移植配置 | Store `plugin_config:timer`（规则列表；runtime 字段剥离） |
+| 运行态 | SQLite `plugin_storage(timer, runtime)` → 每规则 `last_fired_at` / `last_daily_keys` |
+| 进程态 | background 内 snooze / 1s 去重 Map |
+
+## 与旧内置的关系
+
+旧 `eye.rs` / `EyeToastCard` / `EyeSettingsCard` / 设置页护眼卡已移除。  
+历史过程见 devlog：`2026-07-10-eye-reminder*.md`、`2026-07-11-eye-toast-snooze-skip-buttons.md`。
 
 ## 相关
 
-- [[water-reminder]] — 同类提醒系统的实现参考
-- [[toast-window]] — Toast 通知承载窗口
-- [[database]] — `get_last_real_rest_ts` 真正休息查询
+- [[timer-plugin]] — 定时提醒插件 UI/编辑/排序
+- [[toast-window]] — Toast 窗口与 auto-hide
+- [[reminder]] — 久坐插件；提供 `break_minutes` 给真休息判定
+- [[water-reminder]] — 同类「间隔提醒」产品叙事（实现路径可能仍独立或收敛到 timer）
+- [[m10-external-plugins]] — 外部插件加载与 Card 合同
+- `tools/plugin-demo/README.md` — timer 插件总说明

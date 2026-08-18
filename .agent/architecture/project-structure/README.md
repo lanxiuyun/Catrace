@@ -19,12 +19,16 @@
 │   ├── assets/
 │   ├── components/
 │   │   ├── settings/     # 设置页卡片组件
-│   │   ├── Timeline.vue / TimelineWindows.vue / WaterWidget.vue
+│   │   ├── plugins/      # 插件中心侧栏/顶栏/内置 Panel
+│   │   ├── Timeline.vue / TimelineWindows.vue / *ToastCard.vue
 │   ├── i18n/             # vue-i18n zh-CN / en-US
-│   ├── router/index.ts   # hash 路由
+│   ├── router/index.ts   # hash 路由；MainShell / ToastShell nested
 │   ├── utils/timeBlocks.ts
-│   ├── views/            # Dashboard / Settings / Debug / Reminder*
-│   ├── App.vue / theme.ts / main.ts
+│   ├── views/
+│   │   ├── mainWindow/   # 主窗：MainShell + Dashboard/Plugins/Settings/Debug
+│   │   └── toastWindows/ # 独立窗：ToastShell + Reminder*/PluginHost
+│   ├── App.vue           # 仅 provider + 全局样式 + RouterView
+│   ├── theme.ts / main.ts
 ├── src-tauri/            # Tauri 2 + Rust
 │   ├── src/
 │   │   ├── main.rs       # 入口 → lib::run()

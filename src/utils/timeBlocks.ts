@@ -87,25 +87,29 @@ export function computeTimeBlocks(
    * 逻辑：
    * 1. 在 [start, start+maxScan) 范围内寻找连续 B 个休息分钟。
    * 2. 一旦找到，继续向后延伸，直到遇到非休息分钟为止。
-   * 3. 这样可以把「工作窗口内开始的短暂休息 + 后面可能延续的连续休息」合并为一个休息 block。
+   * 3. 若休息 streak 贴到窗口右缘仍未满 B，继续向 now 延伸计数（避免末尾 4 连休被误切活跃）。
+   * 4. 这样可以把「工作窗口内开始的短暂休息 + 后面可能延续的连续休息」合并为一个休息 block。
    */
   function findBreakEnd(start: number, maxScan: number): number {
     let restStreak = 0
-    let breakStart = -1
-    for (let i = start; i < Math.min(start + maxScan, effectiveMinutes.length); i++) {
+    // 窗口内扫描；若 streak 贴到窗口右缘且仍是休息，继续向 now 延伸
+    // （否则末尾 4 分钟休息会被切成「活跃」进行中 block）
+    const hardEnd = effectiveMinutes.length
+    const softEnd = Math.min(start + maxScan, hardEnd)
+    for (let i = start; i < hardEnd; i++) {
+      if (i >= softEnd && restStreak === 0) break
       if (isRest(effectiveMinutes[i])) {
-        if (breakStart === -1) breakStart = i
         restStreak++
         if (restStreak >= B) {
           let end = i + 1
-          while (end < effectiveMinutes.length && isRest(effectiveMinutes[end])) {
+          while (end < hardEnd && isRest(effectiveMinutes[end])) {
             end++
           }
           return end
         }
       } else {
+        if (i >= softEnd) break
         restStreak = 0
-        breakStart = -1
       }
     }
     return -1

@@ -1,6 +1,22 @@
 use rusqlite::{Connection, Result};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalMinuteRecord {
+    pub timestamp: i64,
+    pub dominant_process_name: String,
+    pub foreground_sample_count: i64,
+    pub foreground_counts_json: Option<String>,
+    pub key_count: i64,
+    pub key_sequence_json: Option<String>,
+    pub key_sequence_enabled: bool,
+    pub mouse_distance_px: f64,
+    pub mouse_sample_count: i64,
+    pub mouse_seconds_json: Option<String>,
+    pub collector_version: i32,
+}
 
 fn start_of_day_ts() -> i64 {
     chrono::Local::now()
@@ -35,8 +51,11 @@ impl Db {
             [],
         )?;
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS water_records (
-                timestamp INTEGER PRIMARY KEY
+            "CREATE TABLE IF NOT EXISTS plugin_storage (
+                plugin_id TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (plugin_id, key)
             )",
             [],
         )?;
@@ -45,9 +64,116 @@ impl Db {
             .ok();
         conn.execute("ALTER TABLE records ADD COLUMN category TEXT", [])
             .ok();
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS signal_minutes (
+                timestamp INTEGER PRIMARY KEY
+            )",
+            [],
+        )?;
+        for sql in [
+            "ALTER TABLE signal_minutes ADD COLUMN dominant_process_name TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN foreground_sample_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN foreground_counts_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN key_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN key_sequence_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN key_sequence_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_distance_px REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_sample_count INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE signal_minutes ADD COLUMN mouse_seconds_json TEXT",
+            "ALTER TABLE signal_minutes ADD COLUMN collector_version INTEGER NOT NULL DEFAULT 1",
+        ] {
+            let _ = conn.execute(sql, []);
+        }
+
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    pub fn upsert_signal_minute(&self, rec: &SignalMinuteRecord) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO signal_minutes (
+                timestamp, dominant_process_name, foreground_sample_count, foreground_counts_json,
+                key_count, key_sequence_json, key_sequence_enabled,
+                mouse_distance_px, mouse_sample_count, mouse_seconds_json, collector_version
+            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)
+            ON CONFLICT(timestamp) DO UPDATE SET
+                dominant_process_name=excluded.dominant_process_name,
+                foreground_sample_count=excluded.foreground_sample_count,
+                foreground_counts_json=excluded.foreground_counts_json,
+                key_count=excluded.key_count,
+                key_sequence_json=excluded.key_sequence_json,
+                key_sequence_enabled=excluded.key_sequence_enabled,
+                mouse_distance_px=excluded.mouse_distance_px,
+                mouse_sample_count=excluded.mouse_sample_count,
+                mouse_seconds_json=excluded.mouse_seconds_json,
+                collector_version=excluded.collector_version",
+            rusqlite::params![
+                rec.timestamp,
+                rec.dominant_process_name,
+                rec.foreground_sample_count,
+                rec.foreground_counts_json,
+                rec.key_count,
+                rec.key_sequence_json,
+                if rec.key_sequence_enabled { 1 } else { 0 },
+                rec.mouse_distance_px,
+                rec.mouse_sample_count,
+                rec.mouse_seconds_json,
+                rec.collector_version,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_recent_signal_minutes(&self, limit: i64) -> Result<Vec<SignalMinuteRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, dominant_process_name, foreground_sample_count, foreground_counts_json,
+                    key_count, key_sequence_json, key_sequence_enabled,
+                    mouse_distance_px, mouse_sample_count, mouse_seconds_json, collector_version
+             FROM signal_minutes
+             ORDER BY timestamp DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map([limit], |row| {
+            Ok(SignalMinuteRecord {
+                timestamp: row.get(0)?,
+                dominant_process_name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                foreground_sample_count: row.get(2)?,
+                foreground_counts_json: row.get(3)?,
+                key_count: row.get(4)?,
+                key_sequence_json: row.get(5)?,
+                key_sequence_enabled: row.get::<_, i64>(6)? != 0,
+                mouse_distance_px: row.get(7)?,
+                mouse_sample_count: row.get(8)?,
+                mouse_seconds_json: row.get(9)?,
+                collector_version: row.get(10)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Clear key_sequence_json older than retention_hours; keep key_count.
+    pub fn purge_key_sequences_older_than(&self, retention_hours: u64) -> Result<u64> {
+        let cutoff = chrono::Local::now().timestamp() - (retention_hours as i64) * 3600;
+        let conn = self.conn.lock().unwrap();
+        let n = conn.execute(
+            "UPDATE signal_minutes SET key_sequence_json = NULL
+             WHERE key_sequence_json IS NOT NULL AND timestamp < ?1",
+            [cutoff],
+        )?;
+        Ok(n as u64)
+    }
+
+    pub fn purge_all_key_sequences(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        let n = conn.execute(
+            "UPDATE signal_minutes SET key_sequence_json = NULL WHERE key_sequence_json IS NOT NULL",
+            [],
+        )?;
+        Ok(n as u64)
     }
 
     pub fn insert_record(&self, timestamp: i64, is_active: bool, process_name: &str) -> Result<()> {
@@ -145,60 +271,34 @@ impl Db {
     // ------------------------------------------------------------------
     // 喝水记录
     // ------------------------------------------------------------------
+    // Plugin runtime state / persistent business data
+    // ------------------------------------------------------------------
 
-    pub fn record_water(&self, timestamp: i64) -> Result<()> {
+    pub fn get_plugin_storage(&self, plugin_id: &str, key: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt =
+            conn.prepare("SELECT value FROM plugin_storage WHERE plugin_id = ?1 AND key = ?2")?;
+        let mut rows = stmt.query([plugin_id, key])?;
+        Ok(rows.next()?.map(|row| row.get(0)).transpose()?)
+    }
+
+    pub fn set_plugin_storage(&self, plugin_id: &str, key: &str, value: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT OR IGNORE INTO water_records (timestamp) VALUES (?1)",
-            [timestamp],
+            "INSERT INTO plugin_storage (plugin_id, key, value) VALUES (?1, ?2, ?3)
+             ON CONFLICT(plugin_id, key) DO UPDATE SET value = excluded.value",
+            [plugin_id, key, value],
         )?;
         Ok(())
     }
 
-    pub fn get_last_water(&self) -> Option<i64> {
+    pub fn remove_plugin_storage(&self, plugin_id: &str, key: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = match conn
-            .prepare("SELECT timestamp FROM water_records ORDER BY timestamp DESC LIMIT 1")
-        {
-            Ok(s) => s,
-            Err(_) => return None,
-        };
-        let mut rows = match stmt.query([]) {
-            Ok(r) => r,
-            Err(_) => return None,
-        };
-        rows.next().ok().flatten().and_then(|row| row.get(0).ok())
-    }
-
-    pub fn get_today_water_count(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM water_records WHERE timestamp >= ?1",
-            [start_of_day],
-            |row| row.get(0),
+        conn.execute(
+            "DELETE FROM plugin_storage WHERE plugin_id = ?1 AND key = ?2",
+            [plugin_id, key],
         )?;
-        Ok(count)
-    }
-
-    pub fn get_today_water_records(&self) -> Result<Vec<i64>> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let mut stmt = conn.prepare(
-            "SELECT timestamp FROM water_records WHERE timestamp >= ?1 ORDER BY timestamp ASC",
-        )?;
-        let rows = stmt.query_map([start_of_day], |row| row.get::<_, i64>(0))?;
-        rows.collect::<Result<Vec<_>>>()
-    }
-
-    pub fn delete_last_water(&self) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let start_of_day = start_of_day_ts();
-        let deleted = conn.execute(
-            "DELETE FROM water_records WHERE timestamp = (SELECT MAX(timestamp) FROM water_records WHERE timestamp >= ?1)",
-            [start_of_day],
-        )?;
-        Ok(deleted > 0)
+        Ok(())
     }
 
     /// 获取从今天首个记录到最新记录的每分钟数据（缺失视为休息）
@@ -373,6 +473,9 @@ struct Block {
 
 /// 在 [start, start + max_scan) 范围内找连续 break_m 休息
 /// 找到后延伸至所有连续休息结束，返回结束索引（不包含）
+///
+/// 若休息 streak 贴到窗口右缘仍未结束，继续向记录末尾扫描
+/// （否则「活跃 41 + 休息 4」会被误切成活跃 block，进行中休息不算完成）
 fn find_break_end(
     records: &[(i64, bool)],
     start: usize,
@@ -380,17 +483,25 @@ fn find_break_end(
     break_m: usize,
 ) -> Option<usize> {
     let mut rest_streak = 0;
-    for i in start..std::cmp::min(start + max_scan, records.len()) {
+    let hard_end = records.len();
+    let soft_end = std::cmp::min(start + max_scan, hard_end);
+    for i in start..hard_end {
+        if i >= soft_end && rest_streak == 0 {
+            break;
+        }
         if !records[i].1 {
             rest_streak += 1;
             if rest_streak >= break_m {
                 let mut end = i + 1;
-                while end < records.len() && !records[end].1 {
+                while end < hard_end && !records[end].1 {
                     end += 1;
                 }
                 return Some(end);
             }
         } else {
+            if i >= soft_end {
+                break;
+            }
             rest_streak = 0;
         }
     }
@@ -461,6 +572,31 @@ fn compute_completed_blocks(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugin_storage_is_isolated_by_plugin_and_key() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        db.set_plugin_storage("alpha", "state", "{\"value\":1}")
+            .unwrap();
+        db.set_plugin_storage("beta", "state", "{\"value\":2}")
+            .unwrap();
+
+        assert_eq!(
+            db.get_plugin_storage("alpha", "state").unwrap().as_deref(),
+            Some("{\"value\":1}")
+        );
+        assert_eq!(
+            db.get_plugin_storage("beta", "state").unwrap().as_deref(),
+            Some("{\"value\":2}")
+        );
+        assert_eq!(db.get_plugin_storage("alpha", "missing").unwrap(), None);
+        db.remove_plugin_storage("alpha", "state").unwrap();
+        assert_eq!(db.get_plugin_storage("alpha", "state").unwrap(), None);
+        assert_eq!(
+            db.get_plugin_storage("beta", "state").unwrap().as_deref(),
+            Some("{\"value\":2}")
+        );
+    }
 
     #[test]
     fn test_notify_after_active_block_completes() {
@@ -765,6 +901,57 @@ mod tests {
         assert_eq!(current, 20);
     }
 
+    /// 活跃 41 + 休息跨出窗口右缘凑满 5：应切 Rest，而非先切 Active(45)
+    #[test]
+    fn test_compute_blocks_rest_crosses_window_edge() {
+        // 仅 4 连休贴边：不够 break，仍按 Active 切满窗
+        let records_short: Vec<(i64, bool)> = (0..45)
+            .map(|i| (i as i64 * 60, i < 41))
+            .collect();
+        let (blocks_short, current_short) =
+            compute_completed_blocks(&records_short, 45, 5);
+        assert_eq!(blocks_short.len(), 1);
+        assert_eq!(blocks_short[0].kind, BlockKind::Active);
+        assert_eq!(blocks_short[0].end, 45);
+        assert_eq!(current_short, 45);
+
+        // 第 5 分钟休息在 window 外（index 45）→ 必须延伸计数，整段 Rest
+        let records: Vec<(i64, bool)> = (0..46)
+            .map(|i| (i as i64 * 60, i < 41))
+            .collect();
+        let (blocks, current) = compute_completed_blocks(&records, 45, 5);
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].kind, BlockKind::Rest);
+        assert_eq!(blocks[0].start, 0);
+        assert_eq!(blocks[0].end, 46);
+        assert_eq!(current, 46);
+
+        // 休息继续 → Rest 延伸
+        let mut records2 = records;
+        records2.push((46 * 60, false));
+        let (blocks2, current2) = compute_completed_blocks(&records2, 45, 5);
+        assert_eq!(blocks2.len(), 1);
+        assert_eq!(blocks2[0].kind, BlockKind::Rest);
+        assert_eq!(blocks2[0].end, 47);
+        assert_eq!(current2, 47);
+    }
+
+    /// 同上数据：第 5 分钟休息后 should_notify=false
+    #[test]
+    fn test_notify_rest_crosses_window_edge() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = start_of_day_ts();
+        // 0-40 活跃，41-45 休息（5 连休，其中第 5 分钟在 window 外）
+        for i in 0..41 {
+            db.insert_record(base + i * 60, true, "test.exe").unwrap();
+        }
+        for i in 41..46 {
+            db.insert_record(base + i * 60, false, "test.exe").unwrap();
+        }
+        let (should, _) = db.check_should_notify(45, 5).unwrap();
+        assert!(!should);
+    }
+
     #[test]
     fn test_get_last_real_rest_ts() {
         let db = Db::new(Path::new(":memory:")).unwrap();
@@ -805,47 +992,5 @@ mod tests {
         }
         // 本次只休息 5 分钟，结束于 base + 29*60
         assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 29 * 60));
-    }
-
-    #[test]
-    fn test_water_records() {
-        let db = Db::new(Path::new(":memory:")).unwrap();
-        let base = start_of_day_ts();
-
-        assert_eq!(db.get_last_water(), None);
-        assert_eq!(db.get_today_water_count().unwrap(), 0);
-
-        db.record_water(base + 60).unwrap();
-        assert_eq!(db.get_last_water(), Some(base + 60));
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        // 同分钟去重
-        db.record_water(base + 60).unwrap();
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        db.record_water(base + 120).unwrap();
-        assert_eq!(db.get_last_water(), Some(base + 120));
-        assert_eq!(db.get_today_water_count().unwrap(), 2);
-
-        let records = db.get_today_water_records().unwrap();
-        assert_eq!(records, vec![base + 60, base + 120]);
-
-        // 昨天的记录不应出现在今日列表中
-        db.record_water(base - 86400).unwrap();
-        let records = db.get_today_water_records().unwrap();
-        assert_eq!(records, vec![base + 60, base + 120]);
-
-        // 删除最近一次应只删今天的，不影响昨天记录
-        assert!(db.delete_last_water().unwrap());
-        assert_eq!(db.get_last_water(), Some(base + 60));
-        assert_eq!(db.get_today_water_count().unwrap(), 1);
-
-        // 删除 today's 最后一条后再删应返回 false
-        assert!(db.delete_last_water().unwrap());
-        assert!(!db.delete_last_water().unwrap());
-        assert_eq!(db.get_today_water_count().unwrap(), 0);
-
-        // 昨天的记录仍在
-        assert_eq!(db.get_last_water(), Some(base - 86400));
     }
 }

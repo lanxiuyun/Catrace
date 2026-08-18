@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Catrace — 久坐提醒，默默守护你的健康</title>
-  <meta name="description" content="Catrace 是一款桌面端久坐提醒工具。无需手动开启，后台自动感知你的电脑使用状态，在连续坐太久时温柔提醒你起来活动一下。">
+  <title>Catrace — 桌面事件系统 · 插件运行时</title>
+  <meta name="description" content="Catrace 是桌面端事件系统：久坐/定时提醒、AI Agent 进度、GitHub 与手机消息等，统一在右下角 Toast 卡片呈现。本地运行，不上传数据，免费开源。">
   <link rel="icon" type="image/png" href="favicon.png">
   <style>
     :root {
@@ -115,7 +115,7 @@
     .hero {
       text-align: center;
       padding: 2.5rem 1rem 2rem;
-      max-width: 47.5rem;
+      max-width: 50rem;
       margin: 0 auto;
     }
 
@@ -125,10 +125,23 @@
       }
     }
 
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 9999px;
+      padding: 0.35rem 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
     .hero h1 {
-      font-size: clamp(1.5rem, 5.5vw, 3rem);
+      font-size: clamp(1.5rem, 5.5vw, 2.75rem);
       font-weight: 800;
-      line-height: 1.2;
+      line-height: 1.25;
       margin-bottom: 1rem;
       color: var(--text);
     }
@@ -141,10 +154,20 @@
     }
 
     .hero .note {
-      font-size: 0.875rem;
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      padding: 0 0.5rem;
+      max-width: 36rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero .privacy {
+      font-size: 0.8125rem;
       color: var(--text-secondary);
       margin-bottom: 1.75rem;
-      padding: 0 0.5rem;
+      opacity: 0.9;
     }
 
     .btn-group {
@@ -185,6 +208,19 @@
       background: var(--primary-dark);
       transform: translateY(-1px);
       text-decoration: none;
+    }
+
+    .btn-ghost {
+      background: var(--card);
+      color: var(--text);
+      border: 0.0625rem solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      border-color: #DDD6FE;
+      color: var(--primary);
+      text-decoration: none;
+      transform: translateY(-1px);
     }
 
     .btn svg {
@@ -298,7 +334,7 @@
     .section-subtitle {
       text-align: center;
       color: var(--text-secondary);
-      max-width: 35rem;
+      max-width: 38rem;
       margin: 0 auto 2.5rem;
       font-size: 1rem;
       padding: 0 1rem;
@@ -468,6 +504,258 @@
     .feature-card p {
       color: var(--text-secondary);
       font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* Plugins */
+    .plugins {
+      max-width: 68.75rem;
+      margin: 3rem auto;
+      padding: 0 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .plugins {
+        margin: 4rem auto;
+      }
+    }
+
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .plugin-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .plugin-card {
+      background: var(--card);
+      border: 0.0625rem solid var(--border);
+      border-radius: 1rem;
+      padding: 1.35rem 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .plugin-card .tag {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 9999px;
+      padding: 0.15rem 0.5rem;
+      white-space: nowrap;
+      margin-top: 0.2rem;
+    }
+
+    .plugin-card h3 {
+      font-size: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .plugin-card p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .plugin-foot {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    /* Plugin showcase */
+    .plugin-showcase {
+      max-width: 72rem;
+      margin: 4rem auto;
+      padding: 0 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .plugin-showcase {
+        margin: 5rem auto;
+        padding: 0 2rem;
+      }
+    }
+
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-top: 2.5rem;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-layout {
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 3rem;
+        align-items: start;
+      }
+    }
+
+    .showcase-frame {
+      position: relative;
+      border-radius: 2rem;
+      background: #161226;
+      box-shadow:
+        0 0 0 0.0625rem rgba(255, 255, 255, 0.06),
+        0 2rem 4rem rgba(0, 0, 0, 0.45),
+        inset 0 0 1.5rem rgba(0, 0, 0, 0.4);
+      border: 0.5rem solid #1e1935;
+      overflow: hidden;
+      aspect-ratio: 16 / 10;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-frame {
+        position: sticky;
+        top: 10vh;
+        aspect-ratio: 4 / 3;
+      }
+    }
+
+    /* 屏幕黑色区域 */
+    .showcase-frame::before {
+      content: "";
+      position: absolute;
+      top: 1.75rem;
+      left: 1rem;
+      right: 1rem;
+      bottom: 2rem;
+      background: #000;
+      border-radius: 0.75rem;
+      z-index: 1;
+    }
+
+    /* 顶部刘海 */
+    .device-notch {
+      position: absolute;
+      top: 0.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4.5rem;
+      height: 1.25rem;
+      background: #1e1935;
+      border-radius: 9999px;
+      z-index: 4;
+      box-shadow: inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.08);
+    }
+
+    /* 底部 Home 指示条 */
+    .device-home {
+      position: absolute;
+      bottom: 0.625rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3.5rem;
+      height: 0.25rem;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+      z-index: 4;
+    }
+
+    .showcase-frame img {
+      position: absolute;
+      top: 1.75rem;
+      left: 1rem;
+      right: 1rem;
+      bottom: 2rem;
+      width: calc(100% - 2rem);
+      height: calc(100% - 3.75rem);
+      object-fit: contain;
+      padding: 0.75rem;
+      opacity: 0;
+      transform: scale(0.96) translateY(1rem);
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 2;
+      border-radius: 0.75rem;
+    }
+
+    .showcase-frame img.active {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    .showcase-panels {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panels {
+        gap: 0;
+      }
+    }
+
+    .showcase-panel {
+      background: var(--card);
+      border: 0.0625rem solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      opacity: 0.45;
+      transform: translateY(0);
+      transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease;
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panel {
+        min-height: 70vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        border-radius: 0;
+        padding: 1.5rem 0;
+        opacity: 0.35;
+      }
+    }
+
+    .showcase-panel.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (min-width: 900px) {
+      .showcase-panel.active {
+        opacity: 1;
+      }
+    }
+
+    .showcase-panel .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 9999px;
+      padding: 0.25rem 0.625rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.02em;
+    }
+
+    .showcase-panel h4 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+
+    .showcase-panel p {
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
       line-height: 1.6;
     }
 
@@ -654,7 +942,7 @@
     .cta-box p {
       opacity: 0.9;
       margin-bottom: 1.5rem;
-      max-width: 30rem;
+      max-width: 32rem;
       margin-left: auto;
       margin-right: auto;
     }
@@ -705,17 +993,23 @@
     <nav>
       <a href="#why">为什么选它</a>
       <a href="#features">功能</a>
-      <a href="https://github.com/lanxiuyun/Catrace" target="_blank">GitHub</a>
+      <a href="#plugins">插件</a>
+      <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
     </nav>
   </header>
 
   <section class="hero">
-    <h1>坐了一下午浑然不觉？<br><span>Catrace 自动提醒你站起来</span></h1>
-    <p class="note">不偷拍、不上传，所有数据只存在你自己的电脑上。</p>
+    <div class="hero-badge">桌面事件系统 · 插件运行时</div>
+    <h1>该知道的消息，<br><span>统一弹在右下角</span></h1>
+    <p class="note">久坐提醒你休息，定时叫你喝水；AI 编程进度、GitHub 动态、手机短信——都能装进同一张 Toast 卡片。</p>
+    <p class="privacy">不偷拍、不上传。键鼠只判忙闲，数据只留本机。</p>
     <div class="btn-group">
-      <a class="btn btn-primary" href="https://github.com/lanxiuyun/Catrace/releases" target="_blank">
+      <a class="btn btn-primary" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         免费下载
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">
+        GitHub
       </a>
     </div>
   </section>
@@ -726,28 +1020,28 @@
         <div class="pain-icon">😫</div>
         <div>
           <h4>一忙就忘了时间</h4>
-          <p>开会、写文档、追剧，回过神来已经坐了半天。</p>
+          <p>写代码、写文档、追剧，回过神来已经坐了半天。</p>
+        </div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">🔀</div>
+        <div>
+          <h4>通知散落各处</h4>
+          <p>终端盯 AI、浏览器刷 GitHub、手机震动——注意力被撕成碎片。</p>
         </div>
       </div>
       <div class="pain-card">
         <div class="pain-icon">⏰</div>
         <div>
-          <h4>闹钟总在不合适的时候响</h4>
-          <p>按固定时间响，不管你当时在忙还是已经歇了。</p>
-        </div>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon">🪑</div>
-        <div>
-          <h4>坐久了浑身难受</h4>
-          <p>脖子僵、腰酸痛、眼睛干涩，才想起该站起来走走。</p>
+          <h4>闹钟不懂你忙不忙</h4>
+          <p>固定时间响，不管你在开会还是已经歇着。</p>
         </div>
       </div>
       <div class="pain-card">
         <div class="pain-icon">🐱</div>
         <div>
-          <h4>Catrace 懂你的节奏</h4>
-          <p>忙的时候默默陪伴，坐久了才轻轻提醒，不会乱响。</p>
+          <h4>Catrace 收口成一张卡</h4>
+          <p>真正在忙才提醒；插件消息同一套 Toast，可点可跳过。</p>
         </div>
       </div>
     </div>
@@ -755,15 +1049,15 @@
 
   <section class="screenshot">
     <img src="screenshot.png" alt="Catrace 主界面：今日统计、活动时间轴、活跃与休息时段">
-    <p class="screenshot-caption">Catrace 主界面：今天坐了多久、什么时候休息过，一眼看清</p>
+    <p class="screenshot-caption">主界面：今天坐了多久、什么时候休息过，一眼看清</p>
   </section>
 
   <section class="why" id="why">
     <h2 class="section-title">和普通闹钟有什么不同？</h2>
-    <p class="section-subtitle">Catrace 不关心「你计划坐多久」，只关心「你实际坐了多久」。</p>
+    <p class="section-subtitle">Catrace 不关心「你计划坐多久」，只关心「你实际坐了多久」。该知道的消息，也统一弹在右下角。</p>
     <div class="why-grid">
       <div class="why-box">
-        <h3>❌ 普通闹钟 / 计时器</h3>
+        <h3>❌ 普通闹钟 / 系统通知</h3>
         <ul>
           <li><span class="mark">·</span> 每次要手动打开或设置</li>
           <li><span class="mark">·</span> 按固定时间响，不管你当时在不在忙</li>
@@ -777,53 +1071,137 @@
           <li><span class="mark">✓</span> 开机自启，后台静默运行，零操作成本</li>
           <li><span class="mark">✓</span> 你真正在忙时才提醒，不会乱响</li>
           <li><span class="mark">✓</span> 一旦你开始休息，提醒立即停止，不会打扰</li>
-          <li><span class="mark">✓</span> 自动生成今日活动记录，帮你了解自己的节奏</li>
+          <li><span class="mark">✓</span> 今日活动记录 + 插件消息，都收在右下角卡片</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section class="features" id="features">
-    <h2 class="section-title">核心功能</h2>
-    <p class="section-subtitle">轻量、自动、可定制，让休息提醒真正融入你的日常。</p>
+    <h2 class="section-title">装好就能用</h2>
+    <p class="section-subtitle">轻量、本地、可定制。休息与定时开箱即用，插件按需加装。</p>
     <div class="feature-grid">
       <div class="feature-card">
         <div class="feature-icon" style="background:#F3E8FF;">🖱️</div>
         <h3>自动感知你在用电脑</h3>
-        <p>不会记录你打了什么字、点了哪里，只判断电脑是不是在被使用。纯本地运行，隐私零泄露。</p>
+        <p>不记录键入内容与点击位置，只判断忙闲。纯本地运行，隐私不离机。</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" style="background:#D1FAE5;">⏱️</div>
-        <h3>到点自然提醒</h3>
-        <p>想连续专注多久、休息多久，都由你定。坐够了自己弹提醒，休息够了自动重新开始。</p>
+        <h3>久坐提醒</h3>
+        <p>连续工作太久就弹卡；可温柔卡片，也可全屏盖住屏幕逼你歇会儿。支持稍后 / 跳过。</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#EDE9FE;">🔔</div>
-        <h3>用你喜欢的方式提醒</h3>
-        <p>系统通知、弹窗、全屏任选。支持「5分钟后」「10分钟后」「跳过本次」灵活控制。</p>
+        <div class="feature-icon" style="background:#EDE9FE;">💧</div>
+        <h3>定时提醒</h3>
+        <p>按间隔喝水、拉伸，或定每天固定时间（如下班前打卡）。文案你来写。</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" style="background:#ECFDF5;">🎬</div>
-        <h3>看视频也算在活动中</h3>
-        <p>追剧、看电影时不会被误判为休息，到时间后仍然会提醒你起来活动一下。</p>
+        <h3>看视频也算在活动</h3>
+        <p>追剧、看电影时不会被误判为休息；到点仍会提醒起来活动一下。</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#F3E8FF;">✏️</div>
-        <h3>提醒内容你来定</h3>
-        <p>不仅可以叫你「休息」，还可以提醒你喝水、拉伸、甚至做一些健康小动作。</p>
+        <div class="feature-icon" style="background:#F3E8FF;">🔔</div>
+        <h3>统一 Toast 卡片</h3>
+        <p>右下角卡片可点、可操作；全屏覆盖游戏场景也尽量不抢焦点，点击可穿透空白区。</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" style="background:#D1FAE5;">📊</div>
-        <h3>一天下来一目了然</h3>
-        <p>今日统计、活动时间轴、分钟级热力图，一眼看清自己的高效时段和休息缺口。</p>
+        <h3>今日节奏一目了然</h3>
+        <p>统计、活动时间轴、分钟级热力图，看清高效时段和休息缺口。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="plugins" id="plugins">
+    <h2 class="section-title">插件加装，消息仍进同一处</h2>
+    <p class="section-subtitle">内置功能开箱即用；想更强就从本地文件夹或 zip 装插件。随用随开，不用就关。</p>
+    <div class="plugin-grid">
+      <div class="plugin-card">
+        <span class="tag">内置</span>
+        <div>
+          <h3>定时提醒</h3>
+          <p>间隔提醒 + 定点提醒，每条都有自己的标题、正文和停留秒数；卡片上可稍后或跳过。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <span class="tag">AI</span>
+        <div>
+          <h3>AI 助手动态</h3>
+          <p>Claude、Codex 等编程 Agent 跑到哪一步、要你授权什么，弹卡告诉你，不用死盯终端。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <span class="tag">耳机</span>
+        <div>
+          <h3>蓝牙耳机听歌</h3>
+          <p>耳机连上电脑可弹通知或打开听歌软件；断开时按你的设置暂停或关闭。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <span class="tag">GitHub</span>
+        <div>
+          <h3>GitHub 动态</h3>
+          <p>有人提 issue、点 star，桌面弹卡提醒，少刷网页。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <span class="tag">手机</span>
+        <div>
+          <h3>手机消息转发</h3>
+          <p>安卓短信或 App 通知转发到电脑 Toast（需搭配 SmsForwarder 等工具）。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <span class="tag">社区</span>
+        <div>
+          <h3>LINUX DO 通知</h3>
+          <p>linux.do 论坛有新的回复、@我或点赞时，桌面弹卡提醒。</p>
+        </div>
+      </div>
+    </div>
+    <p class="plugin-foot">
+      仓库里还有 notify-demo、sidecar-echo 等演示插件。开发者想自己写？看
+      <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">catrace-plugin</a>
+    </p>
+  </section>
+
+  <section class="plugin-showcase" id="gallery">
+    <h2 class="section-title">插件消息，统一 Toast 呈现</h2>
+    <p class="section-subtitle">无论手机通知、耳机连接还是验证码，都收敛到右下角同一张卡片。</p>
+    <div class="showcase-layout">
+      <div class="showcase-frame" id="showcase-frame">
+        <div class="device-notch"></div>
+        <div class="device-home"></div>
+        <img src="assets/plugin-sms.png" data-index="0" alt="SmsForwarder 通知插件：安卓通知转发到电脑 Toast" class="active">
+        <img src="assets/plugin-bt-music.webp" data-index="1" alt="蓝牙听歌插件：耳机连接后弹出通知">
+        <img src="assets/plugin-trae-sms.webp" data-index="2" alt="手机消息转发插件：接收 Trae 验证码">
+      </div>
+      <div class="showcase-panels" id="showcase-panels">
+        <div class="showcase-panel active" data-index="0">
+          <span class="tag">📱 手机消息转发</span>
+          <h4>安卓通知直达桌面</h4>
+          <p>短信、App 通知、验证码……转发到电脑右下角，可一键复制或拉黑应用。</p>
+        </div>
+        <div class="showcase-panel" data-index="1">
+          <span class="tag">🎧 蓝牙听歌</span>
+          <h4>耳机连上自动提醒</h4>
+          <p>蓝牙耳机连接 / 断开时弹卡，可自动打开你指定的音乐播放器。</p>
+        </div>
+        <div class="showcase-panel" data-index="2">
+          <span class="tag">🔑 验证码直达</span>
+          <h4>登录验证码直接弹卡</h4>
+          <p>手机收到 Trae 等登录验证码，桌面同步弹窗，不用反复低头看手机。</p>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="quote">
     <div class="quote-box">
-      <p class="quote-text">「以前总是忙到脖子酸了才想起要动一动。Catrace 不用我操心，到点就轻轻提醒，真正做到了无感陪伴。」</p>
-      <p class="quote-author">—— 一位不想继续久坐的开发者</p>
+      <p class="quote-text">「以前脖子酸了才想起动一动；现在 AI 进度和久坐提醒都在右下角，不用在终端和浏览器之间来回切。」</p>
+      <p class="quote-author">—— 一位既久坐又重度用 AI 编程的开发者</p>
     </div>
   </section>
 
@@ -835,21 +1213,21 @@
         <div class="step-num">1</div>
         <div>
           <h4>下载安装</h4>
-          <p>支持 Windows、macOS、Linux。安装后设置开机自启，即可忘记它的存在。</p>
+          <p>支持 Windows、macOS、Linux。安装后可开开机自启，后台静默跑。</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div>
           <h4>像往常一样用电脑</h4>
-          <p>写代码、写文档、回邮件、看视频……Catrace 会根据你的真实状态自动记录，无需任何操作。</p>
+          <p>写代码、写文档、回邮件、看视频……久坐与定时按你的节奏自动记、自动提醒。</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <div>
-          <h4>到点起来动一动</h4>
-          <p>连续坐太久后，它会用你选择的方式提醒你。去倒杯水、站起来走走，休息够了再继续。</p>
+          <h4>需要时再加插件</h4>
+          <p>在插件中心开关功能；从文件夹或 zip 安装扩展。消息仍统一弹在右下角。</p>
         </div>
       </div>
     </div>
@@ -857,9 +1235,9 @@
 
   <section class="cta">
     <div class="cta-box">
-      <h2>从今天开始，让久坐少一点</h2>
-      <p>Catrace 完全免费开源。下载试用，给你的脖子和腰一个交代。</p>
-      <a class="btn" href="https://github.com/lanxiuyun/Catrace/releases" target="_blank">
+      <h2>从今天开始，少切窗口，少久坐</h2>
+      <p>Catrace 完全免费开源。下载试用，把休息提醒和重要动态收进同一张卡片。</p>
+      <a class="btn" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         立即下载 Catrace
       </a>
@@ -868,12 +1246,47 @@
 
   <footer>
     <p>
-      <a href="https://github.com/lanxiuyun/Catrace" target="_blank">GitHub</a>
-      <a href="https://github.com/lanxiuyun/Catrace/releases" target="_blank">Releases</a>
-      <a href="https://github.com/lanxiuyun/Catrace/issues" target="_blank">问题反馈</a>
+      <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lanxiuyun/Catrace/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">插件仓库</a>
+      <a href="https://github.com/lanxiuyun/Catrace/issues" target="_blank" rel="noopener">问题反馈</a>
+      <a href="https://linux.do/" target="_blank" rel="noopener">linux.do 社区</a>
     </p>
     <p style="margin-top:0.75rem;">© Catrace — AGPL-3.0 License</p>
   </footer>
+
+  <script>
+    (function () {
+      const frame = document.getElementById('showcase-frame');
+      const panels = document.getElementById('showcase-panels');
+      if (!frame || !panels) return;
+
+      const images = Array.from(frame.querySelectorAll('img[data-index]'));
+      const panelList = Array.from(panels.querySelectorAll('.showcase-panel[data-index]'));
+
+      function activate(index) {
+        images.forEach((img) => img.classList.toggle('active', img.dataset.index === String(index)));
+        panelList.forEach((panel) => panel.classList.toggle('active', panel.dataset.index === String(index)));
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              activate(entry.target.dataset.index);
+            }
+          });
+        },
+        {
+          root: null,
+          rootMargin: '-45% 0px -45% 0px',
+          threshold: 0,
+        }
+      );
+
+      panelList.forEach((panel) => observer.observe(panel));
+    })();
+  </script>
 
 </body>
 </html>

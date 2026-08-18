@@ -1,7 +1,6 @@
 # 审批卡挂起时 session 变化必须 timeout 释放 + HTTP 请求并行
 
-> 关联 bug：[2026-07-18-permission-hang-on-session-change](../../bugs/2026-07-18-permission-hang-on-session-change.md)  
-> 关联 devlog：[2026-07-17-p6-permission-approve-deny](../../devlog/2026-07-17-p6-permission-approve-deny.md)
+> 关联 bug：[2026-07-18-permission-hang-on-session-change](../../bugs/2026-07-18-permission-hang-on-session-change.md)
 
 ## 问题模型
 

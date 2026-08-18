@@ -1,106 +1,28 @@
 <script setup lang="ts">
-import { h, computed, watch } from 'vue'
-import qqGroupQr from './assets/qq-group.jpg'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   NConfigProvider,
-  NLayout,
-  NLayoutSider,
-  NLayoutContent,
-  NMenu,
   NMessageProvider,
-  NPopover,
+  NDialogProvider,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
 import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
-import ReminderPopup from './views/ReminderPopup.vue'
-import ReminderFullscreen from './views/ReminderFullscreen.vue'
-import ReminderToast from './views/ReminderToast.vue'
 
-const route = useRoute()
-const { t, locale } = useI18n()
+const { locale } = useI18n()
 
 const naiveLocale = computed(() => {
   return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS
 })
-
-const menuOptions = computed(() => [
-  {
-    label: () => h(RouterLink, { to: '/dashboard' }, { default: () => t('nav.overview') }),
-    key: '/dashboard',
-  },
-  {
-    label: () => h(RouterLink, { to: '/settings' }, { default: () => t('nav.settings') }),
-    key: '/settings',
-  },
-  {
-    label: () => h(RouterLink, { to: '/debug' }, { default: () => t('nav.debug') }),
-    key: '/debug',
-  },
-])
-
-const isReminderRoute = computed(() => {
-  return ['/reminder-popup', '/reminder-fullscreen', '/reminder-toast'].includes(route.path)
-})
-
-const currentReminderType = computed(() => {
-  if (route.path === '/reminder-popup') return 'popup'
-  if (route.path === '/reminder-fullscreen') return 'fullscreen'
-  if (route.path === '/reminder-toast') return 'toast'
-  return ''
-})
-
-const needsTransparentBg = computed(() => {
-  return route.path === '/reminder-fullscreen' || route.path === '/reminder-toast'
-})
-
-// 全屏提醒 / toast 提醒时让 html/body 背景透明
-watch(needsTransparentBg, (val) => {
-  document.documentElement.classList.toggle('reminder-transparent', val)
-}, { immediate: true })
-
 </script>
 
 <template>
   <n-config-provider :theme-overrides="themeOverrides" :locale="naiveLocale">
     <n-message-provider>
-      <template v-if="isReminderRoute">
-        <ReminderPopup v-if="currentReminderType === 'popup'" />
-        <ReminderFullscreen v-else-if="currentReminderType === 'fullscreen'" />
-        <ReminderToast v-else-if="currentReminderType === 'toast'" />
-        <RouterView v-else />
-      </template>
-      <n-layout v-else has-sider class="app-layout">
-        <n-layout-sider
-          bordered
-          :collapsed-width="64"
-          :width="180"
-          class="app-sider"
-        >
-          <div class="logo">Catrace</div>
-          <n-menu :value="route.path" :options="menuOptions" />
-          <n-popover trigger="hover" placement="right-start" :show-arrow="false" :delay="200">
-            <template #trigger>
-              <div class="sidebar-community">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <div class="sidebar-community-text">
-                  <span>QQ群</span>
-                  <span>468998176</span>
-                </div>
-              </div>
-            </template>
-            <img :src="qqGroupQr" class="qq-qr-img" width="200" height="200" />
-          </n-popover>
-        </n-layout-sider>
-        <n-layout-content class="app-content" :native-scrollbar="false">
-          <RouterView v-slot="{ Component }">
-            <KeepAlive>
-              <component :is="Component" />
-            </KeepAlive>
-          </RouterView>
-        </n-layout-content>
-      </n-layout>
+      <n-dialog-provider>
+        <RouterView />
+      </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -110,7 +32,7 @@ html, body, #app {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #f7f5fa;
+  background: #f8fafc;
 }
 
 * {
@@ -123,97 +45,5 @@ textarea,
 [contenteditable="true"] {
   -webkit-user-select: auto;
   user-select: auto;
-}
-
-html.reminder-transparent,
-html.reminder-transparent body,
-html.reminder-transparent #app {
-  background: transparent !important;
-}
-
-.app-layout {
-  height: 100vh;
-  overflow: hidden;
-  background: #f7f5fa;
-}
-
-.app-content {
-  height: 100vh;
-}
-
-.app-content :deep(.n-layout-scroll-container) {
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.app-sider {
-  background: #ffffff !important;
-  border-right-color: #ebe6f2 !important;
-  position: relative;
-}
-
-.app-sider :deep(.n-layout-sider-scroll-container) {
-  background: #FFFFFF;
-}
-
-.logo {
-  padding: 1.5rem 1rem 1.25rem;
-  font-size: 1.125rem;
-  font-weight: 700;
-  text-align: center;
-  color: #6d28d9;
-  letter-spacing: -0.02em;
-}
-
-.app-sider :deep(.n-menu-item-content) {
-  border-radius: 0.625rem;
-  margin: 0.125rem 0.5rem;
-}
-
-.app-sider :deep(.n-menu-item-content::before) {
-  border-radius: 0.625rem !important;
-  left: 0.5rem !important;
-  right: 0.5rem !important;
-}
-
-.app-sider :deep(.n-menu .router-link-active) {
-  color: inherit;
-  text-decoration: none;
-}
-
-.sidebar-community {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  color: #8b5cf6;
-  font-size: 0.8125rem;
-  border-top: 0.0625rem solid #ebe6f2;
-  background: #fff;
-  transition: background 0.2s;
-  z-index: 10;
-  box-sizing: border-box;
-}
-
-.sidebar-community:hover {
-  background: #f5f3ff;
-  text-decoration: underline;
-}
-
-.sidebar-community-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.qq-qr-img {
-  width: 12.5rem;
-  height: auto;
-  border-radius: 0.375rem;
 }
 </style>

@@ -1,12 +1,21 @@
 mod agent_hook;
+mod bus;
 mod db;
-mod eye;
+mod event;
+mod event_http;
 mod log;
 mod media_audio;
-mod reminder;
+mod special_day;
+mod plugin_api;
+mod plugin_commands;
+mod plugin_config;
+mod plugin_sidecar;
+mod plugin_window;
+mod plugins;
 mod reminder_toast;
 mod report;
-mod water;
+mod rest_plugin;
+mod signal;
 mod window_manager;
 
 use std::collections::HashMap;
@@ -18,7 +27,6 @@ use std::time::{Duration, Instant};
 use active_win_pos_rs::get_active_window;
 use base64::Engine;
 use chrono::Timelike;
-use device_query::{DeviceEvents, DeviceQuery, DeviceState, Keycode};
 use std::fs;
 use std::path::Path;
 use tauri::menu::{Menu, MenuItem};
@@ -30,7 +38,6 @@ use tokio::time::interval;
 
 // 启动时自动检查更新，整个生命周期只执行一次
 static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
-
 #[cfg(target_os = "macos")]
 pub(crate) fn accessibility_permission_granted() -> bool {
     macos_accessibility_client::accessibility::application_is_trusted()
@@ -58,52 +65,15 @@ fn request_accessibility_permission() -> bool {
     true
 }
 
-fn start_input_sampling(state: Arc<Mutex<ActivityState>>, started: Arc<AtomicBool>) {
-    if started.swap(true, Ordering::SeqCst) {
-        return;
-    }
-
-    // 键盘监听线程：所有平台统一使用 device_query 的事件回调
-    // rdev 在 Windows 上使用 SetWindowsHookEx(WH_KEYBOARD_LL)，其钩子链实现
-    // 有缺陷会导致 Ctrl 修饰键"卡住"——释放 Ctrl 后系统仍认为其按下，
-    // 致使用户滚轮滚动被错误解释为 Ctrl+Wheel 缩放。
-    // 在 macOS 上 rdev 调用 TISGetInputSourceProperty 会在非主线程/某些
-    // 输入法下崩溃（Narsil/rdev #103 #146）。device_query 避免以上问题。
-    {
-        let keyboard_state = state.clone();
-        thread::spawn(move || {
-            let device_state = DeviceState::new();
-            let _guard = device_state.on_key_down(move |_: &Keycode| {
-                let mut s = keyboard_state.lock().unwrap();
-                if s.key_debounce
-                    .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
-                {
-                    s.count += 1;
-                    s.key_debounce = Some(Instant::now());
-                }
-            });
-            loop {
-                thread::sleep(Duration::from_secs(60));
-            }
-        });
-    }
-
-    // 每 2 秒采样鼠标位置（同步线程：DeviceState 在 Linux 上非 Send，不能放 async）
-    thread::spawn(move || {
-        let device_state = DeviceState::new();
-        loop {
-            thread::sleep(Duration::from_secs(2));
-            let mouse = device_state.get_mouse();
-            let (x, y) = mouse.coords;
-            let mut s = state.lock().unwrap();
-            if (x, y) != s.last_cursor {
-                s.count += 1;
-                s.last_cursor = (x, y);
-            }
-        }
-    });
-
-    eprintln!("[accessibility] input sampling started");
+fn start_input_sampling(
+    state: Arc<Mutex<ActivityState>>,
+    signal_core: Arc<signal::SignalCore>,
+    started: Arc<AtomicBool>,
+) {
+    // 键盘/鼠标采集下沉到 signal 模块：
+    // - 保留 legacy ActivityState.count 的 2s 去重语义（休息判定不变）
+    // - 同时写入 Signal 分钟桶（键计数/可选序列、鼠标每秒位移）
+    signal::start_input_sampling(state, signal_core, started);
 }
 
 // ------------------------------------------------------------------
@@ -178,9 +148,7 @@ async fn get_activity_snapshot(
     })
 }
 
-use eye::EyeReminderState;
-use reminder::ReminderState;
-use water::WaterReminderState;
+use rest_plugin::ReminderState;
 
 // ---------- 提醒窗口数据 ----------
 
@@ -199,59 +167,7 @@ pub struct ReminderWindowData {
 
 pub type ReminderWindowStore = Arc<Mutex<HashMap<String, ReminderWindowData>>>;
 
-/// Debug 页通知循环测试状态
-pub struct NotificationTestState {
-    running: AtomicBool,
-}
-
-impl NotificationTestState {
-    pub fn new() -> Self {
-        Self {
-            running: AtomicBool::new(false),
-        }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.running.load(Ordering::SeqCst)
-    }
-
-    pub fn start(&self) {
-        self.running.store(true, Ordering::SeqCst);
-    }
-
-    pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
-    }
-}
-
-impl Default for NotificationTestState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 // ---------- i18n helpers ----------
-
-fn notify_title(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "休息提醒",
-        _ => "Rest Reminder",
-    }
-}
-
-fn notify_body(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "站起来，喝口水，伸伸脖子和懒腰。",
-        _ => "Stand up, drink some water, stretch your neck and back.",
-    }
-}
-
-fn test_notify_msg(locale: &str) -> &'static str {
-    match locale {
-        "zh-CN" => "这是一条测试提醒",
-        _ => "This is a test notification",
-    }
-}
 
 fn tray_show(locale: &str) -> &'static str {
     match locale {
@@ -286,7 +202,8 @@ async fn get_media_debug_info(
     let (audio_sessions, audio_active, audio_error) = match media_audio::list_audio_sessions() {
         Ok(mut sessions) => {
             for session in &mut sessions {
-                session.whitelisted = media_audio::is_session_whitelisted(session, &whitelist_clone);
+                session.whitelisted =
+                    media_audio::is_session_whitelisted(session, &whitelist_clone);
             }
             let active = media_audio::is_media_audio_active(&whitelist_clone);
             (sessions, active, None)
@@ -414,73 +331,6 @@ fn set_toast_debug_mode(
 }
 
 #[tauri::command]
-fn get_config(db: tauri::State<db::Db>) -> serde_json::Value {
-    let window: i64 = db.get_setting("window_minutes", "45").parse().unwrap_or(45);
-    let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-    let snooze_interval: i64 = db
-        .get_setting("snooze_interval_minutes", "3")
-        .parse()
-        .unwrap_or(3);
-    serde_json::json!({ "window_minutes": window, "break_minutes": break_m, "snooze_interval_minutes": snooze_interval })
-}
-
-#[tauri::command]
-fn set_config(config: serde_json::Value, db: tauri::State<db::Db>) -> Result<(), String> {
-    if let Some(v) = config.get("window_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("window_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(v) = config.get("break_minutes").and_then(|v| v.as_i64()) {
-        db.set_setting("break_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    if let Some(v) = config
-        .get("snooze_interval_minutes")
-        .and_then(|v| v.as_i64())
-    {
-        db.set_setting("snooze_interval_minutes", &v.to_string())
-            .map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-fn skip_reminder(
-    boundary: i64,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-) {
-    let mut s = state.lock().unwrap();
-    s.skip_until_boundary = Some(boundary);
-    s.snooze_until = None;
-    s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
-}
-
-#[tauri::command]
-fn snooze_reminder(
-    minutes: u64,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-) {
-    let mut s = state.lock().unwrap();
-    s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
-    s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
-}
-
-#[tauri::command]
-fn dismiss_rest_timer(
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-) -> Result<(), String> {
-    let mut s = state.lock().unwrap();
-    s.break_timer_active = false;
-    Ok(())
-}
-
-#[tauri::command]
 fn get_today_stats(db: tauri::State<db::Db>) -> Result<serde_json::Value, String> {
     let (active, rest) = db.get_today_stats().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "active_minutes": active, "rest_minutes": rest }))
@@ -563,33 +413,36 @@ fn set_locale(locale: String, db: tauri::State<db::Db>) -> Result<(), String> {
 // ---------- 提醒模式与自定义文本 ----------
 
 #[tauri::command]
-fn get_reminder_mode(db: tauri::State<db::Db>) -> String {
-    db.get_setting("reminder_mode", "toast")
+fn get_reminder_mode() -> String {
+    "toast".to_string()
 }
 
 #[tauri::command]
-fn set_reminder_mode(mode: String, db: tauri::State<db::Db>) -> Result<(), String> {
-    db.set_setting("reminder_mode", &mode)
-        .map_err(|e| e.to_string())
+fn set_reminder_mode(_mode: String) -> Result<(), String> {
+    Ok(())
 }
 
 #[tauri::command]
-fn get_reminder_text(db: tauri::State<db::Db>) -> serde_json::Value {
-    let title = db.get_setting("reminder_title", "");
-    let body = db.get_setting("reminder_body", "");
+fn get_reminder_text(app: tauri::AppHandle) -> serde_json::Value {
+    let title = plugin_config::get_plugin_config_entry(&app, "rest", "title")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    let body = plugin_config::get_plugin_config_entry(&app, "rest", "body")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
     serde_json::json!({ "title": title, "body": body })
 }
 
 #[tauri::command]
-fn set_reminder_text(title: String, body: String, db: tauri::State<db::Db>) -> Result<(), String> {
-    db.set_setting("reminder_title", &title)
-        .map_err(|e| e.to_string())?;
-    db.set_setting("reminder_body", &body)
-        .map_err(|e| e.to_string())
+fn set_reminder_text(title: String, body: String, app: tauri::AppHandle) -> Result<(), String> {
+    plugin_config::set_plugin_config_entry(&app, "rest", "title".into(), title.into())?;
+    plugin_config::set_plugin_config_entry(&app, "rest", "body".into(), body.into())
 }
 
-// ------------------------------------------------------------------
-// 全屏背景图：保存到磁盘文件，数据库只存路径
 // ------------------------------------------------------------------
 
 /// 解析 data URL，返回 (扩展名, 解码后的二进制数据)
@@ -687,7 +540,7 @@ fn file_path_to_data_url(file_path: &str) -> Option<String> {
 }
 
 /// 将 DB 中存储的 bg 值（文件路径或 data URL）解析为 data URL
-fn resolve_bg_for_frontend(raw: &str) -> Option<String> {
+pub(crate) fn resolve_bg_for_frontend(raw: &str) -> Option<String> {
     if raw.is_empty() {
         None
     } else if raw.starts_with("data:") {
@@ -784,13 +637,43 @@ fn close_reminder_window(
     app_handle: tauri::AppHandle,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) -> Result<(), String> {
+    log_info!(
+        "toast-win",
+        "close_reminder_window[{}] called (前端生命周期结束)",
+        label
+    );
     if let Some(window) = app_handle.get_webview_window(&label) {
         // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
-        if label == window_manager::TOAST_WINDOW_LABEL || label == window_manager::POPUP_WINDOW_LABEL {
+        if label == window_manager::TOAST_WINDOW_LABEL
+            || label == window_manager::POPUP_WINDOW_LABEL
+        {
+            log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
             window_manager::hide_window_internal(&app_handle, &window);
+            let visible_after = window
+                .is_visible()
+                .unwrap_or(false);
+            log_info!(
+                "toast-win",
+                "close_reminder_window[{}] hide returned, tao is_visible={}",
+                label,
+                visible_after
+            );
         } else {
-            window.close().map_err(|e| e.to_string())?;
+            let r = window.close();
+            log_info!(
+                "toast-win",
+                "close_reminder_window[{}] window.close() ok={}",
+                label,
+                r.is_ok()
+            );
+            r.map_err(|e| e.to_string())?;
         }
+    } else {
+        log_warn!(
+            "toast-win",
+            "close_reminder_window[{}] window NOT FOUND (已被销毁?)",
+            label
+        );
     }
     if label == window_manager::FULLSCREEN_WINDOW_LABEL {
         fullscreen_active.store(false, Ordering::SeqCst);
@@ -798,175 +681,7 @@ fn close_reminder_window(
     Ok(())
 }
 
-#[tauri::command]
-fn test_notification(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-) {
-    let locale = db.get_setting("locale", "zh-CN");
-
-    // 仅在 Toast 模式下追加一张绿色休息计时测试卡片
-    let reminder_mode = db.get_setting("reminder_mode", "toast");
-    if reminder_mode == "toast" {
-        let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-        let now_ts = chrono::Local::now().timestamp();
-        let rest_start_ts = (now_ts / 60) * 60;
-        // 使用与实际逻辑一致的 rest_streak，避免 rest_streak > break_m 时 is_complete 与进度球矛盾
-        let rest_streak: i64 = std::cmp::min(3, break_m);
-        let remaining_minutes = (break_m - rest_streak).max(0);
-        let is_complete = rest_streak >= break_m;
-        if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-            let _ = app_handle.emit_to(
-                window_manager::TOAST_WINDOW_LABEL,
-                "catrace-rest-timer",
-                serde_json::json!({
-                    "break_minutes": break_m,
-                    "rest_start_ts": rest_start_ts,
-                    "rest_streak": rest_streak,
-                    "remaining_minutes": remaining_minutes,
-                    "is_complete": is_complete,
-                }),
-            );
-            window_manager::show_reminder_no_activate(&app_handle, &window);
-        }
-    }
-
-    show_notification(
-        &app_handle,
-        0,
-        test_notify_msg(&locale),
-        state.inner().clone(),
-        &locale,
-        &db,
-        &store,
-        fullscreen_active.inner().clone(),
-    );
-}
-
-#[tauri::command]
-fn start_notification_test(
-    interval_seconds: u64,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
-    db: tauri::State<db::Db>,
-    store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
-    test_state: tauri::State<Arc<NotificationTestState>>,
-) -> Result<(), String> {
-    if interval_seconds == 0 {
-        return Err("interval must be greater than 0".to_string());
-    }
-    if test_state.is_running() {
-        return Ok(());
-    }
-    test_state.start();
-
-    let app_handle = app_handle.clone();
-    let state = state.inner().clone();
-    let db = db.inner().clone();
-    let store = store.inner().clone();
-    let fullscreen_active = fullscreen_active.inner().clone();
-    let test_state = test_state.inner().clone();
-
-    tauri::async_runtime::spawn(async move {
-        let mut interval = interval(Duration::from_secs(interval_seconds));
-        loop {
-            interval.tick().await;
-            if !test_state.is_running() {
-                break;
-            }
-            let locale = db.get_setting("locale", "zh-CN");
-            show_notification(
-                &app_handle,
-                0,
-                test_notify_msg(&locale),
-                state.clone(),
-                &locale,
-                &db,
-                &store,
-                fullscreen_active.clone(),
-            );
-        }
-    });
-
-    Ok(())
-}
-
-#[tauri::command]
-fn stop_notification_test(test_state: tauri::State<Arc<NotificationTestState>>) {
-    test_state.stop();
-}
-
-// ------------------------------------------------------------------
-// 通知：统一入口（支持 toast / popup / fullscreen）
-// ------------------------------------------------------------------
-
-fn show_notification(
-    app_handle: &tauri::AppHandle,
-    boundary: i64,
-    default_body: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
-    locale: &str,
-    db: &db::Db,
-    store: &ReminderWindowStore,
-    fullscreen_active: Arc<AtomicBool>,
-) {
-    let mode = db.get_setting("reminder_mode", "toast");
-
-    // 优先使用用户自定义文本，空则回退到 i18n 默认值
-    let custom_title = db.get_setting("reminder_title", "");
-    let custom_body = db.get_setting("reminder_body", "");
-    let title = if custom_title.is_empty() {
-        notify_title(locale).to_string()
-    } else {
-        custom_title
-    };
-    let body = if custom_body.is_empty() {
-        default_body.to_string()
-    } else {
-        custom_body
-    };
-
-    match mode.as_str() {
-        "popup" => {
-            create_popup_window(app_handle, boundary, &title, &body, reminder_state, store);
-        }
-        "fullscreen" => {
-            let break_m: i64 = db.get_setting("break_minutes", "5").parse().unwrap_or(5);
-            let fullscreen_bg_raw = db.get_setting("fullscreen_bg_image", "");
-            let fullscreen_bg_opt = resolve_bg_for_frontend(&fullscreen_bg_raw);
-            let fullscreen_opacity: i64 = db
-                .get_setting("fullscreen_opacity", "80")
-                .parse()
-                .unwrap_or(80);
-            let fullscreen_fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
-            let fullscreen_element_transforms = db.get_setting("fullscreen_element_transforms", "");
-            create_fullscreen_window(
-                app_handle,
-                boundary,
-                &title,
-                &body,
-                break_m,
-                fullscreen_bg_opt,
-                fullscreen_opacity,
-                fullscreen_fit_mode,
-                fullscreen_element_transforms,
-                reminder_state,
-                store,
-                fullscreen_active,
-            );
-        }
-        _ => {
-            // toast（默认）：使用右下角自定义 Vue 通知窗口
-            reminder_toast::create_toast_window(app_handle, boundary, &title, &body, "rest", store);
-        }
-    }
-}
-
-fn create_popup_window(
+pub(crate) fn create_popup_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
     title: &str,
@@ -994,14 +709,17 @@ fn create_popup_window(
     // 计算弹窗位置：以主窗口为中心
     let position_popup = |window: &tauri::WebviewWindow| {
         if let Some(main) = window.app_handle().get_webview_window("main") {
-            if let (Ok(pos), Ok(size), Ok(sf)) =
-                (main.outer_position(), main.outer_size(), main.scale_factor())
-            {
+            if let (Ok(pos), Ok(size), Ok(sf)) = (
+                main.outer_position(),
+                main.outer_size(),
+                main.scale_factor(),
+            ) {
                 let pw = 440.0;
                 let ph = 300.0;
                 let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
                 let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ =
+                    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
         }
     };
@@ -1049,7 +767,7 @@ fn create_popup_window(
     });
 }
 
-fn create_fullscreen_window(
+pub(crate) fn create_fullscreen_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
     title: &str,
@@ -1149,18 +867,15 @@ async fn check_update_and_notify(
 pub fn run() {
     let state = Arc::new(Mutex::new(ActivityState::default()));
     let reminder_state = Arc::new(Mutex::new(ReminderState::default()));
-    let water_state = Arc::new(Mutex::new(WaterReminderState::default()));
     let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
-    let water_state_clone = water_state.clone();
-    let eye_state = Arc::new(Mutex::new(EyeReminderState::default()));
-    let eye_state_clone = eye_state.clone();
     let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -1189,6 +904,24 @@ pub fn run() {
             let db_path = app_data_dir.join("catrace.db");
             let db = db::Db::new(&db_path).expect("Failed to initialize database");
 
+            // 初始化事件总线
+            let event_bus = crate::bus::EventBus::new(app.app_handle().clone());
+            app.manage(event_bus);
+
+            // External plugins (local app_data_dir/plugins)
+            let plugin_mgr = plugins::PluginManager::new();
+            let plugin_windows = plugin_window::PluginWindowManager::new();
+            let plugin_sidecars = plugin_sidecar::PluginSidecarManager::new();
+            plugins::initial_scan(app.app_handle(), &plugin_mgr);
+            app.manage(plugin_mgr.clone());
+            app.manage(plugin_windows.clone());
+            app.manage(plugin_sidecars.clone());
+
+            // Signal 采集内核（前台 1Hz 不依赖辅助功能；键鼠仍走 accessibility 门闩）
+            let signal_core = Arc::new(signal::SignalCore::new());
+            app.manage(signal_core.clone());
+            signal::start_foreground_sampling(signal_core.clone());
+
             // 加载媒体排除白名单（Windows 音频检测使用）
             let media_whitelist = Arc::new(Mutex::new(media_audio::load_whitelist(&db)));
             app.manage(media_whitelist.clone());
@@ -1212,27 +945,40 @@ pub fn run() {
             let store: ReminderWindowStore = Arc::new(Mutex::new(HashMap::new()));
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
-            app.manage(water_state_clone.clone());
-            app.manage(eye_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
             app.manage(fullscreen_active.clone());
-            app.manage(Arc::new(NotificationTestState::new()));
+            app.manage(Arc::new(rest_plugin::NotificationTestState::new()));
+
+            // Plugin commands depend on Db and ActivityState, so start background windows only
+            // after all command state has been managed. Never build WebViews inside setup:
+            // on Windows that can block the main event loop before startup completes.
+            plugin_windows.schedule_sync(app.app_handle().clone(), plugin_mgr.clone());
+            plugin_sidecars.schedule_sync(app.app_handle().clone(), plugin_mgr.clone());
 
             if accessibility_permission_granted() {
-                start_input_sampling(state.clone(), input_sampling_started.clone());
+                start_input_sampling(
+                    state.clone(),
+                    signal_core.clone(),
+                    input_sampling_started.clone(),
+                );
             } else {
                 eprintln!(
                     "[accessibility] permission not granted; waiting to start input sampling"
                 );
                 let sampling_state = state.clone();
+                let sampling_signal = signal_core.clone();
                 let sampling_started = input_sampling_started.clone();
                 thread::spawn(move || loop {
                     if sampling_started.load(Ordering::SeqCst) {
                         break;
                     }
                     if accessibility_permission_granted() {
-                        start_input_sampling(sampling_state.clone(), sampling_started.clone());
+                        start_input_sampling(
+                            sampling_state.clone(),
+                            sampling_signal.clone(),
+                            sampling_started.clone(),
+                        );
                         break;
                     }
                     thread::sleep(Duration::from_secs(3));
@@ -1243,7 +989,11 @@ pub fn run() {
             reminder_toast::prepare_toast_window(app.app_handle());
 
             // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
-            agent_hook::start_server(app.app_handle().clone(), db.clone());
+            agent_hook::start_server(app.app_handle().clone());
+            // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
+            let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
+            let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
+            event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1260,11 +1010,11 @@ pub fn run() {
             let db_clone = db.clone();
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
-            let water_state_for_settle = water_state_clone.clone();
-            let eye_state_for_settle = eye_state_clone.clone();
             let store_for_settle = store.clone();
             let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
+            let signal_for_settle = signal_core.clone();
+            let event_bus_for_settle = app.state::<crate::bus::EventBus>().inner().clone();
             tauri::async_runtime::spawn(async move {
                 // 计算距离下一个整分钟还有多少秒
                 let now = chrono::Local::now();
@@ -1275,7 +1025,8 @@ pub fn run() {
                 loop {
                     minute.tick().await;
                     // 在获取 settle_state 锁之前，先完成所有可能阻塞的系统调用。
-                    // 如果 is_media_active() 或 get_active_window() 卡住，不会阻塞键鼠计数线程。
+                    // 如果 is_media_active() 卡住，不会阻塞键鼠计数线程。
+                    // 前台应用改由 signal 1Hz 采样，settle 不再同步 get_active_window。
                     let media_enabled =
                         db_clone.get_setting("video_active_enabled", "true") == "true";
                     let media_active = if media_enabled {
@@ -1285,15 +1036,13 @@ pub fn run() {
                         false
                     };
                     let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
-                    let process_name = match get_active_window() {
-                        Ok(win) => std::path::Path::new(&win.process_path)
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("unknown")
-                            .to_string(),
-                        Err(_) => "unknown".to_string(),
-                    };
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
+
+                    // Drain completed signal minutes; use dominant app for this settle row.
+                    let process_name =
+                        signal::persist_drained(&db_clone, &signal_for_settle, timestamp)
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or_else(|| "unknown".to_string());
 
                     // 先短暂取出并清零键鼠计数，同时保存媒体/全屏快照，
                     // 后续写 DB、提醒、Toast 都不再持有 ActivityState 锁。
@@ -1309,122 +1058,41 @@ pub fn run() {
                     };
 
                     // 全屏提醒期间：鼠标键盘不计活跃，视为休息
-                    let active = if is_fullscreen { false } else { count >= 3 || media_active };
-                    log_info!("settle", "ts={} count={} media={} fscreen={} active={}",
-                        timestamp, count, media_active, is_fullscreen, active);
+                    let active = if is_fullscreen {
+                        false
+                    } else {
+                        count >= 3 || media_active
+                    };
+                    log_info!(
+                        "settle",
+                        "ts={} count={} media={} fscreen={} active={}",
+                        timestamp,
+                        count,
+                        media_active,
+                        is_fullscreen,
+                        active
+                    );
                     if let Err(e) = db_clone.insert_record(timestamp, active, &process_name) {
                         log_error!("db", "Failed to write to database: {}", e);
                     }
-
-                    // 读取配置
-                    let window: i64 = db_clone
-                        .get_setting("window_minutes", "45")
-                        .parse()
-                        .unwrap_or(45);
-                    let break_m: i64 = db_clone
-                        .get_setting("break_minutes", "5")
-                        .parse()
-                        .unwrap_or(5);
                     let locale = db_clone.get_setting("locale", "zh-CN");
+                    rest_plugin::on_minute_settled(
+                        active,
+                        &app_handle,
+                        &reminder_state_for_settle,
+                        &locale,
+                        &db_clone,
+                        &store_for_settle,
+                        &fullscreen_active_for_settle,
+                        &event_bus_for_settle,
+                    );
 
-                    // 提醒逻辑：
-                    // 1. 当前分钟在休息 → 不提醒，同时清除 snooze
-                    //    （用户已经开始自然休息，不需要再催）
-                    // 2. 当前分钟在活跃 → 检查 should_notify，再经过 ReminderState 过滤：
-                    //    · skip_until_boundary：用户点了「跳过本次」
-                    //    · snooze_until：用户点了「5/10分钟后提醒」或自动间隔提醒
+                    // 特殊日彩蛋（6–20 点且当天未弹过时弹出一次）
                     if active {
-                        // 休息被打断，结束休息计时（前端 poll 已自行隐藏卡片，此处只清状态）
-                        {
-                            let mut r = reminder_state_for_settle.lock().unwrap();
-                            r.break_timer_active = false;
-                        }
-
-                        match db_clone.check_should_notify(window, break_m) {
-                            Ok((should_notify, boundary)) => {
-                                let mut r = reminder_state_for_settle.lock().unwrap();
-
-                                if should_notify {
-                                    if let Some(b) = boundary {
-                                        if r.is_skipped(b) || r.is_snoozed() {
-                                            // 被用户操作过滤，不提醒，也不进入休息计时等待
-                                            r.break_timer_active = false;
-                                        } else {
-                                            drop(r);
-                                            show_notification(
-                                                &app_handle,
-                                                b,
-                                                notify_body(&locale),
-                                                reminder_state_for_settle.clone(),
-                                                &locale,
-                                                &db_clone,
-                                                &store_for_settle,
-                                                fullscreen_active_for_settle.clone(),
-                                            );
-                                            // 自动设置下次提醒间隔（默认3分钟）
-                                            let interval_m: i64 = db_clone
-                                                .get_setting("snooze_interval_minutes", "3")
-                                                .parse()
-                                                .unwrap_or(3);
-                                            let mut rs = reminder_state_for_settle.lock().unwrap();
-                                            rs.snooze_until = Some(
-                                                Instant::now()
-                                                    + Duration::from_secs((interval_m * 60) as u64),
-                                            );
-                                            rs.break_timer_active = true;
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => log_error!("notify", "Notification check failed: {}", e),
-                        }
-                    } else {
-                        // 当前分钟在休息 → 清除 snooze，不提醒
-                        let mut r = reminder_state_for_settle.lock().unwrap();
-                        r.snooze_until = None;
-
-                        // 如果正在等待有效休息，推送倒计时状态到 Toast 窗口
-                        if r.break_timer_active {
-                            drop(r);
-                            if let Ok((rest_streak, rest_start_ts)) = db_clone.get_current_rest_streak() {
-                                let remaining = (break_m - rest_streak as i64).max(0);
-                                let is_complete = rest_streak as i64 >= break_m;
-                                if let Some(window) = app_handle.get_webview_window(window_manager::TOAST_WINDOW_LABEL) {
-                                    let _ = app_handle.emit_to(
-                                        window_manager::TOAST_WINDOW_LABEL,
-                                        "catrace-rest-timer",
-                                        serde_json::json!({
-                                            "break_minutes": break_m,
-                                            "rest_start_ts": rest_start_ts,
-                                            "rest_streak": rest_streak,
-                                            "remaining_minutes": remaining,
-                                            "is_complete": is_complete,
-                                        }),
-                                    );
-                                    window_manager::show_reminder_no_activate(&app_handle, &window);
-                                }
-                            }
-                        }
-                    }
-
-                    // 喝水提醒逻辑（仅在当前分钟活跃时检查）
-                    if active {
-                        water::check_and_notify(
-                            &db_clone,
-                            &water_state_for_settle,
+                        special_day::show_special_day_notification(
                             &app_handle,
                             &locale,
-                            &store_for_settle,
-                        );
-
-                        // 护眼提醒逻辑（仅在当前分钟活跃时检查）
-                        eye::check_and_notify(
-                            break_m,
                             &db_clone,
-                            &eye_state_for_settle,
-                            &app_handle,
-                            &locale,
-                            &store_for_settle,
                         );
                     }
                 }
@@ -1481,10 +1149,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config,
-            set_config,
-            skip_reminder,
-            snooze_reminder,
+            rest_plugin::get_config,
+            rest_plugin::set_rest_plugin_enabled,
+            rest_plugin::set_config,
+            rest_plugin::skip_reminder,
+            rest_plugin::snooze_reminder,
             get_silent_start,
             set_silent_start,
             get_hide_stats,
@@ -1507,18 +1176,12 @@ pub fn run() {
             get_today_stats,
             get_today_records,
             get_app_stats,
-            test_notification,
-            start_notification_test,
-            stop_notification_test,
-            water::test_water_notification,
-            eye::get_eye_settings,
-            eye::set_eye_settings,
-            eye::test_eye_notification,
-            eye::snooze_eye_reminder,
-            eye::skip_eye_reminder,
+            rest_plugin::test_notification,
+            rest_plugin::start_notification_test,
+            rest_plugin::stop_notification_test,
             get_media_debug_info,
             get_activity_snapshot,
-            dismiss_rest_timer,
+            rest_plugin::dismiss_rest_timer,
             get_reminder_mode,
             set_reminder_mode,
             get_reminder_text,
@@ -1528,14 +1191,7 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
-            water::get_water_settings,
-            water::set_water_settings,
-            water::record_water,
-            water::get_water_stats,
-            water::get_water_records,
-            water::delete_last_water,
-            water::snooze_water_reminder,
-            water::skip_water_reminder,
+            reminder_toast::set_toast_hit_regions,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
             agent_hook::get_agent_event_modes,
@@ -1549,6 +1205,72 @@ pub fn run() {
             agent_hook::get_agent_sound_settings,
             agent_hook::set_agent_sound_settings,
             agent_hook::get_agent_sound_data_url,
+            crate::bus::publish_event,
+            crate::bus::update_event,
+            crate::bus::resolve_event,
+            crate::bus::resolve_event_action,
+            crate::bus::get_active_events,
+            event_http::get_event_sdk_status,
+            event_http::set_event_sdk_enabled,
+            event_http::rotate_event_sdk_token,
+            plugins::list_external_plugins,
+            plugins::install_external_plugin,
+            plugins::set_external_plugin_enabled,
+            plugins::get_plugin_ui_url,
+            plugins::get_plugin_ui_source,
+            plugins::get_plugin_settings_source,
+            plugins::get_plugin_config,
+            plugins::set_plugin_config,
+            plugins::open_plugins_dir,
+            plugins::get_plugins_dir,
+            plugin_api::plugin_api_get_environment,
+            plugin_api::plugin_api_show_open_dialog,
+            plugin_api::plugin_api_show_save_dialog,
+            plugin_api::plugin_api_get_path,
+            plugin_api::plugin_api_clipboard_write_text,
+            plugin_api::plugin_api_clipboard_read_text,
+            plugin_api::plugin_api_clipboard_write_image,
+            plugin_api::plugin_api_clipboard_read_image,
+            plugin_api::plugin_api_clipboard_clear,
+            plugin_api::plugin_api_window_hide_main,
+            plugin_api::plugin_api_window_show_main,
+            plugin_api::plugin_api_screen_get_cursor_point,
+            plugin_api::plugin_api_screen_get_display_nearest_point,
+            plugin_api::plugin_api_screen_get_all_displays,
+            plugin_api::plugin_api_shell_beep,
+            plugin_api::plugin_api_storage_get,
+            plugin_api::plugin_api_storage_set,
+            plugin_api::plugin_api_storage_remove,
+            plugin_api::plugin_api_shell_open_external,
+            plugin_api::plugin_api_shell_open_path,
+            plugin_api::plugin_api_shell_show_item_in_folder,
+            plugin_api::plugin_api_platform_get_info,
+            plugin_api::plugin_api_theme_is_dark,
+            plugin_api::plugin_api_notification_show,
+            plugin_api::plugin_api_event_publish,
+            plugin_api::plugin_api_get_activity,
+            plugin_api::plugin_api_get_last_real_rest,
+            plugin_api::plugin_api_spawn_process,
+            plugin_api::plugin_api_http_get,
+            plugin_api::plugin_api_log,
+            plugin_sidecar::plugin_sidecar_request,
+            plugin_commands::get_plugin_background_source,
+            plugin_commands::plugin_publish_event,
+            plugin_commands::plugin_report_memory,
+            plugin_commands::plugin_get_activity,
+            plugin_commands::plugin_get_last_real_rest,
+            plugin_commands::plugin_config_get,
+            plugin_commands::plugin_config_get_all,
+            plugin_commands::plugin_config_set,
+            plugin_commands::plugin_storage_get,
+            plugin_commands::plugin_storage_set,
+            plugin_commands::plugin_log,
+            plugin_commands::plugin_write_clipboard,
+            signal::set_signal_key_sequence_enabled,
+            signal::set_signal_key_sequence_retention_hours,
+            signal::get_signal_runtime_config,
+            signal::purge_key_sequences,
+            signal::get_recent_signal_minutes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,7 +7,7 @@
 - `src-tauri/tauri.conf.json` — updater endpoint（代理优先的 3 个 fallback）+ pubkey
 - `src-tauri/src/lib.rs` — 启动 3 秒后异步检查一次（10s 超时）
 - `src-tauri/src/reminder_toast.rs` — 创建更新 Toast
-- `src/views/ReminderToast.vue` — 更新卡片 UI（check 带 10s 超时）
+- `src/views/toastWindows/ReminderToast.vue` — 更新卡片 UI（check 带 10s 超时）
 - `src/components/settings/SystemSettingsCard.vue` — 设置页手动检查 / 安装（check 带 10s 超时）
 - `.github/workflows/release.yml` — `publish-tauri` 生成 latest.json，`rewrite-latest-json` 改写下载 url 为 ghproxy 前缀
 

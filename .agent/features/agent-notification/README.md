@@ -7,14 +7,18 @@
 ```
 agent 触发 hook
   ├─ 状态事件 → catrace-agent-hook.cjs → POST :23456/state
-  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + 销 sticky/permission 卡（即使 mode=off）
+  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + dismissAgentSession（即使 mode=off）
   │     └─ 策略过滤 / auto 去重 / transcript 摘要 + ai-title 会话名
-  │           → reminder_toast eval addToastNotification({kind:"agent", sessionTitle, …})
+  │           → create_agent_toast_window → EventBus.publish(kind=agent)
+  │                 → ReminderToast listen catrace:event → AgentToastCard
   │
   └─ PermissionRequest（Claude type:http）→ POST :23456/permission（阻塞）
-        → 挂起 PENDING_PERMISSIONS + 琥珀色 PermissionToastCard
+        → 挂起 PENDING_PERMISSIONS
+        → create_agent_permission_window → EventBus.publish(kind=permission)
         → Allow/Deny/timeout → 手写 HTTP 决策（timeout 回 {} 让 Claude 回退终端）
 ```
+
+UI 内容路径见 [[desktop-event-os]]；HTTP/策略/安装逻辑未改。
 
 默认策略：召唤型（Stop / StopFailure / Notification）= sticky；播报型 off。PermissionRequest **不走三态**，装了 http hook 即代批。
 
@@ -26,7 +30,7 @@ HTTP **每请求一线程**（permission 阻塞不得卡住后续 /state）。�
 - `src-tauri/resources/catrace-agent-hook.cjs` — 状态 hook 脚本（**必须 .cjs**）；透传 `session_title`；PermissionRequest **不**走此脚本
 - `src-tauri/resources/agent-notify.wav` — 内置提示音
 - `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window` / `create_agent_permission_window` / `dismiss_agent_session_toast`
-- `src/views/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、**hover 生命周期豁免 permission**、`dismissAgentSession`
+- `src/views/toastWindows/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、**hover 生命周期豁免 permission**、`dismissAgentSession`
 - `src/components/AgentToastCard.vue` — 项目/事件/会话 title 分层、聚合、前往、layout 事件
 - `src/components/PermissionToastCard.vue` — Allow / Deny / 前往终端
 - `src/components/settings/AgentSettingsCard.vue` — 开关、安装、事件策略、提示音
