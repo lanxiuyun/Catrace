@@ -29,5 +29,5 @@ jobs:
             echo "::error::缺少 GITEE_TOKEN secret。请在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中新增 GITEE_TOKEN（Gitee 私人令牌，需 projects 权限）。"
             exit 1
           fi
-          git remote add gitee "https://${GITEE_TOKEN}@gitee.com/lanxiuyun/Catrace.git"
+          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/lanxiuyun/Catrace.git"
           git push gitee --mirror --force
