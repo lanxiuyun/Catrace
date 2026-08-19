@@ -222,19 +222,22 @@ fn fit_toast_window_to_cursor_monitor(
         monitors.first().unwrap()
     };
 
-    // 使用工作区（work_area）而非整块屏幕，避免覆盖任务栏 / macOS Dock
+    // 使用工作区（work_area）而非整块屏幕，避免覆盖任务栏 / macOS Dock。
+    // 用 PhysicalPosition/PhysicalSize 直接设置，避免跨屏时窗口当前 scale factor
+    // 与新显示器不一致导致逻辑坐标被错误转换（第一张 Toast 偏移且无法命中）。
     let area = monitor.work_area();
-    let sf = monitor.scale_factor();
-    let x = area.position.x as f64 / sf;
-    let y = area.position.y as f64 / sf;
-    let w = area.size.width as f64 / sf;
-    let h = area.size.height as f64 / sf;
 
     window
-        .set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }))
+        .set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: area.size.width,
+            height: area.size.height,
+        }))
         .map_err(|e| e.to_string())?;
     window
-        .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }))
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+            x: area.position.x,
+            y: area.position.y,
+        }))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
