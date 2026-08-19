@@ -8,6 +8,7 @@ export default {
   },
   dashboard: {
     title: '今日统计',
+    thanks: '谢谢你参与我的 Demo',
     hideStats: {
       label: '隐藏统计',
     },

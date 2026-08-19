@@ -8,6 +8,7 @@ export default {
   },
   dashboard: {
     title: "Today's Statistics",
+    thanks: 'Thanks for joining my Demo!',
     hideStats: {
       label: 'Hide stats',
     },

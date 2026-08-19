@@ -17,6 +17,30 @@ const config = ref({ window_minutes: 45, break_minutes: 5 });
 const timelineMode = ref<"grid" | "segments">("segments");
 const hideStats = ref(false);
 
+// —— 顶部致谢小彩蛋 ——
+const eggVisible = ref(false)
+let eggTimer: ReturnType<typeof setTimeout> | null = null
+const EGG_HOVER_DELAY = 500 // hover 后到开始淡入前的等待时长
+const EGG_FADE_OUT_DELAY = 500 // 鼠标移出后到开始淡出之间的停留时长（淡入/淡出渐变均由 CSS transition 控制，0.9s）
+
+function showEgg() {
+  if (eggTimer) clearTimeout(eggTimer)
+  // 悬停满 500ms 后才淡入
+  eggTimer = setTimeout(() => {
+    eggVisible.value = true
+    eggTimer = null
+  }, EGG_HOVER_DELAY)
+}
+
+function hideEgg() {
+  if (eggTimer) clearTimeout(eggTimer)
+  // 移出后停留片刻，再缓缓淡出
+  eggTimer = setTimeout(() => {
+    eggVisible.value = false
+    eggTimer = null
+  }, EGG_FADE_OUT_DELAY)
+}
+
 async function toggleHideStats(val: boolean) {
   try {
     await setHideStats(val);
@@ -145,12 +169,20 @@ onDeactivated(() => {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (eggTimer) {
+    clearTimeout(eggTimer);
+    eggTimer = null;
+  }
+  eggVisible.value = false;
 });
 </script>
 
 <template>
   <page-scroll>
     <div class="dashboard">
+    <div class="egg-toast" :class="{ 'egg-toast--visible': eggVisible }" aria-hidden="true" @mouseenter="showEgg" @mouseleave="hideEgg">
+      <span class="demo-thanks">{{ t('dashboard.thanks') }}</span>
+    </div>
     <header class="header">
       <p class="subtitle">
         {{
@@ -236,7 +268,33 @@ onDeactivated(() => {
 
 <style scoped>
 .dashboard {
+  position: relative;
   padding: 1.25rem;
+}
+
+/* toast：居中停在内容顶部，hit 区域就是文字本体，hover 到字上才淡入，移出后延迟淡出 */
+.egg-toast {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  padding-top: 0.3125rem;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.egg-toast--visible {
+  opacity: 1;
+}
+
+.demo-thanks {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #6d28d9;
+  white-space: nowrap;
+  user-select: none;
 }
 
 .header {
