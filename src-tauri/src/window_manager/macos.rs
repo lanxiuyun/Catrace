@@ -35,3 +35,20 @@ pub fn show_reminder_no_activate(_app_handle: &tauri::AppHandle, window: &tauri:
 pub fn set_ignore_cursor_events_raw<R: Runtime>(window: &WebviewWindow<R>, ignore: bool) {
     let _ = window.set_ignore_cursor_events(ignore);
 }
+
+/// 非 Windows：仍走 Tauri PhysicalSize/PhysicalPosition。
+pub fn set_window_rect_physical(
+    window: &tauri::WebviewWindow,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    window
+        .set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

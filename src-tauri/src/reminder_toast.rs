@@ -45,6 +45,10 @@ static HIT_POLL_PREV_VISIBLE: AtomicBool = AtomicBool::new(false);
 /// 避免两者各自维护状态导致不同步。
 static TOAST_IGNORING: AtomicBool = AtomicBool::new(true);
 
+/// `fit` 期间 SetWindowPos 会同步触发 WM_DPICHANGED → ScaleFactorChanged；
+/// 重入时跳过，避免事件回调再 fit 形成循环。
+static TOAST_REFITTING: AtomicBool = AtomicBool::new(false);
+
 /// 跨平台取窗口句柄描述（仅 Windows 有意义，macOS 返回占位）。
 #[cfg(target_os = "windows")]
 fn toast_hwnd_debug(window: &tauri::WebviewWindow) -> String {
@@ -189,7 +193,26 @@ fn hit_poll_loop_inner() {
 
 /// 把 Toast 窗口铺满光标所在显示器的工作区（去掉任务栏等系统区域）。
 /// 默认整窗穿透由 `set_ignore_cursor_events(true)` 保证。
+struct ToastRefitGuard;
+
+impl Drop for ToastRefitGuard {
+    fn drop(&mut self) {
+        TOAST_REFITTING.store(false, Ordering::SeqCst);
+    }
+}
+
 fn fit_toast_window_to_cursor_monitor(
+    window: &tauri::WebviewWindow,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    if TOAST_REFITTING.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    let _guard = ToastRefitGuard;
+    fit_toast_window_to_cursor_monitor_inner(window, app_handle)
+}
+
+fn fit_toast_window_to_cursor_monitor_inner(
     window: &tauri::WebviewWindow,
     app_handle: &tauri::AppHandle,
 ) -> Result<(), String> {
@@ -223,28 +246,33 @@ fn fit_toast_window_to_cursor_monitor(
     };
 
     // 使用工作区（work_area）而非整块屏幕，避免覆盖任务栏 / macOS Dock。
-    // 用 PhysicalPosition/PhysicalSize 直接设置，避免跨屏时窗口当前 scale factor
-    // 与新显示器不一致导致逻辑坐标被错误转换（第一张 Toast 偏移且无法命中）。
+    // Windows 必须一次写入物理像素位置+尺寸：分步 set_size/set_position 会在切屏时
+    // 先按旧 DPI 落地，再被 WM_DPICHANGED 按「保持逻辑尺寸」二次缩放，第一张 Toast
+    // 的覆盖层就会小于目标屏。
     let area = monitor.work_area();
-
-    window
-        .set_size(tauri::Size::Physical(tauri::PhysicalSize {
-            width: area.size.width,
-            height: area.size.height,
-        }))
-        .map_err(|e| e.to_string())?;
-    window
-        .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-            x: area.position.x,
-            y: area.position.y,
-        }))
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    log_info!(
+        "toast-win",
+        "fit: work_area=({},{},{}x{}) scale={}",
+        area.position.x,
+        area.position.y,
+        area.size.width,
+        area.size.height,
+        monitor.scale_factor()
+    );
+    window_manager::set_window_rect_physical(
+        window,
+        area.position.x,
+        area.position.y,
+        area.size.width,
+        area.size.height,
+    )
 }
 
 /// 挂载 Toast 窗口生命周期诊断日志：窗口是否被真正销毁（前端兜底 close 会走这条路），
 /// 以及是否收到意外的 CloseRequested。
 fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
+    let win = window.clone();
+    let app = window.app_handle().clone();
     window.on_window_event(move |event| {
         match event {
             tauri::WindowEvent::CloseRequested { .. } => {
@@ -258,6 +286,14 @@ fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
                     "toast-win",
                     "on_window_event: Destroyed — 窗口已销毁，下次显示会重建"
                 );
+            }
+            tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                // 切屏后 tao 会为保持逻辑尺寸改物理大小；可见时立刻按当前光标屏重铺。
+                if win.is_visible().unwrap_or(false) {
+                    if let Err(e) = fit_toast_window_to_cursor_monitor(&win, &app) {
+                        log_error!("toast-win", "dpi-change refit failed: {}", e);
+                    }
+                }
             }
             _ => {}
         }
