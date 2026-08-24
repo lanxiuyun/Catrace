@@ -654,10 +654,14 @@ function handleBusEvent(event: BusEvent) {
       if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       existing.visible = true
       if (!event.sticky) {
-        const autoHideMs = resolveAutoHideMs(event, false)
-        existing.remainingMs = autoHideMs
-        existing.totalMs = autoHideMs
-        startTimer(existing)
+        // Hover paused the close timeout. A chat upsert must not restart it,
+        // or the CSS bar stays frozen while the card still auto-dismisses.
+        if (!existing.isHovered) {
+          const autoHideMs = resolveAutoHideMs(event, false)
+          existing.remainingMs = autoHideMs
+          existing.totalMs = autoHideMs
+          startTimer(existing)
+        }
       } else {
         stopTimer(existing)
         existing.remainingMs = 0
@@ -733,7 +737,8 @@ function handleBusEvent(event: BusEvent) {
         !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) &&
         kind !== 'update' &&
         !(kind === 'sdk' && event.sticky) &&
-        !stickyPlugin
+        !stickyPlugin &&
+        !existing.isHovered
       ) {
         const autoHideMs = resolveAutoHideMs(event, false)
         existing.remainingMs = autoHideMs
@@ -1018,6 +1023,7 @@ function scrollStackToBottom() {
 }
 
 function startTimer(item: ToastItem) {
+  if (item.isHovered && !item.sticky) return
   stopTimer(item)
   item.lastStartAt = Date.now()
   // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
