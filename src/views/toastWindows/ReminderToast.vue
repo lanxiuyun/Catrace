@@ -1503,6 +1503,12 @@ async function handleUpdateInstall(item: ToastItem) {
   min-height: auto;
 }
 
+/* Plugin chat cards may be user-resized taller than the generic toast cap. */
+.toast-card-plugin {
+  min-height: auto;
+  max-height: none;
+}
+
 .toast-card-special {
   min-height: auto;
   background: transparent;
