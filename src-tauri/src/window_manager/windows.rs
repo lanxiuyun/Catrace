@@ -1,13 +1,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Runtime, WebviewWindow};
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos,
+    GetWindowLongPtrW, GetWindowRect, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos,
     ShowWindow, GWL_EXSTYLE, HTTRANSPARENT, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
-    SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_NCHITTEST, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TRANSPARENT, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    SWP_NOOWNERZORDER, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_NCHITTEST,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TRANSPARENT, SWP_NOACTIVATE, SWP_SHOWWINDOW,
 };
 
 use crate::{log_info, log_warn};
@@ -15,6 +15,93 @@ use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
 fn window_hwnd(window: &WebviewWindow<tauri::Wry>) -> Option<HWND> {
     window.hwnd().ok().map(|h| HWND(h.0 as *mut _))
+}
+
+fn apply_window_rect(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) -> bool {
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND(std::ptr::null_mut())),
+            x,
+            y,
+            width,
+            height,
+            SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE,
+        )
+        .is_ok()
+    }
+}
+
+fn window_outer_rect(hwnd: HWND) -> Option<RECT> {
+    let mut rect = RECT::default();
+    unsafe { GetWindowRect(hwnd, &mut rect) }.ok()?;
+    Some(rect)
+}
+
+fn rect_matches(rect: RECT, x: i32, y: i32, width: i32, height: i32) -> bool {
+    rect.left == x
+        && rect.top == y
+        && rect.right - rect.left == width
+        && rect.bottom - rect.top == height
+}
+
+/// 一次写入物理像素位置+尺寸，绕过 tao `set_size`/`set_position` 的分步 DPI 换算。
+///
+/// 切屏时 `SetWindowPos` 会同步触发 `WM_DPICHANGED`：tao 为了保持逻辑尺寸会再改一次
+/// 物理大小，把刚铺好的工作区盖掉。所以同一组坐标要设两次——第二次时 DPI 已是目标屏，
+/// tao 不再重算。
+pub fn set_window_rect_physical(
+    window: &WebviewWindow<tauri::Wry>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let Some(hwnd) = window_hwnd(window) else {
+        return Err("set_window_rect_physical: no hwnd".to_string());
+    };
+    let w = width as i32;
+    let h = height as i32;
+    if !apply_window_rect(hwnd, x, y, w, h) {
+        return Err("SetWindowPos failed".to_string());
+    }
+    if let Some(rect) = window_outer_rect(hwnd) {
+        if rect_matches(rect, x, y, w, h) {
+            return Ok(());
+        }
+        log_info!(
+            "toast-win",
+            "set_window_rect_physical: DPI rescale detected, reapplying target=({},{},{}x{}) actual=({},{},{}x{})",
+            x,
+            y,
+            w,
+            h,
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top
+        );
+    }
+    if !apply_window_rect(hwnd, x, y, w, h) {
+        return Err("SetWindowPos retry failed".to_string());
+    }
+    if let Some(rect) = window_outer_rect(hwnd) {
+        if !rect_matches(rect, x, y, w, h) {
+            log_warn!(
+                "toast-win",
+                "set_window_rect_physical: still mismatched after retry target=({},{},{}x{}) actual=({},{},{}x{})",
+                x,
+                y,
+                w,
+                h,
+                rect.left,
+                rect.top,
+                rect.right - rect.left,
+                rect.bottom - rect.top
+            );
+        }
+    }
+    Ok(())
 }
 
 /// 穿透态是否生效（true=整窗点击穿透）。由 `set_ignore_cursor_events_raw` 更新，

@@ -1,14 +1,15 @@
 {
   "name": "catrace",
   "private": true,
-  "version": "26.8.18",
+  "version": "26.8.25",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version:set": "node scripts/set-version.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

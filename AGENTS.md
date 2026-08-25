@@ -18,7 +18,7 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
 3. **不要自动启动 dev server** — 先跑 `pnpm vue-tsc --noEmit` / `pnpm build` / `cargo check`
 4. **前端尺寸用 rem** — `1rem = 16px`，例外：1px 边框、blur、SVG viewBox
 5. **简单配置用 Store 插件** — 非业务核心的前端配置走 `@tauri-apps/plugin-store`，不进 SQLite
-6. **修改版本号** — 先读 [version-management](.agent/reference/version-management.md)
+6. **修改版本号** — 用 `pnpm version:set <x.y.z>`，勿手改单文件。说明见 [version-management](.agent/reference/version-management.md)
 7. **Event 双写** — Toast 仍是可见权威；bus 失败不挡 Toast；hub 不渲染第二张卡
 8. **前端验证用 Playwright** — 连已运行的 `pnpm tauri dev`（`http://localhost:1420`）；不写 browser preview；除非用户明确叫你去前端验证，否则不要进行前端验证
 9. **临时 Playwright 测试放 `e2e-temp/`** — 该目录已被 `.gitignore` 忽略，用于一次性探索性验证

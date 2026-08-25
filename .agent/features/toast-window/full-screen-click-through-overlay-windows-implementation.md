@@ -55,5 +55,6 @@ tao 的 `apply_diff`（fit 的 set_size/set_position、WebView 重建、resize�
 ## 约定
 
 - **铺满工作区而非整屏**：用 `monitor.work_area()`（`area.position` + `area.size`），避免覆盖任务栏 / macOS Dock
+- **Windows 跨屏 DPI**：不要分步 `set_size`/`set_position`。切屏时 tao 的 `WM_DPICHANGED` 会按「保持逻辑尺寸」再改物理大小，第一张 Toast 覆盖层会小于目标屏。应一次 `SetWindowPos` 写入物理工作区，发现被 DPI 改写后再钉一次
 - subclass 每个 HWND 只安装一次（`TOAST_HITTEST_SUBCLASSED` 原子守卫）；toast 窗口常驻复用，无重建场景
 - 穿透轮询里所有窗口/emit 调用必须在释放 `HIT_RECTS` 锁之后，否则与 `set_toast_hit_regions` 命令跨线程锁序死锁
