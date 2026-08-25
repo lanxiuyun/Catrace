@@ -161,7 +161,7 @@ cd src-tauri && cargo test
 - **Issues**: Search [existing issues](https://github.com/lanxiuyun/Catrace/issues) first. Include OS, app version, steps to reproduce, and expected vs actual behavior.
 - **Pull requests**: Branch from `main`, keep changes focused, run `cargo test` for Rust logic changes, update both `zh-CN` and `en-US` locales for user-facing strings.
 - **Cross-platform**: Isolate platform-specific code with `#[cfg(target_os = ...)]` and provide fallbacks on other platforms.
-- **Version bumps**: Only when requested; sync `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` per [docs/version-management.md](./docs/version-management.md).
+- **Version bumps**: Only when requested; run `pnpm version:set <x.y.z>` (syncs `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`). See [.agent/reference/version-management.md](./.agent/reference/version-management.md).
 - **Knowledge base (`.agent/`)**: After a meaningful change, add or update the right note — `features/<name>/README.md` for user-facing behavior, `architecture/<topic>/` for shared design, `bugs/YYYY-MM-DD-*.md` for non-trivial fixes (symptom / root cause / fix), `devlog/YYYY-MM-DD-*.md` for session or change summaries, `decisions/` for rejected alternatives. Register new files in [`.agent/manifest.yaml`](./.agent/manifest.yaml) and cross-link with `[[name]]`. Trivial tweaks don't need a note; stale docs are worse than missing ones, so update them when you change the same logic.
 
 ### Branches
