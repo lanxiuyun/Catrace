@@ -255,11 +255,13 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
     if let Some(hwnd) = window_hwnd(wry_window) {
         if active {
             restore_normal_style(hwnd);
+            log_info!("toast-win", "active_mode[{}] -> focus", window.label());
             unsafe {
                 let _ = SetForegroundWindow(hwnd);
             }
             let _ = window.set_focus();
         } else {
+            log_info!("toast-win", "active_mode[{}] -> noactivate", window.label());
             apply_no_activate_style(hwnd);
         }
     }

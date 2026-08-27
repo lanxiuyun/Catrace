@@ -648,6 +648,7 @@ fn close_reminder_window(
             || label == window_manager::POPUP_WINDOW_LABEL
         {
             log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
+            window_manager::set_window_active_mode_internal(&window, false);
             window_manager::hide_window_internal(&app_handle, &window);
             if label == window_manager::TOAST_WINDOW_LABEL {
                 reminder_toast::reset_toast_content_size();

@@ -12,6 +12,7 @@ import {
   skipReminder,
   closeReminderWindow,
   setToastContentSize,
+  setWindowActiveMode,
   getActivitySnapshot,
   dismissRestTimer,
   getAgentSoundDataUrl,
@@ -144,6 +145,8 @@ let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 let unlistenDismissAgent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
+const WINDOW_LABEL = 'reminder-toast'
+let toastActivated = false
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -268,6 +271,7 @@ onMounted(async () => {
     }
   }
   scheduleWindowResize()
+  document.addEventListener('pointerdown', handleToastPointerDown, true)
 
   // 读取初始通知
   try {
@@ -296,6 +300,7 @@ onUnmounted(() => {
   unlistenDismissAgent = null
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
+  document.removeEventListener('pointerdown', handleToastPointerDown, true)
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -346,6 +351,20 @@ function scheduleWindowResize() {
       void reportWindowSize()
     })
   })
+}
+
+async function activateToastWindow() {
+  if (toastActivated) return
+  toastActivated = true
+  try {
+    await setWindowActiveMode(WINDOW_LABEL, true)
+  } catch {
+    toastActivated = false
+  }
+}
+
+function handleToastPointerDown() {
+  void activateToastWindow()
 }
 
 function updateRestTimer(payload: {
@@ -1099,8 +1118,14 @@ function doRemoveCard(id: number) {
 
 async function closeWindow() {
   lastSizeKey = ''
+  toastActivated = false
   try {
-    await closeReminderWindow('reminder-toast')
+    await setWindowActiveMode(WINDOW_LABEL, false)
+  } catch {
+    // hide 路径会再套 NOACTIVATE；失败不挡关窗
+  }
+  try {
+    await closeReminderWindow(WINDOW_LABEL)
   } catch {
     try {
       await getCurrentWebviewWindow().close()
