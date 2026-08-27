@@ -9,10 +9,12 @@
 
 ## 涉及文件
 
-- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用；agent/update/permission **publish bus**（不再 eval 内容）
+- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用/定位；`set_toast_content_size`
+- `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）、`set_window_active_mode`
 - `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
-- `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
+- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件；尺寸上报 + 点击抢焦点
+- `src/views/toastWindows/ToastShell.vue` — Toast 路由外壳，强制透明背景
+- `src/api/tauri.ts` — `setToastContentSize`、`setWindowActiveMode` 等 invoke 封装
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 - `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
@@ -24,7 +26,7 @@
 ## 窗口特性
 
 - 透明无边框 WebviewWindow，复用而非销毁
-- **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动
+- **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
 - **点击卡片才抢焦点**：`pointerdown` 触发 `setWindowActiveMode(true)`，移入/移出只控制 auto-hide 倒计时暂停
 - macOS / Linux 回退到普通显示
@@ -39,6 +41,14 @@
 - 无 dedupe 的 kind（如多数 water/eye）仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
 - 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
+
+## 点击抢焦点
+
+Toast 默认是 `WS_EX_NOACTIVATE` 无焦点窗，鼠标滑入/选择文本不会把键盘焦点从原窗口抢走。只有用户**点击卡片**时，前端 `pointerdown` 才会调用 `setWindowActiveMode('reminder-toast', true)`，Rust 去掉 `WS_EX_NOACTIVATE` 并把窗口拉到前台。
+
+清选区 / 恢复无焦点态的时机：
+- 点卡片外空白（当前实现由 WebView 自然失焦）
+- 窗口隐藏/关闭：`close_reminder_window` 里调 `set_window_active_mode_internal(false)` 重新应用 `WS_EX_NOACTIVATE`
 
 ## 卡片类型（按 `kind` 区分主题）
 
@@ -56,7 +66,7 @@
 - Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）
 - 前端 `setToastContentSize` 上报内容逻辑宽高；高度随卡片变化，Rust clamp 到 work_area
 - 已可见时连点只堆叠，不反复 show / 不跟光标跳屏
-- 需要 `core:window:allow-current-monitor` 权限
+- 依赖窗口/显示器相关 core 权限（如 `core:window:allow-current-monitor`、`core:window:allow-scale-factor` 等，见 `src-tauri/capabilities/default.json`）
 
 ## 调试
 
