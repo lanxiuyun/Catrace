@@ -26,6 +26,7 @@
 - 透明无边框 WebviewWindow，复用而非销毁
 - **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
+- **点击卡片才抢焦点**：`pointerdown` 触发 `setWindowActiveMode(true)`，移入/移出只控制 auto-hide 倒计时暂停
 - macOS / Linux 回退到普通显示
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
@@ -85,11 +86,10 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
 
 ## 子文档
+- [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 2026-08-27 从全屏覆盖层改回右下角原生小窗的实现细节
 - [外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md) — 开发期 ui.mjs 热更：generation 缓存与 reload 顺序
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
-
 - [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍
 - [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
-
 - [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道
 - [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — **已废弃（2026-08-27）**：全屏覆盖 + 点击穿透实现笔记；现改为右下角原生小窗
