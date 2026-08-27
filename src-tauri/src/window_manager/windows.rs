@@ -58,6 +58,22 @@ pub fn set_window_rect_physical(
     };
     let w = width as i32;
     let h = height as i32;
+    // 底边锚点：增高先上移再拉高，缩短先压高度再下移。
+    // 一次 SetWindowPos 在 WebView2 里仍可能先改高后改 y，卡片会闪到任务栏里。
+    if let Some(rect) = window_outer_rect(hwnd) {
+        if rect_matches(rect, x, y, w, h) {
+            return Ok(());
+        }
+        let old_w = rect.right - rect.left;
+        let old_h = rect.bottom - rect.top;
+        if h > old_h {
+            if y < rect.top || x != rect.left {
+                let _ = apply_window_rect(hwnd, x, y, old_w, old_h);
+            }
+        } else if h < old_h {
+            let _ = apply_window_rect(hwnd, rect.left, rect.top, w, h);
+        }
+    }
     if !apply_window_rect(hwnd, x, y, w, h) {
         return Err("SetWindowPos failed".to_string());
     }

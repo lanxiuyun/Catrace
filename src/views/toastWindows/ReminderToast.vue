@@ -256,14 +256,13 @@ onMounted(async () => {
 
   // 监听布局变化，按内容高度 resize 原生小窗
   await nextTick()
-  if (rootRef.value) {
+  if (stackRef.value) {
     resizeObserver = new ResizeObserver(() => {
       if (!isAnimating.value) {
         scheduleWindowResize()
       }
     })
-    resizeObserver.observe(rootRef.value)
-    if (stackRef.value) resizeObserver.observe(stackRef.value)
+    resizeObserver.observe(stackRef.value)
     for (const el of cardRefs.value.values()) {
       resizeObserver.observe(el)
     }
@@ -342,8 +341,10 @@ function scheduleWindowResize() {
   if (resizeScheduled) return
   resizeScheduled = true
   nextTick(() => {
-    resizeScheduled = false
-    void reportWindowSize()
+    requestAnimationFrame(() => {
+      resizeScheduled = false
+      void reportWindowSize()
+    })
   })
 }
 
@@ -1374,7 +1375,8 @@ async function handleUpdateInstall(item: ToastItem) {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
+  justify-content: flex-start;
   align-items: stretch;
   box-sizing: border-box;
   background: transparent;
@@ -1402,7 +1404,7 @@ async function handleUpdateInstall(item: ToastItem) {
   scrollbar-gutter: stable;
 }
 
-/* 卡片超出窗口高度时的可见滚动条（透明全屏窗，竖条贴近右缘） */
+/* 卡片超出窗口高度时的可见滚动条 */
 .toast-stack {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
