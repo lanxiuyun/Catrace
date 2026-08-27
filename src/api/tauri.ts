@@ -262,11 +262,9 @@ export async function closeReminderWindow(label: string): Promise<void> {
   return invoke('close_reminder_window', { label })
 }
 
-/** Toast 全屏覆盖窗：上报可交互区域（窗口内逻辑坐标），其余区域整窗穿透 */
-export async function setToastHitRegions(
-  rects: Array<{ x: number; y: number; width: number; height: number }>,
-): Promise<void> {
-  return invoke('set_toast_hit_regions', { rects })
+/** Toast 小窗：上报内容逻辑尺寸（CSS px），Rust 钉右下并 clamp 到 work_area */
+export async function setToastContentSize(width: number, height: number): Promise<void> {
+  return invoke('set_toast_content_size', { width, height })
 }
 
 // ------------------------------------------------------------------

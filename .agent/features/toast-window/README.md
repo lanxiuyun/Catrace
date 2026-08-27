@@ -24,7 +24,7 @@
 ## 窗口特性
 
 - 透明无边框 WebviewWindow，复用而非销毁
-- **全屏覆盖 + 点击穿透（2026-08-11）**：铺满光标所在显示器**工作区**，默认整窗穿透，只有卡片矩形内可交互。见 [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md)
+- **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
 - macOS / Linux 回退到普通显示
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
@@ -52,10 +52,10 @@
 
 ## 定位职责
 
-- 已有 Toast 窗口时，前端通过 `currentMonitor()` 获取工作区，调用 `setSize` / `setPosition`
-- Rust 兜底创建窗口时才会调用 `position_toast_window`
+- Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）
+- 前端 `setToastContentSize` 上报内容逻辑宽高；高度随卡片变化，Rust clamp 到 work_area
+- 已可见时连点只堆叠，不反复 show / 不跟光标跳屏
 - 需要 `core:window:allow-current-monitor` 权限
-- **覆盖模式（2026-08-11）**：Rust `fit_toast_window_to_cursor_monitor` 铺满光标所在显示器 `work_area`；穿透轮询每 50ms 按卡片矩形切换穿透态
 
 ## 调试
 
@@ -92,4 +92,4 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
 
 - [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道
-- [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — 全屏覆盖 + 点击穿透：前端上报卡片矩形、Rust 轮询切换穿透、Windows 三个坑（tao apply_diff / WS_EX_TRANSPARENT 无效 / 每 tick 强制同步）
+- [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — **已废弃（2026-08-27）**：全屏覆盖 + 点击穿透实现笔记；现改为右下角原生小窗

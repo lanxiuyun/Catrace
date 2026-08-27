@@ -40,8 +40,7 @@ async fn set_window_active_mode<R: Runtime>(window: WebviewWindow<R>, active: bo
 }
 
 pub use platform::{
-    hide_window_internal, set_ignore_cursor_events_raw, set_window_rect_physical,
-    show_reminder_no_activate,
+    hide_window_internal, set_window_rect_physical, show_reminder_no_activate,
 };
 
 /// 初始化窗口管理插件

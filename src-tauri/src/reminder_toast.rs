@@ -1,11 +1,10 @@
 use device_query::DeviceQuery;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex as StdMutex, OnceLock};
-use std::thread;
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 use crate::{
     accessibility_permission_granted, log_error, log_info, log_warn, window_manager,
@@ -14,36 +13,25 @@ use crate::{
 
 const TOAST_WINDOW_LABEL: &str = window_manager::TOAST_WINDOW_LABEL;
 
+/// 逻辑像素：卡片 360 + 左右阴影出血 16×2。
+const TOAST_WINDOW_WIDTH_LOGICAL: f64 = 392.0;
+/// 逻辑像素：单卡约 128 + 上下出血 16×2。
+const TOAST_WINDOW_MIN_HEIGHT_LOGICAL: f64 = 160.0;
+
 /// 全局异步锁，串行化所有 Toast 窗口的创建/显示/追加操作。
 /// 防止快速连续触发时并发操作 WebviewWindow 导致崩溃。
 static TOAST_MUTEX: Mutex<()> = Mutex::const_new(());
 
-/// 可交互区域的窗口内逻辑坐标（CSS px），由前端周期上报。
-#[derive(Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct HitRect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
+struct ToastContentSize {
+    width: f64,
+    height: f64,
 }
 
-/// 当前 Toast 全屏覆盖窗的可交互矩形集合。
-static HIT_RECTS: StdMutex<Vec<HitRect>> = StdMutex::new(Vec::new());
-
-/// 全局 AppHandle：穿透轮询线程取窗口用。
-static TOAST_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
-
-/// 穿透轮询线程只启动一次。
-static HIT_POLL_STARTED: AtomicBool = AtomicBool::new(false);
-
-/// 穿透轮询：窗口句柄消失（窗口被销毁）与否，只在状态翻转时记日志。
-static HIT_POLL_WINDOW_MISSING: AtomicBool = AtomicBool::new(false);
-/// 穿透轮询：窗口可见性翻转记录（tao 缓存 vs 实际 Win32 可能不同步，靠日志观察）。
-static HIT_POLL_PREV_VISIBLE: AtomicBool = AtomicBool::new(false);
-
-/// 当前窗口的实际穿透状态（true=整窗穿透），穿透轮询与 show 路径共享，
-/// 避免两者各自维护状态导致不同步。
-static TOAST_IGNORING: AtomicBool = AtomicBool::new(true);
+/// 前端最近一次上报的内容逻辑尺寸（未 clamp）。
+static TOAST_CONTENT: StdMutex<ToastContentSize> = StdMutex::new(ToastContentSize {
+    width: TOAST_WINDOW_WIDTH_LOGICAL,
+    height: TOAST_WINDOW_MIN_HEIGHT_LOGICAL,
+});
 
 /// `fit` 期间 SetWindowPos 会同步触发 WM_DPICHANGED → ScaleFactorChanged；
 /// 重入时跳过，避免事件回调再 fit 形成循环。
@@ -59,140 +47,92 @@ fn toast_hwnd_debug(_window: &tauri::WebviewWindow) -> String {
     "n/a".to_string()
 }
 
-/// 获取 HIT_RECTS 锁；容忍被污染（panic 后恢复），避免锁级联崩溃。
-fn hit_rects() -> std::sync::MutexGuard<'static, Vec<HitRect>> {
-    HIT_RECTS.lock().unwrap_or_else(|e| e.into_inner())
+fn toast_content_size() -> ToastContentSize {
+    let guard = TOAST_CONTENT.lock().unwrap_or_else(|e| e.into_inner());
+    ToastContentSize {
+        width: guard.width,
+        height: guard.height,
+    }
 }
 
-/// 前端上报可交互区域（窗口内逻辑坐标）。
-#[tauri::command]
-pub fn set_toast_hit_regions(rects: Vec<HitRect>) {
-    let changed = {
-        let mut guard = hit_rects();
-        if *guard == rects {
-            return;
-        }
-        let len = rects.len();
-        *guard = rects;
-        len
+fn store_toast_content_size(width: f64, height: f64) -> bool {
+    let width = if width.is_finite() && width > 0.0 {
+        width
+    } else {
+        TOAST_WINDOW_WIDTH_LOGICAL
     };
-    log_info!("toast-win", "hit regions updated: {} rects", changed);
-}
-
-/// 穿透轮询线程入口：捕获内层 panic 后自动重启，避免丢失穿透控制。
-fn hit_poll_loop() {
-    loop {
-        let result = std::panic::catch_unwind(|| hit_poll_loop_inner());
-        if result.is_err() {
-            log_error!("toast-hit", "hit poll loop panicked; restarting in 500ms");
-            thread::sleep(Duration::from_millis(500));
-        }
+    let height = if height.is_finite() && height > 0.0 {
+        height
+    } else {
+        TOAST_WINDOW_MIN_HEIGHT_LOGICAL
+    };
+    let mut guard = TOAST_CONTENT.lock().unwrap_or_else(|e| e.into_inner());
+    if (guard.width - width).abs() < f64::EPSILON && (guard.height - height).abs() < f64::EPSILON {
+        return false;
     }
+    guard.width = width;
+    guard.height = height;
+    true
 }
 
-/// 在主线程上 emit hover-exit 事件（与其它 emit 保持一致的主线程上下文）。
-fn emit_hover_exit(app: &tauri::AppHandle) {
-    let app = app.clone();
-    let app_inner = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        let _ = app_inner.emit("catrace:toast-hover-exit", ());
-    });
+pub fn reset_toast_content_size() {
+    let mut guard = TOAST_CONTENT.lock().unwrap_or_else(|e| e.into_inner());
+    guard.width = TOAST_WINDOW_WIDTH_LOGICAL;
+    guard.height = TOAST_WINDOW_MIN_HEIGHT_LOGICAL;
 }
 
-/// 穿透轮询线程：每 50ms 检查光标是否落在任一可交互矩形内，
-/// 动态切换 `set_ignore_cursor_events`（整窗穿透 ↔ 卡片可交互）。
-/// 窗口隐藏 / 无矩形时强制回到穿透态；退出可交互态时 emit 事件，
-/// 让前端清 hover 并恢复自动消失计时（否则 WebView 收不到 mouseleave）。
-/// 注意：所有窗口/emit 调用都必须在释放 HIT_RECTS 锁之后执行，
-/// 否则与 `set_toast_hit_regions` 命令构成跨线程锁序死锁。
-fn hit_poll_loop_inner() {
-    let device_state = device_query::DeviceState::new();
-    loop {
-        thread::sleep(Duration::from_millis(50));
-        let Some(app) = TOAST_APP_HANDLE.get() else {
-            continue;
-        };
-        let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) else {
-            if !HIT_POLL_WINDOW_MISSING.swap(true, Ordering::SeqCst) {
-                log_warn!(
-                    "toast-win",
-                    "hit-poll: toast window GONE from app (destroyed?), poll goes dormant"
-                );
-            }
-            continue;
-        };
-        if HIT_POLL_WINDOW_MISSING.swap(false, Ordering::SeqCst) {
-            log_info!("toast-win", "hit-poll: toast window present again (rebuilt)");
-        }
+fn monitor_containing<'a>(
+    monitors: &'a [tauri::Monitor],
+    x: i32,
+    y: i32,
+) -> Option<&'a tauri::Monitor> {
+    monitors.iter().find(|m| {
+        let pos = m.position();
+        let size = m.size();
+        let left = pos.x;
+        let top = pos.y;
+        let right = left + size.width as i32;
+        let bottom = top + size.height as i32;
+        x >= left && x < right && y >= top && y < bottom
+    })
+}
 
-        let visible = window.is_visible().unwrap_or(false);
-        let prev_visible = HIT_POLL_PREV_VISIBLE.swap(visible, Ordering::SeqCst);
-        if prev_visible != visible {
-            log_info!(
-                "toast-win",
-                "hit-poll: visible {} -> {} (tao is_visible)",
-                prev_visible,
-                visible
-            );
-        }
-        let ignoring = TOAST_IGNORING.load(Ordering::SeqCst);
+fn resolve_cursor_monitor(app_handle: &tauri::AppHandle) -> Result<tauri::Monitor, String> {
+    let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
+    if monitors.is_empty() {
+        return Err("No monitors available".to_string());
+    }
 
-        if !visible {
-            // 即使状态没变也强制同步一次：tao 的 apply_diff 可能随时把
-            // WS_EX_TRANSPARENT 冲掉（例如 fit 期间的 set_size/set_position），
-            // 只按状态翻转调用会让样式永久失步。raw 无变化时只是读一次，开销可忽略。
-            window_manager::set_ignore_cursor_events_raw(&window, true);
-            if !ignoring {
-                TOAST_IGNORING.store(true, Ordering::SeqCst);
-            }
-            continue;
-        }
-
-        // 先克隆矩形、释放锁，再做任何窗口调用（避免跨线程锁序死锁）
-        let rects = hit_rects().clone();
-        if rects.is_empty() {
-            window_manager::set_ignore_cursor_events_raw(&window, true);
-            if !ignoring {
-                emit_hover_exit(app);
-                TOAST_IGNORING.store(true, Ordering::SeqCst);
-            }
-            continue;
-        }
-
-        let sf = window.scale_factor().unwrap_or(1.0);
-        let (wx, wy) = match window.inner_position() {
-            Ok(p) => (p.x as f64, p.y as f64),
-            Err(_) => continue,
-        };
-        let (mx, my) = {
+    if accessibility_permission_granted() {
+        let (mouse_x, mouse_y) = {
+            let device_state = device_query::DeviceState::new();
             let mouse = device_state.get_mouse();
-            (mouse.coords.0 as f64, mouse.coords.1 as f64)
+            mouse.coords
         };
-
-        let hit = rects.iter().any(|r| {
-            let left = wx + r.x * sf;
-            let top = wy + r.y * sf;
-            let right = left + r.width * sf;
-            let bottom = top + r.height * sf;
-            mx >= left && mx < right && my >= top && my < bottom
-        });
-
-        let should_ignore = !hit;
-        // 每 tick 无条件强制同步实际样式：tao 的 apply_diff 可能在任何时刻
-        // （fit、WebView 重建、resize）把 WS_EX_TRANSPARENT 冲掉，状态机必须
-        // 自愈。raw 在样式未变化时只是 GetWindowLongPtr 读一次，开销可忽略。
-        window_manager::set_ignore_cursor_events_raw(&window, should_ignore);
-        if should_ignore != ignoring {
-            if should_ignore {
-                emit_hover_exit(app);
-            }
-            TOAST_IGNORING.store(should_ignore, Ordering::SeqCst);
+        if let Some(m) = monitor_containing(&monitors, mouse_x, mouse_y) {
+            return Ok(m.clone());
         }
     }
+
+    Ok(monitors.into_iter().next().unwrap())
 }
 
-/// 把 Toast 窗口铺满光标所在显示器的工作区（去掉任务栏等系统区域）。
-/// 默认整窗穿透由 `set_ignore_cursor_events(true)` 保证。
+fn resolve_window_monitor(
+    window: &tauri::WebviewWindow,
+    app_handle: &tauri::AppHandle,
+) -> Result<tauri::Monitor, String> {
+    let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
+    if monitors.is_empty() {
+        return Err("No monitors available".to_string());
+    }
+    if let Ok(pos) = window.outer_position() {
+        if let Some(m) = monitor_containing(&monitors, pos.x, pos.y) {
+            return Ok(m.clone());
+        }
+    }
+    resolve_cursor_monitor(app_handle)
+}
+
 struct ToastRefitGuard;
 
 impl Drop for ToastRefitGuard {
@@ -201,71 +141,69 @@ impl Drop for ToastRefitGuard {
     }
 }
 
-fn fit_toast_window_to_cursor_monitor(
+/// 把 Toast 小窗钉在目标显示器工作区右下角。
+/// 宽高来自前端上报的内容逻辑尺寸，高度不超过 work_area。
+fn fit_toast_window(
     window: &tauri::WebviewWindow,
     app_handle: &tauri::AppHandle,
+    follow_cursor: bool,
 ) -> Result<(), String> {
     if TOAST_REFITTING.swap(true, Ordering::SeqCst) {
         return Ok(());
     }
     let _guard = ToastRefitGuard;
-    fit_toast_window_to_cursor_monitor_inner(window, app_handle)
-}
 
-fn fit_toast_window_to_cursor_monitor_inner(
-    window: &tauri::WebviewWindow,
-    app_handle: &tauri::AppHandle,
-) -> Result<(), String> {
-    let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
-    if monitors.is_empty() {
-        return Err("No monitors available".to_string());
-    }
-
-    let monitor = if accessibility_permission_granted() {
-        // 实时读取光标物理坐标，避免读取 ActivityState 锁造成死锁风险
-        let (mouse_x, mouse_y) = {
-            let device_state = device_query::DeviceState::new();
-            let mouse = device_state.get_mouse();
-            mouse.coords
-        };
-
-        monitors
-            .iter()
-            .find(|m| {
-                let pos = m.position();
-                let size = m.size();
-                let left = pos.x;
-                let top = pos.y;
-                let right = left + size.width as i32;
-                let bottom = top + size.height as i32;
-                mouse_x >= left && mouse_x < right && mouse_y >= top && mouse_y < bottom
-            })
-            .unwrap_or_else(|| monitors.first().unwrap())
+    let monitor = if follow_cursor {
+        resolve_cursor_monitor(app_handle)?
     } else {
-        monitors.first().unwrap()
+        resolve_window_monitor(window, app_handle)?
     };
 
-    // 使用工作区（work_area）而非整块屏幕，避免覆盖任务栏 / macOS Dock。
-    // Windows 必须一次写入物理像素位置+尺寸：分步 set_size/set_position 会在切屏时
-    // 先按旧 DPI 落地，再被 WM_DPICHANGED 按「保持逻辑尺寸」二次缩放，第一张 Toast
-    // 的覆盖层就会小于目标屏。
     let area = monitor.work_area();
+    let scale = monitor.scale_factor();
+    let content = toast_content_size();
+
+    let max_w = area.size.width.max(1);
+    let max_h = area.size.height.max(1);
+    let width = ((content.width * scale).round() as u32).clamp(1, max_w);
+    let height = ((content.height * scale).round() as u32).clamp(1, max_h);
+    let x = area.position.x + area.size.width as i32 - width as i32;
+    let y = area.position.y + area.size.height as i32 - height as i32;
+
     log_info!(
         "toast-win",
-        "fit: work_area=({},{},{}x{}) scale={}",
+        "fit: work_area=({},{},{}x{}) scale={} content_logical={}x{} physical=({},{},{}x{}) follow_cursor={}",
         area.position.x,
         area.position.y,
         area.size.width,
         area.size.height,
-        monitor.scale_factor()
+        scale,
+        content.width,
+        content.height,
+        x,
+        y,
+        width,
+        height,
+        follow_cursor
     );
-    window_manager::set_window_rect_physical(
-        window,
-        area.position.x,
-        area.position.y,
-        area.size.width,
-        area.size.height,
-    )
+
+    window_manager::set_window_rect_physical(window, x, y, width, height)
+}
+
+/// 前端上报 Toast 内容逻辑尺寸（CSS px）。高度随卡片变化，Rust 负责钉右下并 clamp。
+#[tauri::command]
+pub fn set_toast_content_size(app: tauri::AppHandle, width: f64, height: f64) {
+    let changed = store_toast_content_size(width, height);
+    let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) else {
+        return;
+    };
+    if !changed && window.is_visible().unwrap_or(false) {
+        // 尺寸没变且已可见：不必反复 SetWindowPos。
+        return;
+    }
+    if let Err(e) = fit_toast_window(&window, &app, false) {
+        log_error!("toast-win", "content-size fit failed: {}", e);
+    }
 }
 
 /// 挂载 Toast 窗口生命周期诊断日志：窗口是否被真正销毁（前端兜底 close 会走这条路），
@@ -288,9 +226,9 @@ fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
                 );
             }
             tauri::WindowEvent::ScaleFactorChanged { .. } => {
-                // 切屏后 tao 会为保持逻辑尺寸改物理大小；可见时立刻按当前光标屏重铺。
+                // 切屏后 tao 会为保持逻辑尺寸改物理大小；可见时立刻按当前窗所在屏重钉。
                 if win.is_visible().unwrap_or(false) {
-                    if let Err(e) = fit_toast_window_to_cursor_monitor(&win, &app) {
+                    if let Err(e) = fit_toast_window(&win, &app, false) {
                         log_error!("toast-win", "dpi-change refit failed: {}", e);
                     }
                 }
@@ -300,15 +238,32 @@ fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
     });
 }
 
+fn build_toast_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    tauri::WebviewWindowBuilder::new(
+        app,
+        TOAST_WINDOW_LABEL,
+        tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
+    )
+    .title("Catrace")
+    .inner_size(TOAST_WINDOW_WIDTH_LOGICAL, TOAST_WINDOW_MIN_HEIGHT_LOGICAL)
+    .decorations(false)
+    .always_on_top(true)
+    .transparent(true)
+    .accept_first_mouse(true)
+    .focused(false)
+    .visible_on_all_workspaces(true)
+    .maximizable(false)
+    .background_color(tauri::window::Color(0, 0, 0, 0))
+    .shadow(false)
+    .visible(false)
+    .skip_taskbar(true)
+    .resizable(false)
+    .build()
+}
+
 /// 在应用启动时预创建 Toast 窗口（隐藏），避免通知到达时才动态创建导致抢焦点。
-/// 同时启动穿透轮询线程（全局仅一次）。
 pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
     log_info!("toast-win", "prepare: start");
-    let _ = TOAST_APP_HANDLE.set(app_handle.clone());
-    if !HIT_POLL_STARTED.swap(true, Ordering::SeqCst) {
-        log_info!("toast-win", "prepare: spawning hit-poll thread");
-        thread::spawn(hit_poll_loop);
-    }
 
     if app_handle.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
         log_info!("toast-win", "prepare: window already exists, skip build");
@@ -317,37 +272,13 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
 
     let app = app_handle.clone();
     tauri::async_runtime::spawn(async move {
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(360.0, 160.0)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .focused(false)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        // 调试背景由前端 CSS 控制，这里始终使用透明背景
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
+        match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "prepare: built fresh window");
                 attach_toast_diagnostics(&window);
-                // 全屏铺满光标所在屏，默认整窗穿透
-                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                if let Err(e) = fit_toast_window(&window, &app, true) {
                     log_error!("toast-win", "prepare: fit failed: {}", e);
                 }
-                TOAST_IGNORING.store(true, Ordering::SeqCst);
-                let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 // Windows 上 .visible(false) 偶尔不会立即生效，创建后再显式 hide 一次作为防御
                 let hide_ok = window.hide().is_ok();
                 let visible_after = window.is_visible().unwrap_or(false);
@@ -392,13 +323,9 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
             );
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; if (!location.hash.includes('reminder-toast')) { location.hash = '#/reminder-toast'; }";
             let _ = window.eval(route_js);
-            // 光标可能已换屏：重新铺满光标所在屏；show 前强制回到整窗穿透态，
-            // 避免窗口刚出现时吞掉整屏点击（卡片可交互由穿透轮询接管）。
-            if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+            if let Err(e) = fit_toast_window(&window, &app, true) {
                 log_error!("toast-win", "ensure: reuse fit failed: {}", e);
             }
-            TOAST_IGNORING.store(true, Ordering::SeqCst);
-            let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
             window_manager::show_reminder_no_activate(&app, &window);
             log_info!("toast-win", "ensure: shown (reuse path)");
             return;
@@ -413,35 +340,13 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
             "ensure: window does NOT exist — previous instance destroyed, rebuilding"
         );
 
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(360.0, 160.0)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .focused(false)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
+        match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "ensure: built fresh window (rebuild path)");
                 attach_toast_diagnostics(&window);
-                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                if let Err(e) = fit_toast_window(&window, &app, true) {
                     log_error!("toast-win", "ensure: build fit failed: {}", e);
                 }
-                TOAST_IGNORING.store(true, Ordering::SeqCst);
-                let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
@@ -494,8 +399,6 @@ pub fn create_toast_window(
         // 串行化 WebviewWindow 操作，防止快速连续触发导致并发崩溃
         let _guard = TOAST_MUTEX.lock().await;
 
-        // 窗口已存在：前端会在 adjustWindowSize 里自己贴到当前显示器右下角，
-        // Rust 端只需追加通知并显示，避免两边 reposition 打架。
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
             log_info!("toast-win", "create_toast_window: reuse, injecting kind={}", data.kind);
             let payload = serde_json::json!({
@@ -509,16 +412,16 @@ pub fn create_toast_window(
                 payload
             );
             let _ = window.eval(&js);
-            // 确保前端路由到 /reminder-toast
             let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
             let _ = window.eval(route_js);
+            if let Err(e) = fit_toast_window(&window, &app, true) {
+                log_error!("toast-win", "create_toast_window: reuse fit failed: {}", e);
+            }
             window_manager::show_reminder_no_activate(&app, &window);
             log_info!("toast-win", "create_toast_window: shown (reuse path)");
             return;
         }
 
-        // 窗口不存在：兜底创建（通常不应发生，因为 setup 阶段会预创建）
-        // 加锁期间二次检查，避免重复创建窗口
         if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
             log_info!("toast-win", "create_toast_window: appeared between checks, skip");
             return;
@@ -528,35 +431,13 @@ pub fn create_toast_window(
             "create_toast_window: window missing — legacy fallback creating fresh"
         );
 
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            TOAST_WINDOW_LABEL,
-            tauri::WebviewUrl::App("index.html#/reminder-toast".into()),
-        )
-        .title("Catrace")
-        .inner_size(360.0, 160.0)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .accept_first_mouse(true)
-        .visible_on_all_workspaces(true)
-        .maximizable(false)
-        // 调试背景由前端 CSS 控制，这里始终使用透明背景
-        .background_color(tauri::window::Color(0, 0, 0, 0))
-        .shadow(false)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
+        match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "create_toast_window: built fresh window");
                 attach_toast_diagnostics(&window);
-                if let Err(e) = fit_toast_window_to_cursor_monitor(&window, &app) {
+                if let Err(e) = fit_toast_window(&window, &app, true) {
                     log_error!("toast-win", "create_toast_window: fit failed: {}", e);
                 }
-                TOAST_IGNORING.store(true, Ordering::SeqCst);
-                let _ = window_manager::set_ignore_cursor_events_raw(&window, true);
                 window_manager::show_reminder_no_activate(&app, &window);
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
