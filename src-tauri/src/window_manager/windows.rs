@@ -1,9 +1,12 @@
 use tauri::{AppHandle, Runtime, WebviewWindow};
 use windows::Win32::Foundation::{HWND, RECT};
+use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows::Win32::UI::Input::KeyboardAndMouse::{SetActiveWindow, SetFocus};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, GWL_EXSTYLE, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOOWNERZORDER,
-    SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+    GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
+    SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE,
+    SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER,
+    SWP_SHOWWINDOW, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE,
 };
 
 use crate::{log_info, log_warn};
@@ -256,15 +259,48 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
         if active {
             restore_normal_style(hwnd);
             log_info!("toast-win", "active_mode[{}] -> focus", window.label());
-            unsafe {
-                let _ = SetForegroundWindow(hwnd);
-            }
+            let ok = unsafe { force_foreground_window(hwnd) };
+            log_info!(
+                "toast-win",
+                "active_mode[{}] SetForegroundWindow ok={}",
+                window.label(),
+                ok
+            );
             let _ = window.set_focus();
         } else {
             log_info!("toast-win", "active_mode[{}] -> noactivate", window.label());
             apply_no_activate_style(hwnd);
         }
     }
+}
+
+/// 强制把窗口拉为前台。后台进程直接 SetForegroundWindow 会被 Windows 拒绝；
+/// 先把当前线程输入附加到前台窗口线程，调用成功后再 detach。
+unsafe fn force_foreground_window(hwnd: HWND) -> bool {
+    let fg = GetForegroundWindow();
+    let fg_thread = if fg.0.is_null() {
+        0
+    } else {
+        GetWindowThreadProcessId(fg, None)
+    };
+    let cur_thread = GetCurrentThreadId();
+
+    let attached = if fg_thread != 0 && fg_thread != cur_thread {
+        AttachThreadInput(fg_thread, cur_thread, true).as_bool()
+    } else {
+        false
+    };
+
+    let ok = SetForegroundWindow(hwnd).as_bool();
+    if ok {
+        let _ = SetActiveWindow(hwnd);
+        let _ = SetFocus(Some(hwnd));
+    }
+
+    if attached {
+        let _ = AttachThreadInput(fg_thread, cur_thread, false);
+    }
+    ok
 }
 
 /// 内部便捷函数：无焦点显示提醒窗口

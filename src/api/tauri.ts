@@ -283,7 +283,7 @@ export async function hideWindow(label: string): Promise<void> {
 
 /** 动态切换窗口激活模式；active=true 恢复可聚焦 */
 export async function setWindowActiveMode(label: string, active: boolean): Promise<void> {
-  return invoke('plugin:catrace-window|set_window_active_mode', { label, active })
+  return invoke('set_window_active_mode', { label, active })
 }
 
 // ---------- Agent 通知 ----------

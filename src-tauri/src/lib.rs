@@ -1195,6 +1195,7 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
+            window_manager::set_window_active_mode,
             reminder_toast::set_toast_content_size,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
