@@ -9,6 +9,10 @@ pub struct AudioSessionInfo {
     pub whitelisted: bool,
 }
 
+/// WASAPI 会话在暂停后仍可能残留极低峰值（如 Firefox）。
+/// 低于该阈值视为无实际输出，不计入媒体活跃。
+const ACTIVE_AUDIO_PEAK_THRESHOLD: f32 = 0.05;
+
 #[cfg(windows)]
 mod imp {
     use super::*;
@@ -198,9 +202,9 @@ pub fn is_session_whitelisted(session: &AudioSessionInfo, whitelist: &[String]) 
 }
 
 fn is_any_session_active(sessions: &[AudioSessionInfo], whitelist: &[String]) -> bool {
-    sessions
-        .iter()
-        .any(|session| session.peak > 0.0 && !is_session_whitelisted(session, whitelist))
+    sessions.iter().any(|session| {
+        session.peak > ACTIVE_AUDIO_PEAK_THRESHOLD && !is_session_whitelisted(session, whitelist)
+    })
 }
 
 pub fn is_media_audio_active(whitelist: &[String]) -> bool {
@@ -314,6 +318,30 @@ mod tests {
         }];
         let whitelist: Vec<String> = vec![];
         assert!(!is_any_session_active(&sessions, &whitelist));
+    }
+
+    #[test]
+    fn test_is_any_session_active_ignores_residual_peak() {
+        let sessions = vec![AudioSessionInfo {
+            pid: 1,
+            process_name: "firefox.exe".to_string(),
+            peak: 0.04,
+            whitelisted: false,
+        }];
+        let whitelist: Vec<String> = vec![];
+        assert!(!is_any_session_active(&sessions, &whitelist));
+    }
+
+    #[test]
+    fn test_is_any_session_active_above_peak_threshold() {
+        let sessions = vec![AudioSessionInfo {
+            pid: 1,
+            process_name: "firefox.exe".to_string(),
+            peak: 0.06,
+            whitelisted: false,
+        }];
+        let whitelist: Vec<String> = vec![];
+        assert!(is_any_session_active(&sessions, &whitelist));
     }
 
     #[test]
