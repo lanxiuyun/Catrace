@@ -2,10 +2,8 @@
 
 双层背景 + 自定义元素变换的全屏休息提醒模式。
 
-> **2026-07-21**：产品侧久坐插件**暂不启用**全屏提醒，只走 toast。  
-> 本目录描述的窗口 / 配置 / 变换能力**代码仍保留**，但 `RestPluginPanel` 无入口，  
-> `show_notification` 不再分支到 fullscreen。详见 [[reminder]] toast-only 子文档与  
-> [popup-removal-pending.md](../../decisions/popup-removal-pending.md)。
+> **2026-08-28**：久坐插件重新启用全屏提醒（`reminder_mode=fullscreen`）。  
+> 独立全屏窗先落到**光标所在监视器**，再 OS fullscreen（含任务栏），显示休息倒计时。popup 仍不下线恢复。
 
 ## 涉及文件
 

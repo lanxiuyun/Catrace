@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted — 2026-07-21
+Superseded — 2026-08-28 重新启用 fullscreen（带鱼屏不易注意到 toast）。popup 仍下线。
 
 ## 背景
 

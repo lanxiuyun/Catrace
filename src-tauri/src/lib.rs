@@ -413,13 +413,25 @@ fn set_locale(locale: String, db: tauri::State<db::Db>) -> Result<(), String> {
 // ---------- 提醒模式与自定义文本 ----------
 
 #[tauri::command]
-fn get_reminder_mode() -> String {
-    "toast".to_string()
+fn get_reminder_mode(db: tauri::State<db::Db>) -> String {
+    let mode = db.get_setting("reminder_mode", "toast");
+    if mode == "fullscreen" {
+        mode
+    } else {
+        // popup 已下线，遗留值按 toast
+        "toast".to_string()
+    }
 }
 
 #[tauri::command]
-fn set_reminder_mode(_mode: String) -> Result<(), String> {
-    Ok(())
+fn set_reminder_mode(mode: String, db: tauri::State<db::Db>) -> Result<(), String> {
+    let mode = if mode == "fullscreen" {
+        mode
+    } else {
+        "toast".into()
+    };
+    db.set_setting("reminder_mode", &mode)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -771,6 +783,33 @@ pub(crate) fn create_popup_window(
     });
 }
 
+/// 独立全屏窗：先落到光标监视器，再 OS fullscreen（含任务栏）。不走 toast 的 SetWindowPos。
+fn enter_fullscreen_on_cursor_monitor(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    match reminder_toast::resolve_cursor_monitor(app) {
+        Ok(monitor) => {
+            let pos = monitor.position();
+            log_info!(
+                "fullscreen-win",
+                "enter fullscreen monitor=({},{}) size={}x{}",
+                pos.x,
+                pos.y,
+                monitor.size().width,
+                monitor.size().height
+            );
+            let _ = window.set_fullscreen(false);
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: pos.x,
+                y: pos.y,
+            }));
+        }
+        Err(e) => {
+            log_error!("fullscreen-win", "resolve_cursor_monitor failed: {}", e);
+        }
+    }
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_fullscreen(true);
+}
+
 pub(crate) fn create_fullscreen_window(
     app_handle: &tauri::AppHandle,
     boundary: i64,
@@ -785,7 +824,7 @@ pub(crate) fn create_fullscreen_window(
     store: &ReminderWindowStore,
     fullscreen_active: Arc<AtomicBool>,
 ) {
-    let label = "reminder-fullscreen";
+    let label = window_manager::FULLSCREEN_WINDOW_LABEL;
 
     // 标记全屏窗口已打开，结算循环将停止计活跃
     fullscreen_active.store(true, Ordering::SeqCst);
@@ -805,37 +844,33 @@ pub(crate) fn create_fullscreen_window(
 
     let app = app_handle.clone();
 
-    // 如果窗口已存在，复用它而不是关闭重建
-    if let Some(window) = app_handle.get_webview_window(label) {
-        let _ = window.show();
-        let _ = window.set_focus();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(300)).await;
-            let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'fullscreen'; window.location.hash = '#/reminder-fullscreen';");
-        });
-        return;
+    if let Some(existing) = app_handle.get_webview_window(label) {
+        let _ = existing.close();
     }
 
     tauri::async_runtime::spawn(async move {
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             label,
-            tauri::WebviewUrl::App("index.html".into()),
+            tauri::WebviewUrl::App("index.html#/reminder-fullscreen".into()),
         )
         .title("Catrace")
         .fullscreen(true)
         .decorations(false)
         .always_on_top(true)
-        .transparent(true)
         .skip_taskbar(true)
         .resizable(false);
 
         match builder.build() {
             Ok(window) => {
-                tokio::time::sleep(Duration::from_millis(300)).await;
-                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'fullscreen'; window.location.hash = '#/reminder-fullscreen';") {
-                    log_error!("fullscreen-win", "eval failed: {}", e);
-                }
+                let fa = fullscreen_active.clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::Destroyed) {
+                        fa.store(false, Ordering::SeqCst);
+                    }
+                });
+                enter_fullscreen_on_cursor_monitor(&app, &window);
+                let _ = window.set_focus();
             }
             Err(e) => {
                 log_error!("fullscreen-win", "build failed: {}", e);

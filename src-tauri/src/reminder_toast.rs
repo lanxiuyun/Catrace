@@ -97,7 +97,7 @@ fn monitor_containing<'a>(
     })
 }
 
-fn resolve_cursor_monitor(app_handle: &tauri::AppHandle) -> Result<tauri::Monitor, String> {
+pub(crate) fn resolve_cursor_monitor(app_handle: &tauri::AppHandle) -> Result<tauri::Monitor, String> {
     let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
     if monitors.is_empty() {
         return Err("No monitors available".to_string());

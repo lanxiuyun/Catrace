@@ -329,8 +329,7 @@ pub(crate) fn test_notification(
 
     let locale = db.get_setting("locale", "zh-CN");
 
-    // Toast 模式：先走统一通知入口（bus 会 ensure 窗口），再补休息计时卡。
-    // 不再在这里额外 show，避免与 bus 的 ensure_toast 并发抢 Win32 show。
+    // Toast：统一入口 publish 后补休息计时卡。Fullscreen：只出全屏窗，不再叠 toast。
     show_notification(
         &app_handle,
         0,
@@ -343,7 +342,10 @@ pub(crate) fn test_notification(
         &bus,
     );
 
-    // 追加/刷新休息计时测试卡片（走 bus，ensure 由 publish/update 负责）
+    if db.get_setting("reminder_mode", "toast") == "fullscreen" {
+        return;
+    }
+
     let break_m = load_config(&app_handle).break_minutes;
     let now_ts = chrono::Local::now().timestamp();
     let rest_start_ts = (now_ts / 60) * 60;
@@ -419,22 +421,21 @@ pub(crate) fn stop_notification_test(test_state: tauri::State<Arc<NotificationTe
 }
 
 // ------------------------------------------------------------------
-// 通知入口：当前版本久坐插件仅支持 toast（popup/fullscreen 暂不启用）
+// 通知入口：toast（Event Bus）或 fullscreen 置顶窗
 // ------------------------------------------------------------------
 
 fn show_notification(
-    _app_handle: &tauri::AppHandle,
+    app_handle: &tauri::AppHandle,
     boundary: i64,
     default_body: &str,
-    _reminder_state: Arc<Mutex<ReminderState>>,
+    reminder_state: Arc<Mutex<ReminderState>>,
     locale: &str,
-    _db: &db::Db,
-    _store: &ReminderWindowStore,
-    _fullscreen_active: Arc<AtomicBool>,
+    db: &db::Db,
+    store: &ReminderWindowStore,
+    fullscreen_active: Arc<AtomicBool>,
     bus: &crate::bus::EventBus,
 ) {
-    // 优先使用用户自定义文本，空则回退到 i18n 默认值
-    let config = load_config(_app_handle);
+    let config = load_config(app_handle);
     let custom_title = config.title;
     let custom_body = config.body;
     let title = if custom_title.is_empty() {
@@ -448,7 +449,32 @@ fn show_notification(
         custom_body
     };
 
-    // toast：只 publish 到 Event Bus，由 Toast 窗订阅渲染
+    if db.get_setting("reminder_mode", "toast") == "fullscreen" {
+        let fullscreen_bg_raw = db.get_setting("fullscreen_bg_image", "");
+        let fullscreen_bg_opt = crate::resolve_bg_for_frontend(&fullscreen_bg_raw);
+        let fullscreen_opacity: i64 = db
+            .get_setting("fullscreen_opacity", "80")
+            .parse()
+            .unwrap_or(80);
+        let fullscreen_fit_mode = db.get_setting("fullscreen_fit_mode", "contain");
+        let fullscreen_element_transforms = db.get_setting("fullscreen_element_transforms", "");
+        crate::create_fullscreen_window(
+            app_handle,
+            boundary,
+            &title,
+            &body,
+            config.break_minutes,
+            fullscreen_bg_opt,
+            fullscreen_opacity,
+            fullscreen_fit_mode,
+            fullscreen_element_transforms,
+            reminder_state,
+            store,
+            fullscreen_active,
+        );
+        return;
+    }
+
     use crate::event::{BusEvent, DisplayMode, EventAction, EventLevel, EventSource, EventStatus};
     let event = BusEvent {
         id: String::new(),
@@ -490,7 +516,6 @@ fn show_notification(
         resolution: None,
         expires_at: None,
         correlation_id: None,
-        // 测试 boundary=0 允许堆叠；真实结算同 boundary 去重替换
         dedupe_key: if boundary == 0 {
             None
         } else {
@@ -558,6 +583,10 @@ pub(crate) fn on_minute_settled(
         return;
     }
     drop(reminder);
+    // 全屏休息窗自己有倒计时；期间结算记休息，但不要再叠 rest-timer toast
+    if fullscreen_active.load(Ordering::SeqCst) {
+        return;
+    }
     match db.get_current_rest_streak() {
         Ok((streak, start)) => {
             let streak = streak as i64;
