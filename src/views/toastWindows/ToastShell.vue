@@ -22,5 +22,6 @@ html.reminder-transparent,
 html.reminder-transparent body,
 html.reminder-transparent #app {
   background: transparent !important;
+  background-color: transparent !important;
 }
 </style>

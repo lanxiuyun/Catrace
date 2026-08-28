@@ -19,8 +19,9 @@
 ### 窗口路径加固（与是否限流正交）
 
 1. `ensure_toast_window_visible`：已 `is_visible` 则 no-op
-2. `adjustWindowSize`：single-flight；并发调用只记 `adjustQueued`，结束后再跑一轮
-3. 动画中（`isAnimating`）不丢 resize，改为排队
+2. `scheduleWindowResize` / `reportWindowSize`：single-flight（`resizeScheduled` 守卫），通过 `ResizeObserver` 监听 stack 和每张卡片；尺寸没变时跳过 `setToastContentSize`
+3. 动画中（`isAnimating`）ResizeObserver 不触发 resize，等动画结束自然再测
+4. 内容高度由 Rust `fit_toast_window` 按 `work_area` clamp，超出时 `.toast-stack` 内部滚动
 
 ## 产品意图 vs 工程债
 
@@ -34,7 +35,7 @@
 1. `lib.rs` `LAST_TEST_NOTIFICATION_AT` 与 `RestPluginPanel` 的 1s
 2. `show_notification` 里 `dedupe_key` 对 `boundary==0` 的分支
 3. `bus::EventRegistry::publish` 的 supersede 列表 + 先 emit 旧再 emit 新
-4. `ReminderToast` 的 `dedupeKey` / `adjustInFlight`
+4. `ReminderToast` 的 `dedupeKey` / `resizeScheduled` / `lastSizeKey`
 5. 不要在 `test_notification` 里与 bus ensure **双路径** `show_reminder_no_activate`（易并发）
 
 ## 相关 bug

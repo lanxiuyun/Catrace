@@ -12,13 +12,13 @@ window_manager 是 Tauri 插件形式的窗口管理模块，核心能力：**�
 
 见 [Z 序约束](../architecture/window-manager/README.md#z-序约束重要)。
 
-### 无焦点模式恢复（Popup 输入框）
+### 无焦点模式恢复（Popup 输入框 / Toast 复制）
 
-`WS_EX_NOACTIVATE` 的窗口不接受键盘焦点。Popup 的「自定义」输入框需要临时恢复可聚焦能力：
+`WS_EX_NOACTIVATE` 的窗口不接受键盘焦点。需要临时恢复可聚焦能力时：
 
-1. 点击「自定义」→ 前端调用 `setWindowActiveMode(label, true)`
+1. 用户点击 Popup「自定义」或 Toast 卡片正文 → 前端调用 `setWindowActiveMode(label, true)`
 2. 后端去掉 `WS_EX_NOACTIVATE`、`SetForegroundWindow`、`set_focus`
-3. 输入框获得焦点
+3. 输入框 / Toast WebView 获得焦点
 4. 关闭窗口后，下次弹出重新应用 `WS_EX_NOACTIVATE`
 
 详见 [`set_window_active_mode_internal` 实现](../architecture/window-manager/README.md#无焦点模式恢复-popup-输入框)。
@@ -64,29 +64,29 @@ close_reminder_window (lib.rs)
     → 窗口保持 WS_EX_NOACTIVATE，下次直接 show_reminder_no_activate
 ```
 
-### Popup 输入框恢复聚焦
+### Popup 输入框恢复聚焦 / Toast 点击复制
 
 ```
-用户点击「自定义」
-  → ReminderPopup.vue: setWindowActiveMode(label, true)
-    → invoke('plugin:catrace-window|set_window_active_mode', ...)
+用户点击 Popup「自定义」或 Toast 卡片正文
+  → ReminderPopup.vue / ReminderToast.vue: setWindowActiveMode(label, true)
+    → invoke('set_window_active_mode', ...)
       → set_window_active_mode_internal(active: true)
         → restore_normal_style: 去掉 WS_EX_NOACTIVATE + SWP_NOZORDER
-        → SetForegroundWindow + set_focus
-  → 输入框获得焦点
+        → AttachThreadInput + SetForegroundWindow + SetActiveWindow + SetFocus
+  → 输入框 / Toast WebView 获得焦点
 ```
 
 关闭后下次 `show_reminder_no_activate` 重新应用 `WS_EX_NOACTIVATE`。
 
 ## 前端 API
 
-封装在 `src/api/tauri.ts`，三个命令都需 Tauri 插件前缀调用：
+封装在 `src/api/tauri.ts`。`setWindowActiveMode` 现在是 app command，不再带插件前缀：
 
 ```ts
-invoke('plugin:catrace-window|show_window', { window, noActivate: true, pinned: false })
-invoke('plugin:catrace-window|hide_window', { window })
-invoke('plugin:catrace-window|set_window_active_mode', { window, active: true })
+invoke('set_window_active_mode', { label, active: true })
 ```
+
+> 历史版本曾用 `plugin:catrace-window|set_window_active_mode`，因 inline plugin 未配置 capability 权限导致前端调用被拒，已改为 app command。详见 [踩坑记录](#inline-plugin-命令必须配置-capability-权限)。
 
 ## 怎么给新窗口加上无焦点
 

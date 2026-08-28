@@ -14,25 +14,30 @@ window_manager/
 
 ## 插件注册
 
+`catrace-window` 仍以 Tauri 插件形式初始化（保留插件名用于日志/生命周期识别），但**命令注册在 app 级 `generate_handler!`**，原因是 inline plugin 没有配置 Tauri v2 capability 权限时，前端调用 `plugin:catrace-window|...` 会被拒绝：
+
 ```rust
 // lib.rs
 .plugin(window_manager::init())
+.invoke_handler(tauri::generate_handler![
+    // ...
+    window_manager::set_window_active_mode,
+    // ...
+])
 
 // mod.rs
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("catrace-window")
-        .invoke_handler(generate_handler![show_window, hide_window, set_window_active_mode])
-        .build()
+    Builder::new("catrace-window").build()
 }
 ```
 
-插件命令需 Tauri 前缀调用：
+前端按普通 app command 调用：
 
 ```ts
-invoke('plugin:catrace-window|show_window', { ... })
-invoke('plugin:catrace-window|hide_window', { ... })
-invoke('plugin:catrace-window|set_window_active_mode', { label, active })
+invoke('set_window_active_mode', { label, active })
 ```
+
+详见踩坑记录 [inline plugin 命令必须配置 capability 权限](#inline-plugin-命令必须配置-capability-权限)。
 
 ## `generate_handler!` 与子模块 `#[command]`
 
@@ -43,12 +48,37 @@ Tauri 的 `generate_handler!` 要求命令标注 `#[command]` 且在 `generate_h
 ```rust
 // mod.rs
 #[command]
-async fn show_window<R: Runtime>(...args...) {
-    platform::show_window_internal(&app_handle, &window, no_activate, pinned);
+pub async fn set_window_active_mode<R: Runtime>(window: WebviewWindow<R>, active: bool) {
+    platform::set_window_active_mode_internal(&window, active);
 }
 ```
 
 同时通过 `pub use platform::{hide_window_internal, show_reminder_no_activate}` 导出供 `lib.rs` 直接调用。
+
+## inline plugin 命令必须配置 capability 权限
+
+`catrace-window` 是手工 `Builder::new("catrace-window")` 的 inline plugin，没有独立的权限清单。Tauri v2 要求插件命令在 capability 中显式授权，否则前端调用会报：
+
+```
+catrace-window.set_window_active_mode not allowed. Plugin not found
+```
+
+**解决**：把需要前端调用的命令提升为 app command，注册到 `lib.rs` 的 `generate_handler!`，由 `core:default` 统一授权：
+
+```rust
+// lib.rs
+.invoke_handler(tauri::generate_handler![
+    // ...
+    window_manager::set_window_active_mode,
+])
+```
+
+```ts
+// 前端不再带 plugin 前缀
+invoke('set_window_active_mode', { label, active })
+```
+
+详情见 [bug 记录](../../bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md)。
 
 ## `cast_to_wry` 类型擦除
 

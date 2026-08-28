@@ -14,10 +14,11 @@ sms插件：com.android.mms 添加进黑名单无效 — 锁屏时通知 package
 app黑名单自动排序：输入新项后，下次进入设置页自动排序（已做：失焦排序 + localeCompare zh 拼音排序）
 
 ## 已完成
+测试 toast window 弹出是否会影响全屏游戏
+测试 toast window 弹出是否会影响输入法是否正在输入
 toast window 光标穿透，并且能交互卡片（已完成）
 优化toast卡片的消失速度（已完成）
 toast window 使用 n-scrollbar 来显示滚动高度(已废弃，当前版本的滚动区域更简洁。)
 优化sms插件描述
-测试 toast window 弹出是否会影响全屏游戏
 更新版本号，安装新版本测试
 特殊日通知

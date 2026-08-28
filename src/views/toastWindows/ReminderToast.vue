@@ -11,7 +11,8 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
-  setToastHitRegions,
+  setToastContentSize,
+  setWindowActiveMode,
   getActivitySnapshot,
   dismissRestTimer,
   getAgentSoundDataUrl,
@@ -144,7 +145,8 @@ let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 let unlistenDismissAgent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
-let unlistenHoverExit: (() => void) | null = null
+const WINDOW_LABEL = 'reminder-toast'
+let toastActivated = false
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -190,18 +192,9 @@ const AUTO_HIDE_MS = 8000
 /** 卡片离场后移除时机：等 opacity 淡完（0.25s）即视为不可见，立即移除让剩余卡片掉落；
  *  transform 0.35s 滑出屏幕后的尾部已不可见，无需等待，避免「隐形卡占位」造成的掉卡延迟。 */
 const LEAVE_ANIMATION_MS = 250
-/** 滚动条宽度（与 CSS .toast-stack::-webkit-scrollbar 一致），用于命中区域。 */
-const TOAST_SCROLLBAR_W = 10
 /** Clamp plugin/sdk payload auto-hide (ms). 0 only valid when sticky. */
 const MIN_AUTO_HIDE_MS = 3000
 const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
-
-// 临时调试信息
-const debugInfo = ref({
-  count: 0,
-  rects: 0,
-  error: '',
-})
 
 onMounted(async () => {
   loadAgentSound()
@@ -264,30 +257,21 @@ onMounted(async () => {
     dismissAgentSession(ev.payload)
   })
 
-  // 光标离开卡片（Rust 切换回整窗穿透）时，WebView 收不到 mouseleave，
-  // 由 Rust emit 事件驱动前端清 hover 并恢复自动消失计时。
-  unlistenHoverExit = await listen('catrace:toast-hover-exit', () => {
-    const hovered = notifications.value.filter((n) => n.isHovered)
-    for (const item of hovered) {
-      handleMouseLeave(item)
-    }
-  })
-
-  // 监听布局变化，周期上报卡片可交互矩形（全屏覆盖窗的命中区域）
+  // 监听布局变化，按内容高度 resize 原生小窗
   await nextTick()
   if (stackRef.value) {
     resizeObserver = new ResizeObserver(() => {
       if (!isAnimating.value) {
-        scheduleHitRegionReport()
+        scheduleWindowResize()
       }
     })
     resizeObserver.observe(stackRef.value)
+    for (const el of cardRefs.value.values()) {
+      resizeObserver.observe(el)
+    }
   }
-
-  // 周期上报兜底：覆盖 FLIP / 滑入动画期间的矩形移动
-  hitReportInterval = setInterval(() => {
-    void reportHitRegions()
-  }, 200)
+  scheduleWindowResize()
+  document.addEventListener('pointerdown', handleToastPointerDown, true)
 
   // 读取初始通知
   try {
@@ -316,12 +300,7 @@ onUnmounted(() => {
   unlistenDismissAgent = null
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
-  unlistenHoverExit?.()
-  unlistenHoverExit = null
-  if (hitReportInterval) {
-    clearInterval(hitReportInterval)
-    hitReportInterval = null
-  }
+  document.removeEventListener('pointerdown', handleToastPointerDown, true)
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -329,55 +308,63 @@ onUnmounted(() => {
 })
 
 function setCardRef(el: unknown, id: number) {
+  const prev = cardRefs.value.get(id)
+  if (prev && prev !== el) {
+    resizeObserver?.unobserve(prev)
+  }
   if (el instanceof HTMLElement) {
     cardRefs.value.set(id, el)
+    resizeObserver?.observe(el)
+  } else {
+    cardRefs.value.delete(id)
   }
 }
 
-// ---------- 可交互区域（hit region）上报 ----------
+// ---------- 小窗尺寸上报 ----------
 
-let hitReportInterval: ReturnType<typeof setInterval> | null = null
-let hitReportScheduled = false
-let lastRectsJson = '[]'
+let resizeScheduled = false
+let lastSizeKey = ''
 
-/** 收集所有非离开态卡片的窗口内逻辑坐标（CSS px），上报给 Rust 做命中测试。 */
-async function reportHitRegions() {
-  const rects: Array<{ x: number; y: number; width: number; height: number }> = []
-  for (const n of notifications.value) {
-    if (n.leaving) continue
-    const el = cardRefs.value.get(n.id)
-    if (el) {
-      const r = el.getBoundingClientRect()
-      rects.push({ x: r.left, y: r.top, width: r.width, height: r.height })
-    }
-  }
-  // 卡片超出窗口高度出现滚动条时，把滚动条竖条也纳入命中区域，
-  // 否则整窗穿透态下无法点击/拖动滚动条。
+/** 按内容实测高度钉原生小窗。stack 四边 16px 出血已计入 scrollHeight。 */
+async function reportWindowSize() {
+  const root = rootRef.value
   const stack = stackRef.value
-  if (stack && stack.scrollHeight > stack.clientHeight) {
-    const r = stack.getBoundingClientRect()
-    rects.push({ x: r.right - TOAST_SCROLLBAR_W, y: r.top, width: TOAST_SCROLLBAR_W, height: r.height })
-  }
-  debugInfo.value.count = notifications.value.length
-  debugInfo.value.rects = rects.length
-  const json = JSON.stringify(rects)
-  if (json === lastRectsJson) return
-  lastRectsJson = json
+  if (!root || !stack) return
+  const width = Math.max(1, Math.ceil(root.scrollWidth))
+  const height = Math.max(160, Math.ceil(stack.scrollHeight))
+  const key = `${width}x${height}`
+  if (key === lastSizeKey) return
+  lastSizeKey = key
   try {
-    await setToastHitRegions(rects)
-  } catch (e) {
-    debugInfo.value.error = String(e)
+    await setToastContentSize(width, height)
+  } catch {
+    // ignore
   }
 }
 
-/** 布局变化后尽快补一次上报（resize 触发 / 动画结束）。 */
-function scheduleHitRegionReport() {
-  if (hitReportScheduled) return
-  hitReportScheduled = true
+function scheduleWindowResize() {
+  if (resizeScheduled) return
+  resizeScheduled = true
   nextTick(() => {
-    hitReportScheduled = false
-    void reportHitRegions()
+    requestAnimationFrame(() => {
+      resizeScheduled = false
+      void reportWindowSize()
+    })
   })
+}
+
+async function activateToastWindow() {
+  if (toastActivated) return
+  toastActivated = true
+  try {
+    await setWindowActiveMode(WINDOW_LABEL, true)
+  } catch {
+    toastActivated = false
+  }
+}
+
+function handleToastPointerDown() {
+  void activateToastWindow()
 }
 
 function updateRestTimer(payload: {
@@ -456,7 +443,7 @@ function updateRestTimer(payload: {
   // 用户仍在休息：重启每 2 秒活跃轮询，并刷新基线
   startRestPoll()
 
-  scheduleHitRegionReport()
+  scheduleWindowResize()
 }
 
 /** 启动休息计时卡片的活跃轮询：先取一次快照作基线，之后每 2 秒比对 */
@@ -668,7 +655,7 @@ function handleBusEvent(event: BusEvent) {
         existing.totalMs = 0
       }
       seenBusEventIds.add(event.id)
-      void nextTick(() => scheduleHitRegionReport())
+      void nextTick(() => scheduleWindowResize())
       return
     }
   }
@@ -745,7 +732,7 @@ function handleBusEvent(event: BusEvent) {
         existing.totalMs = autoHideMs
         startTimer(existing)
       }
-      void scheduleHitRegionReport()
+      void scheduleWindowResize()
       return
     }
   }
@@ -895,7 +882,8 @@ async function addNotification(payload: {
       const found = notifications.value.find((n) => n.id === id)
       if (found) found.visible = true
     })
-    await scheduleHitRegionReport()
+    await nextTick()
+    scheduleWindowResize()
     scrollStackToBottom()
     return
   }
@@ -926,7 +914,7 @@ async function addNotification(payload: {
       // client 尺寸变化，必须主动重算窗口高度，否则卡片底部（前往/全部已读）被裁切。
       await nextTick()
       await new Promise<void>((r) => requestAnimationFrame(() => r()))
-      await scheduleHitRegionReport()
+      scheduleWindowResize()
       scrollStackToBottom()
       return
     }
@@ -1006,7 +994,8 @@ async function addNotification(payload: {
   if (!isSticky) {
     startTimer(item)
   }
-  await scheduleHitRegionReport()
+  await nextTick()
+  scheduleWindowResize()
   scrollStackToBottom()
 }
 
@@ -1047,8 +1036,8 @@ function stopTimer(item: ToastItem) {
 function handleMouseEnter(item: ToastItem) {
   // 休息计时 / sticky / permission / 特殊日 卡片不依赖 hover 控制生命周期
   if (item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'special' || item.sticky) return
-  // 只允许一张卡处于 hover 态：整窗穿透时 WebView 可能漏发 mouseleave，
-  // 导致多张卡同时 isHovered=true，一个 hover-exit 事件会删掉一整堆。
+  // 只允许一张卡处于 hover 态：WebView 偶发漏 mouseleave 时，
+  // 避免多张卡同时 isHovered，一次 leave 会清掉一整堆。
   for (const n of notifications.value) {
     if (n !== item && n.isHovered) {
       handleMouseLeave(n)
@@ -1111,22 +1100,32 @@ function removeNotification(id: number, animate: boolean) {
   setTimeout(() => {
     doRemoveCard(id)
     isAnimating.value = false
+    scheduleWindowResize()
   }, LEAVE_ANIMATION_MS)
 }
 
-/** 真正从数据里移除一张卡，刷新命中区域，空栈时关窗。 */
+/** 真正从数据里移除一张卡，刷新窗口高度，空栈时关窗。 */
 function doRemoveCard(id: number) {
+  const el = cardRefs.value.get(id)
+  if (el) resizeObserver?.unobserve(el)
   notifications.value = notifications.value.filter((n) => n.id !== id)
   cardRefs.value.delete(id)
-  scheduleHitRegionReport()
+  scheduleWindowResize()
   if (notifications.value.length === 0) {
     closeWindow()
   }
 }
 
 async function closeWindow() {
+  lastSizeKey = ''
+  toastActivated = false
   try {
-    await closeReminderWindow('reminder-toast')
+    await setWindowActiveMode(WINDOW_LABEL, false)
+  } catch {
+    // hide 路径会再套 NOACTIVATE；失败不挡关窗
+  }
+  try {
+    await closeReminderWindow(WINDOW_LABEL)
   } catch {
     try {
       await getCurrentWebviewWindow().close()
@@ -1160,7 +1159,7 @@ async function handleSkip(item: ToastItem) {
 
 function toggleUpdateDetails(item: ToastItem) {
   item.showUpdateBody = !item.showUpdateBody
-  nextTick(() => scheduleHitRegionReport())
+  nextTick(() => scheduleWindowResize())
 }
 
 /**
@@ -1190,7 +1189,7 @@ function dismissAgentSession(sessionId: string) {
       removeNotification(item.id, true)
     } else {
       item.agentEntries = next
-      nextTick(() => scheduleHitRegionReport())
+      nextTick(() => scheduleWindowResize())
     }
   }
 }
@@ -1300,7 +1299,7 @@ async function handleUpdateInstall(item: ToastItem) {
           @close="handleClose(item)"
           @dismiss-all="handleClose(item)"
           @dismiss-entry="(sid) => dismissAgentSession(sid)"
-          @layout="() => nextTick(() => scheduleHitRegionReport())"
+          @layout="() => nextTick(() => scheduleWindowResize())"
         />
 
         <PermissionToastCard
@@ -1391,25 +1390,19 @@ async function handleUpdateInstall(item: ToastItem) {
       </div>
     </div>
 
-    <!-- 调试面板 -->
-    <div v-if="showDebug" class="debug-panel">
-      <div>count: {{ debugInfo.count }}</div>
-      <div>rects: {{ debugInfo.rects }}</div>
-      <div v-if="debugInfo.error" class="debug-error">err: {{ debugInfo.error }}</div>
-    </div>
   </div>
 </template>
 
 <style scoped>
 .toast-root {
   --toast-auto-hide-ms: 8000ms;
-  width: 100vw;
-  height: 100vh;
+  width: 24.5rem; /* 22.5rem card + 1rem shadow bleed each side */
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: flex-end;
-  padding: 1rem;
+  /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
+  justify-content: flex-start;
+  align-items: stretch;
   box-sizing: border-box;
   background: transparent;
   user-select: none;
@@ -1423,12 +1416,12 @@ async function handleUpdateInstall(item: ToastItem) {
   align-items: flex-end;
   gap: 0.5rem;
   width: 100%;
+  flex: 0 1 auto;
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  /* overflow 会把卡片阴影裁掉；四边各借 16px padding 放阴影，
-     负 margin 拉回，保证卡片宽度/窗口高度不变 */
-  margin: -1rem;
+  box-sizing: border-box;
+  /* 窗口本身就是阴影出血区：左右各 16px，不再负 margin 拉出 root */
   padding: 1rem;
   /* 始终预留右侧滚动条 gutter：滚动条出现/消失都不引起卡片右缘位移。
      右侧视觉留白恒为 16px = padding-right 6px + scrollbar gutter 10px */
@@ -1436,7 +1429,7 @@ async function handleUpdateInstall(item: ToastItem) {
   scrollbar-gutter: stable;
 }
 
-/* 卡片超出窗口高度时的可见滚动条（透明全屏窗，竖条贴近右缘） */
+/* 卡片超出窗口高度时的可见滚动条 */
 .toast-stack {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
@@ -1546,24 +1539,5 @@ async function handleUpdateInstall(item: ToastItem) {
   box-shadow:
     0 0.5rem 1.5rem rgba(245, 158, 11, 0.18),
     0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);
-}
-
-.debug-panel {
-  position: fixed;
-  top: 0.5rem;
-  left: 0.5rem;
-  background: rgba(0, 0, 0, 0.7);
-  color: #0f0;
-  font-family: monospace;
-  font-size: 0.6875rem;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  z-index: 9999;
-  pointer-events: none;
-  line-height: 1.4;
-}
-
-.debug-error {
-  color: #f44;
 }
 </style>

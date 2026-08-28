@@ -9,10 +9,12 @@
 
 ## 涉及文件
 
-- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用；agent/update/permission **publish bus**（不再 eval 内容）
+- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用/定位；`set_toast_content_size`
+- `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）、`set_window_active_mode`
 - `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
-- `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）
-- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件
+- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件；尺寸上报 + 点击抢焦点
+- `src/views/toastWindows/ToastShell.vue` — Toast 路由外壳，强制透明背景
+- `src/api/tauri.ts` — `setToastContentSize`、`setWindowActiveMode` 等 invoke 封装
 - `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 - `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
@@ -24,8 +26,9 @@
 ## 窗口特性
 
 - 透明无边框 WebviewWindow，复用而非销毁
-- **全屏覆盖 + 点击穿透（2026-08-11）**：铺满光标所在显示器**工作区**，默认整窗穿透，只有卡片矩形内可交互。见 [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md)
+- **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
+- **点击卡片才抢焦点**：`pointerdown` 触发 `setWindowActiveMode(true)`，移入/移出只控制 auto-hide 倒计时暂停
 - macOS / Linux 回退到普通显示
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
@@ -38,6 +41,14 @@
 - 无 dedupe 的 kind（如多数 water/eye）仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
 - 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
+
+## 点击抢焦点
+
+Toast 默认是 `WS_EX_NOACTIVATE` 无焦点窗，鼠标滑入/选择文本不会把键盘焦点从原窗口抢走。只有用户**点击卡片**时，前端 `pointerdown` 才会调用 `setWindowActiveMode('reminder-toast', true)`，Rust 去掉 `WS_EX_NOACTIVATE` 并把窗口拉到前台。
+
+清选区 / 恢复无焦点态的时机：
+- 点卡片外空白（当前实现由 WebView 自然失焦）
+- 窗口隐藏/关闭：`close_reminder_window` 里调 `set_window_active_mode_internal(false)` 重新应用 `WS_EX_NOACTIVATE`
 
 ## 卡片类型（按 `kind` 区分主题）
 
@@ -52,10 +63,10 @@
 
 ## 定位职责
 
-- 已有 Toast 窗口时，前端通过 `currentMonitor()` 获取工作区，调用 `setSize` / `setPosition`
-- Rust 兜底创建窗口时才会调用 `position_toast_window`
-- 需要 `core:window:allow-current-monitor` 权限
-- **覆盖模式（2026-08-11）**：Rust `fit_toast_window_to_cursor_monitor` 铺满光标所在显示器 `work_area`；穿透轮询每 50ms 按卡片矩形切换穿透态
+- Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）
+- 前端 `setToastContentSize` 上报内容逻辑宽高；高度随卡片变化，Rust clamp 到 work_area
+- 已可见时连点只堆叠，不反复 show / 不跟光标跳屏
+- 依赖窗口/显示器相关 core 权限（如 `core:window:allow-current-monitor`、`core:window:allow-scale-factor` 等，见 `src-tauri/capabilities/default.json`）
 
 ## 调试
 
@@ -85,11 +96,10 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
 
 ## 子文档
+- [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 2026-08-27 从全屏覆盖层改回右下角原生小窗的实现细节
 - [外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md) — 开发期 ui.mjs 热更：generation 缓存与 reload 顺序
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
-
 - [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍
 - [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
-
 - [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道
-- [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — 全屏覆盖 + 点击穿透：前端上报卡片矩形、Rust 轮询切换穿透、Windows 三个坑（tao apply_diff / WS_EX_TRANSPARENT 无效 / 每 tick 强制同步）
+- [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — **已废弃（2026-08-27）**：全屏覆盖 + 点击穿透实现笔记；现改为右下角原生小窗

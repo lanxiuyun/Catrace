@@ -16,7 +16,7 @@ Producer (water/eye/rest/agent/update)
 | 组件 | 职责 |
 |------|------|
 | `EventBus::publish` | 校验、registry、ensure 窗、emit |
-| `ensure_toast_window_visible` | 预创建/显示 Toast 窗、路由 hash |
+| `ensure_toast_window_visible` | 预创建/显示 Toast 小窗、钉右下、路由 hash |
 | `ReminderToast` | 唯一内容渲染；水合 active events |
 | 主窗 `eventHub` | 调试/观察，**禁止**再弹一张卡 |
 

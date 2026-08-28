@@ -648,7 +648,11 @@ fn close_reminder_window(
             || label == window_manager::POPUP_WINDOW_LABEL
         {
             log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
+            window_manager::set_window_active_mode_internal(&window, false);
             window_manager::hide_window_internal(&app_handle, &window);
+            if label == window_manager::TOAST_WINDOW_LABEL {
+                reminder_toast::reset_toast_content_size();
+            }
             let visible_after = window
                 .is_visible()
                 .unwrap_or(false);
@@ -1191,7 +1195,8 @@ pub fn run() {
             get_mouse_position,
             get_reminder_data,
             close_reminder_window,
-            reminder_toast::set_toast_hit_regions,
+            window_manager::set_window_active_mode,
+            reminder_toast::set_toast_content_size,
             agent_hook::get_agent_notification_enabled,
             agent_hook::set_agent_notification_enabled,
             agent_hook::get_agent_event_modes,

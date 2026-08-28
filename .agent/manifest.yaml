@@ -80,6 +80,7 @@ features:
       - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
       - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
+      - .agent/features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md
     related:
       - reminder
       - water-reminder
@@ -282,6 +283,8 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md
+  - .agent/bugs/2026-08-27-toast小窗增高时卡片闪到任务栏.md
   - .agent/bugs/2026-08-11-toast-全屏覆盖层空白区域无法点击穿透.md
   - .agent/bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md
   - .agent/bugs/2026-08-02-set_plugin_config整包写入冲掉外部插件enabled.md
@@ -325,6 +328,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-27-toast小窗化与点击抢焦点修复.md
   - .agent/devlog/2026-08-11-插件抽离catrace-plugin仓库与文档skill.md
   - .agent/devlog/2026-08-11-toast全屏覆盖与点击穿透.md
   - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
@@ -349,5 +353,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/README.md
-  phase: Step 2–4 已全部关账；插件抽离 catrace-plugin 仓库 + submodule 挂载（2026-08-11）
-  next: Step 4+：M14 试点 / 市场评估 / AI（更后）；多屏/DPI 下 Toast 覆盖层真机复核；推送宿主 catraceV2 与插件仓库 docs 提交
+  phase: Step 2–4 已全部关账；插件抽离 catrace-plugin 仓库 + submodule 挂载（2026-08-11）；Toast 点击抢焦点已修复（2026-08-27）
+  next: Step 4+：M14 试点 / 市场评估 / AI（更后）；推送宿主 catraceV2 与插件仓库 docs 提交
