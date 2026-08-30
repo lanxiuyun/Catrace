@@ -10,7 +10,7 @@ pub const FULLSCREEN_WINDOW_LABEL: &str = "reminder-fullscreen";
 /// 判断窗口是否属于需要无焦点管理的提醒窗口
 pub fn is_reminder_window<R: Runtime>(window: &WebviewWindow<R>) -> bool {
     let label = window.label();
-    label == TOAST_WINDOW_LABEL || label == POPUP_WINDOW_LABEL
+    label == TOAST_WINDOW_LABEL || label == POPUP_WINDOW_LABEL || label == FULLSCREEN_WINDOW_LABEL
 }
 
 /// 普通显示窗口并尝试聚焦（用于主窗口或需要夺焦的场景）

@@ -697,92 +697,6 @@ fn close_reminder_window(
     Ok(())
 }
 
-pub(crate) fn create_popup_window(
-    app_handle: &tauri::AppHandle,
-    boundary: i64,
-    title: &str,
-    body: &str,
-    _reminder_state: Arc<Mutex<ReminderState>>,
-    store: &ReminderWindowStore,
-) {
-    let label = window_manager::POPUP_WINDOW_LABEL;
-
-    let data = ReminderWindowData {
-        kind: "rest".to_string(),
-        boundary,
-        title: title.to_string(),
-        body: body.to_string(),
-        break_minutes: 0,
-        fullscreen_bg: None,
-        fullscreen_opacity: 0,
-        fullscreen_fit_mode: String::new(),
-        fullscreen_element_transforms: String::new(),
-    };
-    store.lock().unwrap().insert(label.to_string(), data);
-
-    let app = app_handle.clone();
-
-    // 计算弹窗位置：以主窗口为中心
-    let position_popup = |window: &tauri::WebviewWindow| {
-        if let Some(main) = window.app_handle().get_webview_window("main") {
-            if let (Ok(pos), Ok(size), Ok(sf)) = (
-                main.outer_position(),
-                main.outer_size(),
-                main.scale_factor(),
-            ) {
-                let pw = 440.0;
-                let ph = 300.0;
-                let x = pos.x as f64 / sf + (size.width as f64 / sf - pw) / 2.0;
-                let y = pos.y as f64 / sf + (size.height as f64 / sf - ph) / 2.0;
-                let _ =
-                    window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
-            }
-        }
-    };
-
-    // 复用已有窗口
-    if let Some(window) = app_handle.get_webview_window(label) {
-        let _ = window.hide();
-        position_popup(&window);
-        window_manager::show_reminder_no_activate(app_handle, &window);
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let _ = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup'; window.location.hash = '#/reminder-popup';");
-        });
-        return;
-    }
-
-    tauri::async_runtime::spawn(async move {
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            label,
-            tauri::WebviewUrl::App("index.html#/reminder-popup".into()),
-        )
-        .title("Catrace")
-        .inner_size(440.0, 300.0)
-        .decorations(false)
-        .always_on_top(true)
-        .visible(false)
-        .skip_taskbar(true)
-        .resizable(false);
-
-        match builder.build() {
-            Ok(window) => {
-                position_popup(&window);
-                window_manager::show_reminder_no_activate(&app, &window);
-
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                if let Err(e) = window.eval("window.__CATRACE_REMINDER_TYPE__ = 'popup';") {
-                    log_error!("popup-win", "eval failed: {}", e);
-                }
-            }
-            Err(e) => {
-                log_error!("popup-win", "build failed: {}", e);
-            }
-        }
-    });
-}
-
 /// 独立全屏窗：先落到光标监视器，再 OS fullscreen（含任务栏）。不走 toast 的 SetWindowPos。
 fn enter_fullscreen_on_cursor_monitor(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     match reminder_toast::resolve_cursor_monitor(app) {
@@ -796,6 +710,7 @@ fn enter_fullscreen_on_cursor_monitor(app: &tauri::AppHandle, window: &tauri::We
                 monitor.size().width,
                 monitor.size().height
             );
+            // 先退出全屏才能正确移动窗口到目标监视器，再重新进入全屏。
             let _ = window.set_fullscreen(false);
             let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
                 x: pos.x,
@@ -806,7 +721,6 @@ fn enter_fullscreen_on_cursor_monitor(app: &tauri::AppHandle, window: &tauri::We
             log_error!("fullscreen-win", "resolve_cursor_monitor failed: {}", e);
         }
     }
-    let _ = window.set_always_on_top(true);
     let _ = window.set_fullscreen(true);
 }
 
@@ -820,7 +734,6 @@ pub(crate) fn create_fullscreen_window(
     fullscreen_opacity: i64,
     fullscreen_fit_mode: String,
     fullscreen_element_transforms: String,
-    _reminder_state: Arc<Mutex<ReminderState>>,
     store: &ReminderWindowStore,
     fullscreen_active: Arc<AtomicBool>,
 ) {

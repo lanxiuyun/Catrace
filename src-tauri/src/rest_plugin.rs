@@ -311,7 +311,6 @@ fn emit_rest_timer_event(
 #[tauri::command]
 pub(crate) fn test_notification(
     app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
@@ -334,7 +333,6 @@ pub(crate) fn test_notification(
         &app_handle,
         0,
         test_notify_msg(&locale),
-        state.inner().clone(),
         &locale,
         &db,
         &store,
@@ -367,7 +365,6 @@ pub(crate) fn test_notification(
 pub(crate) fn start_notification_test(
     interval_seconds: u64,
     app_handle: tauri::AppHandle,
-    state: tauri::State<Arc<Mutex<ReminderState>>>,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
     fullscreen_active: tauri::State<Arc<AtomicBool>>,
@@ -383,7 +380,6 @@ pub(crate) fn start_notification_test(
     test_state.start();
 
     let app_handle = app_handle.clone();
-    let state = state.inner().clone();
     let db = db.inner().clone();
     let store = store.inner().clone();
     let fullscreen_active = fullscreen_active.inner().clone();
@@ -402,7 +398,6 @@ pub(crate) fn start_notification_test(
                 &app_handle,
                 0,
                 test_notify_msg(&locale),
-                state.clone(),
                 &locale,
                 &db,
                 &store,
@@ -428,7 +423,6 @@ fn show_notification(
     app_handle: &tauri::AppHandle,
     boundary: i64,
     default_body: &str,
-    reminder_state: Arc<Mutex<ReminderState>>,
     locale: &str,
     db: &db::Db,
     store: &ReminderWindowStore,
@@ -468,7 +462,6 @@ fn show_notification(
             fullscreen_opacity,
             fullscreen_fit_mode,
             fullscreen_element_transforms,
-            reminder_state,
             store,
             fullscreen_active,
         );
@@ -558,7 +551,6 @@ pub(crate) fn on_minute_settled(
                     app_handle,
                     boundary,
                     notify_body(locale),
-                    state.clone(),
                     locale,
                     db,
                     store,

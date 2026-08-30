@@ -93,10 +93,6 @@ async function loadData() {
   }
 }
 
-function onHashChange() {
-  loadData()
-}
-
 onMounted(async () => {
   await loadData()
 
@@ -110,13 +106,10 @@ onMounted(async () => {
       }
     }
   }, 1000)
-
-  window.addEventListener('hashchange', onHashChange)
 })
 
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
-  window.removeEventListener('hashchange', onHashChange)
 })
 
 async function handleSnooze(minutes: number) {
@@ -537,27 +530,6 @@ watch(
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
   white-space: nowrap;
-}
-
-/* Pulse animation */
-.pulse-ring {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-}
-
-.pulse-dot {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 50%;
-  background: #EF4444;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  50% { opacity: 0.7; transform: scale(1.2); box-shadow: 0 0 0 1rem rgba(239, 68, 68, 0); }
 }
 
 /* Typography */
