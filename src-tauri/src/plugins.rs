@@ -92,6 +92,7 @@ pub struct ExternalPluginInfo {
 #[derive(Debug, Clone)]
 struct CachedPlugin {
     info: ExternalPluginInfo,
+    dir: PathBuf,
     main_abs: Option<PathBuf>,
     background_abs: Option<PathBuf>,
     settings_abs: Option<PathBuf>,
@@ -187,6 +188,7 @@ impl PluginManager {
                             anomalous: false,
                             error: Some(e),
                         },
+                        dir: path.to_path_buf(),
                         main_abs: None,
                         background_abs: None,
                         settings_abs: None,
@@ -400,6 +402,17 @@ impl PluginManager {
         }
         Ok(())
     }
+
+    /// Return the plugin's install directory.
+    pub fn plugin_dir(&self, id: &str) -> Result<String, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        Ok(p.dir.to_string_lossy().to_string())
+    }
 }
 
 fn plugins_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -499,6 +512,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             anomalous: false,
             error: None,
         },
+        dir: dir.to_path_buf(),
         main_abs,
         background_abs,
         settings_abs,

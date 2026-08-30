@@ -32,6 +32,11 @@ export type PluginNotificationOptions = {
   level?: 'info' | 'warning' | 'error' | 'success'
   sticky?: boolean
 }
+export type PluginAudioPlayOptions = {
+  volume?: number
+  repeat?: boolean
+  speed?: number
+}
 
 export type PluginEventAction = { id: string; label: string }
 export type PluginEventPublishOptions = {
@@ -67,7 +72,7 @@ export type PluginApi = {
     pickFile(): Promise<string | null>
     pickFolder(): Promise<string | null>
   }
-  path: { get(name: PluginPathName): Promise<string> }
+  path: { get(name: PluginPathName): Promise<string>; getPluginDir(): Promise<string> }
   clipboard: {
     writeText(text: string): Promise<void>
     readText(): Promise<string>
@@ -94,6 +99,14 @@ export type PluginApi = {
   }
   /** Enable/disable this plugin (main window / settings). */
   setEnabled(enabled: boolean): Promise<void>
+  audio: {
+    play(path: string, options?: PluginAudioPlayOptions): Promise<string>
+    stop(playbackId: string): Promise<void>
+    pause(playbackId: string): Promise<void>
+    resume(playbackId: string): Promise<void>
+    setVolume(playbackId: string, volume: number): Promise<void>
+    isPlaying(playbackId: string): Promise<boolean>
+  }
   shell: {
     openExternal(url: string): Promise<void>
     openPath(path: string): Promise<void>
@@ -133,7 +146,10 @@ export function createPluginApi(pluginId: string): PluginApi {
       pickFile: () => showOpenDialog(),
       pickFolder: () => showOpenDialog({ directory: true }),
     },
-    path: { get: (name) => invoke('plugin_api_get_path', { pluginId, name }) },
+    path: {
+      get: (name) => invoke('plugin_api_get_path', { pluginId, name }),
+      getPluginDir: () => invoke('plugin_api_get_plugin_dir', { pluginId }),
+    },
     clipboard: {
       writeText: (text) => invoke('plugin_api_clipboard_write_text', { pluginId, text }),
       readText: () => invoke('plugin_api_clipboard_read_text', { pluginId }),
@@ -164,6 +180,15 @@ export function createPluginApi(pluginId: string): PluginApi {
     },
     setEnabled: async (enabled) => {
       await invoke('set_external_plugin_enabled', { id: pluginId, enabled })
+    },
+    audio: {
+      play: (path, options = {}) =>
+        invoke<string>('plugin_api_audio_play', { pluginId, path, options }),
+      stop: (playbackId) => invoke('plugin_api_audio_stop', { pluginId, playbackId }),
+      pause: (playbackId) => invoke('plugin_api_audio_pause', { pluginId, playbackId }),
+      resume: (playbackId) => invoke('plugin_api_audio_resume', { pluginId, playbackId }),
+      setVolume: (playbackId, volume) => invoke('plugin_api_audio_set_volume', { pluginId, playbackId, volume }),
+      isPlaying: (playbackId) => invoke<boolean>('plugin_api_audio_is_playing', { pluginId, playbackId }),
     },
     shell: {
       openExternal: (url) => invoke('plugin_api_shell_open_external', { pluginId, url }),
