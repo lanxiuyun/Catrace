@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NSlider, useMessage } from 'naive-ui'
+import { NButton, NInput, NSelect, NSlider, useMessage } from 'naive-ui'
 import {
   getConfig,
   setConfig,
   setRestPluginEnabled,
+  getReminderMode,
+  setReminderMode,
   getReminderText,
   setReminderText,
+  getFullscreenSettings,
+  setFullscreenSettings,
   testNotification,
   type AppConfig,
 } from '../../api/tauri'
@@ -44,6 +48,51 @@ const { value: config, loading: configLoading } = useAutoSavedSetting<AppConfig>
   onError: () => message.error(t('settings.messages.saveFailed')),
 })
 
+const { value: reminderMode, loading: reminderModeLoading } = useAutoSavedSetting<string>({
+  initialValue: 'toast',
+  load: async () => {
+    const mode = await getReminderMode()
+    return mode === 'fullscreen' ? 'fullscreen' : 'toast'
+  },
+  save: setReminderMode,
+  debounce: 0,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
+
+interface FullscreenSettings {
+  bg: string
+  opacity: number
+  fitMode: string
+}
+
+const { value: fullscreen } = useAutoSavedSetting<FullscreenSettings>({
+  initialValue: { bg: '', opacity: 80, fitMode: 'contain' },
+  load: async () => {
+    const fs = await getFullscreenSettings()
+    return {
+      bg: fs.bg_image || '',
+      opacity: Number(fs.opacity) || 80,
+      fitMode: fs.fit_mode || 'contain',
+    }
+  },
+  save: (v) => setFullscreenSettings(v.bg, v.opacity, v.fitMode, ''),
+  debounce: 500,
+  onSuccess: () => message.success(t('settings.messages.saved')),
+  onError: () => message.error(t('settings.messages.saveFailed')),
+})
+
+const reminderModeOptions = computed(() => [
+  { label: t('plugins.rest.modeToast'), value: 'toast' },
+  { label: t('plugins.rest.modeFullscreen'), value: 'fullscreen' },
+])
+
+const fullscreenFitOptions = computed(() => [
+  { label: t('plugins.rest.fitContain'), value: 'contain' },
+  { label: t('plugins.rest.fitCover'), value: 'cover' },
+  { label: t('plugins.rest.fitFill'), value: 'fill' },
+])
+
 interface ReminderTextSettings {
   title: string
   body: string
@@ -78,8 +127,38 @@ const customBody = computed({
   },
 })
 
+const fullscreenOpacity = computed({
+  get: () => fullscreen.value.opacity,
+  set: (v: number) => {
+    fullscreen.value = { ...fullscreen.value, opacity: v }
+  },
+})
+
+const fullscreenFitMode = computed({
+  get: () => fullscreen.value.fitMode,
+  set: (v: string) => {
+    fullscreen.value = { ...fullscreen.value, fitMode: v }
+  },
+})
+
 const testing = ref(false)
 const enabledLoading = ref(false)
+
+function handleBgFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    fullscreen.value = { ...fullscreen.value, bg: reader.result as string }
+  }
+  reader.readAsDataURL(file)
+  target.value = ''
+}
+
+function clearBg() {
+  fullscreen.value = { ...fullscreen.value, bg: '' }
+}
 
 async function handleEnabledChange(value: boolean) {
   const previous = config.value.enabled ?? true
@@ -180,6 +259,78 @@ defineExpose({
     </div>
   </plugin-section>
 
+  <plugin-section :title="t('plugins.rest.methodSection')">
+    <div class="event-row">
+      <div class="event-label">
+        <span class="event-name">{{ t('plugins.rest.modeTitle') }}</span>
+        <span class="event-desc">{{ t('plugins.rest.modeDesc') }}</span>
+      </div>
+      <n-select
+        v-model:value="reminderMode"
+        :options="reminderModeOptions"
+        :loading="reminderModeLoading"
+        size="small"
+        style="width: 10rem"
+      />
+    </div>
+
+    <template v-if="reminderMode === 'fullscreen'">
+      <div class="event-row align-start">
+        <div class="event-label">
+          <span class="event-name">{{ t('plugins.rest.fullscreenBgTitle') }}</span>
+          <span class="event-desc">{{ t('plugins.rest.fullscreenBgDesc') }}</span>
+        </div>
+        <div class="fs-bg-upload">
+          <div v-if="fullscreen.bg" class="fs-bg-preview">
+            <img :src="fullscreen.bg" alt="" />
+            <div class="fs-bg-actions">
+              <label class="fs-btn fs-btn-secondary">
+                {{ t('plugins.rest.changeBg') }}
+                <input type="file" accept="image/*" hidden @change="handleBgFileChange" />
+              </label>
+              <button type="button" class="fs-btn fs-btn-danger" @click="clearBg">
+                {{ t('plugins.rest.clearBg') }}
+              </button>
+            </div>
+          </div>
+          <label v-else class="fs-bg-empty">
+            <input type="file" accept="image/*" hidden @change="handleBgFileChange" />
+            <span class="fs-empty-text">{{ t('plugins.rest.fullscreenBgTitle') }}</span>
+            <span class="fs-empty-hint">{{ t('plugins.rest.fullscreenBgDesc') }}</span>
+          </label>
+        </div>
+      </div>
+      <div class="event-row">
+        <div class="event-label">
+          <span class="event-name">{{ t('plugins.rest.fullscreenOpacityTitle') }}</span>
+          <span class="event-desc">{{ t('plugins.rest.fullscreenOpacityDesc') }}</span>
+        </div>
+        <div class="slider-value-row">
+          <n-slider
+            v-model:value="fullscreenOpacity"
+            :min="0"
+            :max="100"
+            :step="5"
+            style="width: 8rem"
+          />
+          <span class="value-display">{{ fullscreenOpacity }}%</span>
+        </div>
+      </div>
+      <div class="event-row">
+        <div class="event-label">
+          <span class="event-name">{{ t('plugins.rest.fullscreenFitModeTitle') }}</span>
+          <span class="event-desc">{{ t('plugins.rest.fullscreenFitModeDesc') }}</span>
+        </div>
+        <n-select
+          v-model:value="fullscreenFitMode"
+          :options="fullscreenFitOptions"
+          size="small"
+          style="width: 8.75rem"
+        />
+      </div>
+    </template>
+  </plugin-section>
+
   <plugin-section :title="t('plugins.rest.contentSection')">
     <div class="event-row align-start">
       <span class="event-name">{{ t('plugins.rest.customTitle') }}</span>
@@ -269,5 +420,78 @@ defineExpose({
   justify-content: flex-end;
   padding-top: 0.5rem;
   border-top: 0.0625rem solid #f1f5f9;
+}
+
+.fs-bg-upload {
+  width: 12rem;
+}
+
+.fs-bg-preview {
+  position: relative;
+  width: 100%;
+  height: 4.5rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 0.0625rem solid #e2e8f0;
+}
+
+.fs-bg-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fs-bg-actions {
+  position: absolute;
+  bottom: 0.375rem;
+  right: 0.375rem;
+  display: flex;
+  gap: 0.375rem;
+}
+
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  border: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.fs-btn-secondary {
+  background: rgba(255, 255, 255, 0.92);
+  color: #334155;
+}
+
+.fs-btn-danger {
+  background: rgba(255, 255, 255, 0.92);
+  color: #ef4444;
+}
+
+.fs-bg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 4.5rem;
+  border-radius: 0.5rem;
+  border: 0.125rem dashed #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.fs-empty-text {
+  font-size: 0.75rem;
+  color: #334155;
+}
+
+.fs-empty-hint {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  text-align: center;
 }
 </style>

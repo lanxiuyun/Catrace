@@ -111,7 +111,6 @@ onMounted(async () => {
     }
   }, 1000)
 
-  // 窗口复用时，hash 变化会触发重新加载数据
   window.addEventListener('hashchange', onHashChange)
 })
 
