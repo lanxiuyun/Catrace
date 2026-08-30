@@ -38,6 +38,7 @@
 │   │   ├── water.rs      # 喝水提醒状态机
 │   │   ├── reminder_toast.rs  # Toast 窗口管理
 │   │   ├── media_audio.rs     # WASAPI 音频检测
+│   │   ├── plugin_api/        # 外部插件宿主原语（含 rodio 播放）
 │   │   ├── report.rs     # 启动事件上报
 │   │   └── window_manager/    # 无焦点窗口
 │   ├── Cargo.toml / tauri.conf.json

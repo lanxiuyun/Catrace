@@ -63,6 +63,8 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 | `plugin.activity.get()` / `getLastRealRest()` | 活跃快照 / 真休息锚点 |
 | `plugin.notification.show()` | Event Bus 简易 Toast |
 | `plugin.sidecar.request()` | 既有通用 JSONL RPC，供插件自定义 sidecar method |
+| `plugin.path.getPluginDir()` | 插件安装目录（拼 `assets/`） |
+| `plugin.audio.play/stop/pause/resume/setVolume/isPlaying` | 本地音频文件；rodio 独立线程 |
 
 ## sidecar-echo Demo 边界
 
@@ -86,7 +88,7 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 - `openExternal/openPath/showItemInFolder` shell operations.
 - Platform, theme, and Event Bus-backed Toast notification.
 - Timer plugin config/events/activity surface: `plugin.config`, `plugin.events.publish`, `plugin.activity.*`, `plugin.setEnabled`.
-- Rust implementation is centralized in `src-tauri/src/plugin_api.rs`; `plugins.rs` remains responsible for manifest scanning and lifecycle state.
+- Rust implementation lives in `src-tauri/src/plugin_api/` (split by capability); `plugins.rs` remains responsible for manifest scanning and lifecycle state.
 
 ## Rubick API second batch
 
@@ -94,7 +96,8 @@ The host facade now also exposes these reusable desktop primitives:
 
 - `plugin.window.hideMain()` / `showMain()` for main-window visibility.
 - `plugin.screen.getCursorPoint()`, `getDisplayNearestPoint(point)`, and `getAllDisplays()` using Tauri monitor APIs.
-- `plugin.shell.beep()` with native Windows `MessageBeep` and a terminal-bell fallback on other desktop systems.
+- `plugin.shell.beep()` with native Windows `MessageBeep` and a terminal-bell fallback on other desktop systems. It is **not** a reliable notification sound; use `plugin.audio.play(path)` for wav/mp3/ogg/flac.
+- `plugin.path.getPluginDir()` plus `plugin.audio.*` for plugin-bundled and user-picked audio. `OutputStream` is `!Send`; playback runs on a dedicated `plugin-audio` thread. See [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md).
 - `plugin.clipboard.writeImage({ rgba, width, height })`, `readImage()`, and `clear()`. Image data is raw RGBA and the Rust boundary validates `width * height * 4`.
 
 Clipboard image reads stay off the main thread because the underlying desktop clipboard implementation can deadlock on Linux when read synchronously.

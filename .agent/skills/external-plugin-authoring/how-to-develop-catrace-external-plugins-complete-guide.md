@@ -374,13 +374,16 @@ stderr 行通常会进宿主日志。
 | `plugin.env.getAll()` | 环境变量 |
 | `plugin.dialog.showOpenDialog` / `showSaveDialog` / `pickFile` / `pickFolder` | 选路径 |
 | `plugin.path.get(name)` | `appData` `appConfig` `appCache` `home` `desktop` `documents` `downloads` `temp` |
+| `plugin.path.getPluginDir()` | 本插件安装目录，用来拼 `assets/` |
 | `plugin.clipboard.*` | 读写文本/图像、清空 |
 | `plugin.window.hideMain` / `showMain` | 主窗口 |
 | `plugin.screen.getCursorPoint` 等 | 显示器与光标 |
 | `plugin.storage.get/set/remove` | 插件隔离运行时 KV |
 | `plugin.config.get/set` | 用户配置整包 |
 | `plugin.setEnabled(bool)` | 开关自己 |
-| `plugin.shell.openExternal` / `openPath` / `showItemInFolder` / `beep` | 外壳 |
+| `plugin.shell.openExternal` / `openPath` / `showItemInFolder` / `beep` | 外壳；`beep` 依赖系统声音方案，不可靠 |
+| `plugin.audio.play(path, { volume?, repeat?, speed? })` | 播本地 wav/mp3/ogg/flac，返回 playbackId |
+| `plugin.audio.stop/pause/resume/setVolume/isPlaying` | 控制一次播放 |
 | `plugin.platform.getInfo()` | os / arch / family |
 | `plugin.theme.isDark()` | 是否深色 |
 | `plugin.notification.show({ title, body?, level?, sticky? })` | 简单通知 |

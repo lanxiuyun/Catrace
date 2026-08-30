@@ -49,6 +49,7 @@ features:
     docs:
       - .agent/features/timer-plugin/README.md
       - .agent/features/timer-plugin/定时提醒-settings内联编辑与规则排序约定.md
+      - .agent/features/timer-plugin/定时提醒-toast颜色与提示音规则字段.md
       - .agent/features/timer-plugin/外部插件如何使用宿主注入的-naive-ui.md
     related:
       - eye-reminder
@@ -235,6 +236,7 @@ architecture:
       - .agent/architecture/desktop-event-os/sidecar孤儿进程清理-Windows-Job-Object实现.md
       - .agent/architecture/desktop-event-os/sidecar-storage往返协议与Plugins-UI运行态约定.md
       - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
+      - .agent/architecture/desktop-event-os/plugin-audio-rodio独立线程与getPluginDir.md
       - .agent/architecture/desktop-event-os/插件配置和运行数据必须分开存储.md
       - .agent/architecture/desktop-event-os/event-protocol-and-bus-lifecycle.md
       - .agent/architecture/desktop-event-os/toast-renders-only-from-event-bus.md
@@ -264,6 +266,7 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 decisions:
+  - .agent/decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md
   - .agent/decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md
   - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
   - .agent/decisions/2026-07-29-外部插件设置优先卡片内联编辑而非-NModal.md
@@ -328,6 +331,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-31-定时提醒颜色提示音与plugin-audio-API.md
   - .agent/devlog/2026-08-27-toast小窗化与点击抢焦点修复.md
   - .agent/devlog/2026-08-11-插件抽离catrace-plugin仓库与文档skill.md
   - .agent/devlog/2026-08-11-toast全屏覆盖与点击穿透.md
@@ -353,5 +357,5 @@ devlog:
 
 current:
   plan: .agent/architecture/desktop-event-os/README.md
-  phase: Step 2–4 已全部关账；插件抽离 catrace-plugin 仓库 + submodule 挂载（2026-08-11）；Toast 点击抢焦点已修复（2026-08-27）
-  next: Step 4+：M14 试点 / 市场评估 / AI（更后）；推送宿主 catraceV2 与插件仓库 docs 提交
+  phase: 定时提醒支持 Toast 颜色与 plugin.audio 提示音；plugin_api 已按能力拆分（2026-08-31）
+  next: 用户确认后 push 宿主与 catrace-plugin；可选为 plugin.audio 增加播放结束回调

@@ -19,6 +19,7 @@ src-tauri/src/
 ├── plugins.rs            # M10/M11/M15 manifest 扫描、启用、UI/background/sidecar source
 ├── plugin_sidecar.rs     # M15 PluginSidecarManager + stdio JSONL bridge
 ├── plugin_window.rs      # 每插件隐藏 WebView 生命周期与非阻塞同步
+├── plugin_api/           # 通用宿主原语（audio/clipboard/dialog/events/host/shell/storage/window）
 ├── plugin_commands.rs    # publish/activity/storage/logger 身份、所有权与输入边界
 ├── signal.rs / db.rs     # 行为采集 + signal_minutes
 ├── reminder_toast.rs     # ensure 窗口 + agent/update/permission → bus
@@ -76,6 +77,8 @@ tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodul
 - [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
 - [../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md](../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md) — Trusted Local Plugin Model 与必须保留的隔离边界
 - [../../decisions/2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — 可选 sidecar、宿主只提供原语
+- [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md) — 插件播放本地音频；OutputStream 独立线程
+- [../../decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md](../../decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md) — 提示音不用 MessageBeep
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) — Toast 订阅线与例外通道
 - [signal-collection-schema-and-privacy.md](signal-collection-schema-and-privacy.md) — Signal / 隐私
