@@ -266,6 +266,7 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 decisions:
+  - .agent/decisions/2026-08-31-更新允许换GitHub镜像源-检查与下载同一源.md
   - .agent/decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md
   - .agent/decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md
   - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
@@ -331,6 +332,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-08-31-更新支持换源Toast也能选.md
   - .agent/devlog/2026-08-31-定时提醒颜色提示音与plugin-audio-API.md
   - .agent/devlog/2026-08-27-toast小窗化与点击抢焦点修复.md
   - .agent/devlog/2026-08-11-插件抽离catrace-plugin仓库与文档skill.md
@@ -355,7 +357,7 @@ devlog:
   - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
-current:
-  plan: .agent/architecture/desktop-event-os/README.md
-  phase: 定时提醒支持 Toast 颜色与 plugin.audio 提示音；plugin_api 已按能力拆分（2026-08-31）
-  next: 用户确认后 push 宿主与 catrace-plugin；可选为 plugin.audio 增加播放结束回调
+  current:
+    plan: .agent/architecture/desktop-event-os/README.md
+    phase: 更新支持换 GitHub 镜像源（设置页 + Toast）（2026-08-31）
+    next: 用户确认后可测换源检查/下载；此前 plugin.audio 仍待用户 push

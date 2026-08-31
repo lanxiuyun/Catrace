@@ -33,3 +33,4 @@
 | `video_active_enabled` | 媒体计入活跃 | true |
 | `media_whitelist` | 排除列表 JSON 数组 | 默认系统进程 |
 | `locale` | zh-CN / en-US | 自动检测 |
+| `update_source` | 更新源：`auto` / `ghfast` / `ghddlc` / `ghproxy` / `github` | auto |
