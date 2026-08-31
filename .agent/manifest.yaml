@@ -287,6 +287,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md
   - .agent/bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md
   - .agent/bugs/2026-08-27-toast小窗增高时卡片闪到任务栏.md
   - .agent/bugs/2026-08-11-toast-全屏覆盖层空白区域无法点击穿透.md

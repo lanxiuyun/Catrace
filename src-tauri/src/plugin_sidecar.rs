@@ -126,12 +126,6 @@ impl PluginSidecarManager {
         self.sync_impl(app, plugins, false)
     }
 
-    /// Synchronous variant used by enable/disable toggle so the response can
-    /// report fresh `sidecar_running`. Restarts every running sidecar.
-    pub fn sync_force(&self, app: &tauri::AppHandle, plugins: &PluginManager) -> Result<(), String> {
-        self.sync_impl(app, plugins, true)
-    }
-
     fn sync_impl(
         &self,
         app: &tauri::AppHandle,
