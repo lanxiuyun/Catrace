@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { Update, type DownloadEvent } from '@tauri-apps/plugin-updater'
 
 export interface AppConfig {
   enabled?: boolean
@@ -55,6 +56,58 @@ export async function getLocale(): Promise<string | null> {
 /** 设置界面语言 */
 export async function setLocale(locale: string): Promise<void> {
   return invoke('set_locale', { locale })
+}
+
+export const UPDATE_SOURCE_IDS = ['auto', 'ghfast', 'ghddlc', 'ghproxy', 'github'] as const
+export type UpdateSourceId = (typeof UPDATE_SOURCE_IDS)[number]
+
+export interface AppUpdateMetadata {
+  rid: number
+  currentVersion: string
+  version: string
+  date?: string
+  body?: string
+  rawJson: Record<string, unknown>
+}
+
+/** 当前检查/下载更新使用的源 */
+export async function getUpdateSource(): Promise<UpdateSourceId> {
+  const id = await invoke<string>('get_update_source')
+  return (UPDATE_SOURCE_IDS as readonly string[]).includes(id)
+    ? (id as UpdateSourceId)
+    : 'auto'
+}
+
+/** 保存更新源，启动自动检查与手动检查都会用 */
+export async function setUpdateSource(source: UpdateSourceId): Promise<void> {
+  return invoke('set_update_source', { source })
+}
+
+/** 按所选源检查更新；返回 plugin-updater 的 Update，便于 downloadAndInstall */
+export async function checkAppUpdate(opts?: {
+  source?: string
+  timeout?: number
+}): Promise<Update | null> {
+  const metadata = await invoke<AppUpdateMetadata | null>('check_app_update', {
+    source: opts?.source ?? null,
+    timeoutMs: opts?.timeout ?? 10000,
+  })
+  return metadata ? new Update(metadata) : null
+}
+
+/** 下载并安装。source=auto 时安装包 URL 按镜像顺序失败换源重试 */
+export async function installAppUpdate(
+  update: Update,
+  source?: string,
+  onEvent?: (event: DownloadEvent) => void,
+): Promise<void> {
+  const channel = new Channel<DownloadEvent>()
+  if (onEvent) channel.onmessage = onEvent
+  await invoke('install_app_update', {
+    rid: update.rid,
+    source: source ?? null,
+    onEvent: channel,
+  })
 }
 
 /** 获取「隐藏统计面板」开关 */

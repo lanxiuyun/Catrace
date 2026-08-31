@@ -4,18 +4,22 @@ import { useI18n } from 'vue-i18n'
 import { NSelect, NSwitch, NButton, NProgress, NTag, useMessage } from 'naive-ui'
 import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
-import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import i18n from '../../i18n'
 import { detectDefaultLocale, type SupportedLocale } from '../../utils/locale'
 import {
+  checkAppUpdate,
+  installAppUpdate,
   getAccessibilityPermissionStatus,
   getLocale,
   getPlatform,
   getSilentStart,
+  getUpdateSource,
   requestAccessibilityPermission,
   setLocale,
   setSilentStart,
+  setUpdateSource,
+  type UpdateSourceId,
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 
@@ -44,22 +48,34 @@ const localeOptions = [
   { label: 'English', value: 'en-US' },
 ]
 
+const updateSource = ref<UpdateSourceId>('auto')
+const updateSourceLoading = ref(false)
+const updateSourceOptions = computed(() => [
+  { label: t('settings.update.sourceAuto'), value: 'auto' },
+  { label: t('settings.update.sourceGhfast'), value: 'ghfast' },
+  { label: t('settings.update.sourceGhddlc'), value: 'ghddlc' },
+  { label: t('settings.update.sourceGhproxy'), value: 'ghproxy' },
+  { label: t('settings.update.sourceGithub'), value: 'github' },
+])
+
 
 onMounted(async () => {
   try {
-    const [a, s, v, loc, p, access] = await Promise.all([
+    const [a, s, v, loc, p, access, src] = await Promise.all([
       isEnabled(),
       getSilentStart(),
       getVersion(),
       getLocale(),
       getPlatform(),
       getAccessibilityPermissionStatus(),
+      getUpdateSource(),
     ])
     autostart.value = a
     silentStart.value = s
     appVersion.value = v
     platform.value = p
     accessibilityGranted.value = access
+    updateSource.value = src
 
     if (!loc) {
       const detected = detectDefaultLocale()
@@ -180,10 +196,26 @@ async function changeLocale(val: string) {
   }
 }
 
+async function changeUpdateSource(val: string) {
+  const next = val as UpdateSourceId
+  const oldVal = updateSource.value
+  updateSourceLoading.value = true
+  try {
+    await setUpdateSource(next)
+    updateSource.value = next
+  } catch (e) {
+    updateSource.value = oldVal
+    message.error(t('settings.messages.saveFailed'))
+    console.error(e)
+  } finally {
+    updateSourceLoading.value = false
+  }
+}
+
 async function handleCheckUpdate() {
   updateLoading.value = true
   try {
-    const update = await check({ timeout: 10000 })
+    const update = await checkAppUpdate({ timeout: 10000, source: updateSource.value })
     if (update) {
       updateInfo.value = { available: true, version: update.version, body: update.body || '' }
       message.info(t('settings.update.newVersion', { version: update.version }))
@@ -205,15 +237,17 @@ async function handleInstallUpdate() {
   downloadTotal.value = 0
   downloadReceived.value = 0
   try {
-    const update = await check({ timeout: 10000 })
+    const update = await checkAppUpdate({ timeout: 10000, source: updateSource.value })
     if (!update) {
       message.warning(t('settings.messages.noUpdateFound'))
       return
     }
-    await update.downloadAndInstall((event) => {
+    await installAppUpdate(update, updateSource.value, (event) => {
       switch (event.event) {
         case 'Started':
           downloadTotal.value = event.data.contentLength || 0
+          downloadReceived.value = 0
+          downloadProgress.value = 0
           break
         case 'Progress':
           downloadReceived.value += event.data.chunkLength
@@ -310,8 +344,19 @@ async function handleInstallUpdate() {
     <template v-if="updateInfo?.available">
       <div class="divider" />
       <div class="update-banner">
-        <div class="update-banner-title">
-          {{ t('settings.update.newVersion', { version: updateInfo.version }) }}
+        <div class="update-banner-title-row">
+          <div class="update-banner-title">
+            {{ t('settings.update.newVersion', { version: updateInfo.version }) }}
+          </div>
+          <n-select
+            :value="updateSource"
+            :options="updateSourceOptions"
+            :loading="updateSourceLoading"
+            :disabled="updateInstalling"
+            size="tiny"
+            style="width: 8.75rem;"
+            @update:value="changeUpdateSource"
+          />
         </div>
         <div v-if="updateInfo.body" class="update-banner-body">
           {{ updateInfo.body }}
@@ -345,11 +390,19 @@ async function handleInstallUpdate() {
   padding: 0.625rem 0 0.25rem;
 }
 
+.update-banner-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
 .update-banner-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: #2E1065;
-  margin-bottom: 0.375rem;
+  min-width: 0;
 }
 
 .update-banner-body {

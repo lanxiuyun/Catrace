@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.8.29"
+version = "26.8.31"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
@@ -627,6 +627,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "tiny_http",
  "tokio",
+ "url",
  "uuid",
  "windows 0.61.3",
  "zip 2.4.2",

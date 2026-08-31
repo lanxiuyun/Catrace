@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { listen } from '@tauri-apps/api/event'
-import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import {
   getReminderData,
@@ -21,6 +20,8 @@ import {
   resolveEvent,
   resolveEventAction,
   getActiveEvents,
+  checkAppUpdate,
+  installAppUpdate,
 } from '../../api/tauri'
 import type { BusEvent } from '../../types/event'
 import AgentToastCard, { type AgentEntry } from '../../components/AgentToastCard.vue'
@@ -1228,19 +1229,21 @@ async function handleClose(item: ToastItem) {
   removeNotification(item.id, true)
 }
 
-async function handleUpdateInstall(item: ToastItem) {
+async function handleUpdateInstall(item: ToastItem, source?: string) {
   if (item.updateInstalling) return
   item.updateInstalling = true
   try {
-    const update = await check({ timeout: 10000 })
+    const update = await checkAppUpdate({ timeout: 10000, source })
     if (!update) {
       item.body = t('settings.messages.noUpdateFound')
       return
     }
-    await update.downloadAndInstall((event) => {
+    await installAppUpdate(update, source, (event) => {
       switch (event.event) {
         case 'Started':
           item.downloadTotal = event.data.contentLength || 0
+          item.downloadReceived = 0
+          item.downloadProgress = 0
           break
         case 'Progress':
           item.downloadReceived = (item.downloadReceived || 0) + event.data.chunkLength
@@ -1327,7 +1330,7 @@ async function handleUpdateInstall(item: ToastItem) {
           :download-progress="item.downloadProgress"
           @close="handleClose(item)"
           @toggle-details="toggleUpdateDetails(item)"
-          @install="handleUpdateInstall(item)"
+          @install="(source) => handleUpdateInstall(item, source)"
         />
 
         <RestTimerToastCard

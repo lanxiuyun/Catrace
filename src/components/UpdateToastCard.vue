@@ -1,5 +1,11 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  getUpdateSource,
+  setUpdateSource,
+  type UpdateSourceId,
+} from '../api/tauri'
 
 defineProps<{
   version?: string
@@ -12,10 +18,39 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'toggleDetails'): void
-  (e: 'install'): void
+  (e: 'install', source: UpdateSourceId): void
 }>()
 
 const { t } = useI18n()
+const source = ref<UpdateSourceId>('auto')
+
+const sourceOptions: { id: UpdateSourceId; labelKey: string }[] = [
+  { id: 'auto', labelKey: 'settings.update.sourceAuto' },
+  { id: 'ghfast', labelKey: 'settings.update.sourceGhfast' },
+  { id: 'ghddlc', labelKey: 'settings.update.sourceGhddlc' },
+  { id: 'ghproxy', labelKey: 'settings.update.sourceGhproxy' },
+  { id: 'github', labelKey: 'settings.update.sourceGithub' },
+]
+
+onMounted(async () => {
+  try {
+    source.value = await getUpdateSource()
+  } catch {
+    source.value = 'auto'
+  }
+})
+
+async function onSourceChange(event: Event) {
+  const next = (event.target as HTMLSelectElement).value as UpdateSourceId
+  const prev = source.value
+  source.value = next
+  try {
+    await setUpdateSource(next)
+  } catch (e) {
+    source.value = prev
+    console.error(e)
+  }
+}
 </script>
 
 <template>
@@ -26,6 +61,17 @@ const { t } = useI18n()
         <h2 class="title">
           {{ t('settings.update.newVersion', { version }) }}
         </h2>
+        <select
+          class="source-select"
+          :value="source"
+          :disabled="!!updateInstalling"
+          :aria-label="t('settings.update.source')"
+          @change="onSourceChange"
+        >
+          <option v-for="opt in sourceOptions" :key="opt.id" :value="opt.id">
+            {{ t(opt.labelKey) }}
+          </option>
+        </select>
       </div>
       <button
         v-if="!updateInstalling"
@@ -54,7 +100,7 @@ const { t } = useI18n()
       <button class="btn btn-secondary" @click="emit('toggleDetails')">
         {{ showUpdateBody ? t('settings.update.hideDetails') : t('settings.update.viewDetails') }}
       </button>
-      <button class="btn btn-primary" :disabled="!!updateInstalling" @click="emit('install')">
+      <button class="btn btn-primary" :disabled="!!updateInstalling" @click="emit('install', source)">
         {{ updateInstalling ? t('settings.update.downloading') : t('settings.update.updateNow') }}
       </button>
     </div>
@@ -81,6 +127,7 @@ const { t } = useI18n()
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+  flex: 1;
 }
 
 .pulse-dot {
@@ -112,6 +159,7 @@ const { t } = useI18n()
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .close-btn {
@@ -183,6 +231,25 @@ const { t } = useI18n()
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
   text-align: right;
+}
+
+.source-select {
+  flex-shrink: 0;
+  width: 7.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0 0.25rem;
+  cursor: pointer;
+}
+
+.source-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .actions {

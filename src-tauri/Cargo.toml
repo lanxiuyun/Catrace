@@ -1,6 +1,6 @@
 [package]
 name = "catrace"
-version = "26.8.29"
+version = "26.8.31"
 description = "Desktop tool to balance work and rest"
 authors = ["lanxiuyun"]
 edition = "2021"
@@ -28,6 +28,7 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+url = "2"
 device_query = "1.1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }

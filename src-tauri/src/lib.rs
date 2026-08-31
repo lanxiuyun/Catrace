@@ -14,6 +14,7 @@ mod plugin_window;
 mod plugins;
 mod reminder_toast;
 mod report;
+mod update;
 mod rest_plugin;
 mod signal;
 mod window_manager;
@@ -32,7 +33,6 @@ use std::path::Path;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
-use tauri_plugin_updater::UpdaterExt;
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
@@ -796,14 +796,14 @@ pub(crate) fn create_fullscreen_window(
 // 自动更新检查
 // ------------------------------------------------------------------
 
-async fn check_update_and_notify(
-    app_handle: &tauri::AppHandle,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let updater = app_handle
-        .updater_builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()?;
-    if let Some(update) = updater.check().await? {
+async fn check_update_and_notify(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    let source = {
+        let db = app_handle.state::<db::Db>();
+        crate::update::read_saved_source(&db)
+    };
+    if let Some(update) =
+        crate::update::check_for_update(app_handle, &source, Duration::from_secs(10)).await?
+    {
         let version = update.version.clone();
         let changelog = update.body.clone().unwrap_or_default();
         reminder_toast::create_update_toast_window(app_handle, &version, &changelog);
@@ -1112,6 +1112,10 @@ pub fn run() {
             set_hide_stats,
             get_locale,
             set_locale,
+            crate::update::get_update_source,
+            crate::update::set_update_source,
+            crate::update::check_app_update,
+            crate::update::install_app_update,
             get_platform,
             get_accessibility_permission_status,
             request_accessibility_permission,
