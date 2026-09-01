@@ -1,6 +1,6 @@
 # Dashboard
 
-主页面，展示今日统计和活动时间轴。
+主页面，展示今日统计和活动时间轴。过往天的分钟记录仍在 SQLite `records`，Dashboard 不提供日期切换；外置插件用 `plugin.activity.getRecords`（见 [[plugin-center]]）。
 
 ## 涉及文件
 

@@ -1207,6 +1207,7 @@ pub fn run() {
             plugin_api::plugin_api_event_publish,
             plugin_api::plugin_api_get_activity,
             plugin_api::plugin_api_get_last_real_rest,
+            plugin_api::plugin_api_get_records,
             plugin_api::plugin_api_audio_play,
             plugin_api::plugin_api_audio_stop,
             plugin_api::plugin_api_audio_pause,

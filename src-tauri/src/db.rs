@@ -247,6 +247,22 @@ impl Db {
         rows.collect::<Result<Vec<_>>>()
     }
 
+    /// Half-open `[start_timestamp, end_timestamp)` minute rows.
+    pub fn get_records_between(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> Result<Vec<(i64, bool)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT timestamp, is_active FROM records WHERE timestamp >= ?1 AND timestamp < ?2 ORDER BY timestamp",
+        )?;
+        let rows = stmt.query_map([start_timestamp, end_timestamp], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)? == 1))
+        })?;
+        rows.collect::<Result<Vec<_>>>()
+    }
+
     pub fn get_app_stats(&self) -> Result<Vec<(String, i64)>> {
         let conn = self.conn.lock().unwrap();
         let start_of_day = chrono::Local::now()
@@ -990,5 +1006,21 @@ mod tests {
         }
         // 本次只休息 5 分钟，结束于 base + 29*60
         assert_eq!(db.get_last_real_rest_ts(5).unwrap(), Some(base + 29 * 60));
+    }
+
+    #[test]
+    fn test_get_records_between_is_half_open() {
+        let db = Db::new(Path::new(":memory:")).unwrap();
+        let base = 1_700_000_000;
+        db.insert_record(base, true, "test.exe").unwrap();
+        db.insert_record(base + 60, false, "test.exe").unwrap();
+        db.insert_record(base + 120, true, "test.exe").unwrap();
+
+        assert_eq!(
+            db.get_records_between(base + 60, base + 120).unwrap(),
+            vec![(base + 60, false)]
+        );
+        assert_eq!(db.get_records_between(base, base + 180).unwrap().len(), 3);
+        assert!(db.get_records_between(base + 180, base + 240).unwrap().is_empty());
     }
 }

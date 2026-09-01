@@ -60,7 +60,7 @@ console 转发失败不应让插件日志调用失败；日志文件是主记录
 | `plugin.config.get/set()` | 整对象 settings store（可读可在禁用时写） |
 | `plugin.setEnabled(bool)` | 启用/禁用本插件 |
 | `plugin.events.publish()` | 完整 Event Bus 发布（actions/payload/dedupe） |
-| `plugin.activity.get()` / `getLastRealRest()` | 活跃快照 / 真休息锚点 |
+| `plugin.activity.get()` / `getLastRealRest()` / `getRecords({ from, to })` | 活跃快照 / 真休息锚点 / 历史分钟（unix 秒，`[from, to)`，最长 31 天） |
 | `plugin.notification.show()` | Event Bus 简易 Toast |
 | `plugin.sidecar.request()` | 既有通用 JSONL RPC，供插件自定义 sidecar method |
 | `plugin.path.getPluginDir()` | 插件安装目录（拼 `assets/`） |

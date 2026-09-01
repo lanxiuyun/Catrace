@@ -61,6 +61,11 @@ export type PluginActivitySnapshot = {
   fullscreenActive: boolean
 }
 
+export type PluginActivityRecord = {
+  timestamp: number
+  active: boolean
+}
+
 type PluginLogLevel = 'info' | 'warn' | 'error'
 type PluginLogPayload = { pluginId: string; level: string; message: string; data?: unknown }
 
@@ -123,6 +128,8 @@ export type PluginApi = {
   activity: {
     get(): Promise<PluginActivitySnapshot>
     getLastRealRest(): Promise<number | null>
+    /** Unix seconds, half-open `[from, to)`. Max 31 days. Sparse minute rows. */
+    getRecords(range: { from: number; to: number }): Promise<PluginActivityRecord[]>
   }
   process: { spawn(path: string, args?: string[]): Promise<PluginProcessInfo> }
   http: { get(url: string): Promise<PluginHttpResponse> }
@@ -222,6 +229,8 @@ export function createPluginApi(pluginId: string): PluginApi {
     activity: {
       get: () => invoke<PluginActivitySnapshot>('plugin_api_get_activity', { pluginId }),
       getLastRealRest: () => invoke<number | null>('plugin_api_get_last_real_rest', { pluginId }),
+      getRecords: ({ from, to }) =>
+        invoke<PluginActivityRecord[]>('plugin_api_get_records', { pluginId, from, to }),
     },
     process: { spawn: (path, args = []) => invoke('plugin_api_spawn_process', { pluginId, path, args }) },
     http: { get: (url) => invoke('plugin_api_http_get', { pluginId, url }) },

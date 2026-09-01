@@ -115,3 +115,61 @@ pub fn plugin_api_get_last_real_rest(
     db.get_last_real_rest_ts(break_minutes)
         .map_err(|e| e.to_string())
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginApiActivityRecord {
+    timestamp: i64,
+    active: bool,
+}
+
+const MAX_RECORDS_SPAN_SECS: i64 = 31 * 24 * 60 * 60;
+
+fn validate_records_range(from: i64, to: i64) -> Result<(), String> {
+    if from >= to {
+        return Err("from must be less than to".into());
+    }
+    let span = to
+        .checked_sub(from)
+        .ok_or_else(|| "record range must not exceed 31 days".to_string())?;
+    if span > MAX_RECORDS_SPAN_SECS {
+        return Err("record range must not exceed 31 days".into());
+    }
+    Ok(())
+}
+
+/// Historical minute records. `from`/`to` are unix seconds, half-open `[from, to)`.
+/// Max span 31 days. Sparse: missing minutes are omitted.
+#[tauri::command]
+pub fn plugin_api_get_records(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    db: State<'_, Db>,
+    plugin_id: String,
+    from: i64,
+    to: i64,
+) -> Result<Vec<PluginApiActivityRecord>, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    validate_records_range(from, to)?;
+    db.get_records_between(from, to)
+        .map(|rows| {
+            rows.into_iter()
+                .map(|(timestamp, active)| PluginApiActivityRecord { timestamp, active })
+                .collect()
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_records_range;
+
+    #[test]
+    fn records_range_rejects_empty_and_oversize() {
+        assert!(validate_records_range(10, 10).is_err());
+        assert!(validate_records_range(20, 10).is_err());
+        assert!(validate_records_range(0, 31 * 24 * 60 * 60 + 1).is_err());
+        assert!(validate_records_range(0, 31 * 24 * 60 * 60).is_ok());
+        assert!(validate_records_range(1_700_000_000, 1_700_000_000 + 86_400).is_ok());
+    }
+}

@@ -177,7 +177,7 @@ sidecar stdout 可发（身份由宿主 running map 绑定，勿自报 pluginId�
 
 **仅以下组件/API（完整白名单）：**
 
-`NAlert` `NButton` `NDivider` `NInput` `NModal` `NPopconfirm` `NProgress`  
+`NAlert` `NButton` `NDatePicker` `NDivider` `NInput` `NModal` `NPopconfirm` `NProgress`  
 `NRadioButton` `NRadioGroup` `NSelect` `NSlider` `NSpace` `NSwitch` `NTag` `NTooltip`  
 `useDialog` `useMessage`
 
@@ -390,6 +390,7 @@ stderr 行通常会进宿主日志。
 | `plugin.events.publish({...})` | 完整事件（见下） |
 | `plugin.activity.get()` | 活跃快照 |
 | `plugin.activity.getLastRealRest()` | 休息锚点（毫秒时间戳或 null） |
+| `plugin.activity.getRecords({ from, to })` | 历史分钟记录。unix 秒、半开区间 `[from, to)`，最长 31 天；缺分钟不补行 |
 | `plugin.process.spawn(path, args?)` | 启动进程，返回 `{ pid }` |
 | `plugin.http.get(url)` | HTTP GET |
 | `plugin.log.info/warn/error(msg, data?)` | 写宿主侧日志 |
