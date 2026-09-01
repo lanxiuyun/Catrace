@@ -525,7 +525,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   max-width: 64rem;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 1.5rem 2rem 2rem;
+  padding: 1.5rem 1rem 2rem;
 }
 
 .disabled-overlay {
@@ -588,11 +588,5 @@ async function onTestExternal(p: ExternalPluginInfo) {
 .btn-primary:disabled {
   opacity: 0.55;
   cursor: default;
-}
-
-@media (max-width: 56.25rem) {
-  .plugin-detail {
-    padding: 1.25rem;
-  }
 }
 </style>
