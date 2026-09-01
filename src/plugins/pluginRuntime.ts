@@ -11,6 +11,7 @@ import {
 import {
   NAlert,
   NButton,
+  NDatePicker,
   NDivider,
   NInput,
   NModal,
@@ -50,6 +51,7 @@ export type PluginVueRuntime = {
 export type PluginNaiveRuntime = {
   NAlert: typeof NAlert
   NButton: typeof NButton
+  NDatePicker: typeof NDatePicker
   NDivider: typeof NDivider
   NInput: typeof NInput
   NModal: typeof NModal
@@ -112,6 +114,7 @@ export function ensurePluginRuntime() {
     g.__CATRACE_NAIVE__ = {
       NAlert,
       NButton,
+      NDatePicker,
       NDivider,
       NInput,
       NModal,

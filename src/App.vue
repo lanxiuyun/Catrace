@@ -8,17 +8,30 @@ import {
   NDialogProvider,
 } from 'naive-ui'
 import { themeOverrides } from './theme'
-import { zhCN as naiveZhCN, enUS as naiveEnUS } from 'naive-ui'
+import {
+  zhCN as naiveZhCN,
+  enUS as naiveEnUS,
+  dateZhCN,
+  dateEnUS,
+} from 'naive-ui'
 
 const { locale } = useI18n()
 
 const naiveLocale = computed(() => {
   return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS
 })
+
+const naiveDateLocale = computed(() => {
+  return locale.value === 'zh-CN' ? dateZhCN : dateEnUS
+})
 </script>
 
 <template>
-  <n-config-provider :theme-overrides="themeOverrides" :locale="naiveLocale">
+  <n-config-provider
+    :theme-overrides="themeOverrides"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
+  >
     <n-message-provider>
       <n-dialog-provider>
         <RouterView />

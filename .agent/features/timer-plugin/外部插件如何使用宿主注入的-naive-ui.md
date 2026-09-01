@@ -10,7 +10,7 @@
 | Global | 内容 |
 |--------|------|
 | `__CATRACE_VUE__` | `h` `ref` `computed` `watch` `markRaw` `onMounted` `onBeforeUnmount` |
-| `__CATRACE_NAIVE__` | 精选组件 + `useMessage` `useDialog` |
+| `__CATRACE_NAIVE__` | 精选组件（含 `NDatePicker`）+ `useMessage` `useDialog` |
 | `__CATRACE_UI__` | `SettingRow` `SliderControl`（可选） |
 
 注入入口：
@@ -40,7 +40,9 @@ export default {
 1. **禁止** bare import vue / naive-ui  
 2. `useMessage` / `useDialog` 只能在 `setup()`  
 3. 组件用 `h(Comp, props, slots)`，无 SFC template  
-4. 样式：插件根 class 自包含；**teleport 组件**（`NModal` 等）样式必须挂在 modal 自己的 class 上，不能写在 `.plugin-root .modal-xxx`
+4. 样式：插件根 class 自包含；**teleport 组件**（`NModal` / `NDatePicker` 日历面板等）样式必须挂在浮层自己的 class 上，不能写在 `.plugin-root .modal-xxx`
+
+日历面板依赖宿主 `NConfigProvider` 的 `date-locale`（`App.vue` 已接 `dateZhCN` / `dateEnUS`），否则月份星期是英文。
 
 ## Teleport 踩坑摘要
 
