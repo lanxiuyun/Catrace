@@ -89,9 +89,12 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 | `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点 | ✅ |
 | Plugins UI / anomaly | sidecar 运行态展示 | ✅ M15.3 |
 
-启停触发与 M11 对齐：
+启停触发：
 
-- `initial_scan` / rescan / set_enabled / 退出  
+- enable → `sync_plugin(id)` 只启动这一颗；disable → 只停这一颗  
+- 插件页刷新 → `schedule_sync_force`（按 enable/disable 全量重启）  
+- 被动 list/rescan → `schedule_sync`：补齐未启动、停已禁用、换已崩溃；**不**因指纹弹健康进程  
+- 退出仍杀进程树  
 - **禁止**在 `setup()` 同步长阻塞；`spawn_blocking` + 锁，同 `PluginWindowManager::schedule_sync`
 - **扫描期不做**路径穿越 / 解释器 allowlist / env 安全校验（产品决策）；spawn 失败当运行时错误
 
@@ -154,7 +157,7 @@ starting ──spawn fail──► error (UI 可见，可重试)
    │ ready 或首条合法 op
    ▼
 running ──crash──► backoff restart（有限次数）──► error
-   │ disable / app exit / fingerprint change
+   │ disable / app exit / 插件页刷新(force) / 关开自己
    ▼
 stopping → (shutdown 宽限 e.g. 1s) → kill → disabled
 ```

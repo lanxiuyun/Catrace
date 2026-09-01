@@ -13,7 +13,8 @@
 - `tools/plugin-demo/timer/settings.mjs` — 外部 settings 参考（内联编辑、边距归宿主）。
 - `src/plugins/pluginRuntime.ts` — 外部插件 Vue/naive/UI runtime 注入。
 - `src/api/tauri.ts` — 插件启用与外部异常状态。
-- `src-tauri/src/plugin_commands.rs` / `plugins.rs` — 外部插件与异常观测。
+- `src-tauri/src/plugin_commands.rs` / `plugins.rs` — 外部插件与异常观测；enable 走 `sync_plugin`。
+- `src-tauri/src/plugin_sidecar.rs` — sidecar 启停；开关只动一颗，刷新才 `schedule_sync_force`。
 
 ## Sub-documents
 
@@ -21,6 +22,7 @@
 - [插件状态排序和统一详情顶栏实现约定.md](插件状态排序和统一详情顶栏实现约定.md) — 状态来源、排序、顶栏边界。
 - [插件中心-sidecar本机进程徽章与信任文案展示.md](插件中心-sidecar本机进程徽章与信任文案展示.md) — hasSidecar / sidecarRunning badge 与 trustNote。
 - [插件异常标签如何判定和保持不拦截.md](插件异常标签如何判定和保持不拦截.md) — 异常 Tag 与观测。
+- [插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md](插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md) — 外部 sidecar 生命周期：开关 / 关开自己 / 刷新全量。
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 开关与列表时序。
 - [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — header / nav-rail 拆分。
 - [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md) — 历史：PluginPanelShell 已废弃。

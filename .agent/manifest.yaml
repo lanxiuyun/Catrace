@@ -6,6 +6,7 @@ features:
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件中心-sidecar本机进程徽章与信任文案展示.md
+      - .agent/features/plugin-center/插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
       - .agent/features/plugin-center/插件开关必须在持久化成功后再刷新列表.md
       - .agent/features/plugin-center/插件面板和导航栏组件化拆分.md
@@ -266,6 +267,7 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 decisions:
+  - .agent/decisions/2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md
   - .agent/decisions/2026-08-31-更新允许换GitHub镜像源-检查与下载同一源.md
   - .agent/decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md
   - .agent/decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md
@@ -287,6 +289,7 @@ decisions:
   - .agent/decisions/window-focus-refactor.md
 
 bugs:
+  - .agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md
   - .agent/bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md
   - .agent/bugs/2026-08-27-toast小窗增高时卡片闪到任务栏.md
   - .agent/bugs/2026-08-11-toast-全屏覆盖层空白区域无法点击穿透.md
@@ -332,6 +335,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-09-01-sidecar开关不再全量重启以免误杀其他插件进程树.md
   - .agent/devlog/2026-08-31-更新支持换源Toast也能选.md
   - .agent/devlog/2026-08-31-定时提醒颜色提示音与plugin-audio-API.md
   - .agent/devlog/2026-08-27-toast小窗化与点击抢焦点修复.md
@@ -357,7 +361,7 @@ devlog:
   - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
-  current:
-    plan: .agent/architecture/desktop-event-os/README.md
-    phase: 更新支持换 GitHub 镜像源（设置页 + Toast）（2026-08-31）
-    next: 用户确认后可测换源检查/下载；此前 plugin.audio 仍待用户 push
+current:
+  plan: .agent/architecture/desktop-event-os/README.md
+  phase: sidecar 开关只启停当前插件，刷新才全量重启（2026-09-01，pr/60）
+  next: 用户确认后 push / 合 PR #60；fork CI 需 Approve and run workflows

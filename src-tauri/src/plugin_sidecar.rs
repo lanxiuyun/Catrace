@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,7 +20,6 @@ struct PendingRequest {
 }
 
 struct RunningSidecar {
-    fingerprint: String,
     child: Child,
     stdin: Arc<Mutex<ChildStdin>>,
     #[cfg(windows)]
@@ -107,8 +106,8 @@ impl PluginSidecarManager {
         self.schedule_sync_impl(app, plugins, false);
     }
 
-    /// Same as `schedule_sync`, but restarts every running sidecar (not just
-    /// crashed/fingerprint-changed ones). Used by the explicit reload/refresh.
+    /// Same as `schedule_sync`, but restarts every enabled sidecar.
+    /// Used by the explicit reload/refresh button.
     pub fn schedule_sync_force(&self, app: tauri::AppHandle, plugins: PluginManager) {
         self.schedule_sync_impl(app, plugins, true);
     }
@@ -122,14 +121,30 @@ impl PluginSidecarManager {
         });
     }
 
-    pub fn sync(&self, app: &tauri::AppHandle, plugins: &PluginManager) -> Result<(), String> {
-        self.sync_impl(app, plugins, false)
-    }
-
-    /// Synchronous variant used by enable/disable toggle so the response can
-    /// report fresh `sidecar_running`. Restarts every running sidecar.
-    pub fn sync_force(&self, app: &tauri::AppHandle, plugins: &PluginManager) -> Result<(), String> {
-        self.sync_impl(app, plugins, true)
+    /// Enable/disable one plugin: start it if enabled, stop it if disabled.
+    /// Does not restart a healthy running sidecar. Sibling sidecars stay put.
+    pub fn sync_plugin(
+        &self,
+        app: &tauri::AppHandle,
+        plugins: &PluginManager,
+        plugin_id: &str,
+    ) -> Result<(), String> {
+        let _sync_guard = self.sync_lock.lock().map_err(|e| e.to_string())?;
+        let spec = plugins
+            .sidecar_plugins()?
+            .into_iter()
+            .find(|spec| spec.id == plugin_id);
+        let mut running = self.running.lock().map_err(|e| e.to_string())?;
+        match spec {
+            None => {
+                if let Some(sidecar) = running.remove(plugin_id) {
+                    stop_sidecar(plugin_id, sidecar);
+                    self.fail_pending_for_plugin(plugin_id, "plugin sidecar stopped");
+                }
+                Ok(())
+            }
+            Some(spec) => self.replace_sidecar_if_needed(app, plugins, &mut running, &spec, false),
+        }
     }
 
     fn sync_impl(
@@ -140,14 +155,11 @@ impl PluginSidecarManager {
     ) -> Result<(), String> {
         let _sync_guard = self.sync_lock.lock().map_err(|e| e.to_string())?;
         let desired = plugins.sidecar_plugins()?;
-        let desired_map: HashMap<_, _> = desired
-            .iter()
-            .map(|spec| (spec.id.clone(), spec.fingerprint.clone()))
-            .collect();
+        let desired_ids: HashSet<_> = desired.iter().map(|spec| spec.id.clone()).collect();
         let mut running = self.running.lock().map_err(|e| e.to_string())?;
         let stopped: Vec<String> = running
             .keys()
-            .filter(|id| !desired_map.contains_key(*id))
+            .filter(|id| !desired_ids.contains(*id))
             .cloned()
             .collect();
         for id in stopped {
@@ -157,42 +169,50 @@ impl PluginSidecarManager {
             }
         }
         for spec in desired {
-            let restart = if force {
-                true
-            } else {
-                match running.get_mut(&spec.id) {
-                    Some(sidecar) => {
-                        sidecar
-                            .child
-                            .try_wait()
-                            .map_err(|e| format!("check plugin sidecar {} status: {e}", spec.id))?
-                            .is_some()
-                            || sidecar.fingerprint != spec.fingerprint
-                    }
-                    None => true,
-                }
-            };
-            if !restart {
-                continue;
-            }
-            if let Some(sidecar) = running.remove(&spec.id) {
-                stop_sidecar(&spec.id, sidecar);
-                self.fail_pending_for_plugin(&spec.id, "plugin sidecar restarted");
-            }
-            let id = spec.id.clone();
-            let spawned = spawn_sidecar(app, plugins, &spec, self.clone())?;
-            running.insert(
-                id.clone(),
-                RunningSidecar {
-                    fingerprint: spec.fingerprint.clone(),
-                    child: spawned.child,
-                    stdin: spawned.stdin,
-                    #[cfg(windows)]
-                    job: spawned.job,
-                },
-            );
-            log_info!("plugin-sidecar", "started sidecar for {id}");
+            self.replace_sidecar_if_needed(app, plugins, &mut running, &spec, force)?;
         }
+        Ok(())
+    }
+
+    fn replace_sidecar_if_needed(
+        &self,
+        app: &tauri::AppHandle,
+        plugins: &PluginManager,
+        running: &mut HashMap<String, RunningSidecar>,
+        spec: &PluginSidecarSpec,
+        force: bool,
+    ) -> Result<(), String> {
+        let restart = if force {
+            true
+        } else {
+            match running.get_mut(&spec.id) {
+                Some(sidecar) => sidecar
+                    .child
+                    .try_wait()
+                    .map_err(|e| format!("check plugin sidecar {} status: {e}", spec.id))?
+                    .is_some(),
+                None => true,
+            }
+        };
+        if !restart {
+            return Ok(());
+        }
+        if let Some(sidecar) = running.remove(&spec.id) {
+            stop_sidecar(&spec.id, sidecar);
+            self.fail_pending_for_plugin(&spec.id, "plugin sidecar restarted");
+        }
+        let id = spec.id.clone();
+        let spawned = spawn_sidecar(app, plugins, spec, self.clone())?;
+        running.insert(
+            id.clone(),
+            RunningSidecar {
+                child: spawned.child,
+                stdin: spawned.stdin,
+                #[cfg(windows)]
+                job: spawned.job,
+            },
+        );
+        log_info!("plugin-sidecar", "started sidecar for {id}");
         Ok(())
     }
 

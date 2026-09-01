@@ -123,6 +123,9 @@ pub struct PluginSidecarSpec {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: HashMap<String, String>,
+    /// Recorded for diagnostics / tests. Restart policy is enable/disable +
+    /// the reload button, not fingerprint mismatch.
+    #[allow(dead_code)]
     pub fingerprint: String,
 }
 
@@ -570,8 +573,25 @@ fn sidecar_fingerprint(
 ) -> String {
     let mut env_pairs: Vec<_> = env.iter().collect();
     env_pairs.sort_by(|a, b| a.0.cmp(b.0));
+    // Entry-file stats (len:mtime_ms, in args order) so script edits change the
+    // fingerprint like the background entry does (ADR sidecar-runtime #6).
+    let entry_stats: Vec<String> = args
+        .iter()
+        .filter(|a| !a.starts_with('-') && !a.contains("..") && !Path::new(a).is_absolute())
+        .filter_map(|a| fs::metadata(cwd.join(a)).ok())
+        .map(|meta| {
+            let len = meta.len();
+            let modified = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis())
+                .unwrap_or_default();
+            format!("{len}:{modified}")
+        })
+        .collect();
     format!(
-        "{version}:{command}:{args:?}:{}:{env_pairs:?}",
+        "{version}:{command}:{args:?}:{}:{env_pairs:?}:{entry_stats:?}",
         cwd.display()
     )
 }
@@ -641,7 +661,7 @@ fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{sidecar_spec, PluginSidecarManifest};
+    use super::{sidecar_fingerprint, sidecar_spec, PluginSidecarManifest};
     use std::collections::HashMap;
     use std::path::Path;
 
@@ -663,6 +683,22 @@ mod tests {
         assert_eq!(spec.args, manifest.args);
         assert_eq!(spec.cwd, Path::new("/plugins/demo").join("../runtime"));
         assert_eq!(spec.env, manifest.env);
+    }
+
+    #[test]
+    fn sidecar_fingerprint_tracks_entry_file_changes() {
+        let dir = std::env::temp_dir().join(format!("catrace-fp-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = dir.join("main.mjs");
+        std::fs::write(&entry, "console.log(1)").unwrap();
+        let fp1 = sidecar_fingerprint("1", "node", &["main.mjs".into()], &dir, &HashMap::new());
+        std::fs::write(&entry, "console.log(1); console.log(2)").unwrap();
+        let fp2 = sidecar_fingerprint("1", "node", &["main.mjs".into()], &dir, &HashMap::new());
+        let fp3 = sidecar_fingerprint("1", "node", &["main.mjs".into()], &dir, &HashMap::new());
+        assert_ne!(fp1, fp2, "entry file edit must change the sidecar fingerprint");
+        assert_eq!(fp2, fp3, "identical state must produce an identical fingerprint");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 
@@ -686,8 +722,8 @@ pub fn list_external_plugins(
     }
 
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    // Explicit reload/refresh restarts sidecars so on-disk changes take effect;
-    // passive rescans (startup, toast init) keep the diff-based sync.
+    // Reload button: restart every enabled sidecar. Other list/rescans only
+    // start missing / stop disabled / replace crashed — never bounce healthy ones.
     if restart_sidecars.unwrap_or(false) {
         sidecars.schedule_sync_force(app.clone(), mgr.inner().clone());
     } else {
@@ -707,10 +743,9 @@ pub fn set_external_plugin_enabled(
 ) -> Result<ExternalPluginInfo, String> {
     let mut info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    // Sync sidecar lifecycle before reporting runtime status so the UI
-    // does not lag one refresh behind enable/disable. Force: restart every
-    // enabled sidecar so on-disk/manifest changes never leave stale state.
-    if let Err(e) = sidecars.inner().sync_force(&app, mgr.inner()) {
+    // Enable starts this sidecar; disable stops it. Script edits take effect
+    // on the reload button, not by flipping the switch.
+    if let Err(e) = sidecars.inner().sync_plugin(&app, mgr.inner(), &id) {
         log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
     }
     if info.has_sidecar {
