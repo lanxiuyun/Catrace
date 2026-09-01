@@ -124,6 +124,9 @@ pub struct PluginSidecarSpec {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: HashMap<String, String>,
+    /// Recorded for diagnostics / tests. Restart policy is enable/disable +
+    /// the reload button, not fingerprint mismatch.
+    #[allow(dead_code)]
     pub fingerprint: String,
 }
 
@@ -720,8 +723,8 @@ pub fn list_external_plugins(
     }
 
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    // Explicit reload/refresh restarts sidecars so on-disk changes take effect;
-    // passive rescans (startup, toast init) keep the diff-based sync.
+    // Reload button: restart every enabled sidecar. Other list/rescans only
+    // start missing / stop disabled / replace crashed — never bounce healthy ones.
     if restart_sidecars.unwrap_or(false) {
         sidecars.schedule_sync_force(app.clone(), mgr.inner().clone());
     } else {
@@ -741,11 +744,9 @@ pub fn set_external_plugin_enabled(
 ) -> Result<ExternalPluginInfo, String> {
     let mut info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app.clone(), mgr.inner().clone());
-    // Sync sidecar lifecycle before reporting runtime status so the UI
-    // does not lag one refresh behind enable/disable. Diff-based: only the
-    // toggled plugin's sidecar starts/stops; fingerprint covers manifest and
-    // entry files, so script edits still take effect on the next toggle.
-    if let Err(e) = sidecars.inner().sync(&app, mgr.inner()) {
+    // Enable starts this sidecar; disable stops it. Script edits take effect
+    // on the reload button, not by flipping the switch.
+    if let Err(e) = sidecars.inner().sync_plugin(&app, mgr.inner(), &id) {
         log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
     }
     if info.has_sidecar {
