@@ -32,6 +32,5 @@ UI 开关：`plugin_rest_ui_enabled`（plugin-store，不进 SQLite）。
 
 ## 相关
 
-- 决策：[2026-07-21-久坐插件暂只支持toast不启用fullscreen.md](../../decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md)（已 superseded）
 - 配置入口：[久坐提醒配置从系统设置收敛到-RestPluginPanel.md](../settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md)
 - 插件边界：[rest-reminder-builtin-plugin-boundary.md](../../architecture/desktop-event-os/rest-reminder-builtin-plugin-boundary.md)

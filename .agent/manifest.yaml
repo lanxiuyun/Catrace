@@ -4,6 +4,7 @@ features:
       - .agent/features/plugin-center/README.md
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
+      - .agent/features/plugin-center/plugin-activity-getRecords-历史分钟记录.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件中心-sidecar本机进程徽章与信任文案展示.md
       - .agent/features/plugin-center/插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md
@@ -265,28 +266,6 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
-
-decisions:
-  - .agent/decisions/2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md
-  - .agent/decisions/2026-08-31-更新允许换GitHub镜像源-检查与下载同一源.md
-  - .agent/decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md
-  - .agent/decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md
-  - .agent/decisions/2026-07-30-plugin-native-sidecar-runtime.md
-  - .agent/decisions/2026-07-29-外部插件设置优先卡片内联编辑而非-NModal.md
-  - .agent/decisions/2026-07-27-插件详情边距由宿主统一-不再用-PluginPanelShell.md
-  - .agent/decisions/2026-07-26-plugin-disabled-state-greyed-by-parent-not-empty-state.md
-  - .agent/decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md
-  - .agent/decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md
-  - .agent/decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md
-  - .agent/decisions/2026-07-21-久坐插件暂只支持toast不启用fullscreen.md
-  - .agent/decisions/2026-07-21-久坐提醒配置归功能插件不进系统设置.md
-  - .agent/decisions/2026-07-21-debug启动自动junction链接plugin-demo.md
-  - .agent/decisions/2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md
-  - .agent/decisions/2026-07-19-continue-in-repo-desktop-event-os-not-rewrite.md
-  - .agent/decisions/2026-07-07-drop-rdev-for-device-query.md
-  - .agent/decisions/gsmtcsm-removal.md
-  - .agent/decisions/popup-removal-pending.md
-  - .agent/decisions/window-focus-refactor.md
 
 bugs:
   - .agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md

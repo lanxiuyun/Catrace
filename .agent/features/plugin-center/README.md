@@ -26,5 +26,12 @@
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 开关与列表时序。
 - [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — header / nav-rail 拆分。
 - [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md) — 历史：PluginPanelShell 已废弃。
+- [plugin-activity-getRecords-历史分钟记录.md](plugin-activity-getRecords-历史分钟记录.md) — 外置插件读过往热力图：`plugin.activity.getRecords`。
 
 外部插件 naive 注入与 teleport 约定见 [[timer-plugin]] / [[m10-external-plugins]]。
+
+## 启用即信任 / 开发目录
+
+- 用户启用外部插件 = 信任其本地代码（含 sidecar）。**不**做逐项权限弹窗。宿主仍强制：窗口 label 推导 plugin id、禁用即停能力、Event 所有权、`storage` 按插件隔离。
+- Debug：`tools/plugin-demo`（git submodule）junction 到 `app_data/plugins/<id>`。改 demo 即时生效。Windows 上先关 app / 杀 sidecar 再动目录，否则 junction 目标被锁。
+- 克隆宿主必须 `git submodule update --init --recursive`，否则插件目录是空的。插件改动提交到 `catrace-plugin`，宿主只更新 submodule 指针。

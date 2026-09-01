@@ -85,13 +85,12 @@ pnpm tauri build
 | `.agent/features/<name>/README.md` | 新增/调整一个用户可见功能（触发逻辑、UI、配置、涉及文件） | 每个功能一个文件夹 |
 | `.agent/architecture/<topic>/README.md` | 跨功能共用的架构、查询、约定（数据库、主题、平台输入等） | 每个主题一个文件夹 |
 | `.agent/bugs/` | 修复一个非平凡 Bug，写明现象 / 根因 / 修复 / 涉及文件 | `YYYY-MM-DD-短描述.md` |
-| `.agent/devlog/` | 一次会话或一次改动的总结：目标、完成项、设计取舍、验证 | `YYYY-MM-DD-短描述.md` |
-| `.agent/decisions/` | 做过重要技术取舍（弃用某库、改架构），记录「为什么不选另一条路」 | `短描述.md` |
+| `.agent/devlog/` | 一次会话或一次改动的总结：目标、完成项、验证 | `YYYY-MM-DD-短描述.md` |
 | `.agent/reference/` | 稳定参考资料（测试策略、配置项、版本管理） | 主题名 |
 
-写完后，把新文件登记到 [.agent/manifest.yaml](./.agent/manifest.yaml) 的对应小节（features / architecture / bugs / devlog / decisions / reference），并在相关文档之间用 `[[功能名]]` 互链。
+写完后，把新文件登记到 [.agent/manifest.yaml](./.agent/manifest.yaml) 的对应小节（features / architecture / bugs / devlog / reference），并在相关文档之间用 `[[功能名]]` 互链。
 
-**写多少：** 一句话能说清的行为规则直接写进代码注释或对应 feature README；只有「为什么这么设计」「当时踩了什么坑」才需要单独成文（devlog / decisions / bugs）。琐碎改动（文案、样式微调）不必写。
+**写多少：** 一句话能说清的行为规则写进对应 feature README；「为什么必须这样、规避什么 bug」作为该 feature 的补充段落，不要单独开 `decisions/`。琐碎改动不必写。
 
 **保持新鲜：** 文档是「当时为真」的快照。后续如果改了同一处逻辑，顺手更新对应文档，过期内容比缺失更有害。
 
@@ -162,7 +161,7 @@ cd src-tauri && cargo test
 - **Pull requests**: Branch from `main`, keep changes focused, run `cargo test` for Rust logic changes, update both `zh-CN` and `en-US` locales for user-facing strings.
 - **Cross-platform**: Isolate platform-specific code with `#[cfg(target_os = ...)]` and provide fallbacks on other platforms.
 - **Version bumps**: Only when requested; run `pnpm version:set <x.y.z>` (syncs `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`). See [.agent/reference/version-management.md](./.agent/reference/version-management.md).
-- **Knowledge base (`.agent/`)**: After a meaningful change, add or update the right note — `features/<name>/README.md` for user-facing behavior, `architecture/<topic>/` for shared design, `bugs/YYYY-MM-DD-*.md` for non-trivial fixes (symptom / root cause / fix), `devlog/YYYY-MM-DD-*.md` for session or change summaries, `decisions/` for rejected alternatives. Register new files in [`.agent/manifest.yaml`](./.agent/manifest.yaml) and cross-link with `[[name]]`. Trivial tweaks don't need a note; stale docs are worse than missing ones, so update them when you change the same logic.
+- **Knowledge base (`.agent/`)**: After a meaningful change, add or update the right note — `features/<name>/README.md` for user-facing behavior (include why-this-way / which bug it avoids in that same feature), `architecture/<topic>/` for shared design, `bugs/YYYY-MM-DD-*.md` for non-trivial fixes, `devlog/YYYY-MM-DD-*.md` for session summaries. Do not add `.agent/decisions/`. Register new files in [`.agent/manifest.yaml`](./.agent/manifest.yaml). Trivial tweaks don't need a note; stale docs are worse than missing ones.
 
 ### Branches
 

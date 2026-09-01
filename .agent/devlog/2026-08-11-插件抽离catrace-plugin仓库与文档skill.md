@@ -31,5 +31,5 @@
 
 ## 沉淀
 
-- 决策：`decisions/2026-08-11-插件抽离到catrace-plugin仓库并以submodule挂在tools-plugin-demo.md`
+- 开发约定：宿主 `AGENTS.md` 规则 11；插件中心 README「启用即信任 / 开发目录」
 - 参考：`reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md`（跨项目可复用）

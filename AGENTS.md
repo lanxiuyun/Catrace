@@ -28,3 +28,4 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
     - 改完立刻 `git diff --numstat`：若出现整文件 `N N` 且内容只应改 1 行 → 停手，从 HEAD 恢复后按字节重做
     - 有意全文重写的文件（新建 README 等）可另论；路径回写、manifest 小补丁不行
 11. **插件改在 catrace-plugin** — 克隆宿主后先 `git submodule update --init --recursive`，否则 `tools/plugin-demo/` 为空。插件代码只在其仓库维护：直接编辑 `tools/plugin-demo/<id>/`（即插件仓库 checkout）→ commit 推 catrace-plugin `main` → 宿主 `git add tools/plugin-demo` 更新 submodule 指针。插件开发完整流程见插件仓库 `README.md` / `SKILL.md`
+12. **知识写 features，不堆 decisions** — `.agent/features/` 写现行功能怎么用。只有「为什么必须这样、规避什么 bug」才作为该 feature 的补充段落。`.agent/decisions/` 已清空，不要再往里写。

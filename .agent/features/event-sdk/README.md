@@ -47,7 +47,6 @@ Publish：`title` 必填；可选 `body` / `level` / `sticky` / `actions` / `pro
 
 - [外部脚本如何发一条-sdk-Toast-与进度更新.md](外部脚本如何发一条-sdk-Toast-与进度更新.md)
 - 架构：[m9-event-http-api.md](../../architecture/desktop-event-os/m9-event-http-api.md)
-- 决策：[2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md](../../decisions/2026-07-20-m6验收后先做本机-Event-HTTP-不做插件市场.md)
 
 ## 相关
 

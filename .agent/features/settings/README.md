@@ -12,7 +12,7 @@
 - `src/components/settings/SignalSettingsCard.vue` — 行为采集
 - `src/components/settings/LinksSettingsCard.vue` — 相关链接
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
-- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 内容 / 测试；当前仅 toast）
+- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 方式 toast·fullscreen / 内容 / 测试；popup 下线）
 
 ## 卡片规范
 
@@ -26,7 +26,7 @@
 | 面 | 内容 |
 |----|------|
 | 系统设置 core | `media` / `signal` / `system` / `links` |
-| 功能插件 `rest` | 多久提醒、提醒文案、测试通知（**当前仅 toast**；fullscreen 暂不提供 UI） |
+| 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen、测试通知（popup 下线） |
 | 功能插件 `agent` | Hook / 事件模式 / 提示音 |
 | 调试页 | Event SDK（不进设置拖拽网格） |
 

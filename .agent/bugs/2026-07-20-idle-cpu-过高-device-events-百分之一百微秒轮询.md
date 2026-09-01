@@ -9,7 +9,7 @@
 `device_query::DeviceEvents`（`on_key_down`）在 Windows 上用约 **100µs** 间隔轮询 `GetAsyncKeyState`，并额外启动鼠标 poller。  
 ≈ 10k Hz × 2 线程，空闲也会烧 CPU。
 
-历史决策 [2026-07-07-drop-rdev-for-device-query](../decisions/2026-07-07-drop-rdev-for-device-query.md) 选 `device_query` 是为了避开 rdev 钩子，但 **`DeviceEvents` API 本身不适合常驻后台**。
+选 `device_query` 是为了避开 rdev 全局键盘钩子（Ctrl 卡住），但 **`DeviceEvents` API 本身不适合常驻后台**。现行采样见 [[input-monitoring]]。
 
 ## 修复（commit `f3345ed`）
 

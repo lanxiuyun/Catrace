@@ -29,6 +29,7 @@
 约 1Hz 采坐标算欧氏位移（只落距离）。  
 对 **活跃判定**：仍按约 2 秒窗口「是否发生过移动」最多 +1，避免提高 `count>=3` 灵敏度。
 
-## 子文档 / 决策
+## 子文档
 
-- 历史：弃 rdev 选 device_query — [2026-07-07-drop-rdev-for-device-query](../../decisions/2026-07-07-drop-rdev-for-device-query.md)（API 选型仍成立；**轮询粒度**必须自管）
+- 不要加回 `rdev`：它在 Windows 装 `WH_KEYBOARD_LL`，和 Electron 等共用钩子链时会吞 Ctrl KeyRelease，滚轮变成缩放。全平台用 `device_query` 的 `get_keys()` 自管采样即可。
+- 轮询粒度必须自管：见 [2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md](../../bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md)

@@ -8,7 +8,15 @@
 2. **改了 X 的脚本要只换 X：** 把 X 关掉再打开。关开 = 停旧进程、按磁盘再 spawn，别人不动。
 3. **插件页刷新按钮：** 按当前 enable/disable 全量走一遍（enabled 全部重启，disabled 停掉）。这是唯一的「全员 reload」。
 
-没有文件监视。存盘不会自动重启。指纹（entry `len:mtime_ms`）会算、有单测，**不作为重启条件**。
+没有文件监视。存盘不会自动重启。
+
+## 为什么必须这样（规避的 bug）
+
+`96da4e1` 曾把 enable/disable 做成 `sync_force`：开关**任意**外部插件都会重启**全部**已启用 sidecar。停进程杀整棵树（`taskkill /T` + Job Object），bt-music 拉起的 `cloudmusic.exe` 会一起没。
+
+全表 `sync()` 也不行：X 的脚本指纹变了，开关 Y 仍会重启 X。所以开关必须 `sync_plugin(id)`，只动当前这一颗。
+
+现象记录：[sidecar重启误杀其他插件的子进程树.md](../../bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md)
 
 ## 对应代码
 
@@ -29,5 +37,4 @@
 ## 相关
 
 - 误杀案例：[.agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md](../../bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md)
-- 决策：[.agent/decisions/2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md](../../decisions/2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md)
-- 架构：[[desktop-event-os]] [plugin-native-sidecar-runtime.md](../../architecture/desktop-event-os/plugin-native-sidecar-runtime.md)
+- 架构启停点：[[desktop-event-os]] [plugin-native-sidecar-runtime.md](../../architecture/desktop-event-os/plugin-native-sidecar-runtime.md)

@@ -1,6 +1,6 @@
 # Plugin Native Sidecar Runtime（M15）
 
-> **设计真源**。决策：[2026-07-30-plugin-native-sidecar-runtime](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md)  
+> **设计真源**。
 > Status: M15.1–M15.3 完成（lifecycle + publish/log + resolved + storage 往返 + Plugins UI runtime 状态 + 信任文案）；扫描期路径/解释器安全校验按产品决策不做
 > 上级路线图：[step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md)
 
@@ -307,15 +307,12 @@ Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只
 | Node 未安装 | 明确错误；推荐自带 exe 或 ps1 |
 | stdio 死锁 | 读 stdout/stderr 独立线程；写 stdin 带队列 |
 | 与「不内置 Node」冲突误解 | 文档写清：可选、外置、不进安装包 |
-| 隐藏 WebView 决策被误读为推翻 | ADR 写明 M11 仍默认；sidecar 可选 |
+| 隐藏 WebView 被误读为推翻 | M11 仍默认 background；sidecar 可选 |
 
 ## 14. 相关
 
 - [m10-external-plugins.md](m10-external-plugins.md) — Card / settings / 信任  
 - [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — M11–M15  
-- [2026-07-23-step3-插件后台运行时用隐藏webview窗口.md](../../decisions/2026-07-23-step3-插件后台运行时用隐藏webview窗口.md)  
-- [2026-07-24-step3-宿主能力改为随具体插件按需提供.md](../../decisions/2026-07-24-step3-宿主能力改为随具体插件按需提供.md)  
-- [2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — ADR  
 - [../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md](../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md) — echo 回传卡死  
 - [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收孤儿进程（Job Object）  
 - [../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md](../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md) — 孤儿占端口 bug 报告

@@ -75,10 +75,7 @@ tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodul
 - [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) — M15 可选 Native Sidecar 设计真源
 - [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收 sidecar 孤儿进程（Job Object，Windows）
 - [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
-- [../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md](../../decisions/2026-07-23-step3-本地插件采用启用即信任而非逐项权限授权.md) — Trusted Local Plugin Model 与必须保留的隔离边界
-- [../../decisions/2026-07-30-plugin-native-sidecar-runtime.md](../../decisions/2026-07-30-plugin-native-sidecar-runtime.md) — 可选 sidecar、宿主只提供原语
-- [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md) — 插件播放本地音频；OutputStream 独立线程
-- [../../decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md](../../decisions/2026-08-31-插件提示音走宿主audio-不走shell-beep.md) — 提示音不用 MessageBeep
+- [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md) — 插件播放本地音频；OutputStream 独立线程；不要用 `plugin.shell.beep()` 当提示音
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) — Toast 订阅线与例外通道
 - [signal-collection-schema-and-privacy.md](signal-collection-schema-and-privacy.md) — Signal / 隐私
