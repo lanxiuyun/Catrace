@@ -76,7 +76,7 @@ manifest 可选字段 `sidecar`（名可微调，实现时以架构文为准）�
 3. Manifest scanning parses structure only. A command that cannot start is reported as a runtime error and does not prevent listing the plugin.
 4. Host identity variables such as `CATRACE_PLUGIN_ID` and the protocol version are injected last and override manifest values.
 5. **不**内置 Node/Python 运行时二进制（保持 2026-07-23「不 +40MB」）；要 Node 生态 = 用户机器有 Node，或插件自带 exe。
-6. fingerprint：manifest + entry 文件 mtime/hash 变 → 重启 sidecar（与 background 窗重建对齐）。
+6. fingerprint：仍计算（含 entry 文件统计），**不**作为自动重启条件。要新进程：关开该插件（只动一颗）或点刷新（全量）。见 [2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md](2026-09-01-sidecar启停只跟开关和刷新按钮走-不用指纹扫全表.md)。
 
 ### 4. Bridge 协议（sidecar ↔ 宿主）
 

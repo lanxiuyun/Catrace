@@ -32,7 +32,7 @@ list_external_plugins / set_external_plugin_enabled
   → PluginNavRail / PluginPanelHeader
 ```
 
-- `set_external_plugin_enabled` 在 Rust 侧先 `sidecars.sync` 再填 `sidecar_running`，前端不必再等一轮 refresh 才能看到绿点。
+- `set_external_plugin_enabled` 在 Rust 侧先 `sidecars.sync_plugin(id)` 再填 `sidecar_running`，前端不必再等一轮 refresh 才能看到绿点。只启停当前插件，不会重启别的 sidecar。
 
 ## i18n keys
 
