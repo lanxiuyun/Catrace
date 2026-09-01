@@ -23,7 +23,7 @@
 
 1. **仅 loopback**；无 CORS；与 `agent_hook` `:23456` 分离
 2. **默认启用**；关闭后写入 503，`GET /v1/health` 仍可探活（无 token）
-3. 外部请求 **强制** `source=sdk`、`kind=sdk`、`display_mode=toast`；保留 kind（rest/water/…）→ 403
+3. 外部请求 **强制** `source=sdk`、`kind=sdk`、`display_mode=toast`；保留 kind（rest/agent/permission/update/rest-timer/sdk）→ 403
 4. list/get/resolve **只允许 sdk source** 事件
 5. 限流：10 req/s、5 publish/s
 6. Toast 内容只走 bus；hub **不**渲第二张卡

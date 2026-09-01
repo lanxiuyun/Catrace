@@ -11,9 +11,6 @@
 - `src/components/settings/SystemSettingsCard.vue` — 语言/自启/更新
 - `src/components/settings/SignalSettingsCard.vue` — 行为采集
 - `src/components/settings/LinksSettingsCard.vue` — 相关链接
-- `src/components/settings/WaterSettingsCard.vue` — 喝水提醒（UI 延后；`settingsSurface: none`）
-- `src/components/settings/EyeSettingsCard.vue` — 护眼提醒（同上）
-- `src/components/settings/AgentSettingsCard.vue` — Agent 旧设置卡壳（逻辑已迁 `AgentPluginPanel`）
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
 - `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 内容 / 测试；当前仅 toast）
 
@@ -39,7 +36,6 @@
 
 当前：
 - `rest` / `agent` → `settingsSurface: plugins`
-- `water` / `eye` → `settingsSurface: none`
 - 系统设置页暂无 registry 插件卡（架构保留）
 
 注册入口：`src/plugins/registerBuiltins.ts`（主窗 `main.ts` mount 前调用）。

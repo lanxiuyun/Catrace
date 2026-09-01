@@ -41,7 +41,7 @@ node tools/event-sdk/progress.mjs
 | 情况 | HTTP |
 |------|------|
 | 无/错 token | 401 |
-| 保留 kind（如 water） | 403 |
+| 保留 kind（如 rest） | 403 |
 | 调试页关闭 API | 503（health 仍 200） |
 | 超限流 | 429 |
 

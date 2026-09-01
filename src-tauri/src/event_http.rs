@@ -34,7 +34,6 @@ static TOKEN: Mutex<Option<String>> = Mutex::new(None);
 /// Includes `sdk` so plugins cannot claim the generic SDK kind; plain M9 SDK path still forces kind=sdk.
 const RESERVED_KINDS: &[&str] = &[
     "rest",
-    "water",
     "agent",
     "permission",
     "update",

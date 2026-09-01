@@ -106,8 +106,6 @@ interface ToastItem {
   busEvent?: BusEvent
   pluginId?: string
   uiUrl?: string
-  // timer rule id from payload
-  ruleId?: string
   // special-day fields
   specialTag?: string
   specialIcon?: string
@@ -637,7 +635,6 @@ function handleBusEvent(event: BusEvent) {
       existing.dedupeKey = dedupeKey
       existing.busEvent = event
       existing.pluginId = pluginId
-      if (typeof p.rule_id === 'string') existing.ruleId = p.rule_id
       // Keep prior uiUrl if registry momentarily empty — avoids card reload thrash.
       if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       existing.visible = true
@@ -703,7 +700,6 @@ function handleBusEvent(event: BusEvent) {
         existing.sticky = !!event.sticky
         existing.busEvent = event
         existing.pluginId = pluginId
-        if (typeof p.rule_id === 'string') existing.ruleId = p.rule_id
         if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
       }
       if (kind === 'special') {
@@ -770,7 +766,6 @@ function handleBusEvent(event: BusEvent) {
     busEvent: isPluginEvent ? event : undefined,
     pluginId,
     uiUrl: pluginHandle?.uiUrl,
-    ruleId: typeof p.rule_id === 'string' ? p.rule_id : undefined,
     tag: typeof p.tag === 'string' ? p.tag : undefined,
     icon: typeof p.icon === 'string' ? p.icon : undefined,
     category:
@@ -849,7 +844,6 @@ async function addNotification(payload: {
   busEvent?: BusEvent
   pluginId?: string
   uiUrl?: string
-  ruleId?: string
   tag?: string
   icon?: string
   category?: 'history' | 'life'
@@ -975,7 +969,6 @@ async function addNotification(payload: {
     busEvent: payload.busEvent,
     pluginId: payload.pluginId,
     uiUrl: payload.uiUrl,
-    ruleId: payload.ruleId,
     specialTag: payload.tag,
     specialIcon: payload.icon,
     specialCategory: payload.category,
@@ -1279,7 +1272,6 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
         :class="{
           visible: item.visible,
           leaving: item.leaving,
-          'toast-card-timer': item.kind === 'timer',
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
           'toast-card-agent': item.kind === 'agent',

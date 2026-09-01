@@ -13,7 +13,6 @@ use crate::{log_error, log_info, log_warn};
 /// Kinds plugins must not claim (includes sdk — reserved for M9 generic path).
 pub const RESERVED_KINDS: &[&str] = &[
     "rest",
-    "water",
     "agent",
     "permission",
     "update",

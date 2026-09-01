@@ -102,7 +102,7 @@ plugins/
 
 **不要占用宿主保留 kind：**
 
-`rest` · `water` · `agent` · `permission` · `update` · `rest-timer` · `sdk`
+`rest` · `agent` · `permission` · `update` · `rest-timer` · `sdk`
 
 插件自己的 kind 请用自己的 id 或明确前缀。
 
@@ -538,7 +538,7 @@ Toast 按钮 → resolved → sidecar 执行（如启动应用）
 
 | 需求 | 说明 |
 |------|------|
-| 冒充系统久坐/喝水等内置 kind | 使用保留 kind 会被拒绝或冲突 |
+| 冒充系统久坐等内置 kind | 使用保留 kind 会被拒绝或冲突 |
 | 依赖「官方插件商店」分发 | 当前模型是本机目录安装 |
 | 要求普通用户改 Catrace 程序本体 | 插件应自包含 |
 

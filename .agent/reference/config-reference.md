@@ -18,13 +18,6 @@
 | `fullscreen_fit_mode` | contain / cover / fill | contain |
 | `fullscreen_element_transforms` | 元素变换 JSON | 默认居中 |
 
-## 喝水
-
-| key | 说明 | 默认值 |
-|-----|------|--------|
-| `water_reminder_enabled` | 开关 | true |
-| `water_interval_minutes` | 提醒间隔（分钟） | 60 |
-
 ## 系统
 
 | key | 说明 | 默认值 |

@@ -2,7 +2,7 @@
 
 独立透明 WebviewWindow + Vue 卡片实现的右下角通知堆叠。
 
-> **内容入口（Step 2）**：rest/water/eye/agent/permission/update 均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
+> **内容入口（Step 2）**：rest/agent/permission/update 与外部插件（如 timer）均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
 > Rust 侧 `ensure_toast_window_visible` 只保证窗口在位。详见  
 > [toast-renders-only-from-event-bus.md](../../architecture/desktop-event-os/toast-renders-only-from-event-bus.md)。  
 > 例外：`dismissAgentSession` eval；rest-timer 已走 Bus upsert（见子文档）。
@@ -15,7 +15,6 @@
 - `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件；尺寸上报 + 点击抢焦点
 - `src/views/toastWindows/ToastShell.vue` — Toast 路由外壳，强制透明背景
 - `src/api/tauri.ts` — `setToastContentSize`、`setWindowActiveMode` 等 invoke 封装
-- `src/components/EyeToastCard.vue` — 护眼提醒专用卡片
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 - `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
 
@@ -38,7 +37,7 @@
 - 普通卡片 8 秒自动消失，hover 暂停，离开恢复
 - **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
 - **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
-- 无 dedupe 的 kind（如多数 water/eye）仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
+- 无 dedupe 的 kind 仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
 - 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
 
@@ -55,8 +54,6 @@ Toast 默认是 `WS_EX_NOACTIVATE` 无焦点窗，鼠标滑入/选择文本不�
 | kind | 颜色 | 行为 |
 |------|------|------|
 | 休息提醒 | 紫色 | 8s 自动消失 |
-| 喝水提醒 | 蓝色 | 8s 自动消失 |
-| 护眼提醒 | 绿色 | 25s 自动消失，倒计时在进度条右侧，hover 不暂停 |
 | 休息计时 | 绿色 | 不自动关闭，液体球动画，满 break_minutes 后继续累计 |
 | 更新通知 | 橙色 | 不自动关闭，展开更新日志 + 下载进度条 |
 | agent 通知 | 青色 | 按事件策略：auto 8s 消失 / sticky 常驻手动关，多个 sticky 合并为一张「N 个会话在等你」；详见 [[agent-notification]] |
