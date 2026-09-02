@@ -126,7 +126,7 @@ plugins/
 
 - 宿主**不会**替你 `npm install`
 - Windows 上若用 `node`，需用户已安装并在 PATH 中
-- 启用后宿主会按开关启停 sidecar；插件中心**不**展示「本机进程」运行态。信任模型仍视 sidecar 为本机代码
+- 启用后插件中心会显示「本机进程」运行态；信任模型视 sidecar 为本机代码
 
 #### sidecar 直接读写宿主 KV（M15.3）
 
