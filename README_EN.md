@@ -41,9 +41,15 @@ Think VSCode: VSCode doesn't write code itself; it hosts the editor, and the cod
 
 ## Small windows you get today
 
-Rest reminders (a card nudges you to move after working too long — or takes over the full screen), scheduled reminders, AI coding assistant progress and approvals, SMS and app notifications from your Android phone, GitHub issues and stars, headphone events, pasted screenshots saved as files — all plugins, toggled in the Plugin Center.
+- **Rest reminders** — It watches your mouse, keyboard and the app in front, so it can tell real work from a coffee break: you get nudged only after a full stretch of actual work, and those few minutes getting water don't count as slacking. Think a card is too gentle? Full-screen mode takes over the entire screen and won't go away until you stand up.
+- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — these things shouldn't have to live in your head, and forgetting them stings. Set an interval or a fixed time once; the card remembers for you.
+- **AI coding assistants** — Claude Code or Codex is running in the terminal while you switch to something else — which step is it on, is it waiting for your approval? A card in the corner keeps watch and calls you back only when it needs a click.
+- **Phone messages** — Your phone is charging, in your pocket, in another room — and a verification code arrives. Now SMS and app notifications pop up right on your desktop, copy the code in one click.
+- **GitHub activity** — Once a project is out there, you keep checking whether anyone noticed. First star, first issue — no need to refresh GitHub; the card brings the news the moment it lands.
+- **Headphone events** — Headphones connect, your music app opens by itself; when they disconnect, it pauses or wraps up per your settings — no fumbling for the right window.
+- **Sitting heatmap** — How long you sat today, which day this week was the worst — one heatmap to scroll through. The reminder handles the moment; this one handles the review.
 
-Write one plugin, and a new kind of small window joins your desktop: cards, sounds, a canvas, always-on interactive widgets — all possible.
+All plugins, toggled in the Plugin Center. Write one, and a new kind of small window joins your desktop: cards, sounds, a canvas, always-on interactive widgets — all possible.
 
 > [!NOTE]
 > No screen recording, no file reading, no uploading. It only looks at mouse and keyboard activity and which kind of app is in front — and all of that stays on your machine.
