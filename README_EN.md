@@ -5,8 +5,8 @@
 <h1 align="center">Catrace</h1>
 
 <p align="center">
-  <strong>Desktop event system · Plugin runtime</strong><br>
-  Rest reminder · Agent notifications · Scheduled reminders · Plugin ecosystem
+  <strong>A desktop event system that owns the toast window lifecycle</strong><br>
+  What shows up and how it interacts — plugins decide
 </p>
 
 <p align="center">
@@ -23,69 +23,47 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
-    ⬇️ <strong>Download latest release</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://lanxiuyun.github.io/Catrace">
-    🏠 <strong>Homepage</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://github.com/lanxiuyun/Catrace">
-    💖 <strong>Like it? Give us a star!</strong>
-  </a>
-</p>
-
-<p align="center">
-  <a href="README.md">中文</a> | English
+  <a href="#download">Download</a> ·
+  <a href="https://lanxiuyun.github.io/Catrace">Website</a> ·
+  <a href="https://github.com/lanxiuyun/catrace-plugin">Plugins</a> ·
+  <a href="README.md">中文</a>
 </p>
 
 ![Catrace Dashboard](.readme/dashboard-en.png)
 
-## What it does
+## A card pops up in the corner
 
-**Catrace** pops up cards in the bottom-right corner with what you need to know — it reminds you to take a break from sitting too long, and plugins push updates (AI activity, GitHub, phone messages).
+Maybe it's "time to get up and move", maybe "AI awaits your approval", maybe a verification code — or maybe a hand of Texas Hold'em, or a canvas to doodle on.
 
-Ready to use out of the box:
+Catrace is a desktop event system. It owns the life of these small toast windows: who raises them, where they appear, how long they live, and who cleans up after a button click. What a window shows and how it interacts is deliberately not its business — that's the plugin's.
 
-- **Sedentary reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It watches whether your mouse and keyboard have moved, and when you've been working continuously for too long, it reminds you to stand up and move around. If cards are too gentle for you, you can set it to cover the whole screen to force a break.
-- **Scheduled reminders** — Set your own interval (e.g. drink water every hour) or a fixed daily time (e.g. clock out before you leave).
+Think VSCode: VSCode doesn't write code itself; it hosts the editor, and the coding experience grows out of extensions. Catrace doesn't decide window content; it hosts toast windows, and the small-window experience grows out of plugins.
 
-Want more? Catrace can "install" additional features (called plugins):
+## Small windows you get today
 
-- **AI assistant activity** — When you're using AI coding tools like Claude or Codex, it pops a card showing what the AI is doing or when it needs your approval, so you don't have to keep switching back to the terminal. Great for heavy AI coding users.
-- **Bluetooth headphone music** — When headphones connect, automatically show a notification or launch your music app; on disconnect, pause or close it per your settings.
-- **GitHub activity** — Get a card when someone files an issue or stars your project.
-- **Phone message forwarding** — Forward SMS or app notifications from an Android phone to your desktop as cards (requires the SmsForwarder forwarding tool).
+Rest reminders (a card nudges you to move after working too long — or takes over the full screen), scheduled reminders, AI coding assistant progress and approvals, SMS and app notifications from your Android phone, GitHub issues and stars, headphone events, pasted screenshots saved as files — all plugins, toggled in the Plugin Center.
 
-**Plugin ecosystem** — Built-in features work out of the box; plugins you want can be installed from a local folder or archive, enabled when you need them and disabled when you don't.
+Write one plugin, and a new kind of small window joins your desktop: cards, sounds, a canvas, always-on interactive widgets — all possible.
 
-## How it knows you're busy
+> [!NOTE]
+> No screen recording, no file reading, no uploading. It only looks at mouse and keyboard activity and which kind of app is in front — and all of that stays on your machine.
 
-Don't worry — it doesn't record your screen or read your files. It only judges how busy you are from two things:
+## Download
 
-- **Your mouse and keyboard** — whether they've moved, and for how long.
-- **Which app you have open** — a code editor, or a video player.
+Windows / macOS / Linux, with optional launch at login.
 
-The rules are simple:
+**[Get the latest release](https://github.com/lanxiuyun/Catrace/releases/latest)**
 
-- It starts counting from the first time you touch the mouse or keyboard today.
-- If you get up for water, reply to a message, or zone out — as long as you don't stop for a continuous stretch, it still considers you in the same work rhythm.
-- Only when you truly pause and stay still for several minutes does it mark that time as rest.
-- If you power through a full "work window" (say, 45 minutes) without enough rest in between, or you rest and then fill another full window, it pops a card to gently remind you: time to get up and move.
+## Some windows are small enough
 
-If you're quietly watching a video or listening to music, your mouse and keyboard may stay still for a while — Catrace also detects through system audio that you're still "using the screen," so it won't count that as rest. All this small data stays in your computer's local storage and is never uploaded.
+Not everything deserves a full application window. A countdown, a song lyric, a hand of cards, a new notification — many things fit in one small window: pop up, use it, gone, without interrupting what you were doing.
 
-## Plugin Center
+That's Catrace's bet: could small-window interaction be one direction for the desktop of the future? Build it first, and try it one small window at a time.
 
-All features live in a place called the Plugin Center — the list of features on the left, each feature's switch and settings on the right. You can see at a glance what's installed and what's enabled.
+## Write your own plugin
 
-Want to build your own plugins? Developers are welcome — check out the plugin repo at [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin).
+Switches and settings for everything live in the Plugin Center. To build your own, the event protocol, host APIs and examples are in [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin).
 
 ## Friends
 
 [![linux.do](https://img.shields.io/badge/LINUX--DO-Community-blue.svg?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI%2BPGNsaXBQYXRoIGlkPSJhIj48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSI0NyIvPjwvY2xpcFBhdGg%2BPGNpcmNsZSBmaWxsPSIjZjBmMGYwIiBjeD0iNjAiIGN5PSI2MCIgcj0iNTAiLz48cmVjdCBmaWxsPSIjMWMxYzFlIiBjbGlwLXBhdGg9InVybCgjYSkiIHg9IjEwIiB5PSIxMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIzMCIvPjxyZWN0IGZpbGw9IiNmMGYwZjAiIGNsaXAtcGF0aD0idXJsKCNhKSIgeD0iMTAiIHk9IjQwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIi8%2BPHJlY3QgZmlsbD0iI2ZmYjAwMyIgY2xpcC1wYXRoPSJ1cmwoI2EpIiB4PSIxMCIgeT0iODAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz48L3N2Zz4%3D&style=flat)](https://linux.do/)
-
-## Contributing
-
-See the [Contributing Guide](CONTRIBUTING.md) to get involved.

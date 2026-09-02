@@ -5,8 +5,8 @@
 <h1 align="center">Catrace</h1>
 
 <p align="center">
-  <strong>桌面事件系统 · 插件运行时</strong><br>
-  休息提醒 · Agent通知 · 定时提醒 · 插件生态
+  <strong>桌面事件系统：小窗的一生归它管</strong><br>
+  显示什么、怎么交互，插件说了算
 </p>
 
 <p align="center">
@@ -23,69 +23,47 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
-    ⬇️ <strong>点击下载最新版本</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://lanxiuyun.github.io/Catrace">
-    🏠 <strong>官网主页</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://github.com/lanxiuyun/Catrace">
-    💖 <strong>觉得有用就 star 一下吧~</strong>
-  </a>
-</p>
-
-<p align="center">
-  <a href="README_EN.md">English</a> | 中文
+  <a href="#下载">下载</a> ·
+  <a href="https://lanxiuyun.github.io/Catrace">官网</a> ·
+  <a href="https://github.com/lanxiuyun/catrace-plugin">插件仓库</a> ·
+  <a href="README_EN.md">English</a>
 </p>
 
 ![Catrace Dashboard](.readme/dashboard.png)
 
-## 它是干嘛的
+## 右下角弹出一张卡
 
-**Catrace** 右下角会弹出你需要知道的消息——久坐提醒你休息，插件推送新动态（AI 进度、GitHub、手机消息）。
+可能是「该起来走走了」，可能是「AI 等你授权」，可能是一条验证码——也可能是一局德州扑克，或者一块随手涂画的画布。
 
-现在装好就能用的功能：
+Catrace 是一个桌面事件系统。它管的是这些小窗（toast）的一生：谁来弹、弹在哪、活多久、点了按钮归谁收尾。至于小窗里显示什么、能做哪些交互，它不预设——那是插件的事。
 
-- **久坐提醒** — 很多人一坐电脑前就是几个小时，等反应过来已经腰酸背痛了。它会观察你的鼠标键盘有没有动静，发现你连续工作太久，就提醒你站起来活动一下。嫌卡片提醒太温柔？还可以选全屏盖住屏幕，逼你起来歇会儿。
-- **定时提醒** — 自己定间隔，比如每小时喝口水；或者定每天固定时间，比如下班前想起打卡。
+类比 VSCode：VSCode 自己不写代码，它管编辑器，写代码的体验由扩展长出来；Catrace 自己不决定内容，它管小窗，桌面上的小窗体验由插件长出来。
 
-想更强大？Catrace 可以「加装」更多功能（叫插件），装上就有：
+## 装上就有的小窗
 
-- **AI 助手动态** — 你在用 Claude、Codex 这类 AI 编程工具时，它能弹卡片告诉你「AI 干到哪一步了」「要你授权什么」，不用切回终端盯着看。适合 AI 编程重度用户。
-- **蓝牙耳机听歌** — 耳机一连上电脑，自动弹出通知或帮你打开听歌软件；断开时按你的设置暂停或关闭。
-- **GitHub 动态** — 有人给你提了 issue 或点赞，弹卡片提醒你。
-- **手机消息转发** — 安卓手机来短信或 App 通知，自动转发到电脑桌面弹卡片（需搭配 SmsForwarder 转发工具）。
+久坐提醒（忙太久弹卡催你走动，还能全屏逼你歇）、定时提醒、AI 编程助手的进度与授权、安卓手机的短信和 App 通知、GitHub 的 issue 与 star、耳机连接、桌面贴图存文件——全都是插件，在「插件中心」随开随关。
 
-**插件生态** — 内置功能开箱即用，想装的插件可以从本地文件夹或压缩包安装，随用随开、不用就关。
+写一个插件，就能给桌面接入一种新小窗：弹卡片、放声音、开画布、常驻交互，都行。
 
-## 它怎么知道你在忙
+> [!NOTE]
+> 它不拍屏幕、不看文件、不上传数据。判断忙闲只靠鼠标键盘的动静、前台开的是哪类软件，这些记录全在你自己的电脑里。
 
-放心，它不拍你屏幕，也不看你文件。它只靠两件事判断你忙不忙：
+## 下载
 
-- **你的鼠标和键盘** — 动没动、动了多久。
-- **你正开着哪个软件** — 是写代码的编辑器，还是视频播放器。
+Windows / macOS / Linux，支持开机自启。
 
-规则很简单：
+**[下载最新版本](https://github.com/lanxiuyun/Catrace/releases/latest)**
 
-- 从你今天第一次碰鼠标键盘开始计时。
-- 中间去倒杯水、回个消息、发个呆，只要没歇够一段时间，它都当你还在工作节奏里。
-- 只有你真的停下来、连着好几分钟一动不动，它才认定你在休息，并记下来。
-- 一口气忙满一个「工作窗口」（比如 45 分钟）没歇够，或者歇完又忙满一个窗口，它就弹卡片提醒你：该起来活动啦。
+## 有些窗口，小窗就够了
 
-如果你在安静看视频、听音乐，鼠标键盘可能半天不动，它也会通过系统声音识别出你还在「用屏幕」，不算你休息。这些小数据全部存在你电脑本地，不上传任何东西。
+不是每件事都值得开一个完整的应用窗口。倒计时、一句歌词、一局牌、一条动态——很多事一张小窗就够了：弹出来、用完、消失，不打断手头的事。
 
-## 插件中心
+这是 Catrace 的赌注：小窗交互，会不会是桌面的一种未来方向。先做出来，一个小窗一个小窗试过去。
 
-所有功能都装在一个叫「插件中心」的地方，左边是功能列表，右边是每个功能的开关和设置。装了什么、开着哪些，一目了然。
+## 自己写插件
 
-想自己动手做插件？欢迎开发者参与，插件仓库在 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin)。
+插件的开关和设置都在「插件中心」。想自己动手写，事件协议、宿主能力和示例在 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin)。
 
 ## 友链
 
 [![友链 linux.do](https://img.shields.io/badge/LINUX--DO-Community-blue.svg?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI%2BPGNsaXBQYXRoIGlkPSJhIj48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSI0NyIvPjwvY2xpcFBhdGg%2BPGNpcmNsZSBmaWxsPSIjZjBmMGYwIiBjeD0iNjAiIGN5PSI2MCIgcj0iNTAiLz48cmVjdCBmaWxsPSIjMWMxYzFlIiBjbGlwLXBhdGg9InVybCgjYSkiIHg9IjEwIiB5PSIxMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIzMCIvPjxyZWN0IGZpbGw9IiNmMGYwZjAiIGNsaXAtcGF0aD0idXJsKCNhKSIgeD0iMTAiIHk9IjQwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIi8%2BPHJlY3QgZmlsbD0iI2ZmYjAwMyIgY2xpcC1wYXRoPSJ1cmwoI2EpIiB4PSIxMCIgeT0iODAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz48L3N2Zz4%3D&style=flat)](https://linux.do/)
-
-## Contributing
-
-参与开发请参阅 [贡献指南](CONTRIBUTING.md)。
