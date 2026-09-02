@@ -5,8 +5,8 @@
 ## Files involved
 
 - `src/views/mainWindow/Plugins.vue` — 容器：导航、`.plugin-detail` 外壳、内置/外部详情、禁用灰显、本地安装。
-- `src/components/plugins/PluginNavRail.vue` — 左侧导航（搜索、列表、刷新、安装文件夹/zip、打开目录、sidecar Tag、信任文案）。
-- `src/components/plugins/PluginPanelHeader.vue` — 详情顶栏（图标 + 标题/副标题 + 开关 + 可选本机进程 badge）。
+- `src/components/plugins/PluginNavRail.vue` — 左侧导航（搜索、列表、刷新、安装文件夹/zip、打开目录）。
+- `src/components/plugins/PluginPanelHeader.vue` — 详情顶栏（图标 + 标题/副标题 + 开关）。
 - `src/components/plugins/PluginSection.vue` — Section 卡片（标题 + 描述 + 白底容器）。
 - `src/components/plugins/RestPluginPanel.vue` — 久坐业务面板。
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 业务面板。
@@ -20,7 +20,7 @@
 
 - [插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md](插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md) — **当前**内容区布局与面板边界（含外部 settings 勿叠根 padding / 窄屏反例）。
 - [插件状态排序和统一详情顶栏实现约定.md](插件状态排序和统一详情顶栏实现约定.md) — 状态来源、排序、顶栏边界。
-- [插件中心-sidecar本机进程徽章与信任文案展示.md](插件中心-sidecar本机进程徽章与信任文案展示.md) — hasSidecar / sidecarRunning badge 与 trustNote。
+- [插件中心-sidecar本机进程徽章与信任文案展示.md](插件中心-sidecar本机进程徽章与信任文案展示.md) — 插件页**不**展示本机进程 / Native 技术标签。
 - [插件异常标签如何判定和保持不拦截.md](插件异常标签如何判定和保持不拦截.md) — 异常 Tag 与观测。
 - [插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md](插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md) — 外部 sidecar 生命周期：开关 / 关开自己 / 刷新全量。
 - [插件开关必须在持久化成功后再刷新列表.md](插件开关必须在持久化成功后再刷新列表.md) — 开关与列表时序。

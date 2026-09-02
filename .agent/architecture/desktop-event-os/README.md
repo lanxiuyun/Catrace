@@ -74,7 +74,7 @@ tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodul
 - [step4-roadmap-plugin-ecosystem.md](step4-roadmap-plugin-ecosystem.md) — Step 4：本地安装 / 打包约定
 - [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) — M15 可选 Native Sidecar 设计真源
 - [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收 sidecar 孤儿进程（Job Object，Windows）
-- [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
+- [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL；插件页不展示本机进程 badge
 - [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md) — 插件播放本地音频；OutputStream 独立线程；不要用 `plugin.shell.beep()` 当提示音
 - [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md) — 协议、commands、生产者表
 - [toast-renders-only-from-event-bus.md](toast-renders-only-from-event-bus.md) — Toast 订阅线与例外通道
