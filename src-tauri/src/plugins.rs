@@ -73,7 +73,6 @@ pub struct ExternalPluginInfo {
     pub background: Option<String>,
     pub settings: Option<String>,
     pub sidecar: Option<PluginSidecarManifest>,
-    pub sidecar_running: bool,
     pub events: Vec<String>,
     pub enabled: bool,
     pub enabled_by_default: bool,
@@ -81,7 +80,6 @@ pub struct ExternalPluginInfo {
     pub has_ui: bool,
     pub has_background: bool,
     pub has_settings: bool,
-    pub has_sidecar: bool,
     /// Max mtime (unix ms) of ui/settings entry files — frontend uses this to bust blob cache.
     pub content_mtime_ms: u64,
     pub anomalous: bool,
@@ -184,8 +182,6 @@ impl PluginManager {
                             has_ui: false,
                             has_background: false,
                             has_settings: false,
-                            has_sidecar: false,
-                            sidecar_running: false,
                             content_mtime_ms: 0,
                             anomalous: false,
                             error: Some(e),
@@ -508,8 +504,6 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             has_ui: main_abs.is_some(),
             has_background: background_abs.is_some(),
             has_settings: settings_abs.is_some(),
-            has_sidecar: sidecar.is_some(),
-            sidecar_running: false, // This will be set by the caller querying the running map
             content_mtime_ms,
             anomalous: false,
             error: None,
@@ -712,14 +706,7 @@ pub fn list_external_plugins(
     sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
     restart_sidecars: Option<bool>,
 ) -> Result<Vec<ExternalPluginInfo>, String> {
-    let mut list = mgr.rescan(&app)?;
-    
-    // Inject sidecar_running status
-    for plugin in &mut list {
-        if plugin.has_sidecar {
-            plugin.sidecar_running = sidecars.inner().is_running(&plugin.id);
-        }
-    }
+    let list = mgr.rescan(&app)?;
 
     windows.schedule_sync(app.clone(), mgr.inner().clone());
     // Reload button: restart every enabled sidecar. Other list/rescans only
@@ -741,15 +728,12 @@ pub fn set_external_plugin_enabled(
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
-    let mut info = mgr.set_enabled(&app, &id, enabled)?;
+    let info = mgr.set_enabled(&app, &id, enabled)?;
     windows.schedule_sync(app.clone(), mgr.inner().clone());
     // Enable starts this sidecar; disable stops it. Script edits take effect
     // on the reload button, not by flipping the switch.
     if let Err(e) = sidecars.inner().sync_plugin(&app, mgr.inner(), &id) {
         log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
-    }
-    if info.has_sidecar {
-        info.sidecar_running = sidecars.inner().is_running(&info.id);
     }
     Ok(info)
 }

@@ -95,13 +95,6 @@ impl PluginSidecarManager {
         Self::default()
     }
 
-    pub fn is_running(&self, plugin_id: &str) -> bool {
-        self.running
-            .lock()
-            .map(|running| running.contains_key(plugin_id))
-            .unwrap_or(false)
-    }
-
     pub fn schedule_sync(&self, app: tauri::AppHandle, plugins: PluginManager) {
         self.schedule_sync_impl(app, plugins, false);
     }
