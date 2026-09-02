@@ -14,8 +14,6 @@ export interface PluginNavItem {
   anomalous: boolean
   version?: string
   tone: string
-  hasSidecar?: boolean
-  sidecarRunning?: boolean
 }
 
 interface Props {
@@ -302,15 +300,10 @@ onBeforeUnmount(() => {
                 <span class="item-name-text">{{ p.name }}</span>
               </div>
               <div
-                v-if="(p.external && p.version) || p.hasSidecar || p.anomalous"
+                v-if="(p.external && p.version) || p.anomalous"
                 class="item-meta"
               >
                 <span v-if="p.external && p.version" class="ver">v{{ p.version }}</span>
-                <span
-                  v-if="p.hasSidecar"
-                  class="sidecar-tag"
-                  :class="{ running: p.sidecarRunning }"
-                >{{ t('plugins.external.sidecarBadge') }}</span>
                 <span v-if="p.anomalous" class="anomaly-tag">{{ t('plugins.external.anomalous') }}</span>
               </div>
               <div class="item-sub">{{ p.subtitle }}</div>
@@ -712,7 +705,6 @@ onBeforeUnmount(() => {
 }
 
 .item-meta .ver,
-.item-meta .sidecar-tag,
 .item-meta .anomaly-tag {
   flex-shrink: 0;
 }
@@ -737,25 +729,6 @@ onBeforeUnmount(() => {
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 1.25rem;
-}
-
-.sidecar-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.0625rem 0.375rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 0.625rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-}
-
-.sidecar-tag.running {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #047857;
 }
 
 .anomaly-tag-lg {

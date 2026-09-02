@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { NSwitch } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
 
 interface Props {
   title: string
@@ -8,17 +7,11 @@ interface Props {
   enabled: boolean
   loading?: boolean
   switchAriaLabel?: string
-  hasSidecar?: boolean
-  sidecarRunning?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
-  hasSidecar: false,
-  sidecarRunning: false,
 })
-
-const { t } = useI18n()
 
 const emit = defineEmits<{
   'update:enabled': [value: boolean]
@@ -38,19 +31,6 @@ function onUpdate(value: boolean) {
       <div class="header-text">
         <div class="title-row">
           <h2 class="panel-title">{{ title }}</h2>
-          <span
-            v-if="hasSidecar"
-            class="sidecar-badge"
-            :class="{ running: sidecarRunning }"
-            :title="
-              sidecarRunning
-                ? t('plugins.external.sidecarRunning')
-                : t('plugins.external.sidecarStopped')
-            "
-          >
-            <span class="sidecar-dot" aria-hidden="true" />
-            {{ t('plugins.external.sidecarBadge') }}
-          </span>
         </div>
         <p class="panel-subtitle">{{ subtitle }}</p>
       </div>
@@ -117,38 +97,6 @@ function onUpdate(value: boolean) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.sidecar-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3125rem;
-  flex-shrink: 0;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: #64748b;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-}
-
-.sidecar-badge.running {
-  color: #047857;
-  background: #ecfdf5;
-  border-color: #a7f3d0;
-}
-
-.sidecar-dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 999px;
-  background: #94a3b8;
-}
-
-.sidecar-badge.running .sidecar-dot {
-  background: #10b981;
 }
 
 .panel-subtitle {

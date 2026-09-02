@@ -164,8 +164,6 @@ const plugins = computed((): PluginNavItem[] => {
     anomalous: p.anomalous,
     version: p.version,
     tone: 'external',
-    hasSidecar: p.hasSidecar,
-    sidecarRunning: p.sidecarRunning,
   }))
   return [...builtins, ...externals].sort((a, b) => {
     if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
@@ -219,8 +217,6 @@ const activeHeader = computed(() => {
       switchAria: t('plugins.external.switchAria'),
       onToggle: (val: boolean) => onToggleExternal(ext.id, val),
       icon: 'external',
-      hasSidecar: !!ext.hasSidecar,
-      sidecarRunning: !!ext.sidecarRunning,
     }
   }
   if (isBuiltinSelected.value && ActiveDetail.value) {
@@ -232,8 +228,6 @@ const activeHeader = computed(() => {
       switchAria: t(`plugins.${selectedId.value}.switchAria`),
       onToggle: (val: boolean) => activePanelRef.value?.toggleEnabled?.(val),
       icon: selectedId.value,
-      hasSidecar: false,
-      sidecarRunning: false,
     }
   }
   return null
@@ -393,8 +387,6 @@ async function onTestExternal(p: ExternalPluginInfo) {
         :enabled="activeHeader.enabled"
         :loading="activeHeader.loading"
         :switch-aria-label="activeHeader.switchAria"
-        :has-sidecar="activeHeader.hasSidecar"
-        :sidecar-running="activeHeader.sidecarRunning"
         @update:enabled="activeHeader.onToggle"
       >
         <template #icon>
