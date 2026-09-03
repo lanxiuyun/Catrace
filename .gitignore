@@ -37,3 +37,6 @@ keys/
 
 __pycache__/
 *.pyc
+
+# ZCode session plans (tool-generated, not project files)
+.zcode/
