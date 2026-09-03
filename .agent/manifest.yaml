@@ -314,6 +314,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-09-03-插件页统一使用-Lucide-图标.md
   - .agent/devlog/2026-09-01-sidecar开关不再全量重启以免误杀其他插件进程树.md
   - .agent/devlog/2026-08-31-更新支持换源Toast也能选.md
   - .agent/devlog/2026-08-31-定时提醒颜色提示音与plugin-audio-API.md

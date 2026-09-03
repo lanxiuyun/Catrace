@@ -491,6 +491,7 @@ export interface ExternalPluginInfo {
   main?: string | null
   background?: string | null
   settings?: string | null
+  icon?: string | null
   sidecar?: unknown | null
   events: string[]
   enabled: boolean
@@ -551,6 +552,15 @@ export async function setExternalPluginEnabled(
   enabled: boolean,
 ): Promise<ExternalPluginInfo> {
   return invoke('set_external_plugin_enabled', { id, enabled })
+}
+
+/** Plugin icon as a base64 data URL (SVG/PNG/JPG/WebP/ICO in the plugin dir). */
+export async function getPluginIconDataUrl(id: string): Promise<string | null> {
+  try {
+    return await invoke<string>('get_plugin_icon_data_url', { id })
+  } catch {
+    return null
+  }
 }
 
 export async function getPluginUiUrl(id: string): Promise<string> {

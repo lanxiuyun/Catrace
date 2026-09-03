@@ -77,6 +77,13 @@ function onUpdate(value: boolean) {
   flex-shrink: 0;
 }
 
+.header-icon-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  object-fit: cover;
+}
+
 .header-text {
   min-width: 0;
 }

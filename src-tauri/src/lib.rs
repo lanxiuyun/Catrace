@@ -1176,6 +1176,7 @@ pub fn run() {
             plugins::get_plugin_ui_url,
             plugins::get_plugin_ui_source,
             plugins::get_plugin_settings_source,
+            plugins::get_plugin_icon_data_url,
             plugins::get_plugin_config,
             plugins::set_plugin_config,
             plugins::open_plugins_dir,

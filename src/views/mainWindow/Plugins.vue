@@ -4,6 +4,7 @@ import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { AlarmClock, Armchair, Bot } from '@lucide/vue'
 import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
 import AgentPluginPanel from '../../components/plugins/AgentPluginPanel.vue'
 import PageScroll from '../../components/PageScroll.vue'
@@ -15,6 +16,7 @@ import {
   setExternalPluginEnabled,
   openPluginsDir,
   installExternalPlugin,
+  getPluginIconDataUrl,
   pickPluginFolder,
   pickPluginZip,
   publishEvent,
@@ -32,6 +34,7 @@ type VisiblePluginId = (typeof VISIBLE_PLUGIN_IDS)[number]
 
 const selectedId = ref<string>('')
 const externalList = ref<ExternalPluginInfo[]>([])
+const iconUrls = ref<Record<string, string | null>>({})
 const loading = ref(false)
 const toggleBusy = ref<string | null>(null)
 const testingId = ref<string | null>(null)
@@ -88,6 +91,7 @@ async function refreshExternal(restartSidecars = false) {
     externalList.value = await listExternalPlugins({ restartSidecars })
     // force: user clicked refresh / toggled enable — rebuild Card blobs.
     await loadExternalPlugins({ force: true })
+    await hydratePluginIcons()
     // Toast window has its own Pinia — ask it to reload UI too.
     const { emit } = await import('@tauri-apps/api/event')
     await emit('catrace:reload-external-plugins')
@@ -98,8 +102,21 @@ async function refreshExternal(restartSidecars = false) {
   }
 }
 
+async function hydratePluginIcons(list: ExternalPluginInfo[] = externalList.value) {
+  const next: Record<string, string | null> = {}
+  await Promise.all(
+    list
+      .filter((p) => !p.error && !!p.icon)
+      .map(async (p) => {
+        next[p.id] = await getPluginIconDataUrl(p.id)
+      }),
+  )
+  iconUrls.value = next
+}
+
 onMounted(async () => {
   await Promise.all([refreshBuiltinEnabled(), refreshExternal()])
+  await hydratePluginIcons()
   if (!selectedId.value && plugins.value.length) {
     selectedId.value = plugins.value[0].id
   }
@@ -135,8 +152,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
-const plugins = computed((): PluginNavItem[] => {
-  const builtins = VISIBLE_PLUGIN_IDS.map((id) => {
+/** 调试用插件（宿主自带，用于验证能力）——不参与启用优先，恒定沉底。 */
+const DEBUG_PLUGIN_IDS = ['notify-demo', 'sidecar-echo'] as const
+
+const plugins = computed((): PluginNavItem[] => {  const builtins = VISIBLE_PLUGIN_IDS.map((id) => {
     const handle = pluginRegistry.getPlugin(id)
     return {
       id,
@@ -163,9 +182,15 @@ const plugins = computed((): PluginNavItem[] => {
     error: p.error ?? null,
     anomalous: p.anomalous,
     version: p.version,
+    icon: iconUrls.value[p.id] ?? null,
     tone: 'external',
   }))
+  const debugRank = (item: { id: string; enabled: boolean; name: string }) =>
+    (DEBUG_PLUGIN_IDS as readonly string[]).includes(item.id) ? 1 : 0
   return [...builtins, ...externals].sort((a, b) => {
+    const ad = debugRank(a)
+    const bd = debugRank(b)
+    if (ad !== bd) return ad - bd
     if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
     return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
   })
@@ -217,6 +242,7 @@ const activeHeader = computed(() => {
       switchAria: t('plugins.external.switchAria'),
       onToggle: (val: boolean) => onToggleExternal(ext.id, val),
       icon: 'external',
+      iconDataUrl: iconUrls.value[ext.id] ?? null,
     }
   }
   if (isBuiltinSelected.value && ActiveDetail.value) {
@@ -228,6 +254,7 @@ const activeHeader = computed(() => {
       switchAria: t(`plugins.${selectedId.value}.switchAria`),
       onToggle: (val: boolean) => activePanelRef.value?.toggleEnabled?.(val),
       icon: selectedId.value,
+      iconDataUrl: null,
     }
   }
   return null
@@ -390,28 +417,33 @@ async function onTestExternal(p: ExternalPluginInfo) {
         @update:enabled="activeHeader.onToggle"
       >
         <template #icon>
-          <svg v-if="activeHeader.icon === 'rest'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
-            <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
-            <path d="M5 18v2" />
-            <path d="M19 18v2" />
-          </svg>
-          <svg v-else-if="activeHeader.icon === 'agent'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 8V4H8" />
-            <rect width="16" height="12" x="4" y="8" rx="2" />
-            <path d="M2 14h2" />
-            <path d="M20 14h2" />
-            <path d="M15 13v2" />
-            <path d="M9 13v2" />
-          </svg>
-          <svg v-else-if="activeHeader.icon === 'external'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="13" r="8" />
-            <path d="M12 9v4l2 2" />
-            <path d="M5 3 2 6" />
-            <path d="m22 6-3-3" />
-            <path d="M6.38 18.7 4 21" />
-            <path d="M17.64 18.67 20 21" />
-          </svg>
+          <img
+            v-if="activeHeader.iconDataUrl"
+            :src="activeHeader.iconDataUrl"
+            alt=""
+            class="header-icon-img"
+          />
+          <component
+            v-else-if="activeHeader.icon === 'rest'"
+            :is="Armchair"
+            :size="22"
+            :stroke-width="2"
+            aria-hidden="true"
+          />
+          <component
+            v-else-if="activeHeader.icon === 'agent'"
+            :is="Bot"
+            :size="22"
+            :stroke-width="2"
+            aria-hidden="true"
+          />
+          <component
+            v-else-if="activeHeader.icon === 'external'"
+            :is="AlarmClock"
+            :size="22"
+            :stroke-width="2"
+            aria-hidden="true"
+          />
         </template>
       </plugin-panel-header>
 

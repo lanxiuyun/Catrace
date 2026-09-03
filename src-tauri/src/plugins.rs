@@ -35,6 +35,8 @@ pub struct PluginManifestFile {
     #[serde(default)]
     pub settings: Option<String>,
     #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
     pub sidecar: Option<PluginSidecarManifest>,
     #[serde(default)]
     pub events: Vec<String>,
@@ -72,6 +74,7 @@ pub struct ExternalPluginInfo {
     pub main: Option<String>,
     pub background: Option<String>,
     pub settings: Option<String>,
+    pub icon: Option<String>,
     pub sidecar: Option<PluginSidecarManifest>,
     pub events: Vec<String>,
     pub enabled: bool,
@@ -93,6 +96,7 @@ struct CachedPlugin {
     main_abs: Option<PathBuf>,
     background_abs: Option<PathBuf>,
     settings_abs: Option<PathBuf>,
+    icon_abs: Option<PathBuf>,
     sidecar: Option<PluginSidecarSpec>,
 }
 
@@ -174,6 +178,7 @@ impl PluginManager {
                             main: None,
                             background: None,
                             settings: None,
+                            icon: None,
                             sidecar: None,
                             events: vec![],
                             enabled: false,
@@ -190,6 +195,7 @@ impl PluginManager {
                         main_abs: None,
                         background_abs: None,
                         settings_abs: None,
+                        icon_abs: None,
                         sidecar: None,
                     });
                 }
@@ -401,6 +407,43 @@ impl PluginManager {
         Ok(())
     }
 
+    pub fn icon_data_url(&self, id: &str) -> Result<String, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        let p = guard
+            .plugins
+            .iter()
+            .find(|p| p.info.id == id)
+            .ok_or_else(|| format!("plugin not found: {id}"))?;
+        if let Some(err) = &p.info.error {
+            return Err(format!("plugin invalid: {err}"));
+        }
+        let path = p
+            .icon_abs
+            .as_ref()
+            .ok_or_else(|| format!("plugin has no icon: {id}"))?;
+        let bytes = fs::read(path).map_err(|e| format!("read icon: {e}"))?;
+        if bytes.len() > 256 * 1024 {
+            return Err("plugin icon too large (>256KiB)".into());
+        }
+        use base64::Engine;
+        let mime = match path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "svg" => "image/svg+xml",
+            "webp" => "image/webp",
+            "ico" => "image/x-icon",
+            _ => "application/octet-stream",
+        };
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        Ok(format!("data:{mime};base64,{b64}"))
+    }
+
     /// Return the plugin's install directory.
     pub fn plugin_dir(&self, id: &str) -> Result<String, String> {
         let guard = self.inner.lock().map_err(|e| e.to_string())?;
@@ -476,6 +519,13 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
     let main_abs = resolve_entry(dir, m.main.as_deref(), "main")?;
     let background_abs = resolve_entry(dir, m.background.as_deref(), "background")?;
     let settings_abs = resolve_entry(dir, m.settings.as_deref(), "settings")?;
+    // Builtin plugins (rest/agent) are managed on the frontend, not on disk; the
+    // optional manifest icon is only meaningful for external plugins.
+    let icon_abs = if RESERVED_KINDS.contains(&m.id.as_str()) {
+        None
+    } else {
+        resolve_icon(dir, m.icon.as_deref())?
+    };
     let sidecar = m
         .sidecar
         .as_ref()
@@ -496,6 +546,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             main: m.main,
             background: m.background,
             settings: m.settings,
+            icon: m.icon,
             sidecar: m.sidecar,
             events: m.events,
             enabled,
@@ -512,6 +563,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         main_abs,
         background_abs,
         settings_abs,
+        icon_abs,
         sidecar,
     })
 }
@@ -624,6 +676,73 @@ fn background_fingerprint(version: &str, path: &Path) -> String {
         .map(|d| d.as_millis())
         .unwrap_or_default();
     format!("{version}:{len}:{modified}")
+}
+
+/// Resolve a plugin's optional icon entry. Must be a relative path inside the
+/// plugin directory pointing at an existing file (png/jpg/svg/webp/ico).
+/// Optional: a missing/anonymous icon field yields None, never a scan error.
+fn resolve_icon(dir: &Path, entry: Option<&str>) -> Result<Option<PathBuf>, String> {
+    let Some(entry) = entry.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    if entry.contains("..") || Path::new(entry).is_absolute() {
+        return Err("icon must be a relative path inside the plugin directory".into());
+    }
+    let abs = dir
+        .join(entry)
+        .canonicalize()
+        .map_err(|e| format!("icon path resolve failed: {e}"))?;
+    let root = dir
+        .canonicalize()
+        .map_err(|e| format!("plugin root resolve failed: {e}"))?;
+    if !abs.starts_with(&root) {
+        return Err("icon escapes plugin directory".into());
+    }
+    if !abs.is_file() {
+        return Err(format!("icon file not found: {entry}"));
+    }
+    if !matches!(
+        abs.extension()
+            .and_then(|m| m.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "png" | "jpg" | "jpeg" | "svg" | "webp" | "ico"
+    ) {
+        return Err(format!("unsupported icon file type: {entry}"));
+    }
+    Ok(Some(abs))
+}
+
+#[cfg(test)]
+mod icon_tests {
+    use super::resolve_icon;
+    use std::path::Path;
+
+    #[test]
+    fn icon_resolution_checks_traversal_and_type() {
+        let tmp = std::env::temp_dir().join(format!("catrace-icon-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let plugin = tmp.join("demo");
+        std::fs::create_dir_all(&plugin).unwrap();
+        std::fs::write(plugin.join("icon.svg"), "<svg/>").unwrap();
+        std::fs::write(plugin.join("evil.txt"), "x").unwrap();
+
+        // Valid: relative icon inside the plugin dir.
+        let got = resolve_icon(&plugin, Some("icon.svg")).unwrap();
+        assert!(got.is_some());
+
+        // Directory traversal and absolute paths are rejected.
+        assert!(resolve_icon(&plugin, Some("../evil.txt")).is_err());
+        let abs = plugin.join("icon.svg").to_string_lossy().to_string();
+        assert!(resolve_icon(&plugin, Some(&abs)).is_err());
+
+        // Unsupported extension rejected; missing field OK.
+        assert!(resolve_icon(&plugin, Some("evil.txt")).is_err());
+        assert!(resolve_icon(&plugin, None).unwrap().is_none());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }
 
 fn event_allowed(events: &[String], kind: &str, event_type: &str) -> bool {
@@ -768,6 +887,16 @@ pub fn get_plugin_settings_source(
     id: String,
 ) -> Result<String, String> {
     mgr.settings_source(&id)
+}
+
+/// Plugin icon as a data URL (base64), for the plugin list/header without
+/// exposing the raw path. Available for installed plugins even when disabled.
+#[tauri::command]
+pub fn get_plugin_icon_data_url(
+    mgr: State<'_, PluginManager>,
+    id: String,
+) -> Result<String, String> {
+    mgr.icon_data_url(&id)
 }
 
 /// Whole-object plugin config for main window / settings.mjs (installed plugins only).

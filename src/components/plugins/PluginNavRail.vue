@@ -1,6 +1,18 @@
 ﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  AlarmClock,
+  Archive,
+  Armchair,
+  Bot,
+  ChevronDown,
+  Clock,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  Search,
+} from '@lucide/vue'
 import PageScroll from '../PageScroll.vue'
 
 export interface PluginNavItem {
@@ -13,6 +25,8 @@ export interface PluginNavItem {
   error: string | null
   anomalous: boolean
   version?: string
+  /** Base64 data URL from the plugin's manifest icon (external plugins). */
+  icon?: string | null
   tone: string
 }
 
@@ -55,6 +69,13 @@ const filteredItems = computed(() => {
     ),
   )
 })
+
+function iconForPlugin(id: string) {
+  if (id === 'rest') return Armchair
+  if (id === 'timer') return Clock
+  if (id === 'agent') return Bot
+  return AlarmClock
+}
 
 function select(id: string) {
   installMenuOpen.value = false
@@ -117,20 +138,12 @@ onBeforeUnmount(() => {
         :disabled="loading"
         @click="refresh"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+        <RefreshCw
+          :size="16"
+          :stroke-width="2"
           :class="{ spin: loading }"
-        >
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-          <polyline points="21 3 21 9 15 9" />
-        </svg>
+          aria-hidden="true"
+        />
       </button>
     </div>
 
@@ -145,29 +158,16 @@ onBeforeUnmount(() => {
           @click="toggleInstallMenu"
         >
           <span class="install-btn-left">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 5v14" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
-              <path d="M5 12h14" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" />
-            </svg>
+            <Plus :size="15" :stroke-width="2.25" aria-hidden="true" />
             <span>{{ t('plugins.external.install') }}</span>
           </span>
-          <svg
+          <ChevronDown
             class="install-chevron"
             :class="{ open: installMenuOpen }"
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
+            :size="15"
+            :stroke-width="2"
             aria-hidden="true"
-          >
-            <path
-              d="m6 9 6 6 6-6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          />
         </button>
         <div
           v-if="installMenuOpen"
@@ -177,64 +177,20 @@ onBeforeUnmount(() => {
         >
           <button type="button" class="install-option" role="menuitem" @click="installZip">
             <span class="option-icon tone-zip" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M8 3.5h5.4L18.5 8.6V19a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5Z"
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linejoin="round"
-                />
-                <path d="M13.4 3.5V8.6H18.5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                <path
-                  d="M10.2 11h1.4M10.2 13h1.4M10.2 15h1.4M11.6 11v5.5"
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linecap="round"
-                />
-              </svg>
+              <Archive :size="16" :stroke-width="1.7" />
             </span>
             <span class="option-title">{{ t('plugins.external.installZip') }}</span>
           </button>
           <button type="button" class="install-option" role="menuitem" @click="installFolder">
             <span class="option-icon tone-folder" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M3.5 8.2V7a1.8 1.8 0 0 1 1.8-1.8h4.2c.4 0 .8.2 1.1.5l1 1.1c.3.3.7.5 1.1.5h5.9A1.8 1.8 0 0 1 20.4 9v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17.4V8.2Z"
-                  fill="currentColor"
-                  opacity="0.18"
-                />
-                <path
-                  d="M3.5 8.2V7a1.8 1.8 0 0 1 1.8-1.8h4.2c.4 0 .8.2 1.1.5l1 1.1c.3.3.7.5 1.1.5h5.9A1.8 1.8 0 0 1 20.4 9v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 17.4V8.2Z"
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linejoin="round"
-                />
-              </svg>
+              <FolderOpen :size="16" :stroke-width="1.7" />
             </span>
             <span class="option-title">{{ t('plugins.external.installFolder') }}</span>
           </button>
           <div class="install-divider" role="separator" />
           <button type="button" class="install-option" role="menuitem" @click="openDir">
             <span class="option-icon tone-dir" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M3.5 9V7.2A1.7 1.7 0 0 1 5.2 5.5h4l1.4 1.6h7.9A1.7 1.7 0 0 1 20.2 8.8V9.5"
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M3.7 10.6h16.6l-1.2 7a1.5 1.5 0 0 1-1.5 1.2H6.4a1.5 1.5 0 0 1-1.5-1.2l-1.2-7Z"
-                  fill="currentColor"
-                  opacity="0.14"
-                />
-                <path
-                  d="M3.7 10.6h16.6l-1.2 7a1.5 1.5 0 0 1-1.5 1.2H6.4a1.5 1.5 0 0 1-1.5-1.2l-1.2-7Z"
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linejoin="round"
-                />
-              </svg>
+              <FolderOpen :size="16" :stroke-width="1.7" />
             </span>
             <span class="option-title">{{ t('plugins.external.openDir') }}</span>
           </button>
@@ -244,10 +200,7 @@ onBeforeUnmount(() => {
 
     <div class="rail-search">
       <label class="search-field">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
+        <Search :size="15" :stroke-width="2" aria-hidden="true" />
         <input
           v-model="query"
           type="search"
@@ -268,32 +221,15 @@ onBeforeUnmount(() => {
             @click="select(p.id)"
           >
             <div class="item-icon" aria-hidden="true">
-              <svg v-if="p.id === 'rest'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
-                <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0z" />
-                <path d="M5 18v2" />
-                <path d="M19 18v2" />
-              </svg>
-              <svg v-else-if="p.id === 'timer'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <svg v-else-if="p.id === 'agent'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 8V4H8" />
-                <rect width="16" height="12" x="4" y="8" rx="2" />
-                <path d="M2 14h2" />
-                <path d="M20 14h2" />
-                <path d="M15 13v2" />
-                <path d="M9 13v2" />
-              </svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="13" r="8" />
-                <path d="M12 9v4l2 2" />
-                <path d="M5 3 2 6" />
-                <path d="m22 6-3-3" />
-                <path d="M6.38 18.7 4 21" />
-                <path d="M17.64 18.67 20 21" />
-              </svg>
+              <img v-if="p.icon" :src="p.icon" alt="" class="item-icon-img" />
+              <component
+                v-else
+                :is="iconForPlugin(p.id)"
+                :size="18"
+                :stroke-width="2"
+                class="item-icon-lucide"
+                aria-hidden="true"
+              />
             </div>
             <div class="item-text">
               <div class="item-name">
@@ -640,6 +576,20 @@ onBeforeUnmount(() => {
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* plugin-provided icon: fill the badge, light neutral backdrop */
+.item-icon-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.625rem;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+
+/* active selected: match the white badge; custom icons show as-is */
+.plugin-item.active .item-icon-img {
+  background: #fff;
+}
+
 /* per-plugin tones (idle) */
 .tone-rest .item-icon {
   background: #fef3c7;
@@ -658,11 +608,18 @@ onBeforeUnmount(() => {
   color: #059669;
 }
 
-/* active selected: solid brand icon */
+/* active selected: white badge with a violet ring — icon keeps its own color */
 .plugin-item.active .item-icon {
-  background: #7c3aed;
-  color: #fff;
-  box-shadow: 0 0.0625rem 0.25rem rgba(124, 58, 237, 0.25);
+  background: #fff;
+  box-shadow: 0 0 0 0.125rem #ddd6fe;
+}
+
+/* keep per-plugin stroke color on the lucide fallback even when selected */
+.plugin-item .item-icon-lucide {
+  color: inherit;
+}
+.plugin-item.active .item-icon-lucide {
+  color: #6d28d9;
 }
 
 .plugin-item.active .item-name {
