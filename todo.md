@@ -7,8 +7,7 @@ agent通知抽离
 久坐提醒抽离
 
 更新 readme，官网，发小红书
-本机进程tag去掉?
-插件页面支持设置图标
+插件页面支持设置图标（已完成）
 node自动安装
 
 ## 已完成
@@ -23,3 +22,4 @@ toast window 使用 n-scrollbar 来显示滚动高度(已废弃，当前版本�
 app黑名单自动排序：输入新项后，下次进入设置页自动排序（已做：失焦排序 + localeCompare zh 拼音排序）
 锁屏时通知 package name 是 com.android.mms，一旦添加，后续锁屏短信不会推送；需增加 title 黑名单过滤：包名是 com.android.mms 时按 title 匹配黑名单
 定时提醒， 护眼提醒的 toast 颜色，允许设置颜色,允许设置提示音，自定义提示音
+本机进程tag去掉
