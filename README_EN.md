@@ -42,7 +42,9 @@ The built-in rest reminder and scheduled reminders are just the first residents 
 ## What a small window can be
 
 - **Rest reminders** — After a full work window (say, 45 minutes) without enough rest, a card pops in the corner; if a card is too gentle, go full-screen — it won't go away until you stand up.
+- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — set an interval or a fixed time once, and the small window remembers.
 - **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval — the small window tells you first, no more alt-tabbing.
+- **Headphones** — Headphones connect, your music app opens by itself; when they disconnect, it pauses or wraps up per your settings.
 - **Phone messages** — SMS, app notifications and verification codes forwarded to your desktop, landing in the corner window.
 - **GitHub activity** — New issues and stars reach you the moment they happen.
 
