@@ -5,8 +5,8 @@
 <h1 align="center">Catrace</h1>
 
 <p align="center">
-  <strong>Desktop event system · Plugin runtime</strong><br>
-  Rest reminder · Agent notifications · Scheduled reminders · Plugin ecosystem
+  <strong>Desktop event system · Small-window platform</strong><br>
+  Local-first · Free & open source · Everything is a plugin
 </p>
 
 <p align="center">
@@ -23,69 +23,54 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">
-    ⬇️ <strong>Download latest release</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://lanxiuyun.github.io/Catrace">
-    🏠 <strong>Homepage</strong>
-  </a>
-  &nbsp;&nbsp;|&nbsp;&nbsp;
-  <a href="https://github.com/lanxiuyun/Catrace">
-    💖 <strong>Like it? Give us a star!</strong>
-  </a>
-</p>
-
-<p align="center">
-  <a href="README.md">中文</a> | English
+  <a href="https://github.com/lanxiuyun/Catrace/releases/latest">Download</a> ·
+  <a href="https://github.com/lanxiuyun/catrace-plugin">Plugins</a> ·
+  <a href="https://lanxiuyun.github.io/Catrace">Website</a> ·
+  <a href="README.md">中文</a>
 </p>
 
 ![Catrace Dashboard](.readme/dashboard-en.png)
 
-## What it does
+## What Catrace is
 
-**Catrace** pops up cards in the bottom-right corner with what you need to know — it reminds you to take a break from sitting too long, and plugins push updates (AI activity, GitHub, phone messages).
+Catrace is a **desktop event system** — an event bus running through the whole system, and a runtime that manages every small window.
 
-Ready to use out of the box:
+Its core is not "reminders"; it's the **window itself**. A plugin can open, collapse, move, or dress up a small window at any time, turning it into anything — a full-screen rest alarm that covers your display, a lightweight dashboard, or a canvas where everyone draws together. VSCode manages code editing; Catrace manages the **lifecycle of small windows**. What a window shows and how it interacts is up to plugins.
 
-- **Sedentary reminder** — Many people sit in front of the computer for hours, and by the time they realize it, their back and neck are already sore. It watches whether your mouse and keyboard have moved, and when you've been working continuously for too long, it reminds you to stand up and move around. If cards are too gentle for you, you can set it to cover the whole screen to force a break.
-- **Scheduled reminders** — Set your own interval (e.g. drink water every hour) or a fixed daily time (e.g. clock out before you leave).
+The built-in rest reminder and scheduled reminders are just the first residents of the small window; more capabilities plug in as plugins — install once, toggle as you like.
 
-Want more? Catrace can "install" additional features (called plugins):
+## What a small window can be
 
-- **AI assistant activity** — When you're using AI coding tools like Claude or Codex, it pops a card showing what the AI is doing or when it needs your approval, so you don't have to keep switching back to the terminal. Great for heavy AI coding users.
-- **Bluetooth headphone music** — When headphones connect, automatically show a notification or launch your music app; on disconnect, pause or close it per your settings.
-- **GitHub activity** — Get a card when someone files an issue or stars your project.
-- **Phone message forwarding** — Forward SMS or app notifications from an Android phone to your desktop as cards (requires the SmsForwarder forwarding tool).
+- **Rest reminders** — After a full work window (say, 45 minutes) without enough rest, a card pops in the corner; if a card is too gentle, go full-screen — it won't go away until you stand up.
+- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — set an interval or a fixed time once, and the small window remembers.
+- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval — the small window tells you first, no more alt-tabbing.
+- **Headphones** — Headphones connect, your music app opens by itself; when they disconnect, it pauses or wraps up per your settings.
+- **Phone messages** — SMS, app notifications and verification codes forwarded to your desktop, landing in the corner window.
+- **GitHub activity** — New issues and stars reach you the moment they happen.
 
-**Plugin ecosystem** — Built-in features work out of the box; plugins you want can be installed from a local folder or archive, enabled when you need them and disabled when you don't.
+> [!NOTE]
+> No screen recording, no file reading, no uploading. It only looks at mouse and keyboard activity and which kind of app is in front — and all of that stays on your machine.
+
+## Download
+
+Windows / macOS / Linux, with optional launch at login. Plugins need no compilation — install from a **folder or zip**.
+
+**[Get the latest release](https://github.com/lanxiuyun/Catrace/releases/latest)**
 
 ## How it knows you're busy
 
-Don't worry — it doesn't record your screen or read your files. It only judges how busy you are from two things:
+It doesn't guess how long you "planned" to sit; it watches whether you're actually busy:
 
-- **Your mouse and keyboard** — whether they've moved, and for how long.
-- **Which app you have open** — a code editor, or a video player.
+- Counting starts the first time you touch the mouse or keyboard today;
+- Grabbing water, replying to a message, or zoning out for a moment doesn't break the rhythm — only several consecutive still minutes counts as rest;
+- A full work window without enough rest earns a tap.
 
-The rules are simple:
+Watching a video or listening to music keeps your hands still — it hears system audio and knows you're still using the screen.
 
-- It starts counting from the first time you touch the mouse or keyboard today.
-- If you get up for water, reply to a message, or zone out — as long as you don't stop for a continuous stretch, it still considers you in the same work rhythm.
-- Only when you truly pause and stay still for several minutes does it mark that time as rest.
-- If you power through a full "work window" (say, 45 minutes) without enough rest in between, or you rest and then fill another full window, it pops a card to gently remind you: time to get up and move.
+## Plugins & community
 
-If you're quietly watching a video or listening to music, your mouse and keyboard may stay still for a while — Catrace also detects through system audio that you're still "using the screen," so it won't count that as rest. All this small data stays in your computer's local storage and is never uploaded.
-
-## Plugin Center
-
-All features live in a place called the Plugin Center — the list of features on the left, each feature's switch and settings on the right. You can see at a glance what's installed and what's enabled.
-
-Want to build your own plugins? Developers are welcome — check out the plugin repo at [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin).
+The plugin repository is [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin): built-in features work out of the box; plugins you want are installed from a local folder or archive and toggled off whenever you like. To write your own, the protocol and examples live there too.
 
 ## Friends
 
-[![linux.do](https://img.shields.io/badge/LINUX--DO-Community-blue.svg?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI%2BPGNsaXBQYXRoIGlkPSJhIj48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSI0NyIvPjwvY2xpcFBhdGg%2BPGNpcmNsZSBmaWxsPSIjZjBmMGYwIiBjeD0iNjAiIGN5PSI2MCIgcj0iNTAiLz48cmVjdCBmaWxsPSIjMWMxYzFlIiBjbGlwLXBhdGg9InVybCgjYSkiIHg9IjEwIiB5PSIxMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIzMCIvPjxyZWN0IGZpbGw9IiNmMGYwZjAiIGNsaXAtcGF0aD0idXJsKCNhKSIgeD0iMTAiIHk9IjQwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIi8%2BPHJlY3QgZmlsbD0iI2ZmYjAwMyIgY2xpcC1wYXRoPSJ1cmwoI2EpIiB4PSIxMCIgeT0iODAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz48L3N2Zz4%3D&style=flat)](https://linux.do/)
-
-## Contributing
-
-See the [Contributing Guide](CONTRIBUTING.md) to get involved.
+[![linux.do](https://img.shields.io/badge/LINUX--DO-Community-blue.svg?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIHhtb5nPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI%2BPGNsaXBQYXRoIGlkPSJhIj48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSI0NyIvPjwvY2xpcFBhdGg%2BPGNpcmNsZSBmaWxsPSIjZjBmMGYwIiBjeD0iNjAiIGN5PSI2MCIgcj0iNTAiLz48cmVjdCBmaWxsPSIjMWMxYzFlIiBjbGlwLXBhdGg9InVybCgjYSkiIHg9IjEwIiB5PSIxMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIzMCIvPjxyZWN0IGZpbGw9IiNmMGYwZjAiIGNsaXAtcGF0aD0idXJsKCNhKSIgeD0iMTAiIHk9IjQwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIi8%2BPHJlY3QgZmlsbD0iI2ZmYjAwMyIgY2xpcC1wYXRoPSJ1cmwoI2EpIiB4PSIxMCIgeT0iODAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz48L3N2Zz4%3D&style=flat)](https://linux.do/)
