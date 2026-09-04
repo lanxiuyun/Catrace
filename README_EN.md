@@ -5,7 +5,7 @@
 <h1 align="center">Catrace</h1>
 
 <p align="center">
-  <strong>Desktop event system · Small-window platform</strong><br>
+  <strong>Desktop small-window system</strong><br>
   Local-first · Free & open source · Everything is a plugin
 </p>
 
@@ -33,9 +33,9 @@
 
 ## What Catrace is
 
-Catrace is a **desktop event system** — an event bus running through the whole system, and a runtime that manages every small window.
+Catrace is a **desktop small-window system**. Plugins decide what a window shows and how it interacts — a reminder card, a full-screen rest alarm that covers your display, or whatever comes next. The cards you see today are content *inside* those windows, not the OS notification center.
 
-Its core is not "reminders"; it's the **window itself**. A plugin can open, collapse, move, or dress up a small window at any time, turning it into anything — a full-screen rest alarm that covers your display, a lightweight dashboard, or a canvas where everyone draws together. VSCode manages code editing; Catrace manages the **lifecycle of small windows**. What a window shows and how it interacts is up to plugins.
+Its core is not "reminders"; it's the **window itself**. A plugin can open, collapse, move, or dress up a small window at any time. VSCode manages code editing; Catrace manages the **lifecycle of small windows**.
 
 The built-in rest reminder and scheduled reminders are just the first residents of the small window; more capabilities plug in as plugins — install once, toggle as you like.
 
