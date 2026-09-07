@@ -550,15 +550,14 @@ function handleBusEvent(event: BusEvent) {
       return
     }
     const existing = notifications.value.find((n) => n.eventId === event.id)
-    // Keep sticky plugin cards when an action is acknowledged — sidecar may immediately
-    // republish the same dedupeKey (echo roundtrip). Removing here races leave animation
-    // and freezes the transparent toast window on Windows.
-    // Only echo (roundtrip) keeps the card. dismiss/completed must still remove it.
+    // Sticky plugin cards: only end/dismiss unload. Other action ids are the plugin's.
+    const actionId = event.resolution?.action_id
     const keepForActionRoundtrip =
       !!existing?.pluginId &&
       !!existing.sticky &&
       event.resolution?.kind === 'action' &&
-      event.resolution?.action_id === 'echo'
+      actionId !== 'end' &&
+      actionId !== 'dismiss'
     if (tracePluginAction) {
       console.info('[sidecar-action] resolved handling', {
         eventId: event.id,
@@ -603,6 +602,17 @@ function handleBusEvent(event: BusEvent) {
     (sourceIsPlugin && typeof (event.source as { name?: string }).name === 'string'
       ? (event.source as { name: string }).name
       : undefined)
+
+  if (isPluginEvent && p.dismiss === true) {
+    const existing =
+      notifications.value.find((n) => n.eventId === event.id && !n.leaving) ||
+      (dedupeKey
+        ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
+        : undefined)
+    if (existing) removeNotification(existing.id, true)
+    seenBusEventIds.add(event.id)
+    return
+  }
 
   // sdk / plugin: same event id OR same dedupe_key → refresh in place (never remount card).
   if (kind === 'sdk' || isPluginEvent) {
