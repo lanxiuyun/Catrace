@@ -5,7 +5,6 @@ import {
   AlarmClock,
   Archive,
   Armchair,
-  Bot,
   ChevronDown,
   Clock,
   FolderOpen,
@@ -73,7 +72,6 @@ const filteredItems = computed(() => {
 function iconForPlugin(id: string) {
   if (id === 'rest') return Armchair
   if (id === 'timer') return Clock
-  if (id === 'agent') return Bot
   return AlarmClock
 }
 

@@ -14,9 +14,6 @@ import {
   setWindowActiveMode,
   getActivitySnapshot,
   dismissRestTimer,
-  getAgentSoundDataUrl,
-  getAgentSoundSettings,
-  resolvePermission,
   resolveEvent,
   resolveEventAction,
   getActiveEvents,
@@ -24,8 +21,6 @@ import {
   installAppUpdate,
 } from '../../api/tauri'
 import type { BusEvent } from '../../types/event'
-import AgentToastCard, { type AgentEntry } from '../../components/AgentToastCard.vue'
-import PermissionToastCard, { type PermissionItem } from '../../components/PermissionToastCard.vue'
 import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
@@ -44,8 +39,6 @@ const BUILTIN_TOAST_KINDS = [
   'rest',
   'update',
   'rest-timer',
-  'agent',
-  'permission',
   'sdk',
   'special',
 ] as const
@@ -82,14 +75,7 @@ interface ToastItem {
   downloadProgress?: number
   downloadTotal?: number
   downloadReceived?: number
-  // agent fields
-  event?: string
-  agentState?: string
   sticky?: boolean
-  agentEntries?: AgentEntry[]
-  // permission (P6) fields
-  permission?: PermissionItem
-  // rest timer fields
   breakMinutes?: number
   restStartTs?: number
   restStreak?: number
@@ -140,45 +126,12 @@ const isAnimating = ref(false)
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
-let unlistenAgentSound: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
-let unlistenDismissAgent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
 const WINDOW_LABEL = 'reminder-toast'
 let toastActivated = false
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
-
-// Agent 通知提示音：首次加载时缓存 data URL 与音量
-let agentSoundDataUrl: string | null | undefined = undefined
-let agentSoundVolume = 1.0
-
-async function loadAgentSound() {
-  // 重置缓存并重新读取，用于设置变更后刷新
-  agentSoundDataUrl = undefined
-  try {
-    const settings = await getAgentSoundSettings()
-    agentSoundVolume = settings.volume
-    if (settings.mode === 'muted') {
-      agentSoundDataUrl = null
-    } else {
-      agentSoundDataUrl = await getAgentSoundDataUrl()
-    }
-  } catch {
-    agentSoundDataUrl = null
-  }
-}
-
-function playAgentSound() {
-  if (!agentSoundDataUrl) return
-  try {
-    const audio = new Audio(agentSoundDataUrl)
-    audio.volume = agentSoundVolume
-    audio.play().catch(() => {})
-  } catch {
-    // ignore
-  }
-}
 
 // 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
 let restPollTimer: ReturnType<typeof setInterval> | null = null
@@ -196,7 +149,6 @@ const MIN_AUTO_HIDE_MS = 3000
 const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
 
 onMounted(async () => {
-  loadAgentSound()
   // Card map must be ready before bus events (incl. plugin test from main window).
   try {
     await loadExternalPlugins()
@@ -214,11 +166,6 @@ onMounted(async () => {
   // 监听 Tauri 事件，实时同步调试模式状态
   unlistenDebug = await listen<boolean>('catrace-toast-debug-changed', (event) => {
     showDebug.value = event.payload
-  })
-
-  // 监听提示音设置变更，重新加载 data URL
-  unlistenAgentSound = await listen('catrace-agent-sound-changed', () => {
-    loadAgentSound()
   })
 
   // Plugins page refresh → reload external card UI without app restart.
@@ -239,7 +186,7 @@ onMounted(async () => {
       })
   })
 
-  // Event Bus → Toast 统一渲染线（rest / timer / agent 等 display_mode=toast 的 active 事件）
+  // Event Bus → Toast 统一渲染线（rest / timer / plugin 等 display_mode=toast 的 active 事件）
   unlistenBusEvent = await listen<BusEvent>('catrace:event', (ev) => {
     handleBusEvent(ev.payload)
   })
@@ -250,11 +197,6 @@ onMounted(async () => {
   } catch {
     // ignore
   }
-
-  // Agent 会话销项：Rust emit，不再 eval window.dismissAgentSession
-  unlistenDismissAgent = await listen<string>('catrace:dismiss-agent-session', (ev) => {
-    dismissAgentSession(ev.payload)
-  })
 
   // 监听布局变化，按内容高度 resize 原生小窗
   await nextTick()
@@ -291,12 +233,8 @@ onMounted(async () => {
 onUnmounted(() => {
   unlistenDebug?.()
   unlistenDebug = null
-  unlistenAgentSound?.()
-  unlistenAgentSound = null
   unlistenBusEvent?.()
   unlistenBusEvent = null
-  unlistenDismissAgent?.()
-  unlistenDismissAgent = null
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
   document.removeEventListener('pointerdown', handleToastPointerDown, true)
@@ -730,12 +668,10 @@ function handleBusEvent(event: BusEvent) {
         existing.remainingMs = 0
         existing.totalMs = 0
       }
-      // permission / sticky agent 走独立生命周期，不在这里重置 auto-hide
+      // sticky plugin 走独立生命周期，不在这里重置 auto-hide
       const stickyPlugin = isPluginEvent && !!event.sticky
       if (
-        kind !== 'permission' &&
         kind !== 'special' &&
-        !(kind === 'agent' && (event.sticky || p.mode === 'sticky')) &&
         kind !== 'update' &&
         !(kind === 'sdk' && event.sticky) &&
         !stickyPlugin &&
@@ -760,22 +696,6 @@ function handleBusEvent(event: BusEvent) {
     dedupeKey,
     version: typeof p.version === 'string' ? p.version : undefined,
     updateBody: typeof p.updateBody === 'string' ? p.updateBody : undefined,
-    event: typeof p.event === 'string' ? p.event : undefined,
-    agentState: typeof p.agentState === 'string' ? p.agentState : undefined,
-    mode:
-      typeof p.mode === 'string'
-        ? p.mode
-        : event.sticky
-          ? 'sticky'
-          : undefined,
-    sessionId: typeof p.sessionId === 'string' ? p.sessionId : undefined,
-    cwd: typeof p.cwd === 'string' ? p.cwd : undefined,
-    prompt: typeof p.prompt === 'string' ? p.prompt : undefined,
-    summary: typeof p.summary === 'string' ? p.summary : undefined,
-    sessionTitle: typeof p.sessionTitle === 'string' ? p.sessionTitle : undefined,
-    requestId: typeof p.requestId === 'number' ? p.requestId : undefined,
-    toolName: typeof p.toolName === 'string' ? p.toolName : undefined,
-    toolInput: p.toolInput,
     level: event.level,
     sticky: !!event.sticky,
     sdkActions: kind === 'sdk' || isPluginEvent ? (event.actions || []) : undefined,
@@ -865,87 +785,16 @@ async function addNotification(payload: {
   icon?: string
   category?: 'history' | 'life'
 }) {
-  // 权限审批卡（P6）：常驻直到用户决策，不参与自动隐藏与 sticky 合并
-  if (payload.kind === 'permission') {
-    playAgentSound()
-    const id = ++idCounter
-    const item: ToastItem = {
-      id,
-      kind: 'permission',
-      title: '',
-      body: '',
-      boundary: 0,
-      visible: false,
-      isHovered: false,
-      remainingMs: 0,
-      closeTimer: null,
-      lastStartAt: 0,
-      permission: {
-        requestId: payload.requestId ?? 0,
-        toolName: payload.toolName || '',
-        toolInput: payload.toolInput,
-        sessionId: payload.sessionId,
-        cwd: payload.cwd,
-      },
-      totalMs: 0,
-    }
-    notifications.value.push(item)
-    requestAnimationFrame(() => {
-      const found = notifications.value.find((n) => n.id === id)
-      if (found) found.visible = true
-    })
-    await nextTick()
-    scheduleWindowResize()
-    scrollStackToBottom()
-    return
-  }
-
-  // sticky 型 agent 通知合并进同一张卡片：同 session 的新事件刷新条目，
-  // 不同 session 追加为新条目，避免多 agent 同时等待时糊屏。
-  if (payload.kind === 'agent' && payload.mode === 'sticky') {
-    playAgentSound()
-    const existing = notifications.value.find((n) => n.kind === 'agent' && n.sticky)
-    if (existing) {
-      const entry: AgentEntry = {
-        event: payload.event || '',
-        sessionId: payload.sessionId,
-        cwd: payload.cwd,
-        prompt: payload.prompt,
-        summary: payload.summary,
-        sessionTitle: payload.sessionTitle,
-      }
-      const idx = existing.agentEntries?.findIndex(
-        (e) => e.sessionId && e.sessionId === entry.sessionId
-      ) ?? -1
-      if (idx >= 0 && existing.agentEntries) {
-        existing.agentEntries[idx] = entry
-      } else {
-        existing.agentEntries = [...(existing.agentEntries ?? []), entry]
-      }
-      // 合并后内容变高；stack 已是固定窗口高时只内部滚动，ResizeObserver 看不到
-      // client 尺寸变化，必须主动重算窗口高度，否则卡片底部（前往/全部已读）被裁切。
-      await nextTick()
-      await new Promise<void>((r) => requestAnimationFrame(() => r()))
-      scheduleWindowResize()
-      scrollStackToBottom()
-      return
-    }
-  } else if (payload.kind === 'agent') {
-    playAgentSound()
-  }
-
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
   const isUpdate = payload.kind === 'update'
-  const isAgentSticky = payload.kind === 'agent' && payload.mode === 'sticky'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const isPluginSticky = !!payload.pluginId && !!payload.sticky
   const isSpecial = payload.kind === 'special'
-  const isSticky = isUpdate || isAgentSticky || isSdkSticky || isPluginSticky || isSpecial
+  const isSticky = isUpdate || isSdkSticky || isPluginSticky || isSpecial
   const autoHideMs = isSticky
     ? 0
     : resolveAutoHideMs(payload.busEvent, false)
-  const isAgent = payload.kind === 'agent'
   const item: ToastItem = {
     id,
     kind: payload.kind,
@@ -964,19 +813,7 @@ async function addNotification(payload: {
     downloadProgress: 0,
     downloadTotal: 0,
     downloadReceived: 0,
-    event: payload.event,
-    agentState: payload.agentState,
-    sticky: isAgentSticky || isSdkSticky || isPluginSticky || isSpecial,
-    agentEntries: isAgent
-      ? [{
-          event: payload.event || '',
-          sessionId: payload.sessionId,
-          cwd: payload.cwd,
-          prompt: payload.prompt,
-          summary: payload.summary,
-          sessionTitle: payload.sessionTitle,
-        }]
-      : undefined,
+    sticky: isSdkSticky || isPluginSticky || isSpecial,
     totalMs: isSticky ? 0 : autoHideMs,
     eventId: payload.eventId,
     dedupeKey: payload.dedupeKey,
@@ -1046,7 +883,7 @@ function stopTimer(item: ToastItem) {
 
 function handleMouseEnter(item: ToastItem) {
   // 休息计时 / sticky / permission / 特殊日 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'special' || item.sticky) return
+  if (item.kind === 'rest-timer' || item.kind === 'special' || item.sticky) return
   // 只允许一张卡处于 hover 态：WebView 偶发漏 mouseleave 时，
   // 避免多张卡同时 isHovered，一次 leave 会清掉一整堆。
   for (const n of notifications.value) {
@@ -1059,7 +896,7 @@ function handleMouseEnter(item: ToastItem) {
 }
 
 function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'rest-timer' || item.kind === 'permission' || item.kind === 'special' || item.sticky) return
+  if (item.kind === 'rest-timer' || item.kind === 'special' || item.sticky) return
   item.isHovered = false
   if (item.remainingMs > 0) {
     startTimer(item)
@@ -1080,13 +917,6 @@ function removeNotification(id: number, animate: boolean) {
   const item = notifications.value[index]
   // 已经在关闭动画中，避免重复触发
   if (item.leaving) return
-
-  // 审批卡被栈顶挤掉 / 关窗 / session 销项时，必须 timeout 挂起请求，
-  // 否则 Claude 的 PermissionRequest http hook 一直等，agent 线程卡死。
-  // 已决策/已超时的卡 resolve 会返回 false，无害。
-  if (item.kind === 'permission' && item.permission?.requestId) {
-    resolvePermission(item.permission.requestId, 'timeout').catch(() => {})
-  }
 
   stopTimer(item)
   if (item.endTimer) {
@@ -1171,38 +1001,6 @@ async function handleSkip(item: ToastItem) {
 function toggleUpdateDetails(item: ToastItem) {
   item.showUpdateBody = !item.showUpdateBody
   nextTick(() => scheduleWindowResize())
-}
-
-/**
- * 从 sticky agent 待办卡 + 审批卡里销掉指定 session。
- * - 多会话聚合：只移除该条目；条目清空则整卡关闭
- * - 单条 / auto 卡：session 匹配则整卡关闭
- * - permission 卡：session 匹配则整卡关闭（后端已/将把挂起审批 timeout 掉）
- * 来源：UserPromptSubmit 自动销项、同 session 新审批顶替旧卡、或用户在聚合列表点「前往」后
- */
-function dismissAgentSession(sessionId: string) {
-  if (!sessionId || sessionId === 'unknown') return
-  // 审批卡：按 session 整卡关。不在这里 resolve——后端 UserPromptSubmit / 顶替路径已 timeout。
-  const permCards = notifications.value.filter(
-    (n) => n.kind === 'permission' && n.permission?.sessionId === sessionId,
-  )
-  for (const item of permCards) {
-    removeNotification(item.id, true)
-  }
-
-  const targets = notifications.value.filter((n) => n.kind === 'agent' && n.agentEntries?.length)
-  for (const item of targets) {
-    const entries = item.agentEntries
-    if (!entries) continue
-    const next = entries.filter((e) => e.sessionId !== sessionId)
-    if (next.length === entries.length) continue
-    if (next.length === 0) {
-      removeNotification(item.id, true)
-    } else {
-      item.agentEntries = next
-      nextTick(() => scheduleWindowResize())
-    }
-  }
 }
 
 function handleSdkAction(item: ToastItem, actionId: string) {
@@ -1291,8 +1089,6 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           leaving: item.leaving,
           'toast-card-update': item.kind === 'update',
           'toast-card-rest-timer': item.kind === 'rest-timer',
-          'toast-card-agent': item.kind === 'agent',
-          'toast-card-permission': item.kind === 'permission',
           'toast-card-sdk': item.kind === 'sdk',
           'toast-card-special': item.kind === 'special',
           'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
@@ -1301,27 +1097,8 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
-        <AgentToastCard
-          v-if="item.kind === 'agent' && item.agentEntries"
-          :entries="item.agentEntries"
-          :sticky="!!item.sticky"
-          :remaining-ms="item.remainingMs"
-          :last-start-at="item.lastStartAt"
-          :total-ms="item.totalMs"
-          @close="handleClose(item)"
-          @dismiss-all="handleClose(item)"
-          @dismiss-entry="(sid) => dismissAgentSession(sid)"
-          @layout="() => nextTick(() => scheduleWindowResize())"
-        />
-
-        <PermissionToastCard
-          v-else-if="item.kind === 'permission' && item.permission"
-          :item="item.permission"
-          @close="handleClose(item)"
-        />
-
         <RestToastCard
-          v-else-if="item.kind === 'rest'"
+          v-if="item.kind === 'rest'"
           :title="item.title"
           :body="item.body"
           :is-hovered="item.isHovered"

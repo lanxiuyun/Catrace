@@ -1,7 +1,6 @@
 import type { Component } from 'vue'
 import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 import RestPluginPanel from '../components/plugins/RestPluginPanel.vue'
-import AgentPluginPanel from '../components/plugins/AgentPluginPanel.vue'
 
 /**
  * 内置「插件」注册：设置/详情组件与 event_type 边界绑到 registry。
@@ -29,16 +28,6 @@ export function registerBuiltinPlugins() {
       // Full detail panel lives on Plugins page, not the compact Settings grid.
       settingsSurface: 'plugins',
       SettingsComponent: RestPluginPanel,
-    },
-    {
-      name: 'agent',
-      displayName: 'Agent 通知',
-      description: 'AI Agent hook 通知与权限审批',
-      events: ['agent.state', 'agent.permission', 'kind:agent', 'kind:permission'],
-      settingsKey: 'agent',
-      // Product plugin: detail on Plugins page (not system Settings).
-      settingsSurface: 'plugins',
-      SettingsComponent: AgentPluginPanel,
     },
   ]
 

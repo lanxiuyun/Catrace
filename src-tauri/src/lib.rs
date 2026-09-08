@@ -1,4 +1,3 @@
-mod agent_hook;
 mod bus;
 mod db;
 mod event;
@@ -941,8 +940,6 @@ pub fn run() {
             // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
             reminder_toast::prepare_toast_window(app.app_handle());
 
-            // 启动 agent 通知 HTTP 服务（127.0.0.1:23456），接收 AI agent hook 事件
-            agent_hook::start_server(app.app_handle().clone());
             // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
@@ -1150,19 +1147,6 @@ pub fn run() {
             close_reminder_window,
             window_manager::set_window_active_mode,
             reminder_toast::set_toast_content_size,
-            agent_hook::get_agent_notification_enabled,
-            agent_hook::set_agent_notification_enabled,
-            agent_hook::get_agent_event_modes,
-            agent_hook::set_agent_event_mode,
-            agent_hook::get_supported_agents,
-            agent_hook::install_agent_hooks,
-            agent_hook::uninstall_agent_hooks,
-            agent_hook::is_agent_hook_installed,
-            agent_hook::open_agent_session,
-            agent_hook::resolve_permission,
-            agent_hook::get_agent_sound_settings,
-            agent_hook::set_agent_sound_settings,
-            agent_hook::get_agent_sound_data_url,
             crate::bus::publish_event,
             crate::bus::update_event,
             crate::bus::resolve_event,
