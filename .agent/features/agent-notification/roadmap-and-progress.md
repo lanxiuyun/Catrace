@@ -198,10 +198,13 @@ Claude PermissionRequest hook
 |------|-----------|----------|------|
 | SessionStart | off | ✅ | 播报 |
 | UserPromptSubmit | off | ✅ | 仍自动销 sticky |
+| PreToolUse | auto | ✅ | 工具调用中 |
+| PostToolUse | auto | ✅ | 工具调用完成 |
+| PostToolUseFailure | sticky | ✅ | 工具调用失败 / 错误 |
 | Stop | sticky | ✅ | 完成 / 等输入 |
-| StopFailure | sticky | ✅ | 错误 |
+| StopFailure | sticky | ✅ | 旧版兼容别名，仍映射为错误 |
 | Notification | sticky | ✅ | 喊你 |
-| PermissionRequest | sticky | ✅ | P3 只通知；P6 起可带审批 UI |
+| PermissionRequest | sticky | ✅ | 只通知；P6 起可带审批 UI |
 
 原则：**召唤 sticky、播报 off；设置页可改，不钉死。**
 

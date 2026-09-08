@@ -17,7 +17,7 @@
    - 新增 `install_xxx_hooks` / 配置路径函数；JSON 配置可复用 `uninstall_json_hooks` / `is_json_hook_installed`，非 JSON（如 TOML）需自带卸载/检测
    - `install_agent_hooks` / `uninstall_agent_hooks` / `is_agent_hook_installed` 的 match 加分支
 2. **`src-tauri/resources/catrace-agent-hook.cjs`**
-   - 事件名与 Claude Code 不一致时，`EVENT_ALIASES` 加映射（归一化到 SessionStart/UserPromptSubmit/Stop/StopFailure/Notification）
+   - 事件名与 Claude Code 不一致时，`EVENT_ALIASES` 加映射（归一化到 SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/PostToolUseFailure/Stop/Notification）
 3. **`src/api/tauri.ts`** — 一般无需改（API 已参数化 `agent: string`）
 4. **`src/components/settings/AgentSettingsCard.vue`** — `agentNameKeys` 加显示名 key
 5. **i18n**（zh-CN.ts / en-US.ts）— `settings.agent.nameXxx`

@@ -61,7 +61,7 @@ agent 生命周期事件
 | 配置 | `~/.claude/settings.json` |
 | 入口 | `hooks.<Event>[]` |
 | entry 形状 | `{ matcher: "", hooks: [{ type: "command", command, async: true, timeout: 5 }] }` |
-| 事件（Catrace 注册） | `KNOWN_EVENTS`：SessionStart / UserPromptSubmit / Stop / StopFailure / Notification |
+| 事件（Catrace 注册） | `KNOWN_EVENTS`：SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / PostToolUseFailure / Stop |
 | payload | stdin JSON；**事件名在 `hook_event_name`，不在 argv** |
 | 权限 | clawd 另注册 `type: "http"` 的 PermissionRequest；Catrace **不注册** |
 | 免费覆盖 | Claude Desktop 读同一份 settings → 接好 Code 即覆盖 Desktop |
@@ -73,7 +73,7 @@ agent 生命周期事件
    Catrace 当前 `build_hook_command` 只写 `node "path"`，Windows 上可能静默失败。
 2. **WSL**：命令应 **不带引号** 的 plain 形式；引号会被当成可执行文件名一部分。
 3. **node 绝对路径**：macOS/Linux 上 agent 给 hook 的 PATH 极简，裸 `node` 找不到 Homebrew/nvm。应解析绝对路径；解析失败时保留已有绝对路径，勿用裸 `node` 覆盖。
-4. **版本门控事件**（可选增强）：PreCompact/PostCompact ≥2.1.76，StopFailure ≥2.1.78；版本未知时不要乱写未知事件。
+4. **版本门控事件**（可选增强）：PreCompact/PostCompact ≥2.1.76，PostToolUseFailure ≥2.1.78；版本未知时不要乱写未知事件。旧版 `StopFailure` 保留为内部兼容别名。
 5. **废弃事件**：不要注册 `WorktreeCreate`（会破坏 `claude -w`）。
 6. **合并策略**：按 marker 做字段级 sync（更新 command/timeout），不是「有 marker 就 skip」——否则脚本路径/node 路径变更后配置会陈旧。Catrace 当前是 skip-if-present。
 
@@ -84,7 +84,7 @@ agent 生命周期事件
 | 配置 | `~/.codex/hooks.json`（独立文件） |
 | feature | `~/.codex/config.toml` 的 `[features] hooks = true`（旧 key `codex_hooks` 应迁移，**不可把用户显式 false 改回 true**） |
 | entry 形状 | `{ hooks: [{ type: "command", command, timeout }] }`（无 matcher 也可） |
-| 事件（Catrace） | SessionStart / UserPromptSubmit / Stop |
+| 事件（Catrace） | SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Stop |
 | clawd 完整事件 | 另含 PreToolUse / PostToolUse / PermissionRequest |
 | payload | stdin JSON；session 常与 `~/.codex/sessions/**/rollout-*.jsonl` 的 UUID 对齐 |
 | fallback | clawd 还有 JSONL 轮询；Catrace 不做 |
@@ -121,7 +121,7 @@ agent 生命周期事件
 | 配置 | `~/.kimi/config.toml` | `~/.kimi-code/config.toml` 或 `$KIMI_CODE_HOME/config.toml` |
 | 形状 | TOML `[[hooks]]` | 同左，**z.strict()** |
 | 允许 key | event / command / matcher / timeout | **仅这 4 个**；多 key / 未知事件 / timeout 越界会 **整段 hooks 全丢**（含用户自己的） |
-| 事件（Catrace） | SessionStart / UserPromptSubmit / Stop / Notification | 同左 |
+| 事件（Catrace） | SessionStart / UserPromptSubmit / PostToolUseFailure / Stop / Notification | 同左 |
 | clawd 完整 | + PostToolUseFailure 等；Code 另 + PermissionRequest / PermissionResult / Interrupt | |
 | 命令引号 | 单引号 literal，避免 Windows `\` 转义 | 同左；**不要** `VAR=x cmd` 前缀（Windows spawn shell 下失效） |
 | 安装策略 | 目录不存在跳过；两代都没有才报错 | 同左 |
@@ -131,7 +131,7 @@ agent 生命周期事件
 1. 卸载必须 **按 `[[hooks]]` 块扫描**，块结束于下一个 `[...]` / `[[...]]`，不能只匹配到下一个 `[[hooks]]`，否则会吞用户后续 `[server]` 等表。
 2. 已装检测：块内 command 含 marker。
 3. 幂等更新：clawd 会 strip 全部 catrace/clawd 块再重写，避免重复 PreToolUse；Catrace 是「有 marker 整文件 skip」，**脚本路径变更后不会更新**。
-4. 脚本侧 `PostToolUseFailure→StopFailure` 映射已有；但 install 未注册 PostToolUseFailure 时该映射无入口。
+4. 脚本侧 `PostToolUseFailure` 已直接进 `EVENT_TO_STATE`；`StopFailure` 保留为旧版兼容事件。
 
 ## 4. 通用 hook 脚本约定
 
@@ -152,8 +152,9 @@ POST { event, state, session_id, cwd, transcript_path, prompt } → :23456/state
 |----------|--------|
 | BeforeAgent | UserPromptSubmit |
 | AfterAgent | Stop |
-| PostToolUseFailure | StopFailure |
-| SessionStart / UserPromptSubmit / Stop / StopFailure / Notification | 自身 |
+| BeforeTool | PreToolUse |
+| AfterTool | PostToolUse |
+| SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / PostToolUseFailure / Stop / StopFailure / Notification | 自身 |
 
 **改脚本规则：**
 
