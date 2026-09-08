@@ -35,8 +35,9 @@ fn fit_toast_window(window, app_handle, follow_cursor) {
     let scale = monitor.scale_factor();
     let content = toast_content_size();
 
-    let width = (content.width * scale).round().clamp(1, area.width);
-    let height = (content.height * scale).round().clamp(1, area.height);
+    let text_scale = os_text_scale_factor(); // Windows 文本大小，其它平台 1.0
+    let width = (content.width * scale * text_scale).round().clamp(1, area.width);
+    let height = (content.height * scale * text_scale).round().clamp(1, area.height);
     let x = area.position.x + area.width - width;
     let y = area.position.y + area.height - height;
 
@@ -47,6 +48,7 @@ fn fit_toast_window(window, app_handle, follow_cursor) {
 - `follow_cursor=true`：按光标选屏（首次显示、测试触发）
 - `follow_cursor=false`：按窗口当前所在屏选屏（内容高度变化、DPI 变化）
 - 使用 `set_window_rect_physical` 一次写入物理像素，避免 tao 分步 set_size/set_position 的 DPI 竞态
+- **Windows「文本大小」**（设置 → 辅助功能 → 文本大小，注册表 `TextScaleFactor`）会让 WebView2 把页面视觉放大，但 CSS `scrollHeight` 仍按 16px rem 上报。`fit_toast_window` 必须再乘 `os_text_scale_factor()`，否则卡片底部被 HWND 裁切。显示器缩放（DPI）和文本大小是两件事，不能互相替代。
 
 ### 前端上报内容尺寸
 

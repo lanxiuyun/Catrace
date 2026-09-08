@@ -12,6 +12,36 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use crate::{log_info, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
+/// Windows 设置 → 辅助功能 → 文本大小。WebView2 会把页面视觉放大，但不改 CSS 布局；
+/// Toast 小窗必须按这个系数放大 HWND，否则卡片底部会被裁切。
+/// 注册表 `HKCU\Software\Microsoft\Accessibility\TextScaleFactor`，100–225。
+pub fn os_text_scale_factor() -> f64 {
+    use windows::core::w;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        HKEY_CURRENT_USER, REG_VALUE_TYPE, RRF_RT_REG_DWORD, RegGetValueW,
+    };
+
+    let mut data: u32 = 100;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let mut value_type = REG_VALUE_TYPE(0);
+    let err = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!("Software\\Microsoft\\Accessibility"),
+            w!("TextScaleFactor"),
+            RRF_RT_REG_DWORD,
+            Some(&mut value_type),
+            Some((&mut data as *mut u32).cast()),
+            Some(&mut size),
+        )
+    };
+    if err != ERROR_SUCCESS || data < 100 {
+        return 1.0;
+    }
+    (data.min(225) as f64) / 100.0
+}
+
 fn window_hwnd(window: &WebviewWindow<tauri::Wry>) -> Option<HWND> {
     window.hwnd().ok().map(|h| HWND(h.0 as *mut _))
 }

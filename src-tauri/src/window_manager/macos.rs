@@ -31,6 +31,11 @@ pub fn show_reminder_no_activate(_app_handle: &tauri::AppHandle, window: &tauri:
     });
 }
 
+/// Windows「文本大小」无对应项时按 1.0。
+pub fn os_text_scale_factor() -> f64 {
+    1.0
+}
+
 /// 非 Windows：仍走 Tauri PhysicalSize/PhysicalPosition。
 pub fn set_window_rect_physical(
     window: &tauri::WebviewWindow,

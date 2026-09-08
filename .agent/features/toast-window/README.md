@@ -60,7 +60,7 @@ Toast 默认是 `WS_EX_NOACTIVATE` 无焦点窗，鼠标滑入/选择文本不�
 
 ## 定位职责
 
-- Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）
+- Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）。Windows 还需乘辅助功能「文本大小」系数，否则 WebView 视觉放大后卡片会被裁切。
 - 前端 `setToastContentSize` 上报内容逻辑宽高；高度随卡片变化，Rust clamp 到 work_area
 - 已可见时连点只堆叠，不反复 show / 不跟光标跳屏
 - 依赖窗口/显示器相关 core 权限（如 `core:window:allow-current-monitor`、`core:window:allow-scale-factor` 等，见 `src-tauri/capabilities/default.json`）
