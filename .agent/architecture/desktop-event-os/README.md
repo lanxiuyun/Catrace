@@ -1,6 +1,6 @@
 # Desktop Event OS
 
-Catrace 从「休息提醒 App」演进为桌面事件运行时：统一 **Event Protocol + Bus + Toast 渲染适配**，并叠加 **Signal 行为感知**。同仓演进，不重写。
+Catrace 从「休息提醒 App」演进为桌面小窗系统：统一 **Event Protocol + Bus + Toast 渲染适配**，并叠加 **Signal 行为感知**。同仓演进，不重写。
 
 ## 五层愿景
 
