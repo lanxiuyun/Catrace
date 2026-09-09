@@ -41,6 +41,7 @@ export default {
 2. `useMessage` / `useDialog` 只能在 `setup()`  
 3. 组件用 `h(Comp, props, slots)`，无 SFC template  
 4. 样式：插件根 class 自包含；**teleport 组件**（`NModal` / `NDatePicker` 日历面板等）样式必须挂在浮层自己的 class 上，不能写在 `.plugin-root .modal-xxx`
+5. 宿主 `.plugin-detail` 已设排版基线：`font-family` 系统栈、`font-size: 0.8125rem`、`line-height: 1.4`、`font-weight: 400`（与插件侧边栏一致）。插件要改字号/行高/字体时自己写选择器，需要压过基线再用 `!important`。
 
 日历面板依赖宿主 `NConfigProvider` 的 `date-locale`（`App.vue` 已接 `dateZhCN` / `dateEnUS`），否则月份星期是英文。
 

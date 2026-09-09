@@ -69,19 +69,20 @@ function onUpdate(value: boolean) {
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 0.75rem;
-  background: #ede9fe;
+  background: transparent;
   color: #7c3aed;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.header-icon-img {
+.icon-badge :deep(img) {
   width: 100%;
   height: 100%;
-  border-radius: 0.75rem;
   object-fit: cover;
+  display: block;
 }
 
 .header-text {

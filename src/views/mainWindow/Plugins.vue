@@ -534,6 +534,16 @@ async function onTestExternal(p: ExternalPluginInfo) {
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem 1rem 2rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+.plugin-detail :where(h1, h2, h3, p, button, input, textarea, label, span, li) {
+  font-family: inherit;
+  line-height: inherit;
 }
 
 .disabled-overlay {
