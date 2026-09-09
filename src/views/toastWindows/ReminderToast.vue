@@ -332,6 +332,13 @@ async function reportWindowSize() {
   const width = Math.max(1, Math.ceil(root.scrollWidth))
   const height = Math.max(160, Math.ceil(stack.scrollHeight))
   const key = `${width}x${height}`
+
+  // 卡片离场/进入动画期间禁止收缩窗口，避免 DOM 里卡片还没移除但窗口先变小导致截断
+  if (isAnimating.value) {
+    const prevH = Number.parseFloat(lastSizeKey.split('x')[1] || '0')
+    if (height <= prevH) return
+  }
+
   if (key === lastSizeKey) return
   lastSizeKey = key
   try {

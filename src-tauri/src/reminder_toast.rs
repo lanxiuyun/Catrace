@@ -18,6 +18,15 @@ const TOAST_WINDOW_WIDTH_LOGICAL: f64 = 392.0;
 /// 逻辑像素：单卡约 128 + 上下出血 16×2。
 const TOAST_WINDOW_MIN_HEIGHT_LOGICAL: f64 = 160.0;
 
+/// CSS 逻辑尺寸 → 物理像素。`text_scale` 是 Windows「文本大小」（默认 1.0）。
+fn physical_content_px(logical: f64, dpi_scale: f64, text_scale: f64, max: u32) -> u32 {
+    let scaled = logical * dpi_scale * text_scale;
+    if !scaled.is_finite() || scaled <= 0.0 {
+        return 1;
+    }
+    (scaled.round() as u32).clamp(1, max.max(1))
+}
+
 /// 全局异步锁，串行化所有 Toast 窗口的创建/显示/追加操作。
 /// 防止快速连续触发时并发操作 WebviewWindow 导致崩溃。
 static TOAST_MUTEX: Mutex<()> = Mutex::const_new(());
@@ -165,19 +174,21 @@ fn fit_toast_window(
 
     let max_w = area.size.width.max(1);
     let max_h = area.size.height.max(1);
-    let width = ((content.width * scale).round() as u32).clamp(1, max_w);
-    let height = ((content.height * scale).round() as u32).clamp(1, max_h);
+    let text_scale = window_manager::os_text_scale_factor();
+    let width = physical_content_px(content.width, scale, text_scale, max_w);
+    let height = physical_content_px(content.height, scale, text_scale, max_h);
     let x = area.position.x + area.size.width as i32 - width as i32;
     let y = area.position.y + area.size.height as i32 - height as i32;
 
     log_info!(
         "toast-win",
-        "fit: work_area=({},{},{}x{}) scale={} content_logical={}x{} physical=({},{},{}x{}) follow_cursor={}",
+        "fit: work_area=({},{},{}x{}) scale={} text_scale={} content_logical={}x{} physical=({},{},{}x{}) follow_cursor={}",
         area.position.x,
         area.position.y,
         area.size.width,
         area.size.height,
         scale,
+        text_scale,
         content.width,
         content.height,
         x,
@@ -646,5 +657,28 @@ pub fn create_update_toast_window(
 
     if !try_publish_toast_event(app_handle, bus_event) {
         ensure_toast_window_visible(app_handle);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::physical_content_px;
+
+    #[test]
+    fn physical_size_matches_dpi_only_when_text_scale_is_default() {
+        assert_eq!(physical_content_px(392.0, 1.5, 1.0, 2560), 588);
+        assert_eq!(physical_content_px(339.0, 1.5, 1.0, 1528), 509);
+    }
+
+    #[test]
+    fn physical_size_grows_with_windows_text_scale() {
+        // 150% DPI + 125% 文本大小：339 * 1.5 * 1.25 = 635.625 → 636
+        assert_eq!(physical_content_px(339.0, 1.5, 1.25, 1528), 636);
+        assert_eq!(physical_content_px(392.0, 1.5, 1.25, 2560), 735);
+    }
+
+    #[test]
+    fn physical_size_clamps_to_work_area() {
+        assert_eq!(physical_content_px(2000.0, 1.5, 2.25, 1528), 1528);
     }
 }
