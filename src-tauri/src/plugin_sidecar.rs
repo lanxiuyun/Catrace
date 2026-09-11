@@ -10,7 +10,7 @@ use tauri::{Emitter, Manager};
 
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
-use crate::sidecar_command::{prepend_gui_path, resolve_program};
+use crate::sidecar::{prepend_gui_path, resolve_program};
 use crate::{log_error, log_info, log_warn};
 
 type RpcResult = Result<serde_json::Value, String>;
