@@ -10,6 +10,7 @@ use tauri::{Emitter, Manager};
 
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
+use crate::sidecar::{prepend_gui_path, resolve_program};
 use crate::{log_error, log_info, log_warn};
 
 type RpcResult = Result<serde_json::Value, String>;
@@ -455,7 +456,17 @@ fn spawn_sidecar(
     spec: &PluginSidecarSpec,
     manager: PluginSidecarManager,
 ) -> Result<SpawnedSidecar, String> {
-    let mut command = Command::new(&spec.command);
+    let program = resolve_program(&spec.command);
+    if program != spec.command {
+        log_info!(
+            "plugin-sidecar",
+            "resolved {} command `{}` -> `{}`",
+            spec.id,
+            spec.command,
+            program
+        );
+    }
+    let mut command = Command::new(&program);
     command
         .args(&spec.args)
         .current_dir(&spec.cwd)
@@ -465,6 +476,7 @@ fn spawn_sidecar(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    prepend_gui_path(&mut command);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -472,7 +484,14 @@ fn spawn_sidecar(
     }
     let mut child = command
         .spawn()
-        .map_err(|e| format!("start plugin sidecar {}: {e}", spec.id))?;
+        .map_err(|e| {
+            format!(
+                "start plugin sidecar {} (`{}` cwd={}): {e}",
+                spec.id,
+                program,
+                spec.cwd.display()
+            )
+        })?;
     let stdin =
         Arc::new(Mutex::new(child.stdin.take().ok_or_else(|| {
             format!("open plugin sidecar {} stdin", spec.id)
