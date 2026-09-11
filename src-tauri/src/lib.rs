@@ -10,6 +10,7 @@ mod plugin_api;
 mod plugin_commands;
 mod plugin_config;
 mod plugin_sidecar;
+mod sidecar_command;
 mod plugin_window;
 mod plugins;
 mod reminder_toast;
