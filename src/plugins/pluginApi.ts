@@ -123,7 +123,10 @@ export type PluginApi = {
   /** Simple toast helper (kind defaults to plugin id). */
   notification: { show(options: PluginNotificationOptions): Promise<unknown> }
   /** Full Event Bus publish with actions/payload (plugin must be enabled). */
-  events: { publish(options: PluginEventPublishOptions): Promise<unknown> }
+  events: {
+    publish(options: PluginEventPublishOptions): Promise<unknown>
+    close(eventId: string): Promise<unknown>
+  }
   /** Host activity / rest anchors for interval schedulers. */
   activity: {
     get(): Promise<PluginActivitySnapshot>
@@ -225,6 +228,7 @@ export function createPluginApi(pluginId: string): PluginApi {
             progress: options.progress,
           },
         }),
+      close: (eventId) => invoke('plugin_api_event_close', { pluginId, eventId }),
     },
     activity: {
       get: () => invoke<PluginActivitySnapshot>('plugin_api_get_activity', { pluginId }),

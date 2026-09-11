@@ -69,7 +69,34 @@ pub fn plugin_api_notification_show(
     })
 }
 
-/// Full Event Bus publish (actions / payload / dedupe). Plugin must be enabled.
+/// Close an active event created by this plugin.
+#[tauri::command]
+pub fn plugin_api_event_close(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    bus: State<'_, EventBus>,
+    plugin_id: String,
+    event_id: String,
+) -> Result<BusEvent, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let event = bus
+        .active_events()?
+        .into_iter()
+        .find(|event| event.id == event_id)
+        .ok_or_else(|| format!("active event not found: {event_id}"))?;
+    if event.source != (crate::event::EventSource::Plugin { name: plugin_id.clone() }) {
+        return Err("plugin may only close its own event".into());
+    }
+    bus.resolve(
+        event.id,
+        crate::event::EventResolution {
+            kind: crate::event::ResolutionKind::Dismissed,
+            action_id: None,
+            payload: None,
+        },
+    )
+}
+
 #[tauri::command]
 pub fn plugin_api_event_publish(
     window: tauri::WebviewWindow,

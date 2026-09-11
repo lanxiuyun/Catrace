@@ -46,7 +46,15 @@ enum SidecarOutput {
     Publish {
         #[serde(default)]
         v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: Option<String>,
         event: PluginPublishInput,
+    },
+    Resolve {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "eventId")]
+        event_id: String,
     },
     Log {
         #[serde(default)]
@@ -361,15 +369,11 @@ pub async fn plugin_sidecar_request(
     if window.label() != "main" {
         return Err("sidecar request is only available in the main plugin settings window".into());
     }
+    let params = params.unwrap_or(serde_json::Value::Null);
     let manager = sidecars.inner().clone();
     let plugins = plugins.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        manager.request(
-            &plugins,
-            &plugin_id,
-            method,
-            params.unwrap_or(serde_json::Value::Null),
-        )
+        manager.request(&plugins, &plugin_id, method, params)
     })
     .await
     .map_err(|e| format!("sidecar request task failed: {e}"))?
@@ -595,7 +599,7 @@ fn handle_stdout_line(
         SidecarOutput::Ready { v } => {
             log_info!("plugin-sidecar", "[{plugin_id}] ready (protocol={v:?})")
         }
-        SidecarOutput::Publish { v, event } => {
+        SidecarOutput::Publish { v, request_id, event } => {
             if v != Some(1) {
                 log_warn!(
                     "plugin-sidecar",
@@ -604,8 +608,47 @@ fn handle_stdout_line(
                 return;
             }
             let bus = app.state::<crate::bus::EventBus>();
-            if let Err(e) = publish_plugin_event(app, plugins, &bus, plugin_id, event) {
-                log_warn!("plugin-sidecar", "[{plugin_id}] publish rejected: {e}");
+            match publish_plugin_event(app, plugins, &bus, plugin_id, event) {
+                Ok(published) => {
+                    if let Some(request_id) = request_id {
+                        reply_sidecar(
+                            manager,
+                            plugin_id,
+                            &serde_json::json!({
+                                "v": 1,
+                                "op": "response",
+                                "requestId": request_id,
+                                "ok": true,
+                                "result": { "eventId": published.id },
+                            }),
+                        );
+                    }
+                }
+                Err(e) => log_warn!("plugin-sidecar", "[{plugin_id}] publish rejected: {e}"),
+            }
+        }
+        SidecarOutput::Resolve { v, event_id } => {
+            if v != Some(1) || event_id.trim().is_empty() {
+                log_warn!("plugin-sidecar", "[{plugin_id}] resolve rejected");
+                return;
+            }
+            let bus = app.state::<crate::bus::EventBus>();
+            let Ok(Some(event)) = bus.active_events().map(|events| events.into_iter().find(|e| e.id == event_id)) else {
+                return;
+            };
+            if event.source != (crate::event::EventSource::Plugin { name: plugin_id.to_string() }) {
+                log_warn!("plugin-sidecar", "[{plugin_id}] resolve rejected: event owner mismatch");
+                return;
+            }
+            if let Err(e) = bus.resolve(
+                event.id,
+                crate::event::EventResolution {
+                    kind: crate::event::ResolutionKind::Dismissed,
+                    action_id: None,
+                    payload: None,
+                },
+            ) {
+                log_warn!("plugin-sidecar", "[{plugin_id}] resolve failed: {e}");
             }
         }
         SidecarOutput::Log {

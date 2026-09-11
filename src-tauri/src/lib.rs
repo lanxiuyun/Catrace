@@ -1191,6 +1191,7 @@ pub fn run() {
             plugin_api::plugin_api_theme_is_dark,
             plugin_api::plugin_api_notification_show,
             plugin_api::plugin_api_event_publish,
+            plugin_api::plugin_api_event_close,
             plugin_api::plugin_api_get_activity,
             plugin_api::plugin_api_get_last_real_rest,
             plugin_api::plugin_api_get_records,
