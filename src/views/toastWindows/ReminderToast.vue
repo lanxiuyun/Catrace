@@ -55,6 +55,9 @@ function isPluginKind(kind: string): boolean {
   return !!pluginRegistry.getPluginForKind(kind)
 }
 
+type ToastStyleObject = Record<string, string>
+type ToastStyleValue = 'standalone' | ToastStyleObject
+
 interface ToastItem {
   id: number
   kind: ToastKind
@@ -84,6 +87,7 @@ interface ToastItem {
   // Event Bus correlation
   eventId?: string
   dedupeKey?: string
+  toastStyle?: ToastStyleValue
   // sdk generic card
   level?: EventLevel | string
   sdkActions?: EventAction[]
@@ -96,6 +100,26 @@ interface ToastItem {
   specialTag?: string
   specialIcon?: string
   specialCategory?: 'history' | 'life'
+}
+
+function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
+  if (!isPluginEvent) return undefined
+  const input = payload.toastStyle as ToastStyleValue | undefined
+  if (input === 'standalone') return input
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
+  const style: ToastStyleObject = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === 'string') style[key] = value
+  }
+  return Object.keys(style).length ? style : undefined
+}
+
+function toastCardStyle(item: ToastItem): Record<string, string> {
+  const style = item.toastStyle && typeof item.toastStyle === 'object' ? item.toastStyle : {}
+  return {
+    ...style,
+    ...(item.totalMs > 0 ? { '--toast-auto-hide-ms': `${item.totalMs}ms` } : {}),
+  }
 }
 
 function resolveAutoHideMs(event: BusEvent | undefined | null, sticky: boolean): number {
@@ -547,6 +571,7 @@ function handleBusEvent(event: BusEvent) {
     (sourceIsPlugin && typeof (event.source as { name?: string }).name === 'string'
       ? (event.source as { name: string }).name
       : undefined)
+  const toastStyle = resolveToastStyle(p, isPluginEvent)
 
   if (isPluginEvent && p.dismiss === true) {
     const existing =
@@ -588,6 +613,7 @@ function handleBusEvent(event: BusEvent) {
       existing.sdkProgress = event.progress ?? null
       existing.sticky = !!event.sticky
       existing.dedupeKey = dedupeKey
+      existing.toastStyle = toastStyle
       existing.busEvent = event
       existing.pluginId = pluginId
       // Keep prior uiUrl if registry momentarily empty — avoids card reload thrash.
@@ -647,6 +673,7 @@ function handleBusEvent(event: BusEvent) {
       existing.title = event.title || ''
       existing.body = event.body || ''
       existing.boundary = boundary
+      existing.toastStyle = toastStyle
       existing.visible = true
       if (kind === 'sdk' || isPluginEvent) {
         existing.level = event.level
@@ -694,6 +721,7 @@ function handleBusEvent(event: BusEvent) {
     body: event.body || '',
     eventId: event.id,
     dedupeKey,
+    toastStyle,
     version: typeof p.version === 'string' ? p.version : undefined,
     updateBody: typeof p.updateBody === 'string' ? p.updateBody : undefined,
     level: event.level,
@@ -774,6 +802,7 @@ async function addNotification(payload: {
   toolInput?: unknown
   eventId?: string
   dedupeKey?: string
+  toastStyle?: ToastStyleValue
   level?: EventLevel | string
   sticky?: boolean
   sdkActions?: EventAction[]
@@ -817,6 +846,7 @@ async function addNotification(payload: {
     totalMs: isSticky ? 0 : autoHideMs,
     eventId: payload.eventId,
     dedupeKey: payload.dedupeKey,
+    toastStyle: payload.toastStyle,
     level: payload.level,
     sdkActions: payload.sdkActions,
     sdkProgress: payload.sdkProgress ?? null,
@@ -1092,8 +1122,9 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           'toast-card-sdk': item.kind === 'sdk',
           'toast-card-special': item.kind === 'special',
           'toast-card-plugin': !!item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'),
+          'toast-card-standalone': item.toastStyle === 'standalone',
         }"
-        :style="item.totalMs > 0 ? { '--toast-auto-hide-ms': `${item.totalMs}ms` } : undefined"
+        :style="toastCardStyle(item)"
         @mouseenter="handleMouseEnter(item)"
         @mouseleave="handleMouseLeave(item)"
       >
@@ -1292,6 +1323,16 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 }
 
 .toast-card-special {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* External cards may opt out of the host surface and own the full shell. */
+.toast-card-standalone {
   min-height: auto;
   background: transparent;
   padding: 0;
