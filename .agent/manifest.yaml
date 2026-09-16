@@ -82,6 +82,7 @@ features:
       - .agent/features/toast-window/toast自动隐藏进度条-CSS动画与hover暂停必须同源.md
       - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
+      - .agent/features/toast-window/外部插件通过payload-toastStyle选择默认或独立卡片外壳.md
       - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
       - .agent/features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md
     related:
@@ -342,6 +343,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/architecture/desktop-event-os/README.md
-  phase: sidecar 开关只启停当前插件，刷新才全量重启（2026-09-01，pr/60）
-  next: 用户确认后 push / 合 PR #60；fork CI 需 Approve and run workflows
+  plan: .agent/features/toast-window/README.md
+  phase: 外部插件可通过 payload.toastStyle 选择宿主默认或 standalone 卡片外壳（2026-09-16，工作树未提交）
+  next: 验证 agent-notify standalone 卡片实际布局；确认后再决定是否提交
