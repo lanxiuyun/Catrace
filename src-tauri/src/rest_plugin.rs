@@ -176,27 +176,21 @@ pub(crate) fn set_config(config: serde_json::Value, app: tauri::AppHandle) -> Re
 pub(crate) fn skip_reminder(
     boundary: i64,
     state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) {
     let mut s = state.lock().unwrap();
     s.skip_until_boundary = Some(boundary);
     s.snooze_until = None;
     s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
 }
 
 #[tauri::command]
 pub(crate) fn snooze_reminder(
     minutes: u64,
     state: tauri::State<Arc<Mutex<ReminderState>>>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
     s.break_timer_active = false;
-    // 用户操作后恢复正常活动追踪
-    fullscreen_active.store(false, Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -313,7 +307,6 @@ pub(crate) fn test_notification(
     app_handle: tauri::AppHandle,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
     bus: tauri::State<crate::bus::EventBus>,
 ) {
     {
@@ -336,7 +329,6 @@ pub(crate) fn test_notification(
         &locale,
         &db,
         &store,
-        fullscreen_active.inner().clone(),
         &bus,
     );
 
@@ -367,7 +359,6 @@ pub(crate) fn start_notification_test(
     app_handle: tauri::AppHandle,
     db: tauri::State<db::Db>,
     store: tauri::State<ReminderWindowStore>,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
     test_state: tauri::State<Arc<NotificationTestState>>,
     bus: tauri::State<crate::bus::EventBus>,
 ) -> Result<(), String> {
@@ -382,7 +373,6 @@ pub(crate) fn start_notification_test(
     let app_handle = app_handle.clone();
     let db = db.inner().clone();
     let store = store.inner().clone();
-    let fullscreen_active = fullscreen_active.inner().clone();
     let test_state = test_state.inner().clone();
     let bus = bus.inner().clone();
 
@@ -401,7 +391,6 @@ pub(crate) fn start_notification_test(
                 &locale,
                 &db,
                 &store,
-                fullscreen_active.clone(),
                 &bus,
             );
         }
@@ -426,7 +415,6 @@ fn show_notification(
     locale: &str,
     db: &db::Db,
     store: &ReminderWindowStore,
-    fullscreen_active: Arc<AtomicBool>,
     bus: &crate::bus::EventBus,
 ) {
     let config = load_config(app_handle);
@@ -463,7 +451,6 @@ fn show_notification(
             fullscreen_fit_mode,
             fullscreen_element_transforms,
             store,
-            fullscreen_active,
         );
         return;
     }
@@ -527,7 +514,6 @@ pub(crate) fn on_minute_settled(
     locale: &str,
     db: &crate::db::Db,
     store: &ReminderWindowStore,
-    fullscreen_active: &Arc<AtomicBool>,
     is_fullscreen: bool,
     bus: &crate::bus::EventBus,
 ) {
@@ -555,7 +541,6 @@ pub(crate) fn on_minute_settled(
                     locale,
                     db,
                     store,
-                    fullscreen_active.clone(),
                     bus,
                 );
                 let interval_minutes = config.snooze_interval_minutes;
