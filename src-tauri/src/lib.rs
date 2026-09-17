@@ -1015,8 +1015,7 @@ pub fn run() {
                     };
                     log_info!(
                         "settle",
-                        "ts={} count={} media={} fscreen={} active={}",
-                        timestamp,
+                        "count={} media={} fscreen={} active={}",
                         count,
                         media_active,
                         is_fullscreen,
