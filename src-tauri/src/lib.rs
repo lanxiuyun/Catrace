@@ -989,18 +989,9 @@ pub fn run() {
                     } else {
                         false
                     };
-                    let fullscreen_flag = fullscreen_active_for_settle.load(Ordering::SeqCst);
-                    let fullscreen_window_present = app_handle
+                    let is_fullscreen = app_handle
                         .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
                         .is_some();
-                    if fullscreen_flag && !fullscreen_window_present {
-                        log_warn!(
-                            "fullscreen-win",
-                            "active flag was stale without fullscreen window; resetting"
-                        );
-                        fullscreen_active_for_settle.store(false, Ordering::SeqCst);
-                    }
-                    let is_fullscreen = fullscreen_flag && fullscreen_window_present;
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     // Drain completed signal minutes; use dominant app for this settle row.
@@ -1049,6 +1040,7 @@ pub fn run() {
                         &db_clone,
                         &store_for_settle,
                         &fullscreen_active_for_settle,
+                        is_fullscreen,
                         &event_bus_for_settle,
                     );
 

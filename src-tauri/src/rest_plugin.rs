@@ -528,6 +528,7 @@ pub(crate) fn on_minute_settled(
     db: &crate::db::Db,
     store: &ReminderWindowStore,
     fullscreen_active: &Arc<AtomicBool>,
+    is_fullscreen: bool,
     bus: &crate::bus::EventBus,
 ) {
     if active {
@@ -576,7 +577,7 @@ pub(crate) fn on_minute_settled(
     }
     drop(reminder);
     // 全屏休息窗自己有倒计时；期间结算记休息，但不要再叠 rest-timer toast
-    if fullscreen_active.load(Ordering::SeqCst) {
+    if is_fullscreen {
         return;
     }
     match db.get_current_rest_streak() {
