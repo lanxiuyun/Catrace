@@ -14,6 +14,7 @@ import {
   NDatePicker,
   NDivider,
   NInput,
+  NInputNumber,
   NModal,
   NPopconfirm,
   NProgress,
@@ -54,6 +55,7 @@ export type PluginNaiveRuntime = {
   NDatePicker: typeof NDatePicker
   NDivider: typeof NDivider
   NInput: typeof NInput
+  NInputNumber: typeof NInputNumber
   NModal: typeof NModal
   NPopconfirm: typeof NPopconfirm
   NProgress: typeof NProgress
@@ -117,6 +119,7 @@ export function ensurePluginRuntime() {
       NDatePicker,
       NDivider,
       NInput,
+      NInputNumber,
       NModal,
       NPopconfirm,
       NProgress,
