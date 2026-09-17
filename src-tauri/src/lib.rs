@@ -740,9 +740,6 @@ pub(crate) fn create_fullscreen_window(
 ) {
     let label = window_manager::FULLSCREEN_WINDOW_LABEL;
 
-    // 标记全屏窗口已打开，结算循环将停止计活跃
-    fullscreen_active.store(true, Ordering::SeqCst);
-
     let data = ReminderWindowData {
         kind: "rest".to_string(),
         boundary,
@@ -777,9 +774,12 @@ pub(crate) fn create_fullscreen_window(
 
         match builder.build() {
             Ok(window) => {
+                log_info!("fullscreen-win", "fullscreen window built boundary={}", boundary);
+                fullscreen_active.store(true, Ordering::SeqCst);
                 let fa = fullscreen_active.clone();
                 window.on_window_event(move |event| {
                     if matches!(event, tauri::WindowEvent::Destroyed) {
+                        log_info!("fullscreen-win", "fullscreen window destroyed");
                         fa.store(false, Ordering::SeqCst);
                     }
                 });
@@ -787,7 +787,8 @@ pub(crate) fn create_fullscreen_window(
                 let _ = window.set_focus();
             }
             Err(e) => {
-                log_error!("fullscreen-win", "build failed: {}", e);
+                fullscreen_active.store(false, Ordering::SeqCst);
+                log_error!("fullscreen-win", "build failed; reset active flag: {}", e);
             }
         }
     });
@@ -988,7 +989,18 @@ pub fn run() {
                     } else {
                         false
                     };
-                    let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
+                    let fullscreen_flag = fullscreen_active_for_settle.load(Ordering::SeqCst);
+                    let fullscreen_window_present = app_handle
+                        .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
+                        .is_some();
+                    if fullscreen_flag && !fullscreen_window_present {
+                        log_warn!(
+                            "fullscreen-win",
+                            "active flag was stale without fullscreen window; resetting"
+                        );
+                        fullscreen_active_for_settle.store(false, Ordering::SeqCst);
+                    }
+                    let is_fullscreen = fullscreen_flag && fullscreen_window_present;
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     // Drain completed signal minutes; use dominant app for this settle row.
