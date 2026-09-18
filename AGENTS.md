@@ -30,3 +30,4 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
 11. **插件改在 catrace-plugin** — 克隆宿主后先 `git submodule update --init --recursive`，否则 `tools/plugin-demo/` 为空。插件代码只在其仓库维护：直接编辑 `tools/plugin-demo/<id>/`（即插件仓库 checkout）→ commit 推 catrace-plugin `main` → 宿主 `git add tools/plugin-demo` 更新 submodule 指针。插件开发完整流程见插件仓库 `README.md` / `SKILL.md`
 12. **知识写 features，不堆 decisions** — `.agent/features/` 写现行功能怎么用。只有「为什么必须这样、规避什么 bug」才作为该 feature 的补充段落。`.agent/decisions/` 已清空，不要再往里写。
 13. **知识沉淀分仓库** — **插件相关的知识（feature 子文档、devlog、bug 记录）一律写插件子仓库 `tools/plugin-demo/.agent/`**（自带 `manifest.yaml`，随插件仓库提交）；宿主根 `.agent/` 只放宿主侧知识。沉淀前先判断：只在这个插件成立 → 插件仓库；涉及宿主多模块协作 → 宿主 `.agent/`。
+14. **用户点名才提交** — 修改只落在工作区，汇报改了什么、怎么验证；用户明确说「提交 / commit」才执行提交流程（插件改动按规则 11 分仓）。同类微调的多次迭代合并成**一笔** commit，不要每轮各提一笔。push 同理需用户点头。
