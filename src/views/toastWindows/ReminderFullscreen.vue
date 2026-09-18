@@ -447,7 +447,7 @@ watch(
   border: none;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(0.5rem);
-  color: #ffffff;
+  color: var(--ct-on-accent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -477,7 +477,7 @@ watch(
 .toolbar-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #7C3AED;
+  color: var(--ct-accent);
   margin-bottom: 0.25rem;
 }
 
@@ -491,7 +491,7 @@ watch(
   position: absolute;
   z-index: 1;
   text-align: center;
-  color: #ffffff;
+  color: var(--ct-on-accent);
   max-width: 40rem;
   padding: 1.25rem 2.5rem;
   transform-origin: center center;
@@ -510,7 +510,7 @@ watch(
 }
 
 .editable-element.selected {
-  border: 0.125rem solid #7C3AED;
+  border: 0.125rem solid var(--ct-accent);
   background: rgba(124, 58, 237, 0.15);
 }
 
@@ -590,7 +590,7 @@ watch(
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  color: var(--ct-on-accent);
   backdrop-filter: blur(0.5rem);
 }
 .btn-secondary:hover {
@@ -598,11 +598,11 @@ watch(
 }
 
 .btn-primary {
-  background: #7C3AED;
-  color: #ffffff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
 }
 .btn-primary:hover {
-  background: #6D28D9;
+  background: var(--ct-accent-hover);
 }
 
 /* Element controls */
@@ -623,7 +623,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #ffffff;
+  color: var(--ct-on-accent);
   font-size: 0.8125rem;
   margin-bottom: 0.75rem;
 }
@@ -639,7 +639,7 @@ watch(
 
 .control-row input[type="range"] {
   flex: 1;
-  accent-color: #7C3AED;
+  accent-color: var(--ct-accent);
 }
 
 .control-row span {
@@ -652,7 +652,7 @@ watch(
   width: 100%;
   background: rgba(255, 255, 255, 0.15);
   border: none;
-  color: #ffffff;
+  color: var(--ct-on-accent);
   border-radius: 0.5rem;
   padding: 0.5rem 1rem;
   font-size: 0.75rem;

@@ -361,7 +361,7 @@ onDeactivated(() => {
 .page-header h2 {
   margin: 0;
   font-size: 1.25rem;
-  color: #2e1065;
+  color: var(--ct-text);
 }
 
 .header-actions {
@@ -372,7 +372,7 @@ onDeactivated(() => {
 
 .debug-switch-label {
   font-size: 0.8125rem;
-  color: #6b5b8a;
+  color: var(--ct-text-muted);
 }
 
 .result-item {
@@ -381,7 +381,7 @@ onDeactivated(() => {
 
 .result-label {
   font-size: 0.75rem;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
   margin-bottom: 0.375rem;
 }
 

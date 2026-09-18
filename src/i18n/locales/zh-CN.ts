@@ -157,6 +157,13 @@ export default {
       title: '语言',
       desc: '选择界面显示语言',
     },
+    theme: {
+      title: '外观主题',
+      desc: '选择亮色、暗色，或跟随系统',
+      system: '跟随系统',
+      light: '亮色',
+      dark: '暗色',
+    },
     agent: {
       enabledTitle: 'Agent 状态通知',
       enabledDesc: 'AI 助手（如 Claude Code）状态变化时弹出通知卡片',

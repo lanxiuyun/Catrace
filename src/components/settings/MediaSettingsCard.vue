@@ -107,7 +107,7 @@ async function resetWhitelistDefaults() {
 
 <style scoped>
 .media-group {
-  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  background: linear-gradient(180deg, var(--ct-surface) 0%, var(--ct-accent-softer) 100%);
 }
 
 .whitelist-header {
@@ -122,13 +122,13 @@ async function resetWhitelistDefaults() {
   margin: 0 0 0.25rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #2E1065;
+  color: var(--ct-text);
 }
 
 .whitelist-desc {
   margin: 0;
   font-size: 0.75rem;
-  color: #8B7AAB;
+  color: var(--ct-text-muted);
   line-height: 1.5;
 }
 

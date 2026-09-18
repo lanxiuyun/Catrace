@@ -193,14 +193,14 @@ onMounted(async () => {
 .title {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #2e1065;
+  color: var(--ct-text);
   margin: 0 0 0.35rem 0;
 }
 
 .subtitle {
   margin: 0 0 1rem 0;
   font-size: 0.875rem;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
 }
 
 .settings-grid {
@@ -211,8 +211,8 @@ onMounted(async () => {
 
 :deep(.group) {
   position: relative;
-  background: #fff;
-  border: 0.0625rem solid #ebe6f2;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-accent-soft);
   border-radius: 0.875rem;
   padding: 1rem 1.25rem;
   box-sizing: border-box;
@@ -238,15 +238,15 @@ onMounted(async () => {
   width: 1.625rem;
   height: 1.625rem;
   border-radius: 0.375rem;
-  color: #c4b5fd;
+  color: var(--ct-accent-border);
   cursor: grab;
   transition: color 0.15s ease, background-color 0.15s ease;
   z-index: 10;
 }
 
 .drag-handle:hover {
-  color: #7c3aed;
-  background: #f5f3ff;
+  color: var(--ct-accent);
+  background: var(--ct-accent-softer);
 }
 
 .drag-handle:active {
@@ -259,7 +259,7 @@ onMounted(async () => {
 }
 
 .settings-card-wrapper.dragging :deep(.group) {
-  background: #f5f3ff;
+  background: var(--ct-accent-softer);
   border-style: dashed;
 }
 
@@ -274,7 +274,7 @@ onMounted(async () => {
 :deep(.group-label) {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.0312rem;
   margin-bottom: 0;
@@ -282,7 +282,7 @@ onMounted(async () => {
 
 :deep(.divider) {
   height: 0.0625rem;
-  background: #f5f3ff;
+  background: var(--ct-accent-softer);
   margin: 0;
 }
 </style>

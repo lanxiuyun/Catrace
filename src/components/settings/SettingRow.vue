@@ -35,14 +35,14 @@ defineProps<{
 .setting-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #2E1065;
+  color: var(--ct-text);
   margin-bottom: 0;
   overflow-wrap: break-word;
 }
 
 .setting-desc {
   font-size: 0.75rem;
-  color: #8B7AAB;
+  color: var(--ct-text-muted);
   line-height: 1.5;
   overflow-wrap: break-word;
 }

@@ -65,7 +65,7 @@ const { t } = useI18n()
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--ct-error);
   animation: pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -85,7 +85,7 @@ const { t } = useI18n()
 .title {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #2e1065;
+  color: var(--ct-text);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -95,7 +95,7 @@ const { t } = useI18n()
 .progress-bar {
   width: 100%;
   height: 0.125rem;
-  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  background: linear-gradient(90deg, var(--ct-accent), var(--ct-accent-border));
   border-radius: 0.0625rem;
   margin: 0.375rem 0 0.5rem;
   animation: progress-shrink var(--toast-auto-hide-ms, 8000ms) linear forwards;
@@ -122,7 +122,7 @@ const { t } = useI18n()
   justify-content: center;
   background: transparent;
   border: none;
-  color: #9c8db5;
+  color: var(--ct-text-subtle);
   cursor: pointer;
   border-radius: 0.375rem;
   padding: 0;
@@ -131,8 +131,8 @@ const { t } = useI18n()
 }
 
 .close-btn:hover {
-  background: #f5f3ff;
-  color: #7c3aed;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
 }
 
 .close-btn:active {
@@ -141,7 +141,7 @@ const { t } = useI18n()
 
 .body-text {
   font-size: 0.8125rem;
-  color: #6b5b8a;
+  color: var(--ct-text-muted);
   line-height: 1.5;
   margin: 0 0 0.625rem 0;
   word-break: break-word;
@@ -172,21 +172,21 @@ const { t } = useI18n()
 }
 
 .btn-secondary {
-  background: #f8f7fb;
-  color: #7c3aed;
+  background: var(--ct-surface-2);
+  color: var(--ct-accent);
 }
 
 .btn-secondary:hover {
-  background: #ede9fe;
+  background: var(--ct-accent-soft);
 }
 
 .btn-primary {
-  background: #7c3aed;
-  color: #ffffff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
 }
 
 .btn-primary:hover {
-  background: #6d28d9;
+  background: var(--ct-accent-hover);
 }
 
 .btn:active {

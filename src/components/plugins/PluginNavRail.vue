@@ -267,8 +267,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #fff;
-  border-right: 0.0625rem solid #e2e8f0;
+  background: var(--ct-surface);
+  border-right: 0.0625rem solid var(--ct-border);
 }
 
 .rail-header {
@@ -298,8 +298,8 @@ onBeforeUnmount(() => {
   min-width: 1.25rem;
   padding: 0.125rem 0.35rem;
   border-radius: 999px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--ct-surface-2);
+  color: var(--ct-text-subtle);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.625rem;
   line-height: 1rem;
@@ -314,14 +314,14 @@ onBeforeUnmount(() => {
   height: 1.85rem;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   border-radius: 0.5rem;
   cursor: pointer;
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--ct-surface-2);
+  color: var(--ct-text-muted);
 }
 
 .icon-btn:disabled {
@@ -341,7 +341,7 @@ onBeforeUnmount(() => {
   flex: none;
   padding: 0.5rem;
   padding-top: 0;
-  border-bottom: 0.0625rem solid #f1f5f9;
+  border-bottom: 0.0625rem solid var(--ct-surface-2);
 }
 
 .rail-install {
@@ -363,8 +363,8 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
   border: none;
   border-radius: 0.625rem;
-  background: #7c3aed;
-  color: #fff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
@@ -373,7 +373,7 @@ onBeforeUnmount(() => {
 }
 
 .install-btn:hover:not(:disabled) {
-  background: #6d28d9;
+  background: var(--ct-accent-hover);
   box-shadow: 0 0.1875rem 0.5rem rgba(124, 58, 237, 0.28);
 }
 
@@ -404,9 +404,9 @@ onBeforeUnmount(() => {
   right: 0;
   z-index: 30;
   padding: 0.375rem;
-  border: 0.0625rem solid #e2e8f0;
+  border: 0.0625rem solid var(--ct-border);
   border-radius: 0.75rem;
-  background: #fff;
+  background: var(--ct-surface);
   box-shadow:
     0 0.5rem 1.25rem rgba(15, 23, 42, 0.1),
     0 0.0625rem 0.125rem rgba(15, 23, 42, 0.04);
@@ -432,13 +432,13 @@ onBeforeUnmount(() => {
 }
 
 .install-option:hover {
-  background: #f8fafc;
+  background: var(--ct-bg);
 }
 
 .install-divider {
   height: 0.0625rem;
   margin: 0.25rem 0.375rem;
-  background: #e2e8f0;
+  background: var(--ct-border);
 }
 
 .option-icon {
@@ -451,15 +451,15 @@ onBeforeUnmount(() => {
 }
 
 .option-icon.tone-zip {
-  color: #7c3aed;
+  color: var(--ct-accent);
 }
 
 .option-icon.tone-folder {
-  color: #f59e0b;
+  color: var(--ct-warning);
 }
 
 .option-icon.tone-dir {
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
 }
 
 .option-title {
@@ -467,7 +467,7 @@ onBeforeUnmount(() => {
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.3;
-  color: #334155;
+  color: var(--ct-text-muted);
 }
 
 .search-field {
@@ -476,17 +476,17 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border: 0.0625rem solid #e2e8f0;
+  border: 0.0625rem solid var(--ct-border);
   border-radius: 0.5rem;
-  background: #f8fafc;
-  color: #94a3b8;
+  background: var(--ct-bg);
+  color: var(--ct-text-subtle);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .search-field:focus-within {
-  border-color: #c4b5fd;
-  box-shadow: 0 0 0 0.125rem #ede9fe;
-  background: #fff;
+  border-color: var(--ct-accent-border);
+  box-shadow: 0 0 0 0.125rem var(--ct-accent-soft);
+  background: var(--ct-surface);
 }
 
 .search-field input {
@@ -495,13 +495,13 @@ onBeforeUnmount(() => {
   border: none;
   outline: none;
   background: transparent;
-  color: #334155;
+  color: var(--ct-text-muted);
   font: inherit;
   font-size: 0.75rem;
 }
 
 .search-field input::placeholder {
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
 }
 
 .search-field input::-webkit-search-cancel-button {
@@ -522,7 +522,7 @@ onBeforeUnmount(() => {
 .list-hint {
   margin: 1rem 0.5rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   line-height: 1.4;
   text-align: center;
 }
@@ -538,29 +538,29 @@ onBeforeUnmount(() => {
   border-radius: 0.625rem;
   padding: 0.625rem;
   cursor: pointer;
-  color: #334155;
+  color: var(--ct-text-muted);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .plugin-item:hover {
-  background: #f8fafc;
+  background: var(--ct-bg);
 }
 
 .plugin-item:focus-visible,
 .icon-btn:focus-visible,
 .install-btn:focus-visible {
-  outline: 0.125rem solid #7c3aed;
+  outline: 0.125rem solid var(--ct-accent);
   outline-offset: 0.125rem;
 }
 
 .plugin-item.active {
-  background: #f5f3ff;
-  border-color: #ede9fe;
-  color: #1e1b4b;
+  background: var(--ct-accent-softer);
+  border-color: var(--ct-accent-soft);
+  color: var(--ct-accent-strong);
 }
 
 .plugin-item.disabled .item-name {
-  color: #9ca3af;
+  color: var(--ct-text-subtle);
 }
 
 .item-icon {
@@ -580,36 +580,36 @@ onBeforeUnmount(() => {
   height: 100%;
   border-radius: 0.625rem;
   object-fit: cover;
-  background: #f1f5f9;
+  background: var(--ct-surface-2);
 }
 
 /* active selected: match the white badge; custom icons show as-is */
 .plugin-item.active .item-icon-img {
-  background: #fff;
+  background: var(--ct-surface);
 }
 
 /* per-plugin tones (idle) */
 .tone-rest .item-icon {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning);
 }
 .tone-timer .item-icon {
-  background: #ede9fe;
-  color: #7c3aed;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
 }
 .tone-agent .item-icon {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--ct-info-soft);
+  color: var(--ct-info);
 }
 .tone-external .item-icon {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--ct-success-soft);
+  color: var(--ct-success);
 }
 
 /* active selected: white badge with a violet ring — icon keeps its own color */
 .plugin-item.active .item-icon {
-  background: #fff;
-  box-shadow: 0 0 0 0.125rem #ddd6fe;
+  background: var(--ct-surface);
+  box-shadow: 0 0 0 0.125rem var(--ct-accent-soft);
 }
 
 /* keep per-plugin stroke color on the lucide fallback even when selected */
@@ -617,16 +617,16 @@ onBeforeUnmount(() => {
   color: inherit;
 }
 .plugin-item.active .item-icon-lucide {
-  color: #6d28d9;
+  color: var(--ct-accent-hover);
 }
 
 .plugin-item.active .item-name {
   font-weight: 700;
-  color: #6d28d9;
+  color: var(--ct-accent-hover);
 }
 
 .plugin-item.active .item-sub {
-  color: #8b5cf6;
+  color: var(--ct-accent);
 }
 
 .item-text {
@@ -637,7 +637,7 @@ onBeforeUnmount(() => {
 .item-name {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--ct-text);
   line-height: 1.3;
   min-width: 0;
 }
@@ -667,8 +667,8 @@ onBeforeUnmount(() => {
 .ver {
   font-size: 0.625rem;
   font-weight: 500;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--ct-text-subtle);
+  background: var(--ct-surface-2);
   padding: 0.1rem 0.3rem;
   border-radius: 0.25rem;
 }
@@ -677,10 +677,10 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   padding: 0.0625rem 0.375rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid var(--ct-warning-soft);
   border-radius: 999px;
-  background: #fff7ed;
-  color: #c2410c;
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning-strong);
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 1.25rem;
@@ -694,7 +694,7 @@ onBeforeUnmount(() => {
 .item-sub {
   margin-top: 0.15rem;
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -706,17 +706,17 @@ onBeforeUnmount(() => {
   height: 0.5rem;
   flex: none;
   border-radius: 50%;
-  background: #cbd5e1;
-  box-shadow: 0 0 0 0.125rem #f1f5f9;
+  background: var(--ct-border);
+  box-shadow: 0 0 0 0.125rem var(--ct-surface-2);
 }
 
 .status-dot.enabled {
-  background: #22c55e;
-  box-shadow: 0 0 0 0.125rem #dcfce7;
+  background: var(--ct-success);
+  box-shadow: 0 0 0 0.125rem var(--ct-success-soft);
 }
 
 .status-dot.error {
-  background: #ef4444;
-  box-shadow: 0 0 0 0.125rem #fee2e2;
+  background: var(--ct-error);
+  box-shadow: 0 0 0 0.125rem var(--ct-error-soft);
 }
 </style>

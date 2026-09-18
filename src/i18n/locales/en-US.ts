@@ -157,6 +157,13 @@ export default {
       title: 'Language',
       desc: 'Choose the display language',
     },
+    theme: {
+      title: 'Appearance',
+      desc: 'Choose light, dark, or follow system',
+      system: 'System',
+      light: 'Light',
+      dark: 'Dark',
+    },
     agent: {
       enabledTitle: 'Agent Status Notifications',
       enabledDesc: 'Show a toast when an AI assistant (e.g. Claude Code) changes state',

@@ -26,13 +26,13 @@ defineProps<{
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--ct-text-muted);
   letter-spacing: 0.02rem;
 }
 
 .section-card {
-  background: #fff;
-  border: 0.0625rem solid #e2e8f0;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-border);
   border-radius: 0.875rem;
   padding: 0.75rem 1rem;
   box-shadow: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.03);
@@ -41,7 +41,7 @@ defineProps<{
 .section-desc {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   line-height: 1.4;
 }
 </style>

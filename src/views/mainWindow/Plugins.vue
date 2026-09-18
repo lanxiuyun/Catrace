@@ -490,7 +490,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   display: flex;
   height: 100%;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--ct-bg);
   box-sizing: border-box;
 }
 
@@ -557,9 +557,9 @@ async function onTestExternal(p: ExternalPluginInfo) {
   padding: 2.5rem 1rem;
   text-align: center;
   border-radius: 0.875rem;
-  border: 0.0625rem dashed #e2e8f0;
-  background: #fff;
-  color: #94a3b8;
+  border: 0.0625rem dashed var(--ct-border);
+  background: var(--ct-surface);
+  color: var(--ct-text-subtle);
   font-size: 0.875rem;
 }
 
@@ -567,8 +567,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
   margin: 0;
   padding: 0.625rem 0.75rem;
   border-radius: 0.5rem;
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--ct-error-soft);
+  color: var(--ct-error-strong);
   font-size: 0.8125rem;
 }
 
@@ -578,20 +578,20 @@ async function onTestExternal(p: ExternalPluginInfo) {
   gap: 0.75rem;
   flex-wrap: wrap;
   padding: 1rem;
-  background: #fff;
-  border: 0.0625rem solid #e2e8f0;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-border);
   border-radius: 0.875rem;
 }
 
 .ext-actions-hint {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
 }
 
 .btn-primary {
   border: none;
-  background: #7c3aed;
-  color: #fff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
   border-radius: 0.5rem;
   padding: 0.5rem 0.9rem;
   font-size: 0.8125rem;
@@ -600,7 +600,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #6d28d9;
+  background: var(--ct-accent-hover);
 }
 
 .btn-primary:disabled {

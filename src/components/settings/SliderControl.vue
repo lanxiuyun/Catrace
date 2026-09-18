@@ -48,7 +48,7 @@ defineEmits<{
 .setting-value {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #7C3AED;
+  color: var(--ct-accent);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 3.5rem;

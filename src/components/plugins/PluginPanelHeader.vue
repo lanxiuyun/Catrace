@@ -54,8 +54,8 @@ function onUpdate(value: boolean) {
   flex-wrap: nowrap;
   flex: none;
   padding: 1rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--ct-surface);
+  border-bottom: 1px solid var(--ct-border);
 }
 
 .header-left {
@@ -69,20 +69,19 @@ function onUpdate(value: boolean) {
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 0.75rem;
-  background: transparent;
-  color: #7c3aed;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
 }
 
-.icon-badge :deep(img) {
+.header-icon-img {
   width: 100%;
   height: 100%;
+  border-radius: 0.75rem;
   object-fit: cover;
-  display: block;
 }
 
 .header-text {
@@ -100,7 +99,7 @@ function onUpdate(value: boolean) {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1e1b4b;
+  color: var(--ct-accent-strong);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -110,7 +109,7 @@ function onUpdate(value: boolean) {
 .panel-subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
-  color: #64748b;
+  color: var(--ct-text-subtle);
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;

@@ -1,0 +1,86 @@
+/* Catrace 主题 token 层 — 颜色单一真源
+ * :root = 亮色（薰衣草紫）；[data-theme="dark"] = 深灰 + 提亮紫强调
+ * 组件 <style> 里的颜色应引用这些变量，勿再写裸 hex。
+ */
+
+:root {
+  /* 强调（紫） */
+  --ct-accent: #7c3aed;
+  --ct-accent-hover: #6d28d9;
+  --ct-accent-strong: #4c1d95;
+  --ct-accent-soft: #ede9fe;
+  --ct-accent-softer: #f5f3ff;
+  --ct-accent-border: #c4b5fd;
+
+  /* 表面 / 背景 / 边框 */
+  --ct-bg: #f7f5fa;
+  --ct-surface: #ffffff;
+  --ct-surface-2: #f8f7fb;
+  --ct-border: #ede9fe;
+
+  /* 文本 */
+  --ct-text: #2e1065;
+  --ct-text-muted: #8b7aab;
+  --ct-text-subtle: #9c8db5;
+
+  /* 状态 */
+  --ct-success: #059669;
+  --ct-success-strong: #047857;
+  --ct-success-soft: #d1fae5;
+  --ct-warning: #f59e0b;
+  --ct-warning-strong: #b45309;
+  --ct-warning-soft: #fffbeb;
+  --ct-error: #ef4444;
+  --ct-error-strong: #b91c1c;
+  --ct-error-soft: #fee2e2;
+
+  /* 蓝 / 青 */
+  --ct-info: #3b82f6;
+  --ct-info-soft: #dbeafe;
+  --ct-cyan: #06b6d4;
+  --ct-cyan-soft: #cffafe;
+
+  /* 强调/深色底上的前景白 */
+  --ct-on-accent: #ffffff;
+}
+
+[data-theme="dark"] {
+  /* 强调（紫，暗底提亮保证对比度） */
+  --ct-accent: #a78bfa;
+  --ct-accent-hover: #8b5cf6;
+  --ct-accent-strong: #c4b5fd;
+  --ct-accent-soft: #2e2a45;
+  --ct-accent-softer: #232135;
+  --ct-accent-border: #4a4470;
+
+  /* 表面 / 背景 / 边框 */
+  --ct-bg: #1a1a1e;
+  --ct-surface: #232329;
+  --ct-surface-2: #2a2a31;
+  --ct-border: #35353d;
+
+  /* 文本 */
+  --ct-text: #ececf0;
+  --ct-text-muted: #a1a1aa;
+  --ct-text-subtle: #71717a;
+
+  /* 状态 */
+  --ct-success: #34d399;
+  --ct-success-strong: #6ee7b7;
+  --ct-success-soft: #12291f;
+  --ct-warning: #fbbf24;
+  --ct-warning-strong: #fcd34d;
+  --ct-warning-soft: #2e2410;
+  --ct-error: #f87171;
+  --ct-error-strong: #fca5a5;
+  --ct-error-soft: #2e1616;
+
+  /* 蓝 / 青 */
+  --ct-info: #60a5fa;
+  --ct-info-soft: #16233a;
+  --ct-cyan: #22d3ee;
+  --ct-cyan-soft: #0c2a30;
+
+  /* 强调/深色底上的前景白 */
+  --ct-on-accent: #ffffff;
+}

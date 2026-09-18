@@ -7,15 +7,16 @@ import {
   NMessageProvider,
   NDialogProvider,
 } from 'naive-ui'
-import { themeOverrides } from './theme'
 import {
   zhCN as naiveZhCN,
   enUS as naiveEnUS,
   dateZhCN,
   dateEnUS,
 } from 'naive-ui'
+import { useTheme } from './composables/useTheme'
 
 const { locale } = useI18n()
+const { naiveTheme, naiveOverrides } = useTheme()
 
 const naiveLocale = computed(() => {
   return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS
@@ -28,7 +29,8 @@ const naiveDateLocale = computed(() => {
 
 <template>
   <n-config-provider
-    :theme-overrides="themeOverrides"
+    :theme="naiveTheme"
+    :theme-overrides="naiveOverrides"
     :locale="naiveLocale"
     :date-locale="naiveDateLocale"
   >
@@ -45,7 +47,7 @@ html, body, #app {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--ct-bg);
 }
 
 * {

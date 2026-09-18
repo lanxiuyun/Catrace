@@ -186,7 +186,7 @@ async function handleSkip() {
   width: 100%;
   min-height: 100vh;
   max-height: 37.5rem;
-  background: #ffffff;
+  background: var(--ct-surface);
   border-radius: 1rem;
   padding: 1rem 1.25rem 0.875rem;
   box-sizing: border-box;
@@ -217,7 +217,7 @@ async function handleSkip() {
   width: 0.625rem;
   height: 0.625rem;
   border-radius: 50%;
-  background: #EF4444;
+  background: var(--ct-error);
   animation: pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -230,7 +230,7 @@ async function handleSkip() {
 .title {
   font-size: 1rem;
   font-weight: 700;
-  color: #2E1065;
+  color: var(--ct-text);
   margin: 0;
 }
 
@@ -242,15 +242,15 @@ async function handleSkip() {
   justify-content: center;
   background: transparent;
   border: none;
-  color: #9C8DB5;
+  color: var(--ct-text-subtle);
   cursor: pointer;
   border-radius: 0.5rem;
   padding: 0;
   transition: all 0.2s ease;
 }
 .close-btn:hover {
-  background: #F5F3FF;
-  color: #7C3AED;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
 }
 .close-btn:active {
   transform: scale(0.95);
@@ -259,7 +259,7 @@ async function handleSkip() {
 /* Body */
 .body-text {
   font-size: 0.875rem;
-  color: #6B5B8A;
+  color: var(--ct-text-muted);
   line-height: 1.6;
   margin: 0 0 1rem 0;
   flex: 1 1 auto;
@@ -282,20 +282,20 @@ async function handleSkip() {
   font-weight: 600;
   cursor: pointer;
   border: none;
-  background: #F8F7FB;
-  color: #7C3AED;
+  background: var(--ct-surface-2);
+  color: var(--ct-accent);
   transition: all 0.2s ease;
 }
 .pill:hover {
-  background: #EDE9FE;
+  background: var(--ct-accent-soft);
 }
 .pill:active {
   transform: scale(0.96);
 }
 
 .pill-active {
-  background: #7C3AED;
-  color: #ffffff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
 }
 
 /* Custom Row */
@@ -314,19 +314,19 @@ async function handleSkip() {
 .custom-input {
   flex: 1;
   height: 2.25rem;
-  border: 0.0938rem solid #E8E4F0;
+  border: 0.0938rem solid var(--ct-accent-soft);
   border-radius: 0.625rem;
   padding: 0 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #2E1065;
+  color: var(--ct-text);
   outline: none;
-  background: #FAFAFC;
+  background: var(--ct-bg);
   transition: all 0.2s ease;
 }
 .custom-input:focus {
-  border-color: #7C3AED;
-  background: #ffffff;
+  border-color: var(--ct-accent);
+  background: var(--ct-surface);
   box-shadow: 0 0 0 0.1875rem rgba(124,58,237,0.08);
 }
 .custom-input::-webkit-outer-spin-button,
@@ -350,12 +350,12 @@ async function handleSkip() {
 }
 
 .btn-primary {
-  background: #7C3AED;
-  color: #ffffff;
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
   padding: 0 1.25rem;
 }
 .btn-primary:hover {
-  background: #6D28D9;
+  background: var(--ct-accent-hover);
 }
 .btn-primary:active {
   transform: scale(0.97);
@@ -371,13 +371,13 @@ async function handleSkip() {
   width: 100%;
   margin-top: auto;
   background: transparent;
-  color: #8B7AAB;
-  border: 0.0938rem solid #E8E4F0;
+  color: var(--ct-text-muted);
+  border: 0.0938rem solid var(--ct-accent-soft);
 }
 .btn-skip:hover {
-  background: #FAFAFC;
-  border-color: #DDD6FE;
-  color: #7C3AED;
+  background: var(--ct-bg);
+  border-color: var(--ct-accent-soft);
+  color: var(--ct-accent);
 }
 .btn-skip:active {
   transform: scale(0.98);

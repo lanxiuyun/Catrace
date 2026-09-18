@@ -22,9 +22,20 @@ import {
   type UpdateSourceId,
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
+import { useTheme, type ThemeMode } from '../../composables/useTheme'
 
 const { t } = useI18n()
 const message = useMessage()
+
+const { mode: themeMode, setMode: setThemeMode } = useTheme()
+const themeOptions = computed(() => [
+  { label: t('settings.theme.system'), value: 'system' },
+  { label: t('settings.theme.light'), value: 'light' },
+  { label: t('settings.theme.dark'), value: 'dark' },
+])
+function changeTheme(v: ThemeMode) {
+  void setThemeMode(v)
+}
 
 const autostart = ref(false)
 const silentStart = ref(false)
@@ -286,6 +297,16 @@ async function handleInstallUpdate() {
       />
     </setting-row>
 
+    <setting-row :title="t('settings.theme.title')" :desc="t('settings.theme.desc')">
+      <n-select
+        :value="themeMode"
+        :options="themeOptions"
+        size="small"
+        style="width: 10rem;"
+        @update:value="changeTheme"
+      />
+    </setting-row>
+
     <div class="divider" />
 
     <template v-if="showAccessibility">
@@ -373,8 +394,8 @@ async function handleInstallUpdate() {
             :percentage="downloadProgress"
             :height="8"
             :show-indicator="false"
-            color="#7C3AED"
-            rail-color="#EBE6F2"
+            color="var(--ct-accent)"
+            rail-color="var(--ct-accent-soft)"
           />
           <div class="download-progress-text">
             {{ downloadProgress }}%
@@ -401,13 +422,13 @@ async function handleInstallUpdate() {
 .update-banner-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #2E1065;
+  color: var(--ct-text);
   min-width: 0;
 }
 
 .update-banner-body {
   font-size: 0.75rem;
-  color: #8B7AAB;
+  color: var(--ct-text-muted);
   margin-bottom: 0.75rem;
   white-space: pre-wrap;
   line-height: 1.5;
@@ -429,7 +450,7 @@ async function handleInstallUpdate() {
 
 .download-progress-text {
   font-size: 0.75rem;
-  color: #8B7AAB;
+  color: var(--ct-text-muted);
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
   text-align: right;

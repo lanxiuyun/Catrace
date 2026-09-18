@@ -375,7 +375,7 @@ defineExpose({
 }
 
 .event-row + .event-row {
-  border-top: 0.0625rem solid #f1f5f9;
+  border-top: 0.0625rem solid var(--ct-surface-2);
 }
 
 .event-row.align-start {
@@ -391,12 +391,12 @@ defineExpose({
 
 .event-name {
   font-size: 0.8125rem;
-  color: #334155;
+  color: var(--ct-text-muted);
 }
 
 .event-desc {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   line-height: 1.4;
 }
 
@@ -409,7 +409,7 @@ defineExpose({
 
 .value-display {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--ct-text-subtle);
   min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -419,7 +419,7 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
   padding-top: 0.5rem;
-  border-top: 0.0625rem solid #f1f5f9;
+  border-top: 0.0625rem solid var(--ct-surface-2);
 }
 
 .fs-bg-upload {
@@ -432,7 +432,7 @@ defineExpose({
   height: 4.5rem;
   border-radius: 0.5rem;
   overflow: hidden;
-  border: 0.0625rem solid #e2e8f0;
+  border: 0.0625rem solid var(--ct-border);
 }
 
 .fs-bg-preview img {
@@ -461,12 +461,12 @@ defineExpose({
 
 .fs-btn-secondary {
   background: rgba(255, 255, 255, 0.92);
-  color: #334155;
+  color: var(--ct-text-muted);
 }
 
 .fs-btn-danger {
   background: rgba(255, 255, 255, 0.92);
-  color: #ef4444;
+  color: var(--ct-error);
 }
 
 .fs-bg-empty {
@@ -477,8 +477,8 @@ defineExpose({
   width: 100%;
   min-height: 4.5rem;
   border-radius: 0.5rem;
-  border: 0.125rem dashed #e2e8f0;
-  background: #f8fafc;
+  border: 0.125rem dashed var(--ct-border);
+  background: var(--ct-bg);
   cursor: pointer;
   gap: 0.25rem;
   padding: 0.5rem;
@@ -486,12 +486,12 @@ defineExpose({
 
 .fs-empty-text {
   font-size: 0.75rem;
-  color: #334155;
+  color: var(--ct-text-muted);
 }
 
 .fs-empty-hint {
   font-size: 0.6875rem;
-  color: #94a3b8;
+  color: var(--ct-text-subtle);
   text-align: center;
 }
 </style>

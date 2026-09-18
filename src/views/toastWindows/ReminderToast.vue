@@ -1275,7 +1275,7 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 .toast-card {
   width: 22.5rem;
   max-height: 37.5rem;
-  background: #ffffff;
+  background: var(--ct-surface);
   border-radius: 0.5rem;
   padding: 0.75rem;
   box-sizing: border-box;
@@ -1365,7 +1365,7 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 
 /* Permission approval card (P6) — amber, always visible until decision */
 .toast-card-permission {
-  border: 0.0625rem solid #fde68a;
+  border: 0.0625rem solid var(--ct-warning-soft);
   box-shadow:
     0 0.5rem 1.5rem rgba(245, 158, 11, 0.18),
     0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);

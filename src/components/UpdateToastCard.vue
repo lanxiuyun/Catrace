@@ -134,7 +134,7 @@ async function onSourceChange(event: Event) {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #f59e0b;
+  background: var(--ct-warning);
   animation: pulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -154,7 +154,7 @@ async function onSourceChange(event: Event) {
 .title {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #92400e;
+  color: var(--ct-warning);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -170,7 +170,7 @@ async function onSourceChange(event: Event) {
   justify-content: center;
   background: transparent;
   border: none;
-  color: #9c8db5;
+  color: var(--ct-text-subtle);
   cursor: pointer;
   border-radius: 0.375rem;
   padding: 0;
@@ -179,8 +179,8 @@ async function onSourceChange(event: Event) {
 }
 
 .close-btn:hover {
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning);
 }
 
 .close-btn:active {
@@ -196,8 +196,8 @@ async function onSourceChange(event: Event) {
   word-break: break-word;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: #78350f;
-  background: #fffbeb;
+  color: var(--ct-warning-strong);
+  background: var(--ct-warning-soft);
   border-radius: 0.375rem;
   padding: 0.5rem 0.625rem;
   margin: 0.375rem 0 0.625rem 0;
@@ -213,21 +213,21 @@ async function onSourceChange(event: Event) {
 .update-progress-track {
   flex: 1;
   height: 0.375rem;
-  background: #f3f4f6;
+  background: var(--ct-surface-2);
   border-radius: 0.25rem;
   overflow: hidden;
 }
 
 .update-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  background: linear-gradient(90deg, var(--ct-warning), var(--ct-warning));
   border-radius: 0.25rem;
   transition: width 0.2s ease;
 }
 
 .update-progress-text {
   font-size: 0.75rem;
-  color: #92400e;
+  color: var(--ct-warning);
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
   text-align: right;
@@ -238,9 +238,9 @@ async function onSourceChange(event: Event) {
   width: 7.5rem;
   height: 1.5rem;
   border-radius: 0.375rem;
-  border: 1px solid #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--ct-warning-soft);
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning);
   font-size: 0.6875rem;
   font-weight: 600;
   padding: 0 0.25rem;
@@ -274,25 +274,25 @@ async function onSourceChange(event: Event) {
 }
 
 .btn-secondary {
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning);
 }
 
 .btn-secondary:hover {
-  background: #fef3c7;
+  background: var(--ct-warning-soft);
 }
 
 .btn-primary {
-  background: #f59e0b;
-  color: #ffffff;
+  background: var(--ct-warning);
+  color: var(--ct-on-accent);
 }
 
 .btn-primary:hover {
-  background: #d97706;
+  background: var(--ct-warning);
 }
 
 .btn-primary:disabled {
-  background: #fcd34d;
+  background: var(--ct-warning-soft);
   cursor: not-allowed;
 }
 

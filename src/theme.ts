@@ -78,3 +78,64 @@ export const themeOverrides: GlobalThemeOverrides = {
     handleColor: colors.violet600,
   },
 }
+
+/** 暗色 naive-ui overrides，与 theme.css 的 [data-theme=dark] 对齐 */
+export const darkThemeOverrides: GlobalThemeOverrides = {
+  common: {
+    primaryColor: '#a78bfa',
+    primaryColorHover: '#8b5cf6',
+    primaryColorPressed: '#c4b5fd',
+    primaryColorSuppl: '#a78bfa',
+    successColor: '#34d399',
+    successColorHover: '#6ee7b7',
+    successColorPressed: '#059669',
+    infoColor: '#60a5fa',
+    warningColor: '#fbbf24',
+    errorColor: '#f87171',
+    bodyColor: '#1a1a1e',
+    cardColor: '#232329',
+    borderColor: '#35353d',
+    dividerColor: '#35353d',
+    textColor1: '#ececf0',
+    textColor2: '#a1a1aa',
+    textColor3: '#71717a',
+    borderRadius: '12px',
+    borderRadiusSmall: '8px',
+  },
+  Menu: {
+    itemColorActive: '#2e2a45',
+    itemColorActiveHover: '#3a3555',
+    itemColorHover: 'rgba(46, 42, 69, 0.6)',
+    itemTextColor: '#a1a1aa',
+    itemTextColorActive: '#c4b5fd',
+    itemTextColorHover: '#ececf0',
+    itemTextColorActiveHover: '#c4b5fd',
+    arrowColor: '#a78bfa',
+    arrowColorActive: '#c4b5fd',
+    arrowColorHover: '#a78bfa',
+  },
+  Tag: {
+    borderRadius: '20px',
+  },
+  Radio: {
+    buttonTextColorActive: '#c4b5fd',
+    buttonColorActive: '#2e2a45',
+    buttonBorderColorActive: '#4a4470',
+  },
+  Card: {
+    borderRadius: '16px',
+    color: '#232329',
+    borderColor: '#35353d',
+  },
+  Button: {
+    borderRadiusMedium: '10px',
+  },
+  Slider: {
+    fillColor: '#a78bfa',
+    fillColorHover: '#8b5cf6',
+    handleColor: '#a78bfa',
+  },
+}
+
+/** 亮色 overrides 的别名（语义清晰，供 useTheme 选用） */
+export const lightThemeOverrides = themeOverrides

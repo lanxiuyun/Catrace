@@ -34,9 +34,9 @@ function formatTime(ts: number): string {
 }
 
 function getColor(m: MinuteData): string {
-  if (m.active === null) return '#EDE9FE'
-  if (m.active) return '#7C3AED'
-  return '#14B8A6'
+  if (m.active === null) return 'var(--ct-accent-soft)'
+  if (m.active) return 'var(--ct-accent)'
+  return 'var(--ct-cyan)'
 }
 
 function getLabel(m: MinuteData): string {
@@ -148,15 +148,15 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
     <!-- 图例 -->
     <div class="legend">
       <div class="legend-item">
-        <span class="dot" style="background:#7C3AED" />
+        <span class="dot" style="background:var(--ct-accent)" />
         <span>{{ t('timeline.active') }}</span>
       </div>
       <div class="legend-item">
-        <span class="dot" style="background:#14B8A6" />
+        <span class="dot" style="background:var(--ct-cyan)" />
         <span>{{ t('timeline.rest') }}</span>
       </div>
       <div class="legend-item">
-        <span class="dot" style="background:#EDE9FE" />
+        <span class="dot" style="background:var(--ct-accent-soft)" />
         <span>{{ t('timeline.null') }}</span>
       </div>
       <div class="legend-item">
@@ -188,7 +188,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
   position: absolute;
   top: 0;
   font-size: 0.625rem;
-  color: #A78BFA;
+  color: var(--ct-accent-border);
   transform: translateX(-50%);
   font-weight: 500;
 }
@@ -209,7 +209,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 
 .hour-label {
   font-size: 0.625rem;
-  color: #A78BFA;
+  color: var(--ct-accent-border);
   text-align: right;
   line-height: 1;
   height: 0.875rem;
@@ -246,13 +246,13 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 }
 
 .cell.is-selected {
-  box-shadow: 0 0 0 0.125rem #F59E0B;
+  box-shadow: 0 0 0 0.125rem var(--ct-warning);
   z-index: 3;
   border-radius: 0.25rem;
 }
 
 .cell.is-now {
-  box-shadow: 0 0 0 0.125rem #EF4444;
+  box-shadow: 0 0 0 0.125rem var(--ct-error);
   border-radius: 0.25rem;
   z-index: 1;
   animation: pulse-ring 2s infinite;
@@ -282,13 +282,13 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  color: #6D28D9;
+  color: var(--ct-accent-hover);
 }
 
 .hover-time {
   font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
   font-weight: 600;
-  color: #3730A3;
+  color: var(--ct-accent-strong);
 }
 
 .hover-badge {
@@ -301,7 +301,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 
 .hover-placeholder {
   font-size: 0.8125rem;
-  color: #C4B5FD;
+  color: var(--ct-accent-border);
 }
 
 .legend {
@@ -310,7 +310,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
   gap: 1rem;
   align-items: center;
   font-size: 0.75rem;
-  color: #7C7CAA;
+  color: var(--ct-text-muted);
   flex-wrap: wrap;
   font-weight: 500;
 }
@@ -328,7 +328,7 @@ function getCellStyle(m: MinuteData, i: number): Record<string, string> {
 }
 
 .dot.is-now-demo {
-  box-shadow: 0 0 0 0.125rem #EF4444;
+  box-shadow: 0 0 0 0.125rem var(--ct-error);
   background: transparent;
   animation: pulse-ring 2s infinite;
 }

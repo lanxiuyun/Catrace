@@ -42,8 +42,8 @@ const tickDasharray = computed(() => {
           x2="100%"
           y2="100%"
         >
-          <stop offset="0%" stop-color="#22D3EE" />
-          <stop offset="100%" stop-color="#059669" />
+          <stop offset="0%" stop-color="var(--ct-cyan)" />
+          <stop offset="100%" stop-color="var(--ct-success)" />
         </linearGradient>
 
         <filter id="rest-progress-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -129,20 +129,20 @@ const tickDasharray = computed(() => {
   position: absolute;
   inset: 0.25rem;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #F0FDF4 0%, #D1FAE5 100%);
+  background: radial-gradient(circle at 35% 30%, var(--ct-success-soft) 0%, var(--ct-success-soft) 100%);
   z-index: 0;
 }
 
 .rest-timer__ticks {
   fill: none;
-  stroke: #A7F3D0;
+  stroke: var(--ct-success-soft);
   stroke-width: 2;
   stroke-linecap: round;
 }
 
 .rest-timer__track {
   fill: none;
-  stroke: #D1FAE5;
+  stroke: var(--ct-success-soft);
   stroke-width: 8;
   stroke-linecap: round;
 }
@@ -169,7 +169,7 @@ const tickDasharray = computed(() => {
 .rest-timer__number {
   font-size: 1.875rem;
   font-weight: 800;
-  color: #065F46;
+  color: var(--ct-success);
   font-variant-numeric: tabular-nums;
   transition: transform 0.3s ease;
 }
@@ -177,7 +177,7 @@ const tickDasharray = computed(() => {
 .rest-timer__unit {
   font-size: 0.625rem;
   font-weight: 600;
-  color: #047857;
+  color: var(--ct-success-strong);
   margin-top: 0.125rem;
   letter-spacing: 0.02em;
 }
@@ -198,7 +198,7 @@ const tickDasharray = computed(() => {
   width: 0.375rem;
   height: 0.375rem;
   border-radius: 50%;
-  background: radial-gradient(circle, #34D399 0%, rgba(52, 211, 153, 0) 70%);
+  background: radial-gradient(circle, var(--ct-cyan) 0%, rgba(52, 211, 153, 0) 70%);
   opacity: 0;
   pointer-events: none;
   z-index: 3;
@@ -228,7 +228,7 @@ const tickDasharray = computed(() => {
 }
 
 .rest-timer--complete .rest-timer__progress {
-  stroke: #10B981;
+  stroke: var(--ct-success);
 }
 
 .rest-timer--complete .rest-timer__pulse {
@@ -241,7 +241,7 @@ const tickDasharray = computed(() => {
 }
 
 .rest-timer--complete .rest-timer__sparkle {
-  background: radial-gradient(circle, #34D399 0%, rgba(52, 211, 153, 0) 60%);
+  background: radial-gradient(circle, var(--ct-cyan) 0%, rgba(52, 211, 153, 0) 60%);
   animation-duration: 1.4s;
 }
 

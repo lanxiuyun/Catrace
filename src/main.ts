@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import './styles/theme.css'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
@@ -8,6 +9,7 @@ import { useEventHub } from './stores/eventHub'
 import { registerBuiltinPlugins } from './plugins/registerBuiltins'
 import { loadExternalPlugins } from './plugins/loadExternalPlugins'
 import { ensurePluginLogConsole } from './plugins/pluginApi'
+import { useTheme } from './composables/useTheme'
 
 // 从 URL query 参数读取提醒类型（弹窗创建时传入）
 const url = new URL(window.location.href)
@@ -74,7 +76,10 @@ if (!isPluginHost) {
   })
 }
 
-app.mount('#app')
+// 挂载前初始化主题（读持久化偏好 + 落地 data-theme），避免亮色闪白(FOUC)
+useTheme().init().finally(() => {
+  app.mount('#app')
+})
 
 if (!isToastOrReminder) {
   useEventHub(pinia).startListening().catch((e) => {

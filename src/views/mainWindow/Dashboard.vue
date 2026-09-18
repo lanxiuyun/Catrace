@@ -292,7 +292,7 @@ onDeactivated(() => {
 .demo-thanks {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #6d28d9;
+  color: var(--ct-accent-hover);
   white-space: nowrap;
   user-select: none;
 }
@@ -314,14 +314,14 @@ onDeactivated(() => {
 
 .hide-stats-label {
   font-size: 0.75rem;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
   white-space: nowrap;
 }
 
 .subtitle {
   margin: 0;
   font-size: 0.8125rem;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
 }
 
 .stats {
@@ -350,8 +350,8 @@ onDeactivated(() => {
 }
 
 .stat {
-  background: #fff;
-  border: 0.0625rem solid #ebe6f2;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-accent-soft);
   border-radius: 0.75rem;
   padding: 0.375rem 0.5rem;
   box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04);
@@ -372,21 +372,21 @@ onDeactivated(() => {
 }
 
 .dot-active {
-  background: #7c3aed;
+  background: var(--ct-accent);
 }
 .dot-rest {
-  background: #059669;
+  background: var(--ct-success);
 }
 .dot-ratio {
-  background: #a78bfa;
+  background: var(--ct-accent-border);
 }
 .dot-muted {
-  background: #c4b5fd;
+  background: var(--ct-accent-border);
 }
 
 .stat-label {
   font-size: 0.75rem;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
   font-weight: 500;
 }
 
@@ -407,19 +407,19 @@ onDeactivated(() => {
 }
 
 .stat-active .stat-value {
-  color: #6d28d9;
+  color: var(--ct-accent-hover);
 }
 .stat-rest .stat-value {
-  color: #047857;
+  color: var(--ct-success-strong);
 }
 .stat-ratio .stat-value,
 .stat-blocks .stat-value {
-  color: #4c1d95;
+  color: var(--ct-accent-strong);
 }
 
 .panel {
   border-radius: 0.75rem !important;
-  border: 0.0625rem solid #ebe6f2 !important;
+  border: 0.0625rem solid var(--ct-accent-soft) !important;
   box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04) !important;
 }
 
@@ -435,13 +435,13 @@ onDeactivated(() => {
   margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #2e1065;
+  color: var(--ct-text);
 }
 
 .empty {
   margin: 2rem 0 0;
   text-align: center;
   font-size: 0.8125rem;
-  color: #a1a1aa;
+  color: var(--ct-text-subtle);
 }
 </style>

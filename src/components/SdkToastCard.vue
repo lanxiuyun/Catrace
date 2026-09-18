@@ -76,20 +76,20 @@ function levelClass(level?: string) {
   flex-direction: column;
   width: 100%;
   min-height: 0;
-  --accent: #6366f1;
-  --title: #312e81;
-  --body: #4338ca;
-  --light-bg: #eef2ff;
+  --accent: var(--ct-accent);
+  --title: var(--ct-accent-strong);
+  --body: var(--ct-accent-strong);
+  --light-bg: var(--ct-accent-softer);
 }
-.sdk-toast.level-success { --accent: #10b981; --title: #064e3b; --body: #047857; --light-bg: #ecfdf5; }
-.sdk-toast.level-warning { --accent: #f59e0b; --title: #78350f; --body: #b45309; --light-bg: #fffbeb; }
-.sdk-toast.level-error { --accent: #ef4444; --title: #7f1d1d; --body: #b91c1c; --light-bg: #fef2f2; }
+.sdk-toast.level-success { --accent: var(--ct-success); --title: var(--ct-success-strong); --body: var(--ct-success-strong); --light-bg: var(--ct-success-soft); }
+.sdk-toast.level-warning { --accent: var(--ct-warning); --title: var(--ct-warning-strong); --body: var(--ct-warning-strong); --light-bg: var(--ct-warning-soft); }
+.sdk-toast.level-error { --accent: var(--ct-error); --title: var(--ct-error-strong); --body: var(--ct-error-strong); --light-bg: var(--ct-error-soft); }
 .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
 .header-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .pulse-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent); animation: pulse 1.5s ease-in-out infinite; flex-shrink: 0; }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
 .title { margin: 0; font-size: 0.9375rem; font-weight: 600; color: var(--title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.close-btn { flex-shrink: 0; width: 1.5rem; height: 1.5rem; border: none; background: transparent; border-radius: 0.25rem; color: #94a3b8; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.close-btn { flex-shrink: 0; width: 1.5rem; height: 1.5rem; border: none; background: transparent; border-radius: 0.25rem; color: var(--ct-text-subtle); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .close-btn:hover { background: var(--light-bg); color: var(--accent); }
 .progress-bar { height: 0.125rem; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--light-bg)); transform-origin: left center; animation: shrink var(--toast-auto-hide-ms, 8000ms) linear forwards; margin: 0.25rem 0 0.5rem; }
 .progress-bar.paused { animation-play-state: paused; }
@@ -102,6 +102,6 @@ function levelClass(level?: string) {
 .actions { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.625rem; }
 .btn { border: none; border-radius: 0.375rem; padding: 0.375rem 0.625rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .btn-secondary { background: var(--light-bg); color: var(--title); }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent); color: var(--ct-on-accent); }
 .btn:hover { filter: brightness(0.97); }
 </style>

@@ -95,9 +95,9 @@ function getLabel(active: boolean | null, isCurrent: boolean): string {
 }
 
 function getColor(active: boolean | null): string {
-  if (active === null) return '#d4d4d8'
-  if (active) return '#7c3aed'
-  return '#059669'
+  if (active === null) return 'var(--ct-border)'
+  if (active) return 'var(--ct-accent)'
+  return 'var(--ct-success)'
 }
 
 // 读取 CSS Grid 实际列数（与 auto-fill 布局保持一致）
@@ -347,8 +347,8 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .card {
-  background: #fff;
-  border: 0.0625rem solid #ebe6f2;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-accent-soft);
   border-radius: 0.75rem;
   padding: 1rem;
   cursor: pointer;
@@ -364,7 +364,7 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .card.is-current {
-  border-color: #a78bfa;
+  border-color: var(--ct-accent-border);
 }
 
 .card-top {
@@ -418,34 +418,34 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .badge-active {
-  background: #f3e8ff;
-  color: #6d28d9;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent-hover);
 }
 
 .badge-rest {
-  background: #ecfdf5;
-  color: #047857;
+  background: var(--ct-success-soft);
+  color: var(--ct-success-strong);
 }
 
 .badge-null {
-  background: #f4f4f5;
-  color: #71717a;
+  background: var(--ct-surface-2);
+  color: var(--ct-text-subtle);
 }
 
 .badge-current {
-  background: #ede9fe;
-  color: #6d28d9;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent-hover);
 }
 
 .card-time {
   font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #18181b;
+  color: var(--ct-text);
 }
 
 .time-sep {
-  color: #d4d4d8;
+  color: var(--ct-border);
   margin: 0 0.25rem;
 }
 
@@ -457,19 +457,19 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .card-duration {
   font-size: 0.8125rem;
-  color: #71717a;
+  color: var(--ct-text-subtle);
 }
 
 .card-nested-active {
   font-size: 0.6875rem;
-  color: #a1a1aa;
+  color: var(--ct-text-subtle);
 }
 
 /* 展开详情 */
 .detail {
   margin-top: 0.25rem;
   padding-top: 0.625rem;
-  border-top: 0.0625rem solid #ebe6f2;
+  border-top: 0.0625rem solid var(--ct-accent-soft);
 }
 
 .minute-rows {
@@ -532,15 +532,15 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .m-cell-active {
-  background: #7c3aed;
+  background: var(--ct-accent);
 }
 
 .m-cell-rest {
-  background: #059669;
+  background: var(--ct-success);
 }
 
 .m-cell-null {
-  background: #e4e4e7;
+  background: var(--ct-border);
 }
 
 .seg-tip {
@@ -550,7 +550,7 @@ function countActiveInBlock(block: WindowBlock): number {
   transform: translateX(-50%);
   padding: 0.1875rem 0.625rem;
   background: rgba(24, 24, 27, 0.95);
-  color: #fff;
+  color: var(--ct-on-accent);
   font-size: 0.6875rem;
   font-weight: 500;
   border-radius: 0.375rem;
@@ -569,15 +569,15 @@ function countActiveInBlock(block: WindowBlock): number {
 }
 
 .m-seg-active {
-  background: #7c3aed;
+  background: var(--ct-accent);
 }
 
 .m-seg-rest {
-  background: #059669;
+  background: var(--ct-success);
 }
 
 .m-seg-null {
-  background: #e4e4e7;
+  background: var(--ct-border);
 }
 
 .m-placeholder {
@@ -588,7 +588,7 @@ function countActiveInBlock(block: WindowBlock): number {
 
 .minute-row-time {
   font-size: 0.6875rem;
-  color: #a1a1aa;
+  color: var(--ct-text-subtle);
   font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
   white-space: nowrap;
 }

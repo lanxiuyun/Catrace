@@ -73,7 +73,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--ct-bg);
 }
 
 .global-header {
@@ -83,10 +83,10 @@ onMounted(async () => {
   align-items: center;
   gap: 2rem;
   padding: 0 1.25rem 0 0.75rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--ct-surface);
+  border-bottom: 1px solid var(--ct-border);
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
-  color: #1e293b;
+  color: var(--ct-text);
 }
 
 .brand-block,
@@ -115,8 +115,8 @@ onMounted(async () => {
 .brand-copy span {
   padding: 0.125rem 0.375rem;
   border-radius: 999px;
-  background: #f5f3ff;
-  color: #7c3aed;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
   font-size: 0.625rem;
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -138,10 +138,10 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  border: 1px solid #ddd6fe;
+  border: 1px solid var(--ct-accent-soft);
   border-radius: 999px;
-  background: #f5f3ff;
-  color: #7c3aed;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
   font-size: 0.6875rem;
   line-height: 1;
   white-space: nowrap;
@@ -167,7 +167,7 @@ onMounted(async () => {
   gap: 0.375rem;
   padding: 0.375rem 0.75rem;
   border-radius: 0.5rem;
-  color: #64748b;
+  color: var(--ct-text-subtle);
   font-size: 0.75rem;
   font-weight: 500;
   text-decoration: none;
@@ -175,13 +175,13 @@ onMounted(async () => {
 }
 
 .nav-link:hover {
-  color: #1e293b;
-  background: #f1f5f9;
+  color: var(--ct-text);
+  background: var(--ct-surface-2);
 }
 
 .nav-link.router-link-active {
-  color: #6d28d9;
-  background: #f5f3ff;
+  color: var(--ct-accent-hover);
+  background: var(--ct-accent-softer);
   font-weight: 600;
 }
 

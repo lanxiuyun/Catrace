@@ -146,21 +146,21 @@ function onRotate() {
 .title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #2e1065;
+  color: var(--ct-text);
 }
 
 .desc {
   margin-top: 0.125rem;
   font-size: 0.75rem;
   line-height: 1.45;
-  color: #8b7aab;
+  color: var(--ct-text-muted);
 }
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.75rem;
-  color: #5b21b6;
-  background: #f3e8ff;
+  color: var(--ct-accent-hover);
+  background: var(--ct-accent-soft);
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   white-space: nowrap;
