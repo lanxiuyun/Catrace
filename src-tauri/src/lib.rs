@@ -121,8 +121,6 @@ pub struct ActivityState {
     pub key_debounce: Option<Instant>,
     /// 最近一次分钟结算时的媒体活跃结果，供 get_activity_snapshot 复用
     pub media_active_snapshot: bool,
-    /// 最近一次分钟结算时的全屏状态快照
-    pub fullscreen_snapshot: bool,
 }
 
 /// 轻量活跃快照，供休息计时卡片每 2 秒轮询使用。
@@ -136,15 +134,19 @@ struct ActivitySnapshot {
 
 #[tauri::command]
 async fn get_activity_snapshot(
+    window: tauri::WebviewWindow,
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
 ) -> Result<ActivitySnapshot, String> {
     let s = activity.lock().unwrap();
+    let fullscreen_active = window
+        .app_handle()
+        .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
+        .is_some();
     Ok(ActivitySnapshot {
         count: s.count,
-        // 复用最近一次分钟结算的媒体/全屏快照，避免每次轮询都枚举音频会话
+        // 复用最近一次分钟结算的媒体快照，避免每次轮询重复枚举音频会话
         media_active: s.media_active_snapshot,
-        // 全屏期间前端不应把键鼠活动视为恢复活跃
-        fullscreen_active: s.fullscreen_snapshot,
+        fullscreen_active,
     })
 }
 
@@ -647,7 +649,6 @@ fn get_reminder_data(
 fn close_reminder_window(
     label: String,
     app_handle: tauri::AppHandle,
-    fullscreen_active: tauri::State<Arc<AtomicBool>>,
 ) -> Result<(), String> {
     log_info!(
         "toast-win",
@@ -691,9 +692,6 @@ fn close_reminder_window(
             label
         );
     }
-    if label == window_manager::FULLSCREEN_WINDOW_LABEL {
-        fullscreen_active.store(false, Ordering::SeqCst);
-    }
     Ok(())
 }
 
@@ -735,12 +733,8 @@ pub(crate) fn create_fullscreen_window(
     fullscreen_fit_mode: String,
     fullscreen_element_transforms: String,
     store: &ReminderWindowStore,
-    fullscreen_active: Arc<AtomicBool>,
 ) {
     let label = window_manager::FULLSCREEN_WINDOW_LABEL;
-
-    // 标记全屏窗口已打开，结算循环将停止计活跃
-    fullscreen_active.store(true, Ordering::SeqCst);
 
     let data = ReminderWindowData {
         kind: "rest".to_string(),
@@ -776,12 +770,7 @@ pub(crate) fn create_fullscreen_window(
 
         match builder.build() {
             Ok(window) => {
-                let fa = fullscreen_active.clone();
-                window.on_window_event(move |event| {
-                    if matches!(event, tauri::WindowEvent::Destroyed) {
-                        fa.store(false, Ordering::SeqCst);
-                    }
-                });
+                log_info!("fullscreen-win", "fullscreen window built boundary={}", boundary);
                 enter_fullscreen_on_cursor_monitor(&app, &window);
                 let _ = window.set_focus();
             }
@@ -822,7 +811,6 @@ pub fn run() {
     let input_sampling_started = Arc::new(AtomicBool::new(false));
 
     let reminder_state_clone = reminder_state.clone();
-    let fullscreen_active = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -899,7 +887,6 @@ pub fn run() {
             app.manage(reminder_state_clone.clone());
             app.manage(state.clone());
             app.manage(store.clone());
-            app.manage(fullscreen_active.clone());
             app.manage(Arc::new(rest_plugin::NotificationTestState::new()));
 
             // Plugin commands depend on Db and ActivityState, so start background windows only
@@ -961,7 +948,6 @@ pub fn run() {
             let app_handle = app.app_handle().clone();
             let reminder_state_for_settle = reminder_state_clone.clone();
             let store_for_settle = store.clone();
-            let fullscreen_active_for_settle = fullscreen_active.clone();
             let media_whitelist_for_settle = media_whitelist.clone();
             let signal_for_settle = signal_core.clone();
             let event_bus_for_settle = app.state::<crate::bus::EventBus>().inner().clone();
@@ -985,7 +971,9 @@ pub fn run() {
                     } else {
                         false
                     };
-                    let is_fullscreen = fullscreen_active_for_settle.load(Ordering::SeqCst);
+                    let is_fullscreen = app_handle
+                        .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
+                        .is_some();
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     // Drain completed signal minutes; use dominant app for this settle row.
@@ -1001,9 +989,8 @@ pub fn run() {
                         let mut s = settle_state.lock().unwrap();
                         let count = s.count;
                         s.count = 0;
-                        // 保存快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
+                        // 保存媒体快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
                         s.media_active_snapshot = media_active;
-                        s.fullscreen_snapshot = is_fullscreen;
                         count
                     };
 
@@ -1032,7 +1019,7 @@ pub fn run() {
                         &locale,
                         &db_clone,
                         &store_for_settle,
-                        &fullscreen_active_for_settle,
+                        is_fullscreen,
                         &event_bus_for_settle,
                     );
 

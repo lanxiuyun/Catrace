@@ -41,7 +41,7 @@ fn extra_bin_dirs() -> Vec<PathBuf> {
             let home = PathBuf::from(home);
             dirs.push(home.join(".local/bin"));
             dirs.push(home.join(".volta/bin"));
-            dirs.push(home.join(".fnm/current/bin"));
+            dirs.extend(fnm_bin_dirs(&home));
             let nvm = home.join(".nvm/versions/node");
             if nvm.is_dir() {
                 if let Ok(entries) = std::fs::read_dir(&nvm) {
@@ -68,6 +68,27 @@ fn extra_bin_dirs() -> Vec<PathBuf> {
             dirs.push(local.join("fnm"));
             dirs.push(local.join("Programs").join("nodejs"));
         }
+    }
+    dirs
+}
+
+#[cfg(unix)]
+fn fnm_bin_dirs(home: &Path) -> Vec<PathBuf> {
+    let fnm_root = home.join(".local/share/fnm");
+    let mut dirs = vec![
+        home.join(".fnm/current/bin"),
+        fnm_root.join("aliases/default/bin"),
+    ];
+    let versions = fnm_root.join("node-versions");
+    if let Ok(entries) = std::fs::read_dir(versions) {
+        let mut version_dirs: Vec<PathBuf> = entries
+            .flatten()
+            .map(|entry| entry.path().join("installation/bin"))
+            .filter(|path| path.is_dir())
+            .collect();
+        version_dirs.sort();
+        version_dirs.reverse();
+        dirs.extend(version_dirs);
     }
     dirs
 }
@@ -116,5 +137,48 @@ mod tests {
     fn relative_path_command_is_unchanged() {
         assert_eq!(resolve_program("./runtime/main"), "./runtime/main");
         assert_eq!(resolve_program("bin/node"), "bin/node");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fnm_default_alias_bin_is_discovered() {
+        let home = test_home("default-alias");
+        let bin = home.join(".local/share/fnm/aliases/default/bin");
+        std::fs::create_dir_all(&bin).expect("create fnm alias bin");
+        std::fs::write(bin.join("node"), b"").expect("create node fixture");
+
+        let dirs = fnm_bin_dirs(&home);
+
+        assert!(dirs.contains(&bin));
+        remove_test_home(&home);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fnm_version_installation_bin_is_discovered() {
+        let home = test_home("version-installation");
+        let bin = home.join(".local/share/fnm/node-versions/v22.20.0/installation/bin");
+        std::fs::create_dir_all(&bin).expect("create fnm version bin");
+        std::fs::write(bin.join("node"), b"").expect("create node fixture");
+
+        let dirs = fnm_bin_dirs(&home);
+
+        assert!(dirs.contains(&bin));
+        remove_test_home(&home);
+    }
+
+    #[cfg(unix)]
+    fn test_home(name: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "catrace-sidecar-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        path
+    }
+
+    #[cfg(unix)]
+    fn remove_test_home(path: &std::path::Path) {
+        let _ = std::fs::remove_dir_all(path);
     }
 }
