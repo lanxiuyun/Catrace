@@ -8,6 +8,23 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
+
+/// Bin dirs of runtimes managed by the host (e.g. the portable Node.js
+/// installed under app_data/runtime/node). Registered during setup, consulted
+/// by both `resolve_program` and `prepend_gui_path` so sidecars pick them up
+/// without any restart.
+static MANAGED_BIN_DIRS: OnceLock<Vec<PathBuf>> = OnceLock::new();
+
+pub fn register_managed_bin_dirs(dirs: Vec<PathBuf>) {
+    let _ = MANAGED_BIN_DIRS.set(dirs);
+}
+
+/// Locate a bare command across PATH, well-known dirs and host-managed
+/// runtime dirs. `None` means "not installed" (e.g. node runtime missing).
+pub fn find_program(command: &str) -> Option<PathBuf> {
+    lookup_program(command)
+}
 
 pub fn resolve_program(command: &str) -> String {
     let p = Path::new(command);
@@ -17,7 +34,7 @@ pub fn resolve_program(command: &str) -> String {
     if command.contains('/') || command.contains('\\') || command.starts_with('.') {
         return command.to_string();
     }
-    lookup_program(command)
+    find_program(command)
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| command.to_string())
 }
@@ -32,6 +49,9 @@ pub fn prepend_gui_path(command: &mut Command) {
 
 fn extra_bin_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
+    if let Some(managed) = MANAGED_BIN_DIRS.get() {
+        dirs.extend(managed.iter().cloned());
+    }
     #[cfg(unix)]
     {
         dirs.push(PathBuf::from("/opt/homebrew/bin"));

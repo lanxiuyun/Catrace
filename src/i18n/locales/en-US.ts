@@ -462,5 +462,16 @@ export default {
       switchAria: 'External plugin switch',
       settingsPlaceholder: 'Plugin settings panel is provided by the plugin itself (not yet implemented).',
     },
+    nodeRuntime: {
+      title: 'This plugin needs Node.js to run',
+      portable: 'Portable {version}',
+      desc: 'Node.js is not installed on this computer. One-click install of a portable build: it lives inside the Catrace data folder, touches nothing system-wide, and needs no admin rights.',
+      install: 'Install Node.js',
+      installing: 'Downloading {pct}%',
+      installingShort: 'Installing…',
+      progress: 'Downloading Node.js',
+      installOk: 'Node.js installed; the plugin has been restarted',
+      installFailed: 'Failed to install Node.js — check your network and retry',
+    },
   },
 }

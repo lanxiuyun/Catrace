@@ -4,6 +4,7 @@ mod event;
 mod event_http;
 mod log;
 mod media_audio;
+mod node_runtime;
 mod special_day;
 mod plugin_api;
 mod plugin_commands;
@@ -840,6 +841,15 @@ pub fn run() {
             std::fs::create_dir_all(&app_data_dir)?;
             log::init(&app_data_dir);
 
+            // 便携 Node 运行时目录（app_data/runtime/node）：sidecar 解析与
+            // 子进程 PATH 都会包含它；Windows 下 node.exe 在目录根，Unix 在 bin/
+            {
+                let rt = node_runtime::runtime_dir(app.app_handle());
+                if let Some(rt) = rt {
+                    sidecar::register_managed_bin_dirs(vec![rt.clone(), rt.join("bin")]);
+                }
+            }
+
             // 初始化数据库
             let db_path = app_data_dir.join("catrace.db");
             let db = db::Db::new(&db_path).expect("Failed to initialize database");
@@ -1121,6 +1131,8 @@ pub fn run() {
             get_platform,
             get_accessibility_permission_status,
             request_accessibility_permission,
+            node_runtime::get_node_runtime_status,
+            node_runtime::install_node_runtime,
             get_media_active_enabled,
             set_media_active_enabled,
             get_media_whitelist_text,

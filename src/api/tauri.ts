@@ -429,6 +429,31 @@ export interface PluginInstallResult {
   path: string
 }
 
+// ---------- Node runtime (plugin sidecars) ----------
+
+export interface NodeRuntimeStatus {
+  available: boolean
+  path: string | null
+  /** Pinned version the installer would provision. */
+  version: string
+  installing: boolean
+}
+
+export async function getNodeRuntimeStatus(): Promise<NodeRuntimeStatus> {
+  return invoke('get_node_runtime_status')
+}
+
+export async function installNodeRuntime(): Promise<void> {
+  return invoke('install_node_runtime')
+}
+
+/** True when a plugin sidecar runs through the bare `node` command. */
+export function sidecarNeedsNode(sidecar: unknown): boolean {
+  const cmd =
+    (sidecar as { command?: string } | null | undefined)?.command ?? ''
+  return /^node(\.exe)?$/i.test(String(cmd).trim())
+}
+
 /** Install a local plugin folder or zip into app plugins dir. Does not enable. */
 export async function installExternalPlugin(
   sourcePath: string,
