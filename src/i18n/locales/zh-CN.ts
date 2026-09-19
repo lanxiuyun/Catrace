@@ -461,5 +461,16 @@ export default {
       switchAria: '外部插件开关',
       settingsPlaceholder: '插件设置面板由插件自身提供（暂未实现）。',
     },
+    nodeRuntime: {
+      title: '此插件需要 Node.js 才能运行',
+      portable: '便携版 {version}',
+      desc: '你的电脑没有安装 Node.js。一键安装便携版：只放进 Catrace 数据目录，不改系统、不需要管理员权限。',
+      install: '一键安装 Node.js',
+      installing: '下载中 {pct}%',
+      installingShort: '正在安装…',
+      progress: '正在下载 Node.js',
+      installOk: 'Node.js 安装完成，插件已重新启动',
+      installFailed: 'Node.js 安装失败，请检查网络后重试',
+    },
   },
 }

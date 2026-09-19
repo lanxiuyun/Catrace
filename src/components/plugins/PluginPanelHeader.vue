@@ -75,13 +75,16 @@ function onUpdate(value: boolean) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.header-icon-img {
+/* Slot content is rendered by the parent, so :deep is required here. */
+:deep(.header-icon-img) {
   width: 100%;
   height: 100%;
   border-radius: 0.75rem;
   object-fit: cover;
+  display: block;
 }
 
 .header-text {

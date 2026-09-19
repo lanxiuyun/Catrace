@@ -4,7 +4,7 @@ import { load, type Store } from '@tauri-apps/plugin-store'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useMessage } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { AlarmClock, Armchair } from '@lucide/vue'
+import { AlarmClock, Armchair, Cpu } from '@lucide/vue'
 import RestPluginPanel from '../../components/plugins/RestPluginPanel.vue'
 import PageScroll from '../../components/PageScroll.vue'
 import PluginPanelHeader from '../../components/plugins/PluginPanelHeader.vue'
@@ -16,10 +16,14 @@ import {
   openPluginsDir,
   installExternalPlugin,
   getPluginIconDataUrl,
+  getNodeRuntimeStatus,
+  installNodeRuntime,
+  sidecarNeedsNode,
   pickPluginFolder,
   pickPluginZip,
   publishEvent,
   type ExternalPluginInfo,
+  type NodeRuntimeStatus,
 } from '../../api/tauri'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
@@ -45,6 +49,48 @@ let settingsStore: Store | null = null
 let unlistenPluginAnomaly: UnlistenFn | null = null
 let unlistenPluginConfigSaveFailed: UnlistenFn | null = null
 let unlistenPluginConfigChanged: UnlistenFn | null = null
+let unlistenNodeProgress: UnlistenFn | null = null
+
+// ---------- Node runtime (sidecar plugins) ----------
+const nodeStatus = ref<NodeRuntimeStatus | null>(null)
+const nodeInstalling = ref(false)
+const nodeProgress = ref<{ received: number; total: number } | null>(null)
+
+const nodeProgressPct = computed(() => {
+  const p = nodeProgress.value
+  if (!p || !p.total) return 0
+  return Math.min(100, Math.round((p.received / p.total) * 100))
+})
+
+/** 选中插件经 sidecar 跑 node，且当前解析不到 node 运行时。 */
+const selectedNeedsNode = computed(
+  () =>
+    !!selectedExternal.value &&
+    !selectedExternal.value.error &&
+    sidecarNeedsNode(selectedExternal.value.sidecar) &&
+    nodeStatus.value?.available === false,
+)
+
+async function onInstallNodeRuntime() {
+  if (nodeInstalling.value) return
+  nodeInstalling.value = true
+  nodeProgress.value = null
+  try {
+    await installNodeRuntime()
+    nodeStatus.value = await getNodeRuntimeStatus()
+    message.success(t('plugins.nodeRuntime.installOk'))
+    // 插件已启用但 sidecar 之前起不来：重新同步，把 sidecar 拉起来。
+    if (selectedExternal.value?.enabled) {
+      await onToggleExternal(selectedExternal.value.id, true)
+    }
+  } catch (e) {
+    console.warn('[plugins page] node runtime install failed', e)
+    message.error(t('plugins.nodeRuntime.installFailed'))
+  } finally {
+    nodeInstalling.value = false
+    nodeProgress.value = null
+  }
+}
 async function getSettingsStore() {
   if (!settingsStore) {
     settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
@@ -112,6 +158,19 @@ onMounted(async () => {
   if (!selectedId.value && plugins.value.length) {
     selectedId.value = plugins.value[0].id
   }
+  void getNodeRuntimeStatus()
+    .then((s) => {
+      nodeStatus.value = s
+    })
+    .catch((e) => console.warn('[plugins page] node status failed', e))
+  void listen<{ received: number; total: number }>(
+    'node-install-progress',
+    ({ payload }) => {
+      nodeProgress.value = payload
+    },
+  ).then((unlisten) => {
+    unlistenNodeProgress = unlisten
+  })
   void listen<string>('catrace:plugin-anomaly', ({ payload: pluginId }) => {
     const plugin = externalList.value.find((item) => item.id === pluginId)
     if (plugin) plugin.anomalous = true
@@ -141,6 +200,7 @@ onBeforeUnmount(() => {
   unlistenPluginAnomaly?.()
   unlistenPluginConfigSaveFailed?.()
   unlistenPluginConfigChanged?.()
+  unlistenNodeProgress?.()
   window.removeEventListener('catrace:plugin-enabled-changed', onBuiltinPluginEnabledChanged)
 })
 
@@ -481,6 +541,51 @@ async function onTestExternal(p: ExternalPluginInfo) {
           <div v-if="!selectedExternal.enabled" class="disabled-overlay" />
         </div>
       </page-scroll>
+
+      <div
+        v-if="selectedExternal && !selectedExternal.error && selectedNeedsNode && nodeStatus"
+        class="node-runtime-gate"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('plugins.nodeRuntime.title')"
+      >
+        <div class="node-runtime-card">
+          <div class="node-runtime-icon" aria-hidden="true">
+            <Cpu :size="26" :stroke-width="1.8" />
+          </div>
+          <div class="node-runtime-heading">
+            <h3>{{ t('plugins.nodeRuntime.title') }}</h3>
+            <span class="node-runtime-pill">
+              {{ t('plugins.nodeRuntime.portable', { version: nodeStatus.version }) }}
+            </span>
+          </div>
+          <p class="node-runtime-desc">{{ t('plugins.nodeRuntime.desc') }}</p>
+          <div v-if="nodeInstalling" class="node-runtime-progress">
+            <div class="node-runtime-progress-row">
+              <span>{{ t('plugins.nodeRuntime.progress') }}</span>
+              <strong>{{ nodeProgressPct }}%</strong>
+            </div>
+            <div class="node-runtime-bar">
+              <div
+                class="node-runtime-bar-fill"
+                :style="{ width: nodeProgressPct + '%' }"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn-primary node-runtime-btn"
+            :disabled="nodeInstalling"
+            @click="onInstallNodeRuntime"
+          >
+            {{
+              nodeInstalling
+                ? t('plugins.nodeRuntime.installingShort')
+                : t('plugins.nodeRuntime.install')
+            }}
+          </button>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -495,6 +600,8 @@ async function onTestExternal(p: ExternalPluginInfo) {
 }
 
 .plugin-main {
+  position: relative;
+  isolation: isolate;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -570,6 +677,123 @@ async function onTestExternal(p: ExternalPluginInfo) {
   background: var(--ct-error-soft);
   color: var(--ct-error-strong);
   font-size: 0.8125rem;
+}
+
+.node-runtime-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: color-mix(in srgb, var(--ct-bg) 88%, transparent);
+  backdrop-filter: blur(0.375rem) grayscale(0.35);
+}
+
+.node-runtime-card {
+  width: min(27rem, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 2rem 2rem 1.75rem;
+  text-align: center;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 1.125rem;
+  box-shadow:
+    0 1.25rem 3rem rgb(15 23 42 / 0.14),
+    0 0.25rem 0.75rem rgb(15 23 42 / 0.06);
+}
+
+.node-runtime-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 0.0625rem var(--ct-accent-soft);
+}
+
+.node-runtime-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.node-runtime-heading h3 {
+  margin: 0;
+  color: var(--ct-text);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.node-runtime-pill {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.node-runtime-desc {
+  max-width: 22rem;
+  margin: 0.625rem 0 1.25rem;
+  color: var(--ct-text-subtle);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.node-runtime-progress {
+  width: 100%;
+  margin: 0 0 1rem;
+}
+
+.node-runtime-progress-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.375rem;
+  color: var(--ct-text-subtle);
+  font-size: 0.6875rem;
+}
+
+.node-runtime-progress-row strong {
+  color: var(--ct-accent);
+  font-weight: 600;
+}
+
+.node-runtime-btn {
+  min-width: 12rem;
+  padding: 0.625rem 1.25rem;
+}
+
+.node-runtime-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.node-runtime-bar {
+  height: 0.3125rem;
+  border-radius: 999px;
+  background: var(--ct-surface-2);
+  overflow: hidden;
+}
+
+.node-runtime-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ct-accent);
+  transition: width 0.3s ease;
 }
 
 .ext-actions-card {
