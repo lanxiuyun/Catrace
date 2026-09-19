@@ -460,12 +460,12 @@ defineExpose({
 }
 
 .fs-btn-secondary {
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--ct-surface) 92%, transparent);
   color: var(--ct-text-muted);
 }
 
 .fs-btn-danger {
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--ct-surface) 92%, transparent);
   color: var(--ct-error);
 }
 

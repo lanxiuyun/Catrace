@@ -501,7 +501,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgba(248, 250, 252, 0.7);
+  background: var(--ct-bg);
 }
 
 .plugin-scroll {
@@ -549,7 +549,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
 .disabled-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(248, 250, 252, 0.25);
+  background: color-mix(in srgb, var(--ct-bg) 25%, transparent);
 }
 
 .ext-placeholder {

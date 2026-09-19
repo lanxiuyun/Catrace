@@ -1,5 +1,6 @@
 ﻿import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { rewriteThemeColors } from '../theme/rewriteThemeColors'
 
 export type PluginHttpResponse = {
   status: number
@@ -248,7 +249,7 @@ export function createPluginApi(pluginId: string): PluginApi {
 }
 
 export function wrapPluginSource(pluginId: string, source: string): string {
-  return `const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__(${JSON.stringify(pluginId)});\n${source}`
+  return `const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__(${JSON.stringify(pluginId)});\n${rewriteThemeColors(source)}`
 }
 
 let pluginLogListener: Promise<UnlistenFn> | null = null
