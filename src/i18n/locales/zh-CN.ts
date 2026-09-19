@@ -6,6 +6,11 @@ export default {
     settings: '系统设置',
     debug: '调试',
   },
+  accessibilityBanner: {
+    title: '辅助功能权限已失效，久坐检测暂时不可用',
+    desc: 'macOS 更新应用后可能重置授权。点击授权，在系统设置中重新勾选 Catrace。',
+    authorize: '重新授权',
+  },
   dashboard: {
     title: '今日统计',
     thanks: '谢谢你参与我的 Demo',

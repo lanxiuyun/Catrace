@@ -6,6 +6,11 @@ export default {
     settings: 'System',
     debug: 'Debug',
   },
+  accessibilityBanner: {
+    title: 'Accessibility permission was reset — rest detection is paused',
+    desc: 'macOS may reset the grant after an app update. Click authorize and re-check Catrace in System Settings.',
+    authorize: 'Re-authorize',
+  },
   dashboard: {
     title: "Today's Statistics",
     thanks: 'Thanks for joining my Demo!',

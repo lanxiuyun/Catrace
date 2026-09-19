@@ -902,21 +902,39 @@ pub fn run() {
                     input_sampling_started.clone(),
                 );
             } else {
+                // macOS: 无辅助功能权限（常见于更新替换 bundle 后 TCC 重置授权）。
+                // 先跑免权限兜底采样（系统空闲秒数 + 光标位移），忙闲判定照常工作；
+                // 授权后停掉兜底、切换到完整采样。
+                #[cfg(target_os = "macos")]
+                let fallback_active = {
+                    let active = Arc::new(AtomicBool::new(true));
+                    signal::start_input_sampling_fallback(
+                        state.clone(),
+                        signal_core.clone(),
+                        active.clone(),
+                    );
+                    eprintln!("[accessibility] fallback input sampling started");
+                    active
+                };
                 eprintln!(
                     "[accessibility] permission not granted; waiting to start input sampling"
                 );
                 let sampling_state = state.clone();
                 let sampling_signal = signal_core.clone();
                 let sampling_started = input_sampling_started.clone();
+                #[cfg(target_os = "macos")]
+                let fallback_for_waiter = fallback_active.clone();
                 thread::spawn(move || loop {
                     if sampling_started.load(Ordering::SeqCst) {
                         break;
                     }
                     if accessibility_permission_granted() {
+                        #[cfg(target_os = "macos")]
+                        fallback_for_waiter.store(false, Ordering::SeqCst);
                         start_input_sampling(
-                            sampling_state.clone(),
-                            sampling_signal.clone(),
-                            sampling_started.clone(),
+                            sampling_state,
+                            sampling_signal,
+                            sampling_started,
                         );
                         break;
                     }

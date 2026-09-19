@@ -152,6 +152,48 @@ fn keycode_name(key: &Keycode) -> String {
     format!("{:?}", key)
 }
 
+/// macOS permission-free input probes. Neither API needs Accessibility:
+/// - CGEventSourceSecondsSinceLastEventType is the standard idle-time API
+///   (same source as Electron's powerMonitor.getSystemIdleTime)
+/// - CGEventCreate(NULL) + CGEventGetLocation just reads the cursor position
+#[cfg(target_os = "macos")]
+mod macos_perm_free {
+    use std::ffi::c_void;
+
+    #[repr(C)]
+    struct CGPoint {
+        x: f64,
+        y: f64,
+    }
+
+    extern "C" {
+        // Symbols resolve via the CoreGraphics/CoreFoundation frameworks already
+        // linked by device_query (core-graphics / core-foundation) on macOS.
+        fn CGEventSourceSecondsSinceLastEventType(state_id: i32, event_type: u32) -> f64;
+        fn CGEventCreate(source: *const c_void) -> *mut c_void;
+        fn CGEventGetLocation(event: *const c_void) -> CGPoint;
+        fn CFRelease(cf: *mut c_void);
+    }
+
+    /// Seconds since the last user input (keys / trackpad / mouse).
+    pub fn seconds_since_last_input() -> f64 {
+        // kCGEventSourceStateCombinedSessionState = 0, kCGAnyInputEventType = -1
+        unsafe { CGEventSourceSecondsSinceLastEventType(0, u32::MAX) }
+    }
+
+    pub fn cursor_position() -> Option<(i32, i32)> {
+        unsafe {
+            let event = CGEventCreate(std::ptr::null());
+            if event.is_null() {
+                return None;
+            }
+            let point = CGEventGetLocation(event);
+            CFRelease(event);
+            Some((point.x.round() as i32, point.y.round() as i32))
+        }
+    }
+}
+
 pub struct SignalCore {
     current: Mutex<MinuteBucket>,
     /// Completed buckets waiting for settle drain.
@@ -416,6 +458,88 @@ pub fn start_input_sampling(
     }
 
     eprintln!("[accessibility] input sampling started");
+}
+
+/// macOS fallback sampling while Accessibility is NOT granted (typically after
+/// an update swaps the bundle and TCC resets the grant). Keeps the busy/idle
+/// judgment alive with permission-free probes; key counts stay 0 until the
+/// full sampler takes over. The caller clears `active` once the full sampler
+/// starts to avoid double counting.
+#[cfg(target_os = "macos")]
+pub fn start_input_sampling_fallback(
+    activity: Arc<Mutex<ActivityState>>,
+    signal: Arc<SignalCore>,
+    active: Arc<AtomicBool>,
+) {
+    thread::spawn(move || {
+        let mut prev: Option<(i32, i32)> = None;
+        let mut last_sample_at = Instant::now();
+        let mut legacy_window_start = Instant::now();
+        let mut moved_in_legacy_window = false;
+
+        loop {
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+            thread::sleep(Duration::from_secs(1));
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+
+            // Input burst feed: mirrors the keyboard loop's 2s debounce, so a
+            // minute of typing/moving still clears the count >= 3 threshold.
+            if macos_perm_free::seconds_since_last_input() < 1.5 {
+                let mut s = activity.lock().unwrap();
+                if s.key_debounce
+                    .is_none_or(|t| t.elapsed() > Duration::from_secs(2))
+                {
+                    s.count += 1;
+                    s.key_debounce = Some(Instant::now());
+                }
+            }
+
+            // Cursor 1Hz displacement (same semantics as the full sampler).
+            let now_instant = Instant::now();
+            let gap = now_instant.duration_since(last_sample_at).as_secs_f64();
+            last_sample_at = now_instant;
+            let Some((x, y)) = macos_perm_free::cursor_position() else {
+                prev = None;
+                continue;
+            };
+
+            let distance = if gap > MOUSE_GAP_RESET_SECS {
+                prev = Some((x, y));
+                0.0
+            } else if let Some((px, py)) = prev {
+                let dx = (x - px) as f64;
+                let dy = (y - py) as f64;
+                let d = (dx * dx + dy * dy).sqrt();
+                prev = Some((x, y));
+                if d > 0.0 {
+                    moved_in_legacy_window = true;
+                }
+                d
+            } else {
+                prev = Some((x, y));
+                0.0
+            };
+
+            let second = (now_unix() % 60) as usize;
+            signal.record_mouse_distance(distance, second);
+
+            // Legacy 2s movement gate
+            if legacy_window_start.elapsed() >= Duration::from_secs(2) {
+                let mut s = activity.lock().unwrap();
+                if moved_in_legacy_window {
+                    s.count += 1;
+                }
+                moved_in_legacy_window = false;
+                legacy_window_start = Instant::now();
+                s.last_cursor = (x, y);
+            }
+        }
+        eprintln!("[accessibility] fallback input sampling stopped");
+    });
 }
 
 // ---------- Tauri commands ----------
