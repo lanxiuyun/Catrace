@@ -6,7 +6,7 @@
 
 1. 检测：`sidecarNeedsNode(sidecar)`（前端）+ `get_node_runtime_status`（后端 `find_program("node")`）。系统 PATH / 常见安装目录命中则横幅不出现，**系统 Node 恒定优先**。
 2. UI：`Plugins.vue` 在 `.plugin-main` 上盖 `.node-runtime-gate`（模糊 + 灰度背景，拦截点击）。左侧插件列表仍可切换。装完遮罩消失，已启用插件走 `onToggleExternal(id, true)` 重同步 sidecar。
-3. 安装：下载钉死的 LTS zip（当前 `v22.20.0`）→ 解压到暂存目录 → 原子换入 `app_data/runtime/node/` → 写 `.catrace-node` 版本标记。Windows x64 先行；其他平台命令返回 `node_runtime_platform_unsupported`。
+3. 安装：下载钉死的 LTS（当前 `v22.20.0`）→ 解压到暂存目录 → 原子换入 `app_data/runtime/node/` → 写 `.catrace-node` 版本标记。Windows 用官方 zip；macOS / Linux 用官方 `tar.gz`，系统 `tar -xzf` 解压（不新增 crate）。布局：Windows 根目录 `node.exe`，Unix `bin/node`（setup 同时注册 `runtime/node` 与 `runtime/node/bin`）。其它 OS/arch 返回 `node_runtime_platform_unsupported`。
 4. 下载源：npmmirror 主源，失败切 nodejs.org。进度事件 `node-install-progress`（`{ received, total }`）。
 5. 解析：setup 里 `register_managed_bin_dirs([runtime/node, runtime/node/bin])`，`resolve_program` / 子进程 PATH 都包含。装完**不必重启 exe**。
 

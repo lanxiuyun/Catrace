@@ -2,9 +2,11 @@
 //!
 //! Detection rides on `sidecar::command::find_program`, which consults the
 //! host-managed bin dirs registered in setup. The installer downloads the
-//! pinned LTS zip, extracts it into `app_data/runtime/node` and swaps it in
-//! atomically — no admin rights, no system PATH mutation, no app restart:
-//! the next sidecar spawn resolves `node` from the managed dir.
+//! The installer downloads the pinned LTS archive, extracts it into
+//! `app_data/runtime/node` and swaps it in atomically — no admin rights, no
+//! system PATH mutation, no app restart: the next sidecar spawn resolves `node`
+//! from the managed dir. Windows uses the official zip; macOS/Linux use tar.gz
+//! extracted with the system `tar`.
 
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -48,16 +50,21 @@ pub fn status(_app: &AppHandle) -> NodeRuntimeStatus {
     }
 }
 
-/// Zip asset for the current platform; `None` = auto-install not supported.
+/// Archive asset for the current platform; `None` = auto-install not supported.
+fn asset_suffix(os: &str, arch: &str) -> Option<&'static str> {
+    match (os, arch) {
+        ("windows", "x86_64") => Some("win-x64.zip"),
+        ("macos", "aarch64") => Some("darwin-arm64.tar.gz"),
+        ("macos", "x86_64") => Some("darwin-x64.tar.gz"),
+        ("linux", "x86_64") => Some("linux-x64.tar.gz"),
+        ("linux", "aarch64") => Some("linux-arm64.tar.gz"),
+        _ => None,
+    }
+}
+
 fn asset_name() -> Option<String> {
-    #[cfg(all(windows, target_arch = "x86_64"))]
-    {
-        Some(format!("node-{NODE_VERSION}-win-x64.zip"))
-    }
-    #[cfg(not(all(windows, target_arch = "x86_64")))]
-    {
-        None
-    }
+    asset_suffix(std::env::consts::OS, std::env::consts::ARCH)
+        .map(|suffix| format!("node-{NODE_VERSION}-{suffix}"))
 }
 
 fn download_urls(asset: &str) -> Vec<String> {
@@ -106,9 +113,9 @@ async fn download_with_progress(
     Ok(received)
 }
 
-/// Extract the node zip into `staging`, then swap the single top-level dir
+/// Extract the node archive into `staging`, then swap the single top-level dir
 /// into `final_dir` (replacing any stale install).
-fn extract_and_swap(zip_path: &Path, staging: &Path, final_dir: &Path) -> Result<(), String> {
+fn extract_and_swap(archive_path: &Path, staging: &Path, final_dir: &Path) -> Result<(), String> {
     if staging.exists() {
         std::fs::remove_dir_all(staging)
             .map_err(|e| format!("clean staging {}: {e}", staging.display()))?;
@@ -116,10 +123,45 @@ fn extract_and_swap(zip_path: &Path, staging: &Path, final_dir: &Path) -> Result
     std::fs::create_dir_all(staging)
         .map_err(|e| format!("create {}: {e}", staging.display()))?;
 
+    let name = archive_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    if name.ends_with(".zip") {
+        extract_zip(archive_path, staging)?;
+    } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        extract_tar_gz(archive_path, staging)?;
+    } else {
+        return Err(format!("unsupported archive: {name}"));
+    }
+
+    let top = std::fs::read_dir(staging)
+        .map_err(|e| format!("read {}: {e}", staging.display()))?
+        .filter_map(|e| e.ok())
+        .find(|e| e.path().is_dir())
+        .map(|e| e.path())
+        .ok_or_else(|| "archive has no top-level directory".to_string())?;
+
+    if let Some(parent) = final_dir.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+    }
+    if final_dir.exists() {
+        std::fs::remove_dir_all(final_dir)
+            .map_err(|e| format!("replace {}: {e}", final_dir.display()))?;
+    }
+    std::fs::rename(&top, final_dir)
+        .map_err(|e| format!("activate {}: {e}", final_dir.display()))?;
+    std::fs::remove_dir_all(staging).ok();
+    std::fs::write(final_dir.join(".catrace-node"), NODE_VERSION).ok();
+    ensure_unix_node_executable(final_dir);
+    Ok(())
+}
+
+fn extract_zip(zip_path: &Path, staging: &Path) -> Result<(), String> {
     let file = std::fs::File::open(zip_path)
         .map_err(|e| format!("open {}: {e}", zip_path.display()))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("read zip: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("read zip: {e}"))?;
     for i in 0..archive.len() {
         let mut entry = archive
             .by_index(i)
@@ -142,28 +184,38 @@ fn extract_and_swap(zip_path: &Path, staging: &Path, final_dir: &Path) -> Result
                 .map_err(|e| format!("extract {}: {e}", out_path.display()))?;
         }
     }
-
-    // The zip wraps everything in node-vX.Y.Z-win-x64/ — find it.
-    let top = std::fs::read_dir(staging)
-        .map_err(|e| format!("read {}: {e}", staging.display()))?
-        .filter_map(|e| e.ok())
-        .find(|e| e.path().is_dir())
-        .map(|e| e.path())
-        .ok_or_else(|| "zip has no top-level directory".to_string())?;
-
-    if let Some(parent) = final_dir.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
-    }
-    if final_dir.exists() {
-        std::fs::remove_dir_all(final_dir)
-            .map_err(|e| format!("replace {}: {e}", final_dir.display()))?;
-    }
-    std::fs::rename(&top, final_dir)
-        .map_err(|e| format!("activate {}: {e}", final_dir.display()))?;
-    std::fs::remove_dir_all(staging).ok();
-    std::fs::write(final_dir.join(".catrace-node"), NODE_VERSION).ok();
     Ok(())
+}
+
+fn extract_tar_gz(archive_path: &Path, staging: &Path) -> Result<(), String> {
+    let status = std::process::Command::new("tar")
+        .arg("-xzf")
+        .arg(archive_path)
+        .arg("-C")
+        .arg(staging)
+        .status()
+        .map_err(|e| format!("spawn tar: {e}"))?;
+    if !status.success() {
+        return Err(format!("tar extract failed: {status}"));
+    }
+    Ok(())
+}
+
+fn ensure_unix_node_executable(final_dir: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let node = final_dir.join("bin").join("node");
+        if let Ok(meta) = std::fs::metadata(&node) {
+            let mut perms = meta.permissions();
+            perms.set_mode(perms.mode() | 0o755);
+            let _ = std::fs::set_permissions(&node, perms);
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = final_dir;
+    }
 }
 
 #[tauri::command]
@@ -188,6 +240,7 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
     let Some(asset) = asset_name() else {
         return Err("node_runtime_platform_unsupported".into());
     };
+    crate::log_info!("node_runtime", "installing portable node {asset}");
     let Some(runtime_root) = app
         .path()
         .app_data_dir()
@@ -199,31 +252,31 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
     let downloads = runtime_root.join("downloads");
     std::fs::create_dir_all(&downloads)
         .map_err(|e| format!("mkdir {}: {e}", downloads.display()))?;
-    let zip_path = downloads.join(&asset);
+    let archive_path = downloads.join(&asset);
 
     let urls = download_urls(&asset);
     let mut last_err = String::new();
     for url in &urls {
-        match download_with_progress(app, url, &zip_path).await {
+        match download_with_progress(app, url, &archive_path).await {
             Ok(_) => break,
             Err(e) => {
                 crate::log_warn!("node_runtime", "download failed from {url}: {e}");
                 last_err = e;
-                std::fs::remove_file(&zip_path).ok();
+                std::fs::remove_file(&archive_path).ok();
             }
         }
     }
-    if !zip_path.exists() {
+    if !archive_path.exists() {
         return Err(format!("node_runtime_download_failed: {last_err}"));
     }
 
     let staging = runtime_root.join(".node-stage");
     let final_dir = runtime_root.join("node");
-    if let Err(e) = extract_and_swap(&zip_path, &staging, &final_dir) {
+    if let Err(e) = extract_and_swap(&archive_path, &staging, &final_dir) {
         crate::log_error!("node_runtime", "extract failed: {e}");
         return Err(format!("node_runtime_extract_failed: {e}"));
     }
-    std::fs::remove_file(&zip_path).ok();
+    std::fs::remove_file(&archive_path).ok();
 
     if crate::sidecar::find_program("node").is_none() {
         return Err("node_runtime_missing_after_install".into());
@@ -236,4 +289,28 @@ async fn install_inner(app: &AppHandle) -> Result<(), String> {
 struct ProgressPayload {
     received: u64,
     total: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_x64_uses_zip() {
+        assert_eq!(asset_suffix("windows", "x86_64"), Some("win-x64.zip"));
+    }
+
+    #[test]
+    fn macos_and_linux_use_official_tarballs() {
+        assert_eq!(asset_suffix("macos", "aarch64"), Some("darwin-arm64.tar.gz"));
+        assert_eq!(asset_suffix("macos", "x86_64"), Some("darwin-x64.tar.gz"));
+        assert_eq!(asset_suffix("linux", "x86_64"), Some("linux-x64.tar.gz"));
+        assert_eq!(asset_suffix("linux", "aarch64"), Some("linux-arm64.tar.gz"));
+    }
+
+    #[test]
+    fn unsupported_targets_have_no_asset() {
+        assert_eq!(asset_suffix("linux", "x86"), None);
+        assert_eq!(asset_suffix("windows", "aarch64"), None);
+    }
 }
