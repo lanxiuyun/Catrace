@@ -18,7 +18,7 @@
 
 授权后：把 fallback 的 `active` 置 false 停线程，再开完整采样，避免双计。
 
-主窗 `MainShell` 顶部挂 `AccessibilityBanner.vue`：仅 macOS 且未授权时显示，点按钮调系统授权面板，2s 轮询，授权后自动收起。设置卡里的授权行仍保留。
+主窗和系统设置**不再催授权**（`MainShell` 不挂横幅；设置卡 `showAccessibility` 恒 false）。未授权就一直走兜底采样，对久坐判定够用。`AccessibilityBanner.vue` 文件还在，接 Developer ID 签名后再挂回去。
 
 Windows / Linux 不编译这条路径。
 
@@ -36,6 +36,7 @@ macOS TCC 把辅助功能授权绑在**代码签名**上，不是应用名。当
 - 不要把兜底采样和完整采样叠着跑（会把 count 加倍）
 - 不要把「未授权」写成产品缺陷；自开调试视图、用户没勾权限，都不是 bug
 - 不要在没付费 Apple Developer ID 的情况下承诺「更新后不用再授权」——那是签名根治，见 [macos-accessibility-permission.md](../../reference/macos-accessibility-permission.md)
+- 不要在 ad-hoc 签名阶段把授权横幅挂回主窗；兜底采样已够用，催授权只会每次更新烦一次
 
 已知取舍：未授权期间 `key_count` / 键序列为 0。根治要稳定 Developer ID + 公证。
 

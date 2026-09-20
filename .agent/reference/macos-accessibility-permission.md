@@ -57,9 +57,10 @@ detection would stay idle.
 
 The host still keeps rest detection working: a permission-free fallback samples
 `CGEventSourceSecondsSinceLastEventType` and cursor position into the same
-`ActivityState.count` gates. `AccessibilityBanner` on the main window asks the
-user to re-grant Accessibility; after grant, full `device_query` sampling
-resumes. Key-count stats stay 0 until then.
+`ActivityState.count` gates. The main-window banner and settings authorize row
+are hidden — fallback is the supported macOS path until Developer ID signing
+lands. After a manual grant, full `device_query` sampling still resumes via the
+3s waiter. Key-count stats stay 0 until then.
 
 Details: [macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md](../features/input-monitoring/macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md).
 

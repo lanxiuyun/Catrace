@@ -36,3 +36,5 @@
 ## 约束
 
 `set_fullscreen_settings` 在 `element_transforms` 为空字符串时保留已有值，避免 Settings 页调整背景覆盖用户在提醒页做的元素编辑。
+
+settle 是否把这一分钟记成休息，只看 `reminder-fullscreen` 窗口在不在（`get_webview_window`），不读进程内 `AtomicBool`。窗口没了就必须按真实键鼠/媒体算活跃。详见 [settle只看全屏窗口是否存在-不要缓存fullscreen_active.md](settle只看全屏窗口是否存在-不要缓存fullscreen_active.md)。
