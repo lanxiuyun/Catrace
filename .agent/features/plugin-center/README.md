@@ -28,7 +28,7 @@
 - [插件面板和导航栏组件化拆分.md](插件面板和导航栏组件化拆分.md) — header / nav-rail 拆分。
 - [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md) — 历史：PluginPanelShell 已废弃。
 - [plugin-activity-getRecords-历史分钟记录.md](plugin-activity-getRecords-历史分钟记录.md) — 外置插件读过往热力图：`plugin.activity.getRecords`。
-- [sidecar-缺node时一键安装便携Node.md](sidecar-缺node时一键安装便携Node.md) — `command: node` 且解析不到时整页遮罩一键装便携 Node，不必重启应用。
+- [sidecar-缺node时一键安装便携Node.md](sidecar-缺node时一键安装便携Node.md) — `command: node` 且解析不到时整页遮罩一键装便携 Node（Win zip / mac·Linux tar.gz），不必重启应用。
 
 外部插件 naive 注入与 teleport 约定见 [[timer-plugin]] / [[m10-external-plugins]]。
 

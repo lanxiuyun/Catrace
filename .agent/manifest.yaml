@@ -328,6 +328,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-09-20-便携Node安装补上macOS与Linux.md
   - .agent/devlog/2026-09-20-mac不催辅助功能授权-横幅和设置项都藏掉.md
   - .agent/devlog/2026-09-20-sidecar缺node一键安装便携Node与详情页整页遮罩.md
   - .agent/devlog/2026-09-19-macos更新后辅助功能失效用空闲秒数兜底.md
@@ -359,6 +360,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/features/input-monitoring/README.md
-  phase: mac 未授权走空闲秒数兜底；主窗/设置不再催授权（ad-hoc 签名每次更新都会丢 TCC）
-  next: 后续做 mac Developer ID 签名+公证（见 input-monitoring 待做）；签名稳定前不要把授权横幅挂回主窗
+  plan: .agent/features/plugin-center/sidecar-缺node时一键安装便携Node.md
+  phase: 便携 Node 一键安装已覆盖 Win/mac/Linux（PR #75）；mac 辅助功能走兜底、不催授权
+  next: 下载加超时或非中文先走 nodejs.org；mac Developer ID 签名见 input-monitoring 待做；签名稳定前不要把授权横幅挂回主窗
