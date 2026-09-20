@@ -10,7 +10,8 @@
 ## 涉及文件
 
 - `src-tauri/src/signal.rs` — 键盘 / 鼠标 / 前台采样线程 + 分钟桶
-- `src-tauri/src/lib.rs` — `ActivityState`、settle、启动门闩（accessibility）
+- `src-tauri/src/lib.rs` — `ActivityState`、settle、启动门闩（accessibility）；macOS 未授权时先跑兜底采样
+- `src/components/AccessibilityBanner.vue` — macOS 未授权时主窗顶部引导重新授权
 - `src-tauri/src/reminder_toast.rs` — 仅用 `DeviceQuery::get_mouse()` 获取屏幕尺寸计算 Toast 窗口位置
 
 ## 键盘监听（2026-07-20 起）
@@ -29,7 +30,16 @@
 约 1Hz 采坐标算欧氏位移（只落距离）。  
 对 **活跃判定**：仍按约 2 秒窗口「是否发生过移动」最多 +1，避免提高 `count>=3` 灵敏度。
 
+## macOS 无辅助功能权限时
+
+更新器替换 ad-hoc 签名的 `.app` 后，TCC 授权常会静默失效，`device_query` 键鼠全 0，表现为「一直休息」。此时：
+
+- 启动 `start_input_sampling_fallback`：`CGEventSourceSecondsSinceLastEventType` + 光标位置，按同样 2s 语义喂 `ActivityState.count`，久坐判定照常。
+- 授权后停兜底、切完整采样。未授权期间按键次数为 0。
+- 主窗 `AccessibilityBanner` 引导去系统设置勾选。详见 [macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md](macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md)。
+
 ## 子文档
 
+- [macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md](macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md) — 更新后 TCC 失效时的兜底、横幅、不要做的事
 - 不要加回 `rdev`：它在 Windows 装 `WH_KEYBOARD_LL`，和 Electron 等共用钩子链时会吞 Ctrl KeyRelease，滚轮变成缩放。全平台用 `device_query` 的 `get_keys()` 自管采样即可。
 - 轮询粒度必须自管：见 [2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md](../../bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md)

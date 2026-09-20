@@ -5,6 +5,7 @@ features:
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/plugin-activity-getRecords-历史分钟记录.md
+      - .agent/features/plugin-center/sidecar-缺node时一键安装便携Node.md
       - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
       - .agent/features/plugin-center/插件中心-sidecar本机进程徽章与信任文案展示.md
       - .agent/features/plugin-center/插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md
@@ -29,6 +30,7 @@ features:
       - database
       - settings
       - desktop-event-os
+      - input-monitoring
   water-reminder:
     docs:
       - .agent/features/water-reminder/README.md
@@ -123,6 +125,7 @@ features:
       - i18n
       - water-reminder
       - reminder
+      - input-monitoring
   media-audio:
     docs:
       - .agent/features/media-audio/README.md
@@ -146,9 +149,12 @@ features:
   input-monitoring:
     docs:
       - .agent/features/input-monitoring/README.md
+      - .agent/features/input-monitoring/macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md
     related:
       - platform-input
       - desktop-event-os
+      - reminder
+      - app-shell
   logging:
     docs:
       - .agent/features/logging/README.md
@@ -198,6 +204,7 @@ architecture:
       - dashboard
       - toast-window
       - plugin-center
+      - input-monitoring
   window-manager:
     docs:
       - .agent/features/window-manager/README.md
@@ -270,6 +277,8 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 bugs:
+  - .agent/bugs/2026-09-20-插件详情顶栏插槽图标scoped样式失效撑破布局.md
+  - .agent/bugs/2026-09-19-macOS更新后辅助功能授权失效导致一直休息.md
   - .agent/bugs/2026-09-19-锁屏解锁后toast丢失TOPMOST且Win+D可最小化.md
   - .agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md
   - .agent/bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md
@@ -317,6 +326,8 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-09-20-sidecar缺node一键安装便携Node与详情页整页遮罩.md
+  - .agent/devlog/2026-09-19-macos更新后辅助功能失效用空闲秒数兜底.md
   - .agent/devlog/2026-09-03-插件页统一使用-Lucide-图标.md
   - .agent/devlog/2026-09-01-sidecar开关不再全量重启以免误杀其他插件进程树.md
   - .agent/devlog/2026-08-31-更新支持换源Toast也能选.md

@@ -71,7 +71,7 @@ M11 已解决「后台常驻 JS」。M15 解决「本机原生能力放哪」。
 |------|------|
 | Field | Runtime rule |
 |------|------|
-| `command` | Passed to the OS process API. Relative paths use the plugin root; bare names use system `PATH` |
+| `command` | Relative paths use the plugin root. Bare names go through `sidecar::resolve_program`：系统 PATH + 常见安装目录 + **宿主托管的便携运行时目录**（如 `app_data/runtime/node`）。系统已装的同名命令优先。缺 `node` 时插件中心整页引导一键安装，不必重启应用。 |
 | `args` | Passed through unchanged |
 | `cwd` | Defaults to `.` under the plugin root, but other paths are allowed |
 | `env` | Optional string map; host `CATRACE_*` values are injected last |
@@ -86,8 +86,9 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 | `plugins.rs` | 解析 `sidecar` → `PluginSidecarSpec` / 列表；与 enable/rescan 同步 | ✅ |
 | `plugin_commands.rs` | publish/log 入站与 background 共用校验路径 | ✅ publish/log/storage |
 | `bus.rs` | resolve 后 `notify_plugin_resolved` → sidecar stdin | ✅ |
-| `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点 | ✅ |
-| Plugins UI / anomaly | sidecar 运行态展示 | ✅ M15.3 |
+| `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点；注册托管 bin 目录 | ✅ |
+| `node_runtime.rs` | 便携 Node 检测/下载/解压；`command:node` 解析不到时供 UI 一键安装 | ✅ Windows x64 |
+| Plugins UI / anomaly | sidecar 运行态展示；缺 Node 时右侧整页 gate | ✅ |
 
 启停触发：
 

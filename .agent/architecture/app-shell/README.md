@@ -9,6 +9,7 @@ App.vue                          # NConfigProvider + RouterView + 全局 html/bo
 └── router（nested）
     ├── MainShell.vue            # /dashboard /plugins /settings /debug
     │   ├── global-header
+    │   ├── AccessibilityBanner  # 仅 macOS 且未授权辅助功能时
     │   └── RouterView + KeepAlive（主壳不滚动）
     │       ├── Dashboard.vue → PageScroll
     │       ├── Settings.vue  → PageScroll
@@ -48,6 +49,7 @@ src/views/
 - 插件页：左右分栏；内容外壳只在宿主 `.plugin-detail`；面板组件只出业务（无 PluginPanelShell）。全局顶栏、插件侧栏、详情顶栏固定；只有 `plugin-scroll` 滚动。
 - Header 固定：高 `3rem`，左 padding `0.75rem`。
 - 应用级辅助信息放全局顶栏右侧；插件侧栏只放插件上下文。
+- macOS 辅助功能未授权时，横幅挂在 header 下方、工作区上方，四个主窗页面都能看到；不要只藏在系统设置卡。见 [[input-monitoring]]。
 
 ## Sub-docs
 

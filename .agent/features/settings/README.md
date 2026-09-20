@@ -8,7 +8,8 @@
 - `src/components/settings/SettingRow.vue` — 通用设置行
 - `src/components/settings/SliderControl.vue` — 滑块+数值
 - `src/components/settings/MediaSettingsCard.vue` — 视频与音乐
-- `src/components/settings/SystemSettingsCard.vue` — 语言/自启/更新
+- `src/components/settings/SystemSettingsCard.vue` — 语言/自启/更新；macOS 辅助功能授权行
+- `src/components/AccessibilityBanner.vue` — macOS 未授权时主窗顶部横幅（不在设置网格里）
 - `src/components/settings/SignalSettingsCard.vue` — 行为采集
 - `src/components/settings/LinksSettingsCard.vue` — 相关链接
 - `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
@@ -25,7 +26,8 @@
 
 | 面 | 内容 |
 |----|------|
-| 系统设置 core | `media` / `signal` / `system` / `links` |
+| 系统设置 core | `media` / `signal` / `system` / `links`（macOS 辅助功能授权行在 system 卡） |
+| 主窗横幅 | macOS 未授权时 `AccessibilityBanner` 挂 `MainShell`，不进设置拖拽网格 |
 | 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen、测试通知（popup 下线） |
 | 功能插件 `agent` | Hook / 事件模式 / 提示音 |
 | 调试页 | Event SDK（不进设置拖拽网格） |

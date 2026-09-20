@@ -10,10 +10,10 @@
 ## 挂载结构
 
 ```text
-plugin-main
-├── PluginPanelHeader          # 固定顶栏：图标/标题/总开关
-└── n-scrollbar.plugin-scroll  # 详情区纵向滚动
-    └── plugin-detail-wrapper  # relative，供禁用 overlay
+plugin-main                     # relative；缺 Node 时整页 node-runtime-gate
+├── PluginPanelHeader           # 固定顶栏：图标/标题/总开关
+└── n-scrollbar.plugin-scroll   # 详情区纵向滚动
+    └── plugin-detail-wrapper   # relative，供禁用 overlay
         ├── plugin-detail-content  # 灰显目标
         │   └── .plugin-detail     # 唯一内容外壳
         │       └── ActiveDetail / 外部占位

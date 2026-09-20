@@ -8,7 +8,7 @@
 | Keyboard | callback | `key_count`；可选序列；**另** 2s debounce → `ActivityState.count` |
 | Mouse | 1Hz | 欧氏位移 → 分钟总量 + `mouse_seconds[60]`；**另** 2s 移动门闩 → legacy count |
 
-macOS：前台可不依赖辅助功能；键鼠仍走既有 accessibility 门闩。
+macOS：前台可不依赖辅助功能。键鼠完整采样仍走 accessibility；未授权时用免权限空闲秒数 + 光标位移兜底喂 `ActivityState.count`（久坐判定照常，按键次数为 0）。见 [[input-monitoring]]。
 
 ## 分钟时间约定
 

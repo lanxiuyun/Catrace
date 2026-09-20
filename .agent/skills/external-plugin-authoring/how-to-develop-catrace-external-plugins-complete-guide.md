@@ -119,14 +119,14 @@ plugins/
 
 | 字段 | 规则 |
 |------|------|
-| `command` | 相对路径相对插件根；裸命令名走系统 PATH；也可绝对路径 |
+| `command` | 相对路径相对插件根；裸命令名走 `resolve_program`（系统 PATH + 常见目录 + 宿主便携运行时）；也可绝对路径 |
 | `args` | 原样传入 |
 | `cwd` | 默认 `.` = 插件根 |
 | `env` | 可选。宿主会**最后**写入 `CATRACE_PLUGIN_ID`、`CATRACE_PROTOCOL_VERSION=1`（同名覆盖你的 env） |
 
 - 宿主**不会**替你 `npm install`
-- Windows 上若用 `node`，需用户已安装并在 PATH 中
-- 启用后插件中心会显示「本机进程」运行态；信任模型视 sidecar 为本机代码
+- `command: "node"`：系统已装 Node 则用系统的；没有则插件中心右侧整页遮罩，用户可一键安装便携 Node（写入应用数据目录，不改系统 PATH，装完不必重启应用）。当前便携安装仅 Windows x64。
+- 信任模型视 sidecar 为本机代码
 
 #### sidecar 直接读写宿主 KV（M15.3）
 
@@ -530,7 +530,7 @@ Toast 按钮 → resolved → sidecar 执行（如启动应用）
 | sticky 关不掉 | dismiss 后仍 publish | dismiss 禁止再发 |
 | Windows 设备「没连也提示」 | 把「已配对」当成「已连接」 | 查真实连接状态属性，勿仅用 Status=OK |
 | 中文乱码（PowerShell） | 控制台代码页 | 用 UTF-8 文件中转再读 |
-| sidecar 无响应 | 无 Node/PATH；RPC 未 response | 查进程与协议 |
+| sidecar 无响应 | 无 Node（应出现整页安装遮罩）或 RPC 未 response | 先看插件中心是否提示安装 Node；再查进程与协议 |
 | 模块加载失败 | bare import | 只用全局注入 |
 
 ---

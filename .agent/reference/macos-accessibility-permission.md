@@ -49,6 +49,20 @@ spctl -a -vv /Applications/catrace.app
 The `Identifier` should remain `com.lanxiuyun.catrace`, and the authority chain
 should show the same Developer ID identity across releases.
 
+## Installed Updates Without Developer ID
+
+Until release builds use a stable Developer ID, each updater replacement is a
+new TCC identity. Keyboard/mouse via `device_query` then reads zeros and rest
+detection would stay idle.
+
+The host still keeps rest detection working: a permission-free fallback samples
+`CGEventSourceSecondsSinceLastEventType` and cursor position into the same
+`ActivityState.count` gates. `AccessibilityBanner` on the main window asks the
+user to re-grant Accessibility; after grant, full `device_query` sampling
+resumes. Key-count stats stay 0 until then.
+
+Details: [macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md](../features/input-monitoring/macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md).
+
 ## Local Reset When Testing
 
 When testing different unsigned/signed builds, remove stale TCC entries before

@@ -6,6 +6,10 @@
 
 ```
 lib.rs (run 入口)
+├── accessibility 门闩
+│   ├── 已授权 → signal::start_input_sampling
+│   └── macOS 未授权 → signal::start_input_sampling_fallback
+│                     （空闲秒数 + 光标；授权后停兜底再切完整采样）
 └── signal::start_input_sampling
     ├── 键盘线程: get_keys() 边沿 @ 50ms（非 DeviceEvents）
     ├── 鼠标线程: get_mouse() 位移 @ ~1Hz + legacy 2s 门闩
@@ -29,7 +33,8 @@ lib.rs (run 入口)
 - **禁止**对常驻路径使用 `DeviceEvents`（Windows 100µs busy-poll）
 - 鼠标用工位轮询；`device_query` 不提供鼠标移动事件
 - 采样线程在 signal 模块 `thread::spawn`，生命周期跟随进程
-- macOS accessibility 门闩仍在 `lib.rs` 启动路径
+- macOS accessibility 门闩仍在 `lib.rs` 启动路径；未授权时走免权限兜底，禁止空转等用户找设置
+- 兜底与完整采样互斥，授权切换时先停兜底再开完整采样，避免 count 加倍
 
 ## 新增系统输入源时的修改点
 
@@ -40,4 +45,4 @@ lib.rs (run 入口)
 
 ## 相关
 
-- [[input-monitoring]] · [2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md](../../bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md)
+- [[input-monitoring]] · [macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md](../../features/input-monitoring/macos-无辅助功能权限时用系统空闲秒数兜底忙闲.md) · [2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md](../../bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md)
