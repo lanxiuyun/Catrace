@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getVersion } from '@tauri-apps/api/app'
-import AccessibilityBanner from '../../components/AccessibilityBanner.vue'
 
 const { t } = useI18n()
 const version = ref('')
@@ -52,8 +51,6 @@ onMounted(async () => {
         </span>
       </div>
     </header>
-
-    <AccessibilityBanner />
 
     <main class="app-workspace">
       <RouterView v-slot="{ Component }">

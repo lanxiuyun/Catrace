@@ -51,7 +51,7 @@ const downloadTotal = ref(0)
 const downloadReceived = ref(0)
 const loading = ref({ autostart: false, silent: false, locale: false, accessibility: false })
 const isReady = ref(false)
-const showAccessibility = computed(() => platform.value === 'macos')
+const showAccessibility = computed(() => false)
 let accessibilityPollTimer: number | undefined
 
 const localeOptions = [
