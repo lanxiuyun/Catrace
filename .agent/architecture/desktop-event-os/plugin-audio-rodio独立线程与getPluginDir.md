@@ -18,11 +18,12 @@ plugin.path.getPluginDir() // 插件安装目录，用来拼 assets/
 
 `rodio::OutputStream` 包着 `cpal::Stream`，**`!Send + !Sync`**，不能放进 `OnceLock` / Tauri `State`。正确做法：
 
-1. 专用线程 `plugin-audio` 持有 `OutputStream` 直到进程退出。
+1. 专用线程 `plugin-audio` 跑命令循环直到进程退出。
 2. 命令经 `mpsc` 把 play/stop/… 送到该线程。
-3. 每个 playback 一个 `Sink`（可叠播）；播完从 map 里丢掉。
+3. **每次 Play** 调 `OutputStream::try_default()`，把 stream 和 `Sink` 一起放进 playback map。WASAPI 把默认设备绑在 stream 上；线程启动时开一次流，蓝牙耳机之后成为默认设备也不会换口（[#77](https://github.com/lanxiuyun/Catrace/issues/77)）。
+4. 播完从 map 里丢掉（stream 一起 drop）。
 
-不要在 Tauri command 里 `Sink::sleep_until_end()`。
+不要在 Tauri command 里 `Sink::sleep_until_end()`。不要在线程启动时缓存一个全局 `OutputStream`。
 
 ## 资源路径
 

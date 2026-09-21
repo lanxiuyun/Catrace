@@ -22,10 +22,22 @@ fn default_audio_speed() -> f32 {
     1.0
 }
 
+/// Windows WASAPI 把默认设备绑在 `OutputStream` 上。
+/// 线程启动时 `try_default()` 一次，蓝牙耳机之后成为默认设备也不会换口。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OutputStreamPolicy {
+    #[allow(dead_code)]
+    OpenOnceAtThreadStart,
+    OpenDefaultOnEachPlay,
+}
+
+pub(crate) const OUTPUT_STREAM_POLICY: OutputStreamPolicy =
+    OutputStreamPolicy::OpenDefaultOnEachPlay;
+
 #[cfg(not(mobile))]
 mod engine {
     use super::PluginAudioPlayOptions;
-    use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+    use rodio::{Decoder, OutputStream, Sink, Source};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::BufReader;
@@ -64,6 +76,9 @@ mod engine {
 
     struct AudioPlayback {
         sink: Sink,
+        /// WASAPI 把默认设备绑在 stream 上；必须跟 Sink 同生共死，
+        /// 且每次 Play 新建，才能跟上蓝牙耳机切换默认设备。
+        _stream: OutputStream,
     }
 
     static SENDER: OnceLock<Option<Sender<AudioCommand>>> = OnceLock::new();
@@ -87,13 +102,6 @@ mod engine {
     }
 
     fn audio_loop(rx: std::sync::mpsc::Receiver<AudioCommand>) {
-        let (_stream, stream_handle) = match OutputStream::try_default() {
-            Ok(v) => v,
-            Err(e) => {
-                crate::log_error!("plugin-audio", "failed to create output stream: {e}");
-                return;
-            }
-        };
         let mut playbacks: HashMap<String, AudioPlayback> = HashMap::new();
         let mut next_id: u64 = 1;
 
@@ -104,7 +112,7 @@ mod engine {
                     options,
                     respond,
                 } => {
-                    let res = play(&stream_handle, &mut playbacks, &mut next_id, &path, options);
+                    let res = play(&mut playbacks, &mut next_id, &path, options);
                     let _ = respond.send(res);
                 }
                 AudioCommand::Stop { id, respond } => {
@@ -139,7 +147,6 @@ mod engine {
     }
 
     fn play(
-        stream_handle: &OutputStreamHandle,
         playbacks: &mut HashMap<String, AudioPlayback>,
         next_id: &mut u64,
         path: &str,
@@ -148,7 +155,14 @@ mod engine {
         let file = File::open(path).map_err(|e| format!("open audio file: {e}"))?;
         let reader = BufReader::new(file);
         let source = Decoder::new(reader).map_err(|e| format!("decode audio: {e}"))?;
-        let sink = Sink::try_new(stream_handle).map_err(|e| format!("create audio sink: {e}"))?;
+        let (stream, stream_handle) = match super::OUTPUT_STREAM_POLICY {
+            super::OutputStreamPolicy::OpenDefaultOnEachPlay => OutputStream::try_default()
+                .map_err(|e| format!("create output stream: {e}"))?,
+            super::OutputStreamPolicy::OpenOnceAtThreadStart => {
+                return Err("output stream must follow the current default device".into());
+            }
+        };
+        let sink = Sink::try_new(&stream_handle).map_err(|e| format!("create audio sink: {e}"))?;
 
         sink.set_volume(options.volume.clamp(0.0, 2.0));
         sink.set_speed(options.speed.clamp(0.1, 4.0));
@@ -161,7 +175,7 @@ mod engine {
 
         let id = format!("audio_{}", *next_id);
         *next_id += 1;
-        playbacks.insert(id.clone(), AudioPlayback { sink });
+        playbacks.insert(id.clone(), AudioPlayback { sink, _stream: stream });
         Ok(id)
     }
 
@@ -325,5 +339,19 @@ pub fn plugin_api_audio_is_playing(
     {
         let _ = playback_id;
         Err("audio playback is not supported on mobile".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{OutputStreamPolicy, OUTPUT_STREAM_POLICY};
+
+    #[test]
+    fn timer_sound_follows_current_default_output_device() {
+        assert_eq!(
+            OUTPUT_STREAM_POLICY,
+            OutputStreamPolicy::OpenDefaultOnEachPlay,
+            "plugin.audio must open WASAPI default on each play so Bluetooth headsets get timer sounds (#77)"
+        );
     }
 }
