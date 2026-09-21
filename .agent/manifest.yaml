@@ -55,6 +55,7 @@ features:
       - .agent/features/timer-plugin/定时提醒-settings内联编辑与规则排序约定.md
       - .agent/features/timer-plugin/定时提醒-toast颜色与提示音规则字段.md
       - .agent/features/timer-plugin/外部插件如何使用宿主注入的-naive-ui.md
+      - .agent/features/timer-plugin/定时提醒-toast按钮语言读宿主locale不要读html-lang.md
     related:
       - eye-reminder
       - plugin-center
@@ -62,6 +63,7 @@ features:
       - desktop-event-os
       - event-sdk
       - reminder
+      - i18n
 
   bt-music:
     docs:
@@ -137,6 +139,7 @@ features:
       - .agent/features/i18n/README.md
     related:
       - settings
+      - timer-plugin
   auto-update:
     docs:
       - .agent/features/auto-update/README.md

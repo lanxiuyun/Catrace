@@ -6,6 +6,8 @@
 - `src/i18n/locales/zh-CN.ts` — 中文
 - `src/i18n/locales/en-US.ts` — 英文
 - `src-tauri/src/lib.rs` — Rust 侧通知/托盘文本本地化
+- `src-tauri/src/plugin_api/host.rs` — `plugin_api_i18n_get_locale`
+- `src/plugins/pluginApi.ts` — `plugin.i18n.getLocale()`
 
 ## 语言
 
@@ -17,6 +19,12 @@
 ## 默认策略
 
 首次启动从 `navigator.language` 自动检测，保存到 DB 的 `locale` 配置项。无法检测时回退 `zh-CN`。
+
+## 插件 Toast 按钮
+
+外部插件后台窗复用同一份 `index.html`（`lang="en"`）。**不要**用 `document.documentElement.lang` 判断 UI 语言。
+
+按钮/缺省标题走 `plugin.i18n.getLocale()`（读 DB `locale`，空则 `zh-CN`）。规则自己填的 title/body 保持原文。定时提醒见 [[timer-plugin]]。
 
 ## 新增文案
 

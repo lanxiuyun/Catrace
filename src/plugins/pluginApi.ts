@@ -1,4 +1,4 @@
-﻿import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { rewriteThemeColors } from '../theme/rewriteThemeColors'
 
@@ -121,6 +121,8 @@ export type PluginApi = {
   }
   platform: { getInfo(): Promise<PluginPlatformInfo> }
   theme: { isDark(): Promise<boolean> }
+  /** Host UI locale (`zh-CN` | `en-US`). Do not read `document.documentElement.lang`. */
+  i18n: { getLocale(): Promise<string> }
   /** Simple toast helper (kind defaults to plugin id). */
   notification: { show(options: PluginNotificationOptions): Promise<unknown> }
   /** Full Event Bus publish with actions/payload (plugin must be enabled). */
@@ -209,6 +211,7 @@ export function createPluginApi(pluginId: string): PluginApi {
     },
     platform: { getInfo: () => invoke('plugin_api_platform_get_info', { pluginId }) },
     theme: { isDark: () => invoke('plugin_api_theme_is_dark', { pluginId }) },
+    i18n: { getLocale: () => invoke<string>('plugin_api_i18n_get_locale', { pluginId }) },
     notification: { show: (options) => invoke('plugin_api_notification_show', { pluginId, options }) },
     events: {
       publish: (options) =>
