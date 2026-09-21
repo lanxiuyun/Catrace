@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Desktop small-window system</strong><br>
-  Local-first · Free & open source · Everything is a plugin
+  Window management · Activity detection · Free & open source
 </p>
 
 <p align="center">
@@ -33,23 +33,20 @@
 
 ## What Catrace is
 
-Catrace is a **desktop small-window system**. Plugins decide what a window shows and how it interacts — a reminder card, a full-screen rest alarm that covers your display, or whatever comes next. The cards you see today are content *inside* those windows, not the OS notification center.
+Catrace is a **desktop small-window system**. Plugins decide how a small window is presented and how it interacts.
 
-Its core is not "reminders"; it's the **window itself**. A plugin can open, collapse, move, or dress up a small window at any time. VSCode manages code editing; Catrace manages the **lifecycle of small windows**.
+VSCode provides a code viewport, plugins provide capabilities; Catrace provides a small-window viewport, plugins provide content.
 
-The built-in rest reminder and scheduled reminders are just the first residents of the small window; more capabilities plug in as plugins — install once, toggle as you like.
+The rest reminder is Catrace's first plugin; more capabilities will plug in as plugins later.
 
 ## What a small window can be
 
-- **Rest reminders** — After a full work window (say, 45 minutes) without enough rest, a card pops in the corner; if a card is too gentle, go full-screen — it won't go away until you stand up.
-- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — set an interval or a fixed time once, and the small window remembers.
-- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval — the small window tells you first, no more alt-tabbing.
+- **Rest reminders** — After a full work window (say, 45 minutes), a popup or full-screen reminder.
+- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — interval or a fixed time both work.
+- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval.
 - **Headphones** — Headphones connect, your music app opens by itself; when they disconnect, it pauses or wraps up per your settings.
 - **Phone messages** — SMS, app notifications and verification codes forwarded to your desktop, landing in the corner window.
 - **GitHub activity** — New issues and stars reach you the moment they happen.
-
-> [!NOTE]
-> No screen recording, no file reading, no uploading. It only looks at mouse and keyboard activity and which kind of app is in front — and all of that stays on your machine.
 
 ## Download
 
@@ -57,15 +54,11 @@ Windows / macOS / Linux, with optional launch at login. Plugins need no compilat
 
 **[Get the latest release](https://github.com/lanxiuyun/Catrace/releases/latest)**
 
-## How it knows you're busy
+## How it knows you're active
 
-It doesn't guess how long you "planned" to sit; it watches whether you're actually busy:
-
-- Counting starts the first time you touch the mouse or keyboard today;
-- Grabbing water, replying to a message, or zoning out for a moment doesn't break the rhythm — only several consecutive still minutes counts as rest;
-- A full work window without enough rest earns a tap.
-
-Watching a video or listening to music keeps your hands still — it hears system audio and knows you're still using the screen.
+- Counting starts the first time you touch the mouse or keyboard
+- Any mouse or keyboard activity counts as being active
+- Watching a video or listening to music keeps your hands still — it hears system audio and still counts you as active
 
 ## Plugins & community
 
