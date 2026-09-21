@@ -279,6 +279,7 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 bugs:
+  - .agent/bugs/2026-09-21-定时提醒蓝牙耳机无声.md
   - .agent/bugs/2026-09-21-macOS关Toast弹出主窗.md
   - .agent/bugs/2026-09-20-插件详情顶栏插槽图标scoped样式失效撑破布局.md
   - .agent/bugs/2026-09-19-macOS更新后辅助功能授权失效导致一直休息.md

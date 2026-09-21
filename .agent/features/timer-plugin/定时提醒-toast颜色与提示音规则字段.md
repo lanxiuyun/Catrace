@@ -29,7 +29,7 @@ const soundPath = rule.sound_path.trim() || `${pluginDir}/assets/notify.wav`
 await plugin.audio.play(soundPath, { volume: rule.sound_volume })
 ```
 
-失败只打 `plugin.log.warn`，不挡 Toast。
+失败只打 `plugin.log.warn`，不挡 Toast。声音走当时系统默认输出设备：`plugin.audio` 每次 play 新建 WASAPI 流，不缓存启动时的扬声器（蓝牙耳机连上后定时提醒应在耳机里响）。
 
 ## 默认音频
 
