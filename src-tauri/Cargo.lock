@@ -609,6 +609,7 @@ dependencies = [
  "device_query",
  "dirs 5.0.1",
  "macos-accessibility-client",
+ "objc",
  "reqwest 0.12.28",
  "rodio",
  "rusqlite",
