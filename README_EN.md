@@ -70,10 +70,25 @@ The plugin repository is [catrace-plugin](https://github.com/lanxiuyun/catrace-p
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%">
+        <a href="https://space.bilibili.com/67079745?spm_id_from=333.337.0.0"><img src="https://i0.hdslb.com/bfs/face/8a70069e1dc9ab89c1d688c2cefd3596864315ea.jpg@152w_152h_1c_1s.webp" width="100px;" alt="玄离199"/><br /><sub><b>玄离199</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
         <a href="https://linux.do/"><img src="https://www.boltp.com/favicon/linux.do.png" width="100px;" alt="linux.do"/><br /><sub><b>linux.do</b></sub></a>
       </td>
       <td align="center" valign="top" width="14.28%">
-        <a href="https://space.bilibili.com/67079745?spm_id_from=333.337.0.0"><img src="https://i0.hdslb.com/bfs/face/8a70069e1dc9ab89c1d688c2cefd3596864315ea.jpg@152w_152h_1c_1s.webp" width="100px;" alt="玄离199"/><br /><sub><b>玄离199</b></sub></a>
+        <a href="https://github.com/Romic77"><img src="https://avatars.githubusercontent.com/u/14304457?s=100&amp;v=4" width="100px;" alt="Romic77"/><br /><sub><b>Romic77</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/vladelaina"><img src="https://avatars.githubusercontent.com/u/182907634?s=100&amp;v=4" width="100px;" alt="vladelaina"/><br /><sub><b>vladelaina</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/MBriad"><img src="https://avatars.githubusercontent.com/u/179799720?s=100&amp;v=4" width="100px;" alt="MBriad"/><br /><sub><b>MBriad</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/YHQY-Dev"><img src="https://avatars.githubusercontent.com/u/147677145?s=100&amp;v=4" width="100px;" alt="YHQY-Dev"/><br /><sub><b>YHQY-Dev</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/yywangchn"><img src="https://avatars.githubusercontent.com/u/20510892?s=100&amp;v=4" width="100px;" alt="yywangchn"/><br /><sub><b>yywangchn</b></sub></a>
       </td>
     </tr>
   </tbody>
