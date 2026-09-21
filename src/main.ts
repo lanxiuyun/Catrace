@@ -81,7 +81,6 @@ async function applyHostLocale(loc: string | null | undefined) {
   const persisted = loc === 'en-US' || loc === 'zh-CN'
   const locale: SupportedLocale = persisted ? loc : detectDefaultLocale()
   i18n.global.locale.value = locale
-  document.documentElement.lang = locale
   if (!persisted) {
     await setLocale(locale).catch(() => {})
   }
