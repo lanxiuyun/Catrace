@@ -75,4 +75,4 @@ Windows / macOS / Linux，可开机自启，装上即用。插件无需编译，
 ## 友链
 
 <a href="https://linux.do/"><img src="https://www.boltp.com/favicon/linux.do.png" alt="linux.do" width="32" height="32"></a>
-<a href="https://space.bilibili.com/67079745?spm_id_from=333.337.0.0"><img src="https://i7.3conline.com/images/upload/upc/face/52/96/05/59/52960559_150x150" alt="玄离199" width="32" height="32"></a>
+<a href="https://space.bilibili.com/67079745?spm_id_from=333.337.0.0"><img src="https://ts1.tc.mm.bing.net/th/id/OIP-C.pkSBH1VD3JAHQB25kVNJmQHaHa?r=0&amp;rs=1&amp;pid=ImgDetMain&amp;o=7&amp;rm=3" alt="玄离199" width="32" height="32"></a>
