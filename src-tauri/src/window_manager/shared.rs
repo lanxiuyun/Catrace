@@ -75,6 +75,18 @@ pub fn shared_hide_window<R: Runtime>(window: &WebviewWindow<R>) {
     let _ = window.hide();
 }
 
+/// macOS AppKit：普通 `NSWindow.orderOut` / `makeKeyAndOrderFront` 会把同进程下一扇窗（主窗）拉到前台。
+/// Toast / Popup 必须走不激活路径，关卡时用户应留在 Claude Code，而不是弹出 Catrace。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MacosReminderWindowPolicy {
+    #[allow(dead_code)]
+    ActivateAppOnShowAndHide,
+    OrderWithoutActivating,
+}
+
+pub const MACOS_REMINDER_WINDOW_POLICY: MacosReminderWindowPolicy =
+    MacosReminderWindowPolicy::OrderWithoutActivating;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,6 +153,15 @@ mod tests {
         assert_eq!(
             fullscreen_labels_among(labels),
             vec!["reminder-fullscreen-0", "reminder-fullscreen-1"]
+        );
+    }
+
+    #[test]
+    fn macos_toast_must_not_activate_main_when_closed() {
+        assert_eq!(
+            MACOS_REMINDER_WINDOW_POLICY,
+            MacosReminderWindowPolicy::OrderWithoutActivating,
+            "closing the last agent toast on macOS must not makeKey Catrace main"
         );
     }
 }
