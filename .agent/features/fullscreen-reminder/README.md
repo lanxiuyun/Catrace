@@ -4,11 +4,15 @@
 
 > **2026-08-28**：久坐插件重新启用全屏提醒（`reminder_mode=fullscreen`）。  
 > 独立全屏窗先落到**光标所在监视器**，再 OS fullscreen（含任务栏），显示休息倒计时。popup 仍不下线恢复。
+>
+> **2026-09-21**：全屏提醒改为**每块屏一扇窗**（`reminder-fullscreen-0`…），跳过/稍后关掉全部。单窗 OS fullscreen 只能盖光标那一块屏（[#22](https://github.com/lanxiuyun/Catrace/issues/22)）。
 
 ## 涉及文件
 
 - `src/views/toastWindows/ReminderFullscreen.vue` — 全屏提醒窗口
-- `src-tauri/src/lib.rs` — 背景图存储（base64↔文件）、`set_fullscreen_settings` 命令
+- `src-tauri/src/lib.rs` — 背景图存储（base64↔文件）、按监视器创建/关闭全屏窗、`set_fullscreen_settings`
+- `src-tauri/src/window_manager/shared.rs` — 编号 label 与多屏 placement
+- `src-tauri/capabilities/default.json` — `reminder-fullscreen-*`
 
 ## 背景图
 

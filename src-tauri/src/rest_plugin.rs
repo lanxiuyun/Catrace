@@ -176,21 +176,27 @@ pub(crate) fn set_config(config: serde_json::Value, app: tauri::AppHandle) -> Re
 pub(crate) fn skip_reminder(
     boundary: i64,
     state: tauri::State<Arc<Mutex<ReminderState>>>,
+    app: tauri::AppHandle,
 ) {
     let mut s = state.lock().unwrap();
     s.skip_until_boundary = Some(boundary);
     s.snooze_until = None;
     s.break_timer_active = false;
+    drop(s);
+    crate::window_manager::close_fullscreen_windows(&app);
 }
 
 #[tauri::command]
 pub(crate) fn snooze_reminder(
     minutes: u64,
     state: tauri::State<Arc<Mutex<ReminderState>>>,
+    app: tauri::AppHandle,
 ) {
     let mut s = state.lock().unwrap();
     s.snooze_until = Some(Instant::now() + Duration::from_secs(minutes * 60));
     s.break_timer_active = false;
+    drop(s);
+    crate::window_manager::close_fullscreen_windows(&app);
 }
 
 #[tauri::command]

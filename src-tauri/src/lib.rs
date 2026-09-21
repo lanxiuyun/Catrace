@@ -139,10 +139,7 @@ async fn get_activity_snapshot(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
 ) -> Result<ActivitySnapshot, String> {
     let s = activity.lock().unwrap();
-    let fullscreen_active = window
-        .app_handle()
-        .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
-        .is_some();
+    let fullscreen_active = window_manager::is_fullscreen_reminder_open(window.app_handle());
     Ok(ActivitySnapshot {
         count: s.count,
         // 复用最近一次分钟结算的媒体快照，避免每次轮询重复枚举音频会话
@@ -656,6 +653,10 @@ fn close_reminder_window(
         "close_reminder_window[{}] called (前端生命周期结束)",
         label
     );
+    if window_manager::is_fullscreen_window_label(&label) {
+        window_manager::close_fullscreen_windows(&app_handle);
+        return Ok(());
+    }
     if let Some(window) = app_handle.get_webview_window(&label) {
         // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
         if label == window_manager::TOAST_WINDOW_LABEL
@@ -696,30 +697,12 @@ fn close_reminder_window(
     Ok(())
 }
 
-/// 独立全屏窗：先落到光标监视器，再 OS fullscreen（含任务栏）。不走 toast 的 SetWindowPos。
-fn enter_fullscreen_on_cursor_monitor(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
-    match reminder_toast::resolve_cursor_monitor(app) {
-        Ok(monitor) => {
-            let pos = monitor.position();
-            log_info!(
-                "fullscreen-win",
-                "enter fullscreen monitor=({},{}) size={}x{}",
-                pos.x,
-                pos.y,
-                monitor.size().width,
-                monitor.size().height
-            );
-            // 先退出全屏才能正确移动窗口到目标监视器，再重新进入全屏。
-            let _ = window.set_fullscreen(false);
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: pos.x,
-                y: pos.y,
-            }));
-        }
-        Err(e) => {
-            log_error!("fullscreen-win", "resolve_cursor_monitor failed: {}", e);
-        }
-    }
+/// 独立全屏窗：先落到指定监视器原点，再 OS fullscreen（含任务栏）。不走 toast 的 SetWindowPos。
+fn enter_fullscreen_on_monitor(window: &tauri::WebviewWindow, x: i32, y: i32) {
+    log_info!("fullscreen-win", "enter fullscreen monitor=({},{})", x, y);
+    // 先退出全屏才能正确移动窗口到目标监视器，再重新进入全屏。
+    let _ = window.set_fullscreen(false);
+    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
     let _ = window.set_fullscreen(true);
 }
 
@@ -735,8 +718,6 @@ pub(crate) fn create_fullscreen_window(
     fullscreen_element_transforms: String,
     store: &ReminderWindowStore,
 ) {
-    let label = window_manager::FULLSCREEN_WINDOW_LABEL;
-
     let data = ReminderWindowData {
         kind: "rest".to_string(),
         boundary,
@@ -748,36 +729,79 @@ pub(crate) fn create_fullscreen_window(
         fullscreen_fit_mode,
         fullscreen_element_transforms,
     };
-    store.lock().unwrap().insert(label.to_string(), data);
+    store
+        .lock()
+        .unwrap()
+        .insert(window_manager::FULLSCREEN_DATA_KEY.to_string(), data);
+
+    window_manager::close_fullscreen_windows(app_handle);
+
+    let origins: Vec<(i32, i32)> = match app_handle.available_monitors() {
+        Ok(monitors) => monitors
+            .iter()
+            .map(|monitor| {
+                let pos = monitor.position();
+                (pos.x, pos.y)
+            })
+            .collect(),
+        Err(e) => {
+            log_error!("fullscreen-win", "available_monitors failed: {}", e);
+            Vec::new()
+        }
+    };
+    let placements = window_manager::fullscreen_placements(&origins);
+    let focus_label = reminder_toast::resolve_cursor_monitor(app_handle)
+        .ok()
+        .and_then(|monitor| {
+            let pos = monitor.position();
+            placements
+                .iter()
+                .find(|p| p.x == pos.x && p.y == pos.y)
+                .map(|p| p.label.clone())
+        })
+        .or_else(|| placements.first().map(|p| p.label.clone()));
 
     let app = app_handle.clone();
-
-    if let Some(existing) = app_handle.get_webview_window(label) {
-        let _ = existing.close();
-    }
-
     tauri::async_runtime::spawn(async move {
-        let builder = tauri::WebviewWindowBuilder::new(
-            &app,
-            label,
-            tauri::WebviewUrl::App("index.html#/reminder-fullscreen".into()),
-        )
-        .title("Catrace")
-        .fullscreen(true)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .resizable(false);
+        let mut focus_window = None;
+        for placement in placements {
+            let builder = tauri::WebviewWindowBuilder::new(
+                &app,
+                &placement.label,
+                tauri::WebviewUrl::App("index.html#/reminder-fullscreen".into()),
+            )
+            .title("Catrace")
+            .fullscreen(true)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false);
 
-        match builder.build() {
-            Ok(window) => {
-                log_info!("fullscreen-win", "fullscreen window built boundary={}", boundary);
-                enter_fullscreen_on_cursor_monitor(&app, &window);
-                let _ = window.set_focus();
+            match builder.build() {
+                Ok(window) => {
+                    log_info!(
+                        "fullscreen-win",
+                        "fullscreen window built label={} boundary={}",
+                        placement.label,
+                        boundary
+                    );
+                    enter_fullscreen_on_monitor(&window, placement.x, placement.y);
+                    if focus_label.as_deref() == Some(placement.label.as_str()) {
+                        focus_window = Some(window);
+                    }
+                }
+                Err(e) => {
+                    log_error!(
+                        "fullscreen-win",
+                        "build failed label={}: {}",
+                        placement.label,
+                        e
+                    );
+                }
             }
-            Err(e) => {
-                log_error!("fullscreen-win", "build failed: {}", e);
-            }
+        }
+        if let Some(window) = focus_window {
+            let _ = window.set_focus();
         }
     });
 }
@@ -999,9 +1023,7 @@ pub fn run() {
                     } else {
                         false
                     };
-                    let is_fullscreen = app_handle
-                        .get_webview_window(window_manager::FULLSCREEN_WINDOW_LABEL)
-                        .is_some();
+                    let is_fullscreen = window_manager::is_fullscreen_reminder_open(&app_handle);
                     let timestamp = chrono::Local::now().timestamp() / 60 * 60;
 
                     // Drain completed signal minutes; use dominant app for this settle row.
