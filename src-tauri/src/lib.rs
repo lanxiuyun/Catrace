@@ -1227,6 +1227,7 @@ pub fn run() {
             plugin_api::plugin_api_shell_show_item_in_folder,
             plugin_api::plugin_api_platform_get_info,
             plugin_api::plugin_api_theme_is_dark,
+            plugin_api::plugin_api_i18n_get_locale,
             plugin_api::plugin_api_notification_show,
             plugin_api::plugin_api_event_publish,
             plugin_api::plugin_api_event_close,

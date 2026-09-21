@@ -4,7 +4,8 @@ import './styles/theme.css'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
-import { logFrontend } from './api/tauri'
+import { getLocale, logFrontend, setLocale } from './api/tauri'
+import { detectDefaultLocale, type SupportedLocale } from './utils/locale'
 import { useEventHub } from './stores/eventHub'
 import { registerBuiltinPlugins } from './plugins/registerBuiltins'
 import { loadExternalPlugins } from './plugins/loadExternalPlugins'
@@ -76,9 +77,25 @@ if (!isPluginHost) {
   })
 }
 
+async function applyHostLocale(loc: string | null | undefined) {
+  const persisted = loc === 'en-US' || loc === 'zh-CN'
+  const locale: SupportedLocale = persisted ? loc : detectDefaultLocale()
+  i18n.global.locale.value = locale
+  document.documentElement.lang = locale
+  if (!persisted) {
+    await setLocale(locale).catch(() => {})
+  }
+}
+
+const localeReady = getLocale()
+  .then(applyHostLocale)
+  .catch(() => applyHostLocale(null))
+
 // 挂载前初始化主题（读持久化偏好 + 落地 data-theme），避免亮色闪白(FOUC)
 useTheme().init().finally(() => {
-  app.mount('#app')
+  void localeReady.finally(() => {
+    app.mount('#app')
+  })
 })
 
 if (!isToastOrReminder) {

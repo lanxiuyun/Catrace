@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -17,6 +17,14 @@ import { useTheme } from './composables/useTheme'
 
 const { locale } = useI18n()
 const { naiveTheme, naiveOverrides } = useTheme()
+
+watch(
+  locale,
+  (val) => {
+    document.documentElement.lang = val
+  },
+  { immediate: true },
+)
 
 const naiveLocale = computed(() => {
   return locale.value === 'zh-CN' ? naiveZhCN : naiveEnUS

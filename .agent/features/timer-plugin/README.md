@@ -27,6 +27,7 @@ Debug 构建 junction：`tools/plugin-demo/timer` → `app_data/plugins/timer`�
 - [定时提醒-settings内联编辑与规则排序约定.md](定时提醒-settings内联编辑与规则排序约定.md) — 列表/编辑/排序/护眼锁定
 - [定时提醒-toast颜色与提示音规则字段.md](定时提醒-toast颜色与提示音规则字段.md) — accent / 默认 wav / plugin.audio
 - [外部插件如何使用宿主注入的-naive-ui.md](外部插件如何使用宿主注入的-naive-ui.md) — runtime globals 与 teleport 陷阱
+- [定时提醒-toast按钮语言读宿主locale不要读html-lang.md](定时提醒-toast按钮语言读宿主locale不要读html-lang.md) — 后台窗 `html lang="en"` 会让按钮变英文
 
 ## 相关
 
@@ -35,3 +36,4 @@ Debug 构建 junction：`tools/plugin-demo/timer` → `app_data/plugins/timer`�
 - [[m10-external-plugins]] — 外部插件加载合同
 - [[toast-window]] — `payload.auto_hide_ms` / sticky
 - [[reminder]] — 久坐 `break_minutes` 供真休息判定
+- [[i18n]] — 按钮/缺省文案读 `plugin.i18n.getLocale()`

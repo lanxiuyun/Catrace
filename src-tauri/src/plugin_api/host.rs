@@ -5,6 +5,7 @@ use serde::Serialize;
 use tauri::{Emitter, Manager, State};
 
 use super::require_plugin_api;
+use crate::db::Db;
 use crate::plugins::PluginManager;
 use crate::{log_error, log_info, log_warn};
 
@@ -188,4 +189,21 @@ pub fn plugin_api_theme_is_dark(
         .theme()
         .map(|theme| matches!(theme, tauri::Theme::Dark))
         .map_err(|e| format!("read window theme: {e}"))
+}
+
+/// Host UI locale (`zh-CN` | `en-US`). Empty DB value falls back like rest notifications.
+#[tauri::command]
+pub fn plugin_api_i18n_get_locale(
+    window: tauri::WebviewWindow,
+    plugins: State<'_, PluginManager>,
+    db: State<'_, Db>,
+    plugin_id: String,
+) -> Result<String, String> {
+    require_plugin_api(&window, &plugins, &plugin_id)?;
+    let val = db.get_setting("locale", "zh-CN");
+    if val.is_empty() {
+        Ok("zh-CN".into())
+    } else {
+        Ok(val)
+    }
 }

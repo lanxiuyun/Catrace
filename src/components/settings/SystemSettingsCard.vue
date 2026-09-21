@@ -198,6 +198,7 @@ async function changeLocale(val: string) {
     await setLocale(val)
     localeVal.value = val
     i18n.global.locale.value = val as 'zh-CN' | 'en-US'
+    document.documentElement.lang = val
     message.success(t('settings.messages.saved'))
   } catch (e) {
     message.error(t('settings.messages.saveFailed'))
