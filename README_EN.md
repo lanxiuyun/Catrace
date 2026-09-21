@@ -64,7 +64,7 @@ Windows / macOS / Linux, with optional launch at login. Plugins need no compilat
 
 The plugin repository is [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin): built-in features work out of the box; plugins you want are installed from a local folder or archive and toggled off whenever you like. To write your own, the protocol and examples live there too.
 
-## Friends
+## Special thanks
 
 <table>
   <tbody>
@@ -87,8 +87,13 @@ The plugin repository is [catrace-plugin](https://github.com/lanxiuyun/catrace-p
       <td align="center" valign="top" width="14.28%">
         <a href="https://github.com/YHQY-Dev"><img src="https://avatars.githubusercontent.com/u/147677145?s=100&amp;v=4" width="100px;" alt="YHQY-Dev"/><br /><sub><b>YHQY-Dev</b></sub></a>
       </td>
+    </tr>
+    <tr>
       <td align="center" valign="top" width="14.28%">
         <a href="https://github.com/yywangchn"><img src="https://avatars.githubusercontent.com/u/20510892?s=100&amp;v=4" width="100px;" alt="yywangchn"/><br /><sub><b>yywangchn</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/zai-org"><img src="https://avatars.githubusercontent.com/u/223098841?s=100&amp;v=4" width="100px;" alt="Z.ai"/><br /><sub><b>Z.ai</b></sub></a>
       </td>
     </tr>
   </tbody>

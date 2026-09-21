@@ -64,7 +64,7 @@ Windows / macOS / Linux，可开机自启，装上即用。插件无需编译，
 
 插件仓库在 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin)：内置功能开箱即用，想装的插件从本地文件夹或压缩包安装，想关随时关。想自己动手写插件，协议与示例都在那边。
 
-## 友链
+## 特别感谢
 
 <table>
   <tbody>
@@ -87,8 +87,13 @@ Windows / macOS / Linux，可开机自启，装上即用。插件无需编译，
       <td align="center" valign="top" width="14.28%">
         <a href="https://github.com/YHQY-Dev"><img src="https://avatars.githubusercontent.com/u/147677145?s=100&amp;v=4" width="100px;" alt="YHQY-Dev"/><br /><sub><b>YHQY-Dev</b></sub></a>
       </td>
+    </tr>
+    <tr>
       <td align="center" valign="top" width="14.28%">
         <a href="https://github.com/yywangchn"><img src="https://avatars.githubusercontent.com/u/20510892?s=100&amp;v=4" width="100px;" alt="yywangchn"/><br /><sub><b>yywangchn</b></sub></a>
+      </td>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/zai-org"><img src="https://avatars.githubusercontent.com/u/223098841?s=100&amp;v=4" width="100px;" alt="Z.ai"/><br /><sub><b>Z.ai</b></sub></a>
       </td>
     </tr>
   </tbody>
