@@ -64,7 +64,7 @@ const targets = [
   },
   {
     rel: 'src-tauri/tauri.conf.json',
-    currentRe: /"productName"\s*:\s*"catrace"[\s\S]*?"version"\s*:\s*"([^"]+)"/,
+    currentRe: /"productName"\s*:\s*"Catrace"[\s\S]*?"version"\s*:\s*"([^"]+)"/i,
     variants: (cur) => [
       [`"version": "${cur}"`, `"version": "${next}"`],
       [`"version":"${cur}"`, `"version":"${next}"`],
