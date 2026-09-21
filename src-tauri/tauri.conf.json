@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "catrace",
+  "productName": "Catrace",
   "version": "26.9.22",
   "identifier": "com.lanxiuyun.catrace",
   "build": {
