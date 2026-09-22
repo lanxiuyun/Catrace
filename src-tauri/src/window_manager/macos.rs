@@ -68,7 +68,7 @@ pub fn set_window_rect_physical(
 #[cfg(target_os = "macos")]
 fn macos_order_without_activating<R: Runtime>(window: &WebviewWindow<R>, front: bool) {
     let window = window.clone();
-    let _ = window.run_on_main_thread(move || {
+    let _ = window.clone().run_on_main_thread(move || {
         use objc::{msg_send, runtime::Object, sel, sel_impl};
 
         let Ok(ns_window) = window.ns_window() else {
