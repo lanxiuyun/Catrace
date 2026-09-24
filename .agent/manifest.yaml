@@ -89,6 +89,7 @@ features:
       - .agent/features/toast-window/外部插件通过payload-toastStyle选择默认或独立卡片外壳.md
       - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
       - .agent/features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md
+      - .agent/features/toast-window/Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md
       - .agent/features/toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md
     related:
       - reminder

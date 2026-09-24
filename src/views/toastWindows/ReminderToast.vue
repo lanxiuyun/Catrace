@@ -236,7 +236,7 @@ onMounted(async () => {
     }
   }
   scheduleWindowResize()
-  document.addEventListener('pointerdown', handleToastPointerDown, true)
+  document.addEventListener('pointerover', handleToastPointerOver, true)
 
   // 读取初始通知
   try {
@@ -261,7 +261,7 @@ onUnmounted(() => {
   unlistenBusEvent = null
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
-  document.removeEventListener('pointerdown', handleToastPointerDown, true)
+  document.removeEventListener('pointerover', handleToastPointerOver, true)
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -331,7 +331,9 @@ async function activateToastWindow() {
   }
 }
 
-function handleToastPointerDown() {
+function handleToastPointerOver(event: PointerEvent) {
+  const target = event.target
+  if (!(target instanceof Element) || !rootRef.value?.contains(target)) return
   void activateToastWindow()
 }
 

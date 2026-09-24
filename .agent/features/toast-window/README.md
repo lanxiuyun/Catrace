@@ -27,7 +27,7 @@
 - 透明无边框 WebviewWindow，复用而非销毁
 - **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
-- **点击卡片才抢焦点**：`pointerdown` 触发 `setWindowActiveMode(true)`，移入/移出只控制 auto-hide 倒计时暂停
+- Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式。当前通过 Toast 内容区的 `pointerover` 提前触发 `setWindowActiveMode(true)`，避免首次点击的原生焦点时序落后于 WebView DOM 光标。该策略仍需验证普通 hover 是否造成不期望的焦点抢占
 - macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
@@ -91,6 +91,8 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - **仅** sticky 插件卡 + `resolution.kind === 'action'` + `action_id === 'echo'` 时 **留卡**，供 sidecar roundtrip 原地 upsert。
 - 其它 action（如 `dismiss`）/ dismissed / completed：正常 `removeNotification`。
 - 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
+
+- 点击唤醒与 NOACTIVATE 输入焦点时序：[Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md](Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md)
 
 ## 子文档
 - [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 2026-08-27 从全屏覆盖层改回右下角原生小窗的实现细节
