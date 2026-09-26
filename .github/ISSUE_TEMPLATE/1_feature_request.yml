@@ -42,9 +42,9 @@ body:
       label: "🔢 当前应用版本号"
       description: |-
         Current App Version<br><br>
-        你当前使用的 Catrace 版本号是多少？可以在「设置 → 关于」或系统托盘菜单中查看。<br>
-        What version of Catrace are you using? You can find it in "Settings → About" or the system tray menu.
-      placeholder: "例如：1.2.3 / e.g. 1.2.3"
+        在设置页「软件版本」一栏查看，例如 26.9.24。<br>
+        Find it in Settings → Software version, e.g. 26.9.24.
+      placeholder: "26.9.24"
     validations:
       required: false
 

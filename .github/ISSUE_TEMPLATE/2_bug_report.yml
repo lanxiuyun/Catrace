@@ -20,8 +20,8 @@ body:
       label: "❓ 实际发生了什么"
       description: |-
         What Actually Happened<br><br>
-        出现了什么问题？请告诉我们你看到的情况，细节越多越好！<br>
-        Oops! Something went wrong? Please tell us what you saw - the more details, the better!
+        出现了什么问题？请告诉我们你看到的情况，细节越多越好。有截图或短视频请直接拖到本页。<br>
+        Oops! Something went wrong? Please tell us what you saw — the more details, the better. Drag screenshots or a short clip onto this page.
     validations:
       required: true
 
@@ -52,11 +52,34 @@ body:
       label: "🔢 应用版本号"
       description: |-
         App Version<br><br>
-        你当前使用的 Catrace 版本号是多少？可以在「设置 → 关于」或系统托盘菜单中查看。<br>
-        What version of Catrace are you using? You can find it in "Settings → About" or the system tray menu.
-      placeholder: "例如：1.2.3 / e.g. 1.2.3"
+        在设置页「软件版本」一栏查看，例如 26.9.24。<br>
+        Find it in Settings → Software version, e.g. 26.9.24.
+      placeholder: "26.9.24"
     validations:
       required: true
+
+  - type: dropdown
+    id: "os"
+    attributes:
+      label: "💻 操作系统"
+      description: |-
+        Operating System<br><br>
+        你在哪一类电脑上使用 Catrace。<br>
+        Which OS are you running Catrace on?
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |-
+        ### 📋 日志 / Logs
+
+        打开设置页，点「日志目录」，把**当天**的 `catrace-年-月-日.log` 拖到本页（日志只保留 7 天）。<br>
+        In Settings, click **Logs Folder** and drag today's `catrace-YYYY-MM-DD.log` onto this page (kept for 7 days).
 
   - type: textarea
     id: "more"
@@ -64,16 +87,8 @@ body:
       label: "📌 补充信息"
       description: |-
         Additional Information<br><br>
-        还有其他想告诉我们的吗？例如系统信息、日志等。<br>
-        Anything else you'd like to tell us? System information, logs, etc.
-      placeholder: |-
-        示例：
-        系统：Windows 11 23H2
-        日志：...
-
-        Example:
-        System: Windows 11 23H2
-        Logs: ...
+        还有其他想告诉我们的吗？例如系统版本、用了哪个插件、刚更新过。<br>
+        Anything else? OS version, which plugin, a recent update.
     validations:
       required: false
 
