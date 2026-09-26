@@ -63,13 +63,8 @@ const isToastOrReminder =
   window.location.hash.includes('reminder-popup') ||
   window.location.hash.includes('reminder-fullscreen') ||
   isPluginHost
-if (
-  window.location.hash.includes('reminder-toast') ||
-  window.location.hash.includes('reminder-fullscreen')
-) {
-  document.documentElement.classList.add('reminder-transparent')
-}
 if (!isToastOrReminder) {
+  document.documentElement.classList.add('catrace-shell')
   // Register before mount so #/plugins can resolve SettingsComponent immediately.
   registerBuiltinPlugins()
   ensurePluginLogConsole()
