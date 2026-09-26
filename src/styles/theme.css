@@ -84,3 +84,12 @@
   /* 强调/深色底上的前景白 */
   --ct-on-accent: #ffffff;
 }
+
+/* Toast / 全屏提醒窗：必须在 Vue 挂载前就是透明的。
+   App.vue 给 html/body 上了 --ct-bg，暗色下会在圆角卡片外露出一圈近黑底。 */
+html.reminder-transparent,
+html.reminder-transparent body,
+html.reminder-transparent #app {
+  background: transparent !important;
+  background-color: transparent !important;
+}

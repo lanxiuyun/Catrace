@@ -1324,13 +1324,10 @@ fn seed_bundled_plugins(app: &AppHandle) {
         let bundled_version = read_manifest_version(&src);
         let dest = target_root.join(&name);
         let existed = dest.exists();
-        let should_seed = match read_manifest_version(&dest) {
-            None => true,
-            Some(installed) => match bundled_version {
-                Some(ref bundled) => compare_versions(bundled, &installed) > 0,
-                None => false,
-            },
-        };
+        let should_seed = should_seed_bundled(
+            bundled_version.as_deref(),
+            read_manifest_version(&dest).as_deref(),
+        );
         if !should_seed {
             continue;
         }
@@ -1356,6 +1353,17 @@ fn read_manifest_version(dir: &Path) -> Option<String> {
     m.get("version")?.as_str().map(String::from)
 }
 
+/// Whether bundled resources should copy over an existing app_data plugin.
+/// Equal versions are kept as-is so user edits survive; bump `manifest.version` to ship a fix.
+#[cfg(any(test, not(debug_assertions)))]
+fn should_seed_bundled(bundled_version: Option<&str>, installed_version: Option<&str>) -> bool {
+    match (bundled_version, installed_version) {
+        (_, None) => true,
+        (None, Some(_)) => false,
+        (Some(bundled), Some(installed)) => compare_versions(bundled, installed) > 0,
+    }
+}
+
 /// Replace `dest` with a copy of `src` (skip install-time dirs), atomically-ish:
 /// copy to a temp sibling first, then swap so a crash never leaves a half package.
 #[cfg(not(debug_assertions))]
@@ -1376,7 +1384,7 @@ fn replace_plugin_package(src: &Path, dest: &Path) -> Result<(), String> {
 }
 
 /// Numeric semver-ish compare (e.g. "0.10.0" > "0.3.0"). >0 when a>b.
-#[cfg(not(debug_assertions))]
+#[cfg(any(test, not(debug_assertions)))]
 fn compare_versions(a: &str, b: &str) -> i32 {
     fn parts(s: &str) -> Vec<u32> {
         s.split('.')
@@ -1394,6 +1402,35 @@ fn compare_versions(a: &str, b: &str) -> i32 {
         }
     }
     0
+}
+
+#[cfg(test)]
+mod seed_version_tests {
+    use super::{compare_versions, should_seed_bundled};
+
+    #[test]
+    fn equal_version_does_not_upgrade() {
+        assert!(
+            !should_seed_bundled(Some("0.1.0"), Some("0.1.0")),
+            "locale/content changes without a version bump must not overwrite app_data"
+        );
+    }
+
+    #[test]
+    fn newer_bundled_upgrades() {
+        assert!(should_seed_bundled(Some("0.1.1"), Some("0.1.0")));
+        assert_eq!(compare_versions("0.1.1", "0.1.0"), 1);
+    }
+
+    #[test]
+    fn missing_install_seeds() {
+        assert!(should_seed_bundled(Some("0.1.0"), None));
+    }
+
+    #[test]
+    fn bundled_without_version_does_not_clobber() {
+        assert!(!should_seed_bundled(None, Some("0.1.0")));
+    }
 }
 
 /// Called from setup after PluginManager is managed.
