@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.9.24"
+version = "26.9.26"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
