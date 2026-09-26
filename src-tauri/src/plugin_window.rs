@@ -48,13 +48,18 @@ impl PluginWindowManager {
                 if current.contains_key(&spec.id) {
                     self.stop(app, &spec.id)?;
                 }
-                self.start(app, &spec.id, &spec.fingerprint)?;
+                self.start(app, &spec)?;
             }
         }
         Ok(())
     }
 
-    fn start(&self, app: &tauri::AppHandle, id: &str, fingerprint: &str) -> Result<(), String> {
+    fn start(
+        &self,
+        app: &tauri::AppHandle,
+        spec: &crate::plugins::PluginBackgroundSpec,
+    ) -> Result<(), String> {
+        let id = spec.id.as_str();
         let label = window_label(id);
         if app.get_webview_window(&label).is_some() {
             return Err(format!("plugin background window still exists: {id}"));
@@ -76,8 +81,13 @@ impl PluginWindowManager {
         self.running
             .lock()
             .map_err(|e| e.to_string())?
-            .insert(id.to_string(), fingerprint.to_string());
-        log_info!("plugin-runtime", "started background window for {id}");
+            .insert(id.to_string(), spec.fingerprint.clone());
+        log_info!(
+            "plugin-runtime",
+            "started background window for {id} v{} hash={}",
+            spec.version,
+            spec.content_hash
+        );
         Ok(())
     }
 

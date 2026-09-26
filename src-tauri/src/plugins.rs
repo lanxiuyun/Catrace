@@ -98,6 +98,7 @@ struct CachedPlugin {
     settings_abs: Option<PathBuf>,
     icon_abs: Option<PathBuf>,
     sidecar: Option<PluginSidecarSpec>,
+    content_hash: String,
 }
 
 struct PluginCache {
@@ -115,6 +116,8 @@ impl PluginCache {
 #[derive(Debug, Clone)]
 pub struct PluginBackgroundSpec {
     pub id: String,
+    pub version: String,
+    pub content_hash: String,
     pub fingerprint: String,
 }
 
@@ -197,6 +200,7 @@ impl PluginManager {
                         settings_abs: None,
                         icon_abs: None,
                         sidecar: None,
+                        content_hash: String::new(),
                     });
                 }
             }
@@ -319,6 +323,8 @@ impl PluginManager {
             .filter_map(|p| {
                 p.background_abs.as_ref().map(|path| PluginBackgroundSpec {
                     id: p.info.id.clone(),
+                    version: p.info.version.clone(),
+                    content_hash: p.content_hash.clone(),
                     fingerprint: background_fingerprint(&p.info.version, path),
                 })
             })
@@ -454,6 +460,26 @@ impl PluginManager {
             .ok_or_else(|| format!("plugin not found: {id}"))?;
         Ok(p.dir.to_string_lossy().to_string())
     }
+
+    fn log_loaded_plugins(&self) {
+        let Ok(guard) = self.inner.lock() else {
+            return;
+        };
+        for p in &guard.plugins {
+            if let Some(err) = &p.info.error {
+                log_warn!("plugins", "loaded {} error={err}", p.info.id);
+                continue;
+            }
+            log_info!(
+                "plugins",
+                "loaded {} v{} hash={} enabled={}",
+                p.info.id,
+                p.info.version,
+                p.content_hash,
+                p.info.enabled
+            );
+        }
+    }
 }
 
 fn plugins_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -536,6 +562,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         .unwrap_or(m.enabled_by_default);
 
     let content_mtime_ms = file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
+    let content_hash = plugin_content_hash(dir);
 
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
@@ -565,6 +592,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         settings_abs,
         icon_abs,
         sidecar,
+        content_hash,
     })
 }
 
@@ -576,6 +604,69 @@ fn file_mtime_ms(path: Option<&PathBuf>) -> u64 {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+fn skip_plugin_hash_entry(name: &str) -> bool {
+    name == "."
+        || name == ".."
+        || name == ".git"
+        || name == "node_modules"
+        || name == "runtime"
+        || name.starts_with('.')
+}
+
+/// Short content hash of the installed package (what actually runs from app_data).
+/// Skips .git / node_modules / runtime / dotfiles so sidecar state does not churn the hash.
+fn plugin_content_hash(dir: &Path) -> String {
+    use sha2::Digest;
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    collect_plugin_hash_files(dir, dir, &mut files);
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = sha2::Sha256::new();
+    for (rel, bytes) in files {
+        hasher.update(rel.as_bytes());
+        hasher.update([0u8]);
+        hasher.update(&bytes);
+        hasher.update([0u8]);
+    }
+    let hex = format!("{:x}", hasher.finalize());
+    hex.chars().take(12).collect()
+}
+
+fn collect_plugin_hash_files(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if skip_plugin_hash_entry(&name) {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(ft) = entry.file_type() else {
+            continue;
+        };
+        if ft.is_dir() {
+            collect_plugin_hash_files(root, &path, out);
+            continue;
+        }
+        if !ft.is_file() {
+            continue;
+        }
+        let Ok(bytes) = fs::read(&path) else {
+            continue;
+        };
+        if bytes.len() > 1024 * 1024 {
+            continue;
+        }
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        out.push((rel, bytes));
+    }
 }
 
 fn sidecar_spec(
@@ -1324,11 +1415,18 @@ fn seed_bundled_plugins(app: &AppHandle) {
         let bundled_version = read_manifest_version(&src);
         let dest = target_root.join(&name);
         let existed = dest.exists();
+        let installed_version = read_manifest_version(&dest);
         let should_seed = should_seed_bundled(
             bundled_version.as_deref(),
-            read_manifest_version(&dest).as_deref(),
+            installed_version.as_deref(),
         );
         if !should_seed {
+            log_info!(
+                "plugins",
+                "bundled plugin {name} skip (installed v{}, bundled v{})",
+                installed_version.as_deref().unwrap_or("?"),
+                bundled_version.as_deref().unwrap_or("?"),
+            );
             continue;
         }
 
@@ -1433,6 +1531,53 @@ mod seed_version_tests {
     }
 }
 
+#[cfg(test)]
+mod content_hash_tests {
+    use super::plugin_content_hash;
+
+    #[test]
+    fn same_files_same_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-a-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("manifest.json"), r#"{"id":"x","version":"0.1.0"}"#).unwrap();
+        std::fs::write(dir.join("background.mjs"), "console.log(1)").unwrap();
+        let a = plugin_content_hash(&dir);
+        let b = plugin_content_hash(&dir);
+        assert_eq!(a.len(), 12);
+        assert_eq!(a, b);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn content_change_changes_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-b-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("background.mjs"), "console.log(1)").unwrap();
+        let before = plugin_content_hash(&dir);
+        std::fs::write(dir.join("background.mjs"), "console.log(2)").unwrap();
+        let after = plugin_content_hash(&dir);
+        assert_ne!(before, after);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn runtime_and_node_modules_do_not_affect_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-c-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("runtime")).unwrap();
+        std::fs::create_dir_all(dir.join("node_modules/x")).unwrap();
+        std::fs::write(dir.join("background.mjs"), "ok").unwrap();
+        let before = plugin_content_hash(&dir);
+        std::fs::write(dir.join("runtime/state.json"), "{\"n\":1}").unwrap();
+        std::fs::write(dir.join("node_modules/x/index.js"), "nope").unwrap();
+        let after = plugin_content_hash(&dir);
+        assert_eq!(before, after);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
 /// Called from setup after PluginManager is managed.
 pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
     #[cfg(not(debug_assertions))]
@@ -1443,6 +1588,8 @@ pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
 
     if let Err(e) = mgr.rescan(app) {
         log_error!("plugins", "initial scan failed: {e}");
+    } else {
+        mgr.log_loaded_plugins();
     }
 }
 
