@@ -1346,6 +1346,18 @@ pub fn run() {
             signal::purge_key_sequences,
             signal::get_recent_signal_minutes,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| match event {
+            // 轻量模式销毁主窗后可能没有任何窗口(通知按需创建、插件后台窗已下线),
+            // 但应用必须留在托盘继续采样与提醒。只拦截「窗口全部关闭」的隐式退出;
+            // 程序化退出(托盘退出 app.exit(0)、更新器 restart())的 code 是 Some,照常放行。
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
+                if code.is_none() {
+                    log_info!("main-win", "all windows closed, staying in tray (lightweight mode)");
+                    api.prevent_exit();
+                }
+            }
+            _ => {}
+        });
 }
