@@ -142,6 +142,10 @@ export default {
       silentStartTitle: 'Silent Start',
       silentStartDesc: "Don't show the window on boot, run in tray only",
     },
+    lightweight: {
+      title: 'Lightweight Mode',
+      desc: 'Use less memory by not keeping windows running in the background; reopening the main window from the tray will be slightly slower',
+    },
     accessibility: {
       title: 'Accessibility Permission',
       desc: 'Used locally to detect keyboard and mouse activity without recording key contents',

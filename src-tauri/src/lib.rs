@@ -365,6 +365,26 @@ fn set_silent_start(enabled: bool, db: tauri::State<db::Db>) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+const LIGHTWEIGHT_MODE_KEY: &str = "lightweight_mode";
+
+/// 轻量模式开关（默认 false）。使用点现读 settings 表，切换后即时生效。
+fn lightweight_mode_enabled(app: &tauri::AppHandle) -> bool {
+    app.state::<db::Db>()
+        .get_setting(LIGHTWEIGHT_MODE_KEY, "false")
+        == "true"
+}
+
+#[tauri::command]
+fn get_lightweight_mode(db: tauri::State<db::Db>) -> bool {
+    db.get_setting(LIGHTWEIGHT_MODE_KEY, "false") == "true"
+}
+
+#[tauri::command]
+fn set_lightweight_mode(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting(LIGHTWEIGHT_MODE_KEY, &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
 /** 获取「隐藏统计面板」开关状态（默认 false）。 */
 #[tauri::command]
 fn get_hide_stats(db: tauri::State<db::Db>) -> bool {
@@ -380,10 +400,7 @@ fn set_hide_stats(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String>
 
 #[tauri::command]
 fn show_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    }
+    show_or_rebuild_main_window(&app_handle);
     Ok(())
 }
 
@@ -393,6 +410,65 @@ fn hide_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
         window.hide().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// 挂主窗事件：关闭时按「轻量模式」分流——普通模式拦截关闭、隐藏到托盘（原行为）；
+/// 轻量模式放行关闭让窗口销毁，销毁前保存窗口几何供重建时恢复。
+/// 主窗重建后必须重新挂这套回调，setup 与 show_or_rebuild_main_window 共用。
+fn attach_main_window_events(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+    let app = app.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if lightweight_mode_enabled(&app) {
+                // 轻量模式：放行关闭（窗口随之销毁），先落盘窗口几何
+                let _ = app.save_window_state(StateFlags::all());
+                return;
+            }
+            api.prevent_close();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+    });
+}
+
+/// 显示主窗口；轻量模式下主窗可能已被销毁，此时异步重建。
+/// 不能同步 build：Windows 上在事件回调里建 WebView 会阻塞主事件循环
+/// （同 reminder_toast 的重建先例）。
+pub(crate) fn show_or_rebuild_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    log_info!("main-win", "main window missing, rebuilding (lightweight mode)");
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_window_state::StateFlags;
+        // 镜像 tauri.conf.json 中 main 窗的配置（label 默认 "main"）
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            "main",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .title("Catrace")
+        .inner_size(800.0, 600.0)
+        .min_inner_size(800.0, 600.0);
+        match builder.build() {
+            Ok(window) => {
+                use tauri_plugin_window_state::WindowExt;
+                let _ = window.restore_state(StateFlags::all());
+                attach_main_window_events(&app, &window);
+                let _ = window.show();
+                let _ = window.set_focus();
+                log_info!("main-win", "main window rebuilt");
+            }
+            Err(e) => {
+                log_error!("main-win", "rebuild main window failed: {}", e);
+            }
+        }
+    });
 }
 
 #[tauri::command]
@@ -658,8 +734,12 @@ fn close_reminder_window(
         return Ok(());
     }
     if let Some(window) = app_handle.get_webview_window(&label) {
-        // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
-        if label == window_manager::TOAST_WINDOW_LABEL
+        // 轻量模式：Toast 卡片清空后直接销毁窗口，下次通知按需重建；
+        // 其余情况（popup、普通模式）复用窗口，隐藏而非关闭，避免下次创建时抢焦点
+        if label == window_manager::TOAST_WINDOW_LABEL && lightweight_mode_enabled(&app_handle) {
+            log_info!("toast-win", "close_reminder_window[{}] destroying (lightweight mode)", label);
+            reminder_toast::request_destroy_toast_window(&app_handle);
+        } else if label == window_manager::TOAST_WINDOW_LABEL
             || label == window_manager::POPUP_WINDOW_LABEL
         {
             log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
@@ -851,11 +931,9 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 单例模式：当用户尝试启动第二个实例时，聚焦到已有实例的主窗口
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            // 单例模式：用户尝试启动第二个实例时聚焦主窗口；轻量模式下主窗
+            // 可能已销毁，走重建路径
+            show_or_rebuild_main_window(app);
         }))
         .setup(move |app| {
             let settle_state = state.clone();
@@ -976,8 +1054,11 @@ pub fn run() {
                 });
             }
 
-            // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
-            reminder_toast::prepare_toast_window(app.app_handle());
+            // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点；
+            // 轻量模式下不预创建，首次通知到达时按需重建
+            if !lightweight_mode_enabled(app.app_handle()) {
+                reminder_toast::prepare_toast_window(app.app_handle());
+            }
 
             // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
@@ -1084,22 +1165,27 @@ pub fn run() {
                 }
             });
 
-            // 主窗口：静默启动时隐藏，拦截关闭事件改为最小化到托盘
+            // 主窗口：静默启动时隐藏（轻量模式下直接销毁，界面完全不驻留）；
+            // 关闭行为按「轻量模式」开关分流，见 attach_main_window_events
             let window = app.get_webview_window("main").unwrap();
             let args: Vec<String> = std::env::args().collect();
             let is_autostart = args.contains(&"--autostart".to_string());
             let silent_start = db.get_setting("silent_start", "false") == "true";
             if is_autostart && silent_start {
-                let _ = window.hide();
+                if lightweight_mode_enabled(app.app_handle()) {
+                    let handle = app.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(w) = handle.get_webview_window("main") {
+                            log_info!("main-win", "autostart silent: destroying main window (lightweight mode)");
+                            let _ = w.destroy();
+                        }
+                    });
+                } else {
+                    let _ = window.hide();
+                }
             }
 
-            let win_clone = window.clone();
-            window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    let _ = win_clone.hide();
-                }
-            });
+            attach_main_window_events(app.app_handle(), &window);
 
             // 系统托盘：先移除可能已存在的旧图标，防止重复创建
             let _ = app.remove_tray_by_id("main");
@@ -1113,21 +1199,14 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_or_rebuild_main_window(app);
                     }
                     "quit" => app.exit(0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_or_rebuild_main_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
@@ -1142,6 +1221,8 @@ pub fn run() {
             rest_plugin::snooze_reminder,
             get_silent_start,
             set_silent_start,
+            get_lightweight_mode,
+            set_lightweight_mode,
             get_hide_stats,
             set_hide_stats,
             get_locale,

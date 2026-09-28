@@ -48,6 +48,16 @@ export async function setSilentStart(enabled: boolean): Promise<void> {
   return invoke('set_silent_start', { enabled })
 }
 
+/** 获取轻量模式开关 */
+export async function getLightweightMode(): Promise<boolean> {
+  return invoke('get_lightweight_mode')
+}
+
+/** 设置轻量模式开关 */
+export async function setLightweightMode(enabled: boolean): Promise<void> {
+  return invoke('set_lightweight_mode', { enabled })
+}
+
 /** 获取界面语言，未设置时返回 null */
 export async function getLocale(): Promise<string | null> {
   return invoke('get_locale')

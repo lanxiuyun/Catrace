@@ -219,6 +219,14 @@ architecture:
       - toast-window
       - platform-input
 
+  lightweight-mode:
+    docs:
+      - .agent/features/lightweight-mode/README.md
+    related:
+      - settings
+      - toast-window
+      - window-manager
+
   platform-input:
     docs:
       - .agent/architecture/platform-input/README.md
