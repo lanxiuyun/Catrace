@@ -398,6 +398,47 @@ export async function rotateEventSdkToken(): Promise<string> {
   return invoke('rotate_event_sdk_token')
 }
 
+// ---------- Windows 系统通知转发 ----------
+
+export interface NotificationForwardStatus {
+  enabled: boolean
+  takeover: boolean
+  running: boolean
+  access: 'granted' | 'denied' | 'unspecified' | 'unavailable' | 'unknown'
+}
+
+export interface NotificationKnownApp {
+  aumid: string
+  name: string
+  muted: boolean
+}
+
+export async function getNotificationForwardStatus(): Promise<NotificationForwardStatus> {
+  return invoke('get_notification_forward_status')
+}
+
+export async function setNotificationForwardEnabled(
+  enabled: boolean,
+): Promise<NotificationForwardStatus> {
+  return invoke('set_notification_forward_enabled', { enabled })
+}
+
+export async function setNotificationTakeoverEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_notification_takeover_enabled', { enabled })
+}
+
+export async function getNotificationKnownApps(): Promise<NotificationKnownApp[]> {
+  return invoke('get_notification_known_apps')
+}
+
+export async function setNotificationMutedAumids(muted: string[]): Promise<void> {
+  return invoke('set_notification_muted_aumids', { muted })
+}
+
+export async function openNotificationPermissionSettings(): Promise<void> {
+  return invoke('open_notification_permission_settings')
+}
+
 // ---------- External plugins ----------
 
 export interface ExternalPluginInfo {

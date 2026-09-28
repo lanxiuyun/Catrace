@@ -25,6 +25,7 @@ import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
 import SdkToastCard from '../../components/SdkToastCard.vue'
+import NotificationToastCard from '../../components/NotificationToastCard.vue'
 import SpecialDayToastCard from '../../components/SpecialDayToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
 import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
@@ -41,6 +42,7 @@ const BUILTIN_TOAST_KINDS = [
   'rest-timer',
   'sdk',
   'special',
+  'notification',
 ] as const
 type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
 /** Builtin kinds plus external plugin kinds (string). */
@@ -100,6 +102,9 @@ interface ToastItem {
   specialTag?: string
   specialIcon?: string
   specialCategory?: 'history' | 'life'
+  // system notification (kind=notification)
+  appName?: string
+  iconUrl?: string
 }
 
 function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
@@ -739,6 +744,13 @@ function handleBusEvent(event: BusEvent) {
       p.category === 'history' || p.category === 'life'
         ? p.category
         : undefined,
+    autoHideMs: kind === 'notification' ? resolveAutoHideMs(event, false) : undefined,
+    appName:
+      kind === 'notification' && typeof p.app_name === 'string' ? p.app_name : undefined,
+    iconUrl:
+      kind === 'notification' && typeof p.icon_data_url === 'string'
+        ? p.icon_data_url
+        : undefined,
   })
 }
 
@@ -815,6 +827,9 @@ async function addNotification(payload: {
   tag?: string
   icon?: string
   category?: 'history' | 'life'
+  autoHideMs?: number
+  appName?: string
+  iconUrl?: string
 }) {
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
@@ -825,7 +840,7 @@ async function addNotification(payload: {
   const isSticky = isUpdate || isSdkSticky || isPluginSticky || isSpecial
   const autoHideMs = isSticky
     ? 0
-    : resolveAutoHideMs(payload.busEvent, false)
+    : (payload.autoHideMs ?? resolveAutoHideMs(payload.busEvent, false))
   const item: ToastItem = {
     id,
     kind: payload.kind,
@@ -858,6 +873,8 @@ async function addNotification(payload: {
     specialTag: payload.tag,
     specialIcon: payload.icon,
     specialCategory: payload.category,
+    appName: payload.appName,
+    iconUrl: payload.iconUrl,
   }
 
   // 新通知加到底部（数组末尾）
@@ -1168,6 +1185,16 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           :tag="item.specialTag || ''"
           :icon="item.specialIcon || ''"
           :category="item.specialCategory || 'life'"
+          @close="handleClose(item)"
+        />
+
+        <NotificationToastCard
+          v-else-if="item.kind === 'notification'"
+          :app-name="item.appName"
+          :icon="item.iconUrl"
+          :title="item.title"
+          :body="item.body"
+          :is-hovered="item.isHovered"
           @close="handleClose(item)"
         />
 

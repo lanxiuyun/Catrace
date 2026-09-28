@@ -5,6 +5,7 @@ mod event_http;
 mod log;
 mod media_audio;
 mod node_runtime;
+mod notification_listener;
 mod special_day;
 mod plugin_api;
 mod plugin_commands;
@@ -1064,6 +1065,11 @@ pub fn run() {
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
             event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
+
+            // Windows 系统通知转发：设置开启时恢复监听（UserNotificationListener）
+            app.manage(notification_listener::NotificationForwardState::default());
+            #[cfg(windows)]
+            notification_listener::maybe_start(app.app_handle(), &db);
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1274,6 +1280,12 @@ pub fn run() {
             event_http::get_event_sdk_status,
             event_http::set_event_sdk_enabled,
             event_http::rotate_event_sdk_token,
+            notification_listener::get_notification_forward_status,
+            notification_listener::set_notification_forward_enabled,
+            notification_listener::set_notification_takeover_enabled,
+            notification_listener::get_notification_known_apps,
+            notification_listener::set_notification_muted_aumids,
+            notification_listener::open_notification_permission_settings,
             plugins::list_external_plugins,
             plugins::install_external_plugin,
             plugins::set_external_plugin_enabled,

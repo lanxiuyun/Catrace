@@ -8,6 +8,7 @@ import MediaSettingsCard from '../../components/settings/MediaSettingsCard.vue'
 import SystemSettingsCard from '../../components/settings/SystemSettingsCard.vue'
 import LinksSettingsCard from '../../components/settings/LinksSettingsCard.vue'
 import SignalSettingsCard from '../../components/settings/SignalSettingsCard.vue'
+import SysNotifySettingsCard from '../../components/settings/SysNotifySettingsCard.vue'
 import PageScroll from '../../components/PageScroll.vue'
 import { usePluginRegistry } from '../../stores/pluginRegistry'
 
@@ -16,13 +17,14 @@ const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
 /** Built-in system cards (not product plugins). */
-const CORE_GROUP_KEYS = ['media', 'signal', 'system', 'links'] as const
+const CORE_GROUP_KEYS = ['media', 'signal', 'system', 'sysNotify', 'links'] as const
 type CoreGroupKey = (typeof CORE_GROUP_KEYS)[number]
 
 const coreCardComponents: Record<CoreGroupKey, Component> = {
   media: MediaSettingsCard,
   signal: SignalSettingsCard,
   system: SystemSettingsCard,
+  sysNotify: SysNotifySettingsCard,
   links: LinksSettingsCard,
 }
 
