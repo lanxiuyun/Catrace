@@ -444,9 +444,11 @@ pub(crate) fn show_or_rebuild_main_window(app: &tauri::AppHandle) {
     }
     log_info!("main-win", "main window missing, rebuilding (lightweight mode)");
     let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        use tauri_plugin_window_state::StateFlags;
-        // 镜像 tauri.conf.json 中 main 窗的配置（label 默认 "main"）
+    tauri::async_runtime::spawn_blocking(move || {
+        // 镜像 tauri.conf.json 中 main 窗的配置（label 默认 "main"）。
+        // 必须先隐藏创建、再 show：与插件后台窗同款（plugin_window.rs）。创建期
+        // 立即可见会卡死主线程（白屏未响应，2026-09-28 实测）；位置/尺寸由
+        // window-state 插件在 on_window_ready 自动恢复，这里不要手动 restore。
         let builder = tauri::WebviewWindowBuilder::new(
             &app,
             "main",
@@ -454,11 +456,11 @@ pub(crate) fn show_or_rebuild_main_window(app: &tauri::AppHandle) {
         )
         .title("Catrace")
         .inner_size(800.0, 600.0)
-        .min_inner_size(800.0, 600.0);
+        .min_inner_size(800.0, 600.0)
+        .visible(false);
         match builder.build() {
             Ok(window) => {
-                use tauri_plugin_window_state::WindowExt;
-                let _ = window.restore_state(StateFlags::all());
+                log_info!("main-win", "main window built, showing");
                 attach_main_window_events(&app, &window);
                 let _ = window.show();
                 let _ = window.set_focus();
