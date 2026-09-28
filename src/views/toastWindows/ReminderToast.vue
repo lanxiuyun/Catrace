@@ -285,14 +285,34 @@ function setCardRef(el: unknown, id: number) {
 
 let resizeScheduled = false
 let lastSizeKey = ''
+let recompositeQueued = false
 
-/** 按内容实测高度钉原生小窗。stack 四边 16px 出血已计入 scrollHeight。 */
+/** HWND 变几何后 WebView2 不保证立刻出新帧：页面静止时合成器空闲，旧帧仍按
+ *  旧窗口矩形摆放，resize 后可能残留一帧错位。翻转一次 opacity 强制重新合成。 */
+function forceRecomposite(root: HTMLElement) {
+  if (recompositeQueued) return
+  recompositeQueued = true
+  requestAnimationFrame(() => {
+    recompositeQueued = false
+    root.style.opacity = '0.999'
+    requestAnimationFrame(() => {
+      root.style.opacity = ''
+    })
+  })
+}
+
+/** 按内容实测高度钉原生小窗。stack 四边 16px 出血已计入 scrollHeight。
+ *  高度必须等于内容：写死下限会让窗口比内容高，卡片（贴窗顶）与任务栏之间
+ *  留出一条没人绘制的透明带——旧版是 body 深色底（看起来像黑边框）。 */
 async function reportWindowSize() {
   const root = rootRef.value
   const stack = stackRef.value
   if (!root || !stack) return
+  // 空栈：窗口即将关闭。此时 stack 只剩 1rem padding，上报会把窗口缩成一条细窗，
+  // 还会和 Rust 隐藏时的 reset_toast_content_size() 抢时序，下次弹出先闪一条细窗。
+  if (notifications.value.length === 0) return
   const width = Math.max(1, Math.ceil(root.scrollWidth))
-  const height = Math.max(160, Math.ceil(stack.scrollHeight))
+  const height = Math.max(1, Math.ceil(stack.scrollHeight))
   const key = `${width}x${height}`
 
   // 卡片离场/进入动画期间禁止收缩窗口，避免 DOM 里卡片还没移除但窗口先变小导致截断
@@ -305,6 +325,7 @@ async function reportWindowSize() {
   lastSizeKey = key
   try {
     await setToastContentSize(width, height)
+    forceRecomposite(root)
   } catch {
     // ignore
   }
@@ -1219,7 +1240,9 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 .toast-root {
   --toast-auto-hide-ms: 8000ms;
   width: 24.5rem; /* 22.5rem card + 1rem shadow bleed each side */
-  height: 100%;
+  /* 兜底铺满整窗：祖先链没有定高，`height: 100%` 不生效，根元素会退化成内容高，
+     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。 */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
