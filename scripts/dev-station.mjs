@@ -98,12 +98,23 @@ function missingBits(path) {
   const plugins = existsSync(pluginDir) ? readdirSync(pluginDir).filter((n) => n !== '.git') : []
   if (!plugins.length) {
     missing.push('submodule 未初始化')
-  } else {
-    // A leading `+` in `git submodule status` = checked out commit ≠ the one this branch records.
-    const drifted = git(['submodule', 'status'], path).split(/\r?\n/).some((l) => l.startsWith('+'))
-    if (drifted) missing.push('submodule 版本不符')
+  } else if (submoduleDrifted(path, pluginDir)) {
+    missing.push('submodule 版本不符')
   }
   return missing
+}
+
+// Does the submodule checkout match the gitlink this branch records? `git submodule status`
+// answers the same question, but it walks the submodule (~1.5s per worktree here); two
+// rev-parse calls do it in ~60ms.
+function submoduleDrifted(path, pluginDir) {
+  try {
+    const recorded = git(['rev-parse', 'HEAD:tools/plugin-demo'], path).trim()
+    const actual = git(['rev-parse', 'HEAD'], pluginDir).trim()
+    return Boolean(recorded) && Boolean(actual) && recorded !== actual
+  } catch {
+    return false // unreadable submodule — launch-time alignment will sort it out
+  }
 }
 
 // Newest mtime under src/ and src-tauri/ (build output excluded).
@@ -190,6 +201,8 @@ function listStations() {
       cur = { path: line.slice('worktree '.length).trim() }
     } else if (!cur) {
       continue
+    } else if (line.startsWith('HEAD ')) {
+      cur.sha = line.slice('HEAD '.length).trim()
     } else if (line.startsWith('branch ')) {
       cur.branch = line.slice('branch '.length).trim().replace(/^refs\/heads\//, '')
     } else if (line === 'detached') {
@@ -197,11 +210,12 @@ function listStations() {
     }
   }
   if (cur) stations.push(cur)
-  for (const s of stations) {
-    s.slug = slugOf(s.path, s.branch)
+  for (const [i, s] of stations.entries()) {
+    // The primary worktree (the repo root) stays addressable as `main` whatever branch it is
+    // on — otherwise its slug would change with every PR branch and break muscle memory.
+    s.slug = i === 0 ? 'main' : slugOf(s.path, s.branch)
     s.dirty = dirtyCount(s.path)
     s.missing = missingBits(s.path)
-    s.sha = git(['rev-parse', 'HEAD'], s.path).trim()
     s.build = buildState(s.path, s.sha)
   }
   return stations
