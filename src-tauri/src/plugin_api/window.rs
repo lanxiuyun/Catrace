@@ -32,13 +32,9 @@ pub fn plugin_api_window_show_main(
     plugin_id: String,
 ) -> Result<(), String> {
     require_plugin_api(&window, &plugins, &plugin_id)?;
-    let main = window
-        .app_handle()
-        .get_webview_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
-    main.show().map_err(|e| format!("show main window: {e}"))?;
-    main.set_focus()
-        .map_err(|e| format!("focus main window: {e}"))
+    // 轻量模式下主窗可能已销毁，show_or_rebuild_main_window 会按需重建
+    crate::show_or_rebuild_main_window(window.app_handle());
+    Ok(())
 }
 
 #[tauri::command]

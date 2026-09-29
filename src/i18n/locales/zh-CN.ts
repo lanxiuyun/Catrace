@@ -142,6 +142,10 @@ export default {
       silentStartTitle: '静默启动',
       silentStartDesc: '开机时不显示窗口，只在托盘运行',
     },
+    lightweight: {
+      title: '轻量模式',
+      desc: '界面不再常驻内存，更省资源；关闭主窗口后，从托盘重新打开时会稍慢一些',
+    },
     accessibility: {
       title: '辅助功能权限',
       desc: '用于本地判断键盘和鼠标活动，不记录具体按键内容',

@@ -379,6 +379,23 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
     });
 }
 
+/// 轻量模式：卡片清空后销毁 Toast 窗口（而非 hide 复用），下次通知由
+/// ensure_toast_window_visible 按需重建。走 TOAST_MUTEX 与 ensure/create 串行，
+/// 防止销毁与重建并发竞争窗口句柄。
+pub fn request_destroy_toast_window(app: &tauri::AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _guard = TOAST_MUTEX.lock().await;
+        if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
+            log_info!("toast-win", "destroy: lightweight mode, destroying toast window");
+            if let Err(e) = window.destroy() {
+                log_warn!("toast-win", "destroy: toast window destroy failed: {}", e);
+            }
+        }
+        reset_toast_content_size();
+    });
+}
+
 /// 旧路径：创建或复用 toast 并通过 eval 注入通知（agent/update 等尚未迁 Bus 时使用）。
 /// - 窗口已存在时直接复用（优先）。
 /// - 窗口不存在时兜底创建。

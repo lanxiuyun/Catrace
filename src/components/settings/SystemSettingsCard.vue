@@ -11,11 +11,13 @@ import {
   checkAppUpdate,
   installAppUpdate,
   getAccessibilityPermissionStatus,
+  getLightweightMode,
   getLocale,
   getPlatform,
   getSilentStart,
   getUpdateSource,
   requestAccessibilityPermission,
+  setLightweightMode,
   setLocale,
   setSilentStart,
   setUpdateSource,
@@ -39,6 +41,7 @@ function changeTheme(v: ThemeMode) {
 
 const autostart = ref(false)
 const silentStart = ref(false)
+const lightweightMode = ref(false)
 const localeVal = ref('zh-CN')
 const appVersion = ref('')
 const platform = ref('')
@@ -49,7 +52,7 @@ const updateInstalling = ref(false)
 const downloadProgress = ref(0)
 const downloadTotal = ref(0)
 const downloadReceived = ref(0)
-const loading = ref({ autostart: false, silent: false, locale: false, accessibility: false })
+const loading = ref({ autostart: false, silent: false, lightweight: false, locale: false, accessibility: false })
 const isReady = ref(false)
 const showAccessibility = computed(() => false)
 let accessibilityPollTimer: number | undefined
@@ -72,7 +75,7 @@ const updateSourceOptions = computed(() => [
 
 onMounted(async () => {
   try {
-    const [a, s, v, loc, p, access, src] = await Promise.all([
+    const [a, s, v, loc, p, access, src, lw] = await Promise.all([
       isEnabled(),
       getSilentStart(),
       getVersion(),
@@ -80,9 +83,11 @@ onMounted(async () => {
       getPlatform(),
       getAccessibilityPermissionStatus(),
       getUpdateSource(),
+      getLightweightMode(),
     ])
     autostart.value = a
     silentStart.value = s
+    lightweightMode.value = lw
     appVersion.value = v
     platform.value = p
     accessibilityGranted.value = access
@@ -187,6 +192,20 @@ async function toggleSilentStart(val: boolean) {
     silentStart.value = !val
   } finally {
     loading.value.silent = false
+  }
+}
+
+async function toggleLightweightMode(val: boolean) {
+  loading.value.lightweight = true
+  try {
+    await setLightweightMode(val)
+    lightweightMode.value = val
+    message.success(t('settings.messages.saved'))
+  } catch (e) {
+    message.error(t('settings.messages.setFailed'))
+    lightweightMode.value = !val
+  } finally {
+    loading.value.lightweight = false
   }
 }
 
@@ -349,6 +368,16 @@ async function handleInstallUpdate() {
         :loading="loading.silent"
         :disabled="!autostart"
         @update:value="toggleSilentStart"
+      />
+    </setting-row>
+
+    <div class="divider" />
+
+    <setting-row :title="t('settings.lightweight.title')" :desc="t('settings.lightweight.desc')">
+      <n-switch
+        :value="lightweightMode"
+        :loading="loading.lightweight"
+        @update:value="toggleLightweightMode"
       />
     </setting-row>
 
