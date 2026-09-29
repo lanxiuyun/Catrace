@@ -22,17 +22,19 @@ git worktree add D:\workspace\Catrace-82 82-轻量模式                # 拿现
 ## 起 dev 不用 cd
 
 ```bash
-pnpm station            # 交互选择工位（↑↓ / j k 移动，Enter 启动，q / Esc 取消）
-pnpm station notif      # 直接在 notif 工位起（工位名 = 目录名去掉 Catrace- 前缀，或分支名）
-pnpm station --dry-run  # 只看工位状态，不启动
-pnpm station --plain    # 不交互，静态打印工位列表
+pnpm st            # 交互选择工位（↑↓ / j k 移动，Enter 启动，q / Esc 取消）
+pnpm st notif      # 直接在 notif 工位起（工位名 = 目录名去掉 Catrace- 前缀，或分支名）
+pnpm st --dry-run  # 只看工位状态，不启动
+pnpm st --plain    # 不交互，静态打印工位列表
 ```
 
-实现在 `scripts/dev-station.mjs`（package.json 的 `station`）：工位列表实时取自 `git worktree list`，新建 worktree 自动出现。起之前会：**自动补/对齐 submodule**（空目录或指针漂移都会处理，否则 dev 会 sync 出 0 个插件或加载错版本）、提示该工位**要不要先编译**（`需冷编译` = 从没编过，几分钟 + 1~2G；`待重编` = exe 与当前 HEAD/源码对不上，启动前会增量编一会儿）、提示 **1420 已被占用**（已有 dev 在跑，新实例会被单实例插件杀掉）。
+`st` 就是 `station` 的简写（两个名字等价），实现在 `scripts/dev-station.mjs`（package.json 的 `station` / `st`）。
+
+实现在 `scripts/dev-station.mjs`（package.json 的 `station` / `st`）：工位列表实时取自 `git worktree list`，新建 worktree 自动出现。起之前会：**自动补/对齐 submodule**（空目录或指针漂移都会处理，否则 dev 会 sync 出 0 个插件或加载错版本）、提示该工位**要不要先编译**（`需冷编译` = 从没编过，几分钟 + 1~2G；`待重编` = exe 与当前 HEAD/源码对不上，启动前会增量编一会儿）、提示 **1420 已被占用**（已有 dev 在跑，新实例会被单实例插件杀掉）。
 
 ## 插件来源与 app_data 链接（dev-link）
 
-**每个工位有自己的 `tools/plugin-demo` 检出**（独立 git dir，互不影响）。它必须与该分支记录的 submodule 指针一致：`git submodule status` 行首是 `+` 就是漂移（切分支、在别的工位跑过 `submodule update` 都会造成），行首是 `-` 是没初始化 —— `pnpm station` 起之前会自动对齐。
+**每个工位有自己的 `tools/plugin-demo` 检出**（独立 git dir，互不影响）。它必须与该分支记录的 submodule 指针一致：`git submodule status` 行首是 `+` 就是漂移（切分支、在别的工位跑过 `submodule update` 都会造成），行首是 `-` 是没初始化 —— `pnpm st` 起之前会自动对齐。
 
 debug 构建启动时，宿主会把每个插件 junction 进 `app_data/plugins/`，源路径是**编译期**的 `CARGO_MANIFEST_DIR`，也就是"编出这个 exe 的那个工位"。
 
@@ -80,7 +82,7 @@ pnpm -C <工位> tauri dev                            # beforeDevCommand 自动�
 | `git worktree move` / 改名后，任何 pnpm 命令都想 purge node_modules | 状态标记记的是旧路径。先 `CI=true pnpm install` 重连（约 10s，store 全是硬链接） |
 | worktree 里偶发 CRLF 幻影脏文件（如 `src-tauri/Cargo.toml` 空 diff） | `git checkout -- <file>` 即清 |
 | **禁止** junction 主工作区 node_modules 到 worktree | pnpm 运行前依赖检查发现状态不匹配会要求 purge，junction 指向主工作区有误删风险；`.npmrc` 写 `verify-deps-before-run=false` 无效（pnpm 11 只有 install/warn/error/prompt，没有 off） |
-| 新 worktree 的 `tools/plugin-demo` 是空的 | `git submodule update --init --recursive`（同规则 11）；`pnpm station` 会自动补 |
+| 新 worktree 的 `tools/plugin-demo` 是空的 | `git submodule update --init --recursive`（同规则 11）；`pnpm st` 会自动补 |
 | `tools/plugin-demo` 里只剩一个 `.git` 指针（clone 失败/中断的残留），`submodule update --init` 报 `Unable to find current revision` | `rm -rf tools/plugin-demo` 后重跑 `submodule update --init --recursive`（目录里只有 `.git` 才能这么干） |
 | **`src-tauri/target/debug/incremental` 会无限膨胀** —— 主工位实测 **39 G**（`deps` 28 G、`build` 5.2 G、release 2.2 G） | 它是纯增量编译缓存，`rm -rf src-tauri/target/debug/incremental` 立省，cargo 会重建；要根治就在起 dev 时 `CARGO_INCREMENTAL=0`。工位越多、切分支越勤，涨得越快 |
 
