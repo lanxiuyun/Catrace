@@ -77,6 +77,7 @@ pub fn shared_hide_window<R: Runtime>(window: &WebviewWindow<R>) {
 
 /// macOS AppKit：普通 `NSWindow.orderOut` / `makeKeyAndOrderFront` 会把同进程下一扇窗（主窗）拉到前台。
 /// Toast / Popup 必须走不激活路径，关卡时用户应留在 Claude Code，而不是弹出 Catrace。
+#[allow(dead_code)] // 只有共享测试引用，非 test 构建下无用
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MacosReminderWindowPolicy {
     #[allow(dead_code)]
@@ -84,6 +85,7 @@ pub enum MacosReminderWindowPolicy {
     OrderWithoutActivating,
 }
 
+#[allow(dead_code)]
 pub const MACOS_REMINDER_WINDOW_POLICY: MacosReminderWindowPolicy =
     MacosReminderWindowPolicy::OrderWithoutActivating;
 
