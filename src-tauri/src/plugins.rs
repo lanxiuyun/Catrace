@@ -1622,6 +1622,7 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
     let Ok(entries) = fs::read_dir(&demo_root) else {
         return;
     };
+    let mut wanted: Vec<String> = Vec::new();
     for entry in entries.flatten() {
         let src = entry.path();
         if !src.is_dir() {
@@ -1635,6 +1636,7 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
             continue;
         }
         let dst = root.join(name);
+        wanted.push(name.to_string());
         match ensure_dir_link(&src, &dst) {
             Ok(DevLinkResult::AlreadyLinked) => {
                 log_info!("plugins", "dev link ok: {name} already linked");
@@ -1643,6 +1645,14 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
                 log_info!(
                     "plugins",
                     "dev link created: {} -> {}",
+                    dst.display(),
+                    src.display()
+                );
+            }
+            Ok(DevLinkResult::Relinked) => {
+                log_info!(
+                    "plugins",
+                    "dev link re-pointed: {} -> {}",
                     dst.display(),
                     src.display()
                 );
@@ -1657,12 +1667,43 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
             Err(e) => log_warn!("plugins", "dev link failed for {name}: {e}"),
         }
     }
+
+    // Links left by another checkout (previous worktree, or a branch with more plugins)
+    // would silently keep loading that checkout's code — drop the ones this tree lacks.
+    prune_stale_dev_links(&root, &wanted);
+}
+
+/// Drop links that point into some `tools/plugin-demo` but are not part of this checkout.
+#[cfg(debug_assertions)]
+fn prune_stale_dev_links(root: &Path, wanted: &[String]) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if wanted.iter().any(|w| w == &name) {
+            continue;
+        }
+        let dst = entry.path();
+        let Some(target) = link_target(&dst) else {
+            continue;
+        };
+        let target = target.to_string_lossy().replace('\\', "/");
+        if !target.contains("/tools/plugin-demo/") {
+            continue;
+        }
+        match remove_dir_link(&dst) {
+            Ok(()) => log_info!("plugins", "dev link pruned: {name} (not in this checkout)"),
+            Err(e) => log_warn!("plugins", "dev link prune failed for {name}: {e}"),
+        }
+    }
 }
 
 #[cfg(debug_assertions)]
 enum DevLinkResult {
     AlreadyLinked,
     Created,
+    Relinked,
     SkippedExisting,
 }
 
@@ -1670,13 +1711,19 @@ enum DevLinkResult {
 fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
     let src_canon = fs::canonicalize(src).map_err(|e| format!("canonicalize src: {e}"))?;
 
-    if dst.exists() || is_symlink_like(dst) {
+    if dst.exists() || link_target(dst).is_some() {
         if let Ok(dst_canon) = fs::canonicalize(dst) {
             if dst_canon == src_canon {
                 return Ok(DevLinkResult::AlreadyLinked);
             }
         }
-        // Real directory / foreign link — do not clobber user installs.
+        // A link left behind by another checkout (typically the previous worktree) is ours
+        // to re-point; a real directory is a user install we must not clobber.
+        if link_target(dst).is_some() {
+            remove_dir_link(dst)?;
+            create_dir_link(&src_canon, dst)?;
+            return Ok(DevLinkResult::Relinked);
+        }
         return Ok(DevLinkResult::SkippedExisting);
     }
 
@@ -1684,11 +1731,42 @@ fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
     Ok(DevLinkResult::Created)
 }
 
+/// Target of a symlink or a Windows junction. `read_link` resolves both, so this is the
+/// reliable "is this one of our links" test — a real directory yields `None`.
 #[cfg(debug_assertions)]
-fn is_symlink_like(path: &Path) -> bool {
-    fs::symlink_metadata(path)
-        .map(|m| m.file_type().is_symlink())
-        .unwrap_or(false)
+fn link_target(path: &Path) -> Option<PathBuf> {
+    fs::read_link(path).ok()
+}
+
+#[cfg(debug_assertions)]
+fn remove_dir_link(dst: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        // RemoveDirectoryW deletes a junction itself and never walks into the target.
+        if fs::remove_dir(dst).is_ok() {
+            return Ok(());
+        }
+        // Broken reparse points can resist the above; cmd rmdir is the last resort.
+        use std::process::Command;
+        let out = Command::new("cmd")
+            .args(["/C", "rmdir"])
+            .arg(dst.as_os_str())
+            .output()
+            .map_err(|e| format!("rmdir spawn: {e}"))?;
+        if out.status.success() {
+            return Ok(());
+        }
+        Err(format!("remove link failed: {}", dst.display()))
+    }
+    #[cfg(unix)]
+    {
+        fs::remove_file(dst).map_err(|e| format!("remove link: {e}"))
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = dst;
+        Err("dev plugin link removal unsupported on this platform".into())
+    }
 }
 
 #[cfg(debug_assertions)]
