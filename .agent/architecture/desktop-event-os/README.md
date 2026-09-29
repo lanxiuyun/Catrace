@@ -64,7 +64,8 @@ tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodul
 6. 键序列默认关；休息判定用 legacy `count`
 7. **外部写入走 Event HTTP（:23457）**，禁止冒充内部 kind；管理入口在调试页
 8. **插件窗口同步不得阻塞主循环**：禁止在 `setup()` 或 `run_on_main_thread()` 中执行包含 `WebviewWindowBuilder::build()` 的完整同步；统一调用 `PluginWindowManager::schedule_sync()`
-9. **本地插件启用即信任**：插件 manifest 不包含权限声明；后台身份仍由 `plugin-bg-<id>` 窗口 label 推导，启用状态、Event 所有权和 storage namespace 按该 id 强制校验
+9. **本地插件启用即信任**：插件 manifest 不包含权限声明；启用状态、Event 所有权和 storage namespace 按插件 id 强制校验——**有后台窗时身份由 `plugin-bg-<id>` label 推导，没有后台窗的插件由 sidecar 进程在 manager map 里的 key 推导**
+10. **后台逻辑优先放 sidecar，不新增 `background`**（2026-09-29）：能力 op（activity/clipboard/shell/config）已对齐，`background.mjs` 只留给需要 DOM/页面级能力的插件；每个 background 插件多一个隐藏 WebView（约 60MB 私有内存）。见 [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)
 
 ## 子文档
 
@@ -73,6 +74,7 @@ tools/plugin-demo/              # M10/M11 demo + M15 sidecar-echo（git submodul
 - [step3-收尾评估-核心目标已达成与Step4候选.md](step3-收尾评估-核心目标已达成与Step4候选.md) — Step 3 关账结论与 Step 4 排序
 - [step4-roadmap-plugin-ecosystem.md](step4-roadmap-plugin-ecosystem.md) — Step 4：本地安装 / 打包约定
 - [plugin-native-sidecar-runtime.md](plugin-native-sidecar-runtime.md) — M15 可选 Native Sidecar 设计真源
+- [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md) — 宿主能力 op 清单、迁移清单与坑（background 不再是必需）
 - [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收 sidecar 孤儿进程（Job Object，Windows）
 - [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md) — M15.3 storage JSONL 与本机进程 badge
 - [plugin-audio-rodio独立线程与getPluginDir.md](plugin-audio-rodio独立线程与getPluginDir.md) — 插件播放本地音频；OutputStream 独立线程；不要用 `plugin.shell.beep()` 当提示音
