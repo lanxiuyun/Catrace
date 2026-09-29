@@ -31,3 +31,4 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
 12. **知识写 features，不堆 decisions** — `.agent/features/` 写现行功能怎么用。只有「为什么必须这样、规避什么 bug」才作为该 feature 的补充段落。`.agent/decisions/` 已清空，不要再往里写。
 13. **知识沉淀分仓库** — **插件相关的知识（feature 子文档、devlog、bug 记录）一律写插件子仓库 `tools/plugin-demo/.agent/`**（自带 `manifest.yaml`，随插件仓库提交）；宿主根 `.agent/` 只放宿主侧知识。沉淀前先判断：只在这个插件成立 → 插件仓库；涉及宿主多模块协作 → 宿主 `.agent/`。
 14. **用户点名才提交** — 修改只落在工作区，汇报改了什么、怎么验证；用户明确说「提交 / commit」才执行提交流程（插件改动按规则 11 分仓）。同类微调的多次迭代合并成**一笔** commit，不要每轮各提一笔。push 同理需用户点头。
+15. **一分支一工位（worktree），起 dev 用 `pnpm -C`** — 同时在飞的每个分支各占一个 worktree 工位，改代码和验证都在各自工位里做，互不干扰；`D:\workspace\Catrace` 常驻 main。换工位**不用 cd**：任意目录 `pnpm -C <工位路径> tauri dev`。同一时刻只能跑一个 dev 实例（单实例插件无条件注册 + 各工位共用 app_data），看另一个分支前先停掉当前 dev。单功能串行时不必开工位，在主工位就地切分支即可。pnpm 11 全新 install 须 pnpm-workspace.yaml 有 `allowBuilds: esbuild: true`（`onlyBuiltDependencies` 已失效）。工位初始化与环境坑见 [worktree-testing](.agent/reference/worktree-testing.md)

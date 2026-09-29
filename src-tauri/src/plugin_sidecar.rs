@@ -93,6 +93,44 @@ enum SidecarOutput {
         key: String,
         value: serde_json::Value,
     },
+    #[serde(rename = "activity.get")]
+    ActivityGet {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "clipboard.write_text")]
+    ClipboardWriteText {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
+    #[serde(rename = "shell.open_url")]
+    ShellOpenUrl {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        url: String,
+    },
+    #[serde(rename = "config.get")]
+    ConfigGet {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "config.set")]
+    ConfigSet {
+        #[serde(default)]
+        v: Option<u32>,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        config: serde_json::Value,
+    },
 }
 
 fn default_log_level() -> String {
@@ -780,7 +818,200 @@ fn handle_stdout_line(
             };
             reply_sidecar(manager, plugin_id, &response);
         }
+        SidecarOutput::ActivityGet { v, request_id } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] activity.get rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match ensure_sidecar_plugin_usable(plugins, plugin_id).and_then(|_| {
+                let activity = app.state::<Arc<Mutex<crate::ActivityState>>>();
+                let state = activity.lock().map_err(|e| e.to_string())?;
+                let fullscreen_active = crate::window_manager::is_fullscreen_reminder_open(app);
+                let active =
+                    !fullscreen_active && (state.count > 0 || state.media_active_snapshot);
+                Ok(serde_json::json!({
+                    "active": active,
+                    "at": chrono::Utc::now().timestamp_millis(),
+                }))
+            }) {
+                Ok(result) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": result,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+        SidecarOutput::ClipboardWriteText {
+            v,
+            request_id,
+            text,
+        } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] clipboard.write_text rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match ensure_sidecar_plugin_usable(plugins, plugin_id).and_then(|_| {
+                use tauri_plugin_clipboard_manager::ClipboardExt;
+                app.clipboard()
+                    .write_text(&text)
+                    .map_err(|e| format!("write clipboard: {e}"))
+            }) {
+                Ok(()) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": true,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+        SidecarOutput::ShellOpenUrl { v, request_id, url } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] shell.open_url rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match ensure_sidecar_plugin_usable(plugins, plugin_id).and_then(|_| {
+                // sidecar 是插件进程外输入，比 webview 版更收紧：仅 http/https
+                let lower = url.to_ascii_lowercase();
+                if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+                    return Err("only http/https URLs are allowed".into());
+                }
+                use tauri_plugin_opener::OpenerExt;
+                app.opener()
+                    .open_url(&url, None::<&str>)
+                    .map_err(|e| format!("open external URL: {e}"))
+            }) {
+                Ok(()) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": true,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+        SidecarOutput::ConfigGet { v, request_id } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] config.get rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match ensure_sidecar_plugin_usable(plugins, plugin_id).and_then(|_| {
+                crate::plugin_config::get_plugin_config::<serde_json::Value>(app, plugin_id)
+            }) {
+                Ok(value) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": value,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
+        SidecarOutput::ConfigSet {
+            v,
+            request_id,
+            config,
+        } => {
+            if v != Some(1) {
+                log_warn!(
+                    "plugin-sidecar",
+                    "[{plugin_id}] config.set rejected: unsupported protocol {v:?}"
+                );
+                return;
+            }
+            let response = match ensure_sidecar_plugin_usable(plugins, plugin_id).and_then(|_| {
+                let serde_json::Value::Object(mut incoming) = config else {
+                    return Err("plugin config must be a JSON object".into());
+                };
+                // 与 webview 版 set_plugin_config 同约定：enabled 归宿主管，
+                // payload 未显式携带时保留存量值，防止 sidecar 整写覆盖开关。
+                if !incoming.contains_key("enabled") {
+                    if let Some(prev) =
+                        crate::plugin_config::get_plugin_config_entry(app, plugin_id, "enabled")?
+                    {
+                        incoming.insert("enabled".into(), prev);
+                    }
+                }
+                let value = serde_json::Value::Object(incoming);
+                crate::plugin_config::set_plugin_config(app, plugin_id, &value)?;
+                // 设置面板开着时应刷新（同 webview 写路径的广播约定）
+                let _ = app.emit(
+                    "catrace:plugin-config-changed",
+                    serde_json::json!({ "pluginId": plugin_id }),
+                );
+                Ok(())
+            }) {
+                Ok(()) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": true,
+                    "result": true,
+                }),
+                Err(error) => serde_json::json!({
+                    "v": 1,
+                    "op": "response",
+                    "requestId": request_id,
+                    "ok": false,
+                    "error": error,
+                }),
+            };
+            reply_sidecar(manager, plugin_id, &response);
+        }
     }
+}
+
+/// sidecar 侧宿主能力(activity/clipboard/shell/config)的统一鉴权:
+/// 与 webview 版 require_plugin_api 等价——插件必须已安装且启用。
+fn ensure_sidecar_plugin_usable(plugins: &PluginManager, plugin_id: &str) -> Result<(), String> {
+    plugins.ensure_installed(plugin_id)?;
+    plugins.ensure_enabled(plugin_id)
 }
 
 fn reply_sidecar(manager: &PluginSidecarManager, plugin_id: &str, response: &serde_json::Value) {
@@ -929,6 +1160,56 @@ mod tests {
                 assert_eq!(value, serde_json::json!({"n": 1}));
             }
             other => panic!("expected storage.set, got {other:?}"),
+        }
+    }
+    #[test]
+    fn parses_sidecar_host_capability_ops() {
+        let activity = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"activity.get","requestId":"a1"}"#,
+        )
+        .expect("activity.get parses");
+        assert!(matches!(
+            activity,
+            SidecarOutput::ActivityGet { request_id, .. } if request_id == "a1"
+        ));
+        let clipboard = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"clipboard.write_text","requestId":"c1","text":"123456"}"#,
+        )
+        .expect("clipboard.write_text parses");
+        assert!(matches!(
+            clipboard,
+            SidecarOutput::ClipboardWriteText { request_id, text, .. }
+                if request_id == "c1" && text == "123456"
+        ));
+        let open = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"shell.open_url","requestId":"o1","url":"https://github.com/x"}"#,
+        )
+        .expect("shell.open_url parses");
+        assert!(matches!(
+            open,
+            SidecarOutput::ShellOpenUrl { request_id, url, .. }
+                if request_id == "o1" && url == "https://github.com/x"
+        ));
+        let cfg_get = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"config.get","requestId":"g1"}"#,
+        )
+        .expect("config.get parses");
+        assert!(matches!(
+            cfg_get,
+            SidecarOutput::ConfigGet { request_id, .. } if request_id == "g1"
+        ));
+        let cfg_set = serde_json::from_str::<SidecarOutput>(
+            r#"{"v":1,"op":"config.set","requestId":"s1","config":{"filters":[]}}"#,
+        )
+        .expect("config.set parses");
+        match cfg_set {
+            SidecarOutput::ConfigSet {
+                request_id, config, ..
+            } => {
+                assert_eq!(request_id, "s1");
+                assert_eq!(config, serde_json::json!({"filters": []}));
+            }
+            other => panic!("expected config.set, got {other:?}"),
         }
     }
     #[test]

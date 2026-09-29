@@ -16,7 +16,8 @@ https://github.com/lanxiuyun/Catrace/issues/82
 windows 通知劫持，直接改成用 catrace 来通知？
 dsh 通知，dsh小窗模式
 整个框架重构，像 DSH 一样，把所有的页面设置、信息统计面板都做成插件化？
-
+当前log日志过多，而且toast窗口按下F12是否能获取到插件日志？
+log系统重构？
 
 ## 已完成
 测试 toast window 弹出是否会影响全屏游戏

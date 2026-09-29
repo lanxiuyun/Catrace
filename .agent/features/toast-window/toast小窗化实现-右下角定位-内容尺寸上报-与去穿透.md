@@ -22,8 +22,8 @@
 ### 设计尺寸
 
 - 窗口逻辑宽度固定 **392 CSS px**（卡片 360 + 左右阴影出血 16×2）
-- 最小逻辑高度 **160 CSS px**
-- 实际高度 = 前端上报的 `stack.scrollHeight`，Rust 按光标屏 `work_area` clamp
+- 窗口高度**严格等于**前端上报的 `stack.scrollHeight`，不设最小值（2026-09-28 起；此前写死 160 下限，会把窗口撑高并在卡片下方留出未绘制带，见 [toast-卡片紧凑尺寸规范](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md)）
+- Rust 另有 `TOAST_WINDOW_MIN_HEIGHT_LOGICAL = 160`，只作前端上报前的默认值与建窗 `inner_size`
 
 ### Rust 定位流程
 
@@ -54,8 +54,9 @@ fn fit_toast_window(window, app_handle, follow_cursor) {
 
 ```ts
 async function reportWindowSize() {
+  if (notifications.value.length === 0) return  // 空栈即将关窗，不要把窗口缩成一条
   const width = Math.max(1, Math.ceil(root.scrollWidth))
-  const height = Math.max(160, Math.ceil(stack.scrollHeight))
+  const height = Math.max(1, Math.ceil(stack.scrollHeight))  // 不设最小值：窗口高度 = 内容高度
   await setToastContentSize(width, height)
 }
 ```
