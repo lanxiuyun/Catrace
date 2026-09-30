@@ -24,6 +24,10 @@
 - `src/components/NotificationToastCard.vue` — 卡片；`ReminderToast.vue` 的 `BUILTIN_TOAST_KINDS` 加 `notification` 并加模板分支
 - `src/api/tauri.ts` / `src/i18n/locales/*` — 命令封装与文案
 
+## 子文档
+
+- [quick-reply-input-boxes-why-not-built-and-how-to-add.md](quick-reply-input-boxes-why-not-built-and-how-to-add.md) — 带输入框的按钮为何不渲染，要做时的框架与成本
+
 ## 实现要点（为什么必须这样）
 
 - **`NotificationChanged` 事件订阅对未打包进程不可用**：实测 `0x80070490 (ERROR_NOT_FOUND)`，MTA 与显式 STA 线程都一样；能读能删，就是订不上事件（WinIsland 的注册也包在 try/catch 里、注释写着 relying on polling，是同一个坑）。所以**只能纯轮询**，事件订阅只作为「订上就更快」的可选增强，**失败绝不让开关失败**。轮询周期因此取 1s（它就是卡片延迟和原生弹窗被移除前的可见时长）。

@@ -195,6 +195,7 @@ features:
   system-notification-forward:
     docs:
       - .agent/features/system-notification-forward/README.md
+      - .agent/features/system-notification-forward/quick-reply-input-boxes-why-not-built-and-how-to-add.md
     related:
       - toast-window
       - desktop-event-os
