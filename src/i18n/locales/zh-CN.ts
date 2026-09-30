@@ -97,6 +97,7 @@ export default {
       deniedHint: '需要在系统设置里允许应用访问通知，Catrace 才能收到通知',
       openSystemSettings: '打开系统设置',
       startFailed: '开启失败：需要通知访问权限',
+      actionFailed: '按钮执行失败',
     },
     reminder: {
       windowTitle: '连续活跃时长',

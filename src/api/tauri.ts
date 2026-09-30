@@ -425,6 +425,11 @@ export async function openNotificationPermissionSettings(): Promise<void> {
   return invoke('open_notification_permission_settings')
 }
 
+/** 点击转发通知卡片上的按钮（成功后端会 resolve 事件，卡片随之消失） */
+export async function triggerNotificationAction(eventId: string, actionId: string): Promise<void> {
+  return invoke('trigger_notification_action', { eventId, actionId })
+}
+
 // ---------- External plugins ----------
 
 export interface ExternalPluginInfo {

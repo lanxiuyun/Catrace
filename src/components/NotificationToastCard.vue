@@ -1,14 +1,19 @@
 <script setup lang="ts">
+import type { EventAction } from '../types/event'
+
 const props = defineProps<{
   appName?: string
   icon?: string
   title: string
   body: string
   isHovered?: boolean
+  /** 后端已过滤过的可触发按钮（protocol / 有激活器的 background/foreground） */
+  actions?: EventAction[]
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'action', action: EventAction): void
 }>()
 
 const displayName = () => props.appName || 'Windows'
@@ -31,6 +36,11 @@ const displayName = () => props.appName || 'Windows'
     <div v-if="!isHovered" class="progress-bar" />
     <p v-if="title" class="notif-title">{{ title }}</p>
     <p v-if="body && body !== title" class="notif-body">{{ body }}</p>
+    <div v-if="actions && actions.length" class="notif-actions">
+      <button v-for="a in actions" :key="a.id" class="notif-action-btn" @click="emit('action', a)">
+        {{ a.label }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -132,5 +142,29 @@ const displayName = () => props.appName || 'Windows'
   color: var(--ct-text-muted);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.notif-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+/* 等权重的低调描边按钮：系统通知的按钮本身没有主次 */
+.notif-action-btn {
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 0.375rem;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ct-text);
+}
+.notif-action-btn:hover {
+  background: var(--ct-accent-softer);
+  border-color: var(--ct-accent);
+  color: var(--ct-accent-strong);
 }
 </style>

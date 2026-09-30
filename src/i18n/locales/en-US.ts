@@ -97,6 +97,7 @@ export default {
       deniedHint: 'Catrace needs notification access in Windows settings to receive notifications',
       openSystemSettings: 'Open system settings',
       startFailed: 'Failed to enable: notification access is required',
+      actionFailed: 'Failed to run this action',
     },
     reminder: {
       windowTitle: 'Active Duration',

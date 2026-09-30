@@ -28,7 +28,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::db::Db;
 use crate::event::{
-    BusEvent, DisplayMode, EventLevel, EventResolution, EventSource, ResolutionKind,
+    BusEvent, DisplayMode, EventAction, EventLevel, EventResolution, EventSource, ResolutionKind,
 };
 use crate::{log_error, log_info, log_warn};
 
@@ -59,6 +59,15 @@ struct StateInner {
     /// 新一次 start 立刻置回 true，旧 worker 便继续活着，出现两个轮询线程。
     worker: Mutex<Option<Arc<AtomicBool>>>,
     access: AtomicU8,
+    /// 按钮规格，按发布事件的 id 存：前端点击只回传 event id + action id，
+    /// 规格从这里取。事件 resolve（点击成功 / 35s TTL）时移除。
+    #[cfg(windows)]
+    action_specs: Mutex<std::collections::HashMap<String, ActionSpecs>>,
+    /// 点击成功后待从操作中心移除的源通知 id。RemoveNotification 只有持有
+    /// listener 的 worker 能调，命令线程把 id 存这里，worker 每轮循环消费
+    /// （一轮一秒内生效）——对齐原生行为：点完按钮 toast 就从操作中心消失。
+    #[cfg(windows)]
+    pending_ac_removals: Mutex<Vec<u32>>,
 }
 
 impl StateInner {
@@ -252,24 +261,28 @@ fn worker_loop(
         if stop.load(Ordering::SeqCst) {
             break;
         }
+        // 命令线程交付的「点击成功后待移除的源通知」，见 drain_pending_removals
+        drain_pending_removals(&listener, &state);
         match event_rx.recv_timeout(POLL_INTERVAL) {
             Ok(id) => {
                 if known.insert(id) {
-                    process_notification(&listener, &bus, &db, id);
+                    process_notification(&listener, &bus, &db, &state, id);
                 }
             }
             Err(RecvTimeoutError::Timeout) => {
-                poll_once(&listener, &toast_kind, &bus, &db, &mut known)
+                poll_once(&listener, &toast_kind, &bus, &db, &state, &mut known)
             }
             // 有保活发送端时不会断开；真发生了也不能退出，更不能空转
             // （断开后 recv_timeout 立刻返回，不睡就是忙等烧 CPU）。
             Err(RecvTimeoutError::Disconnected) => {
                 thread::sleep(POLL_INTERVAL);
-                poll_once(&listener, &toast_kind, &bus, &db, &mut known);
+                poll_once(&listener, &toast_kind, &bus, &db, &state, &mut known);
             }
         }
     }
 
+    // 退出前把队列里剩下的也清掉——此刻 listener 还活着，错过就没人能移了
+    drain_pending_removals(&listener, &state);
     if let Some(token) = token {
         let _ = listener.RemoveNotificationChanged(token);
     }
@@ -298,6 +311,7 @@ fn poll_once(
     toast_kind: &windows::UI::Notifications::NotificationKinds,
     bus: &crate::bus::EventBus,
     db: &Db,
+    state: &Arc<StateInner>,
     known: &mut std::collections::HashSet<u32>,
 ) {
     match wait_async(listener.GetNotificationsAsync(*toast_kind)) {
@@ -307,12 +321,27 @@ fn poll_once(
                 let id = n.Id().unwrap_or(0);
                 current.insert(id);
                 if known.insert(id) {
-                    process_notification(listener, bus, db, id);
+                    process_notification(listener, bus, db, state, id);
                 }
             }
             known.retain(|id| current.contains(id));
         }
         Err(e) => log_warn!("notification", "poll failed: {}", e),
+    }
+}
+
+/// 消费命令线程交付的待移除源通知。原生行为是点完按钮 toast 就从操作中心
+/// 消失；RemoveNotification 只有持有 listener 的 worker 能调，所以走队列转交。
+#[cfg(windows)]
+fn drain_pending_removals(
+    listener: &windows::UI::Notifications::Management::UserNotificationListener,
+    state: &Arc<StateInner>,
+) {
+    let pending: Vec<u32> = std::mem::take(&mut *state.pending_ac_removals.lock().unwrap());
+    for nid in pending {
+        if let Err(e) = listener.RemoveNotification(nid) {
+            log_warn!("notification", "remove actioned notification {nid} failed: {e}");
+        }
     }
 }
 
@@ -325,6 +354,7 @@ fn process_notification(
     listener: &windows::UI::Notifications::Management::UserNotificationListener,
     bus: &crate::bus::EventBus,
     db: &Db,
+    state: &Arc<StateInner>,
     id: u32,
 ) {
     let notif = match listener.GetNotification(id) {
@@ -359,6 +389,10 @@ fn process_notification(
         aumid.clone()
     };
 
+    // 按钮必须在发布**之前**读——闪现式移除后数据库行就没了。监听 API 只暴露
+    // 文本，按钮读自通知数据库，见 collect_notification_actions。
+    let (toast_actions, activator) = collect_notification_actions(id, &aumid);
+
     let icon = extract_logo_data_url(&app_info);
     // 只记来源与长度，不落正文——通知内容可能是敏感信息
     log_info!(
@@ -379,7 +413,14 @@ fn process_notification(
         level: EventLevel::Info,
         title,
         body,
-        actions: vec![],
+        actions: toast_actions
+            .iter()
+            .map(|a| EventAction {
+                id: a.id.clone(),
+                label: a.label.clone(),
+                payload: None,
+            })
+            .collect(),
         progress: None,
         sticky: None,
         payload: serde_json::json!({
@@ -416,10 +457,25 @@ fn process_notification(
                     log_warn!("notification", "remove system notification failed: {}", e);
                 }
             }
+            // 按钮规格按发布事件的 id 存档，点击时按 event id + action id 取回；
+            // 事件 resolve（点击成功 / 下方 TTL）时移除，不留陈旧规格。
+            if !toast_actions.is_empty() {
+                state.action_specs.lock().unwrap().insert(
+                    published.id.clone(),
+                    ActionSpecs {
+                        notification_id: id,
+                        aumid: aumid.clone(),
+                        activator,
+                        actions: toast_actions,
+                    },
+                );
+            }
             let bus2 = bus.clone();
+            let state2 = state.clone();
             let event_id = published.id;
             thread::spawn(move || {
                 thread::sleep(EVENT_TTL);
+                state2.action_specs.lock().unwrap().remove(&event_id);
                 let _ = bus2.resolve(
                     event_id,
                     EventResolution {
@@ -741,6 +797,289 @@ pub fn restore_takeover(_db: &Db) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// 通知按钮：wpndatabase 读取 + 解析 + 点击触发
+// ---------------------------------------------------------------------------
+
+// 监听 API 只暴露文本（NotificationBinding 仅有 GetTextElements），按钮数据不在
+// 其中，要从通知平台的数据库 wpndatabase.db 读——Payload 列就是 toast XML。
+// 三条实测约束：
+//   1. 只读连接用 mode=ro，不要加 immutable=1——加了 SQLite 会无视 WAL，
+//      读到陈旧快照（实测最新 id 停在 3368，平台已到 3392）；
+//   2. 必须在 RemoveNotification **之前**读：被移除的通知在库里连行一起删；
+//   3. 库里的 Notification.Id 就是监听器的 id，按 id join 精确命中，无启发式。
+//
+// 点击触发（本机实测）：
+//   - protocol 型：arguments 即目标 URI，直接打开；
+//   - background/foreground 型：用 HKCU/HKLM\Software\Classes\AppUserModelId 下
+//     该 AUMID 注册的 CustomActivator（CLSID），CoCreateInstance +
+//     INotificationActivationCallback::Activate 忠实回调应用的激活器——等价于
+//     用户在原生 toast 上点按钮后系统的调用方式；
+//   - 打包应用（ChatGPT/Outlook 等）的 activator 登记在 PackagedCom 目录，
+//     CoCreateInstance 找不到（REGDB_E_CLASSNOTREG）——这类按钮一律不渲染；
+//   - 带输入框（hint-inputId）的按钮跳过并记日志：快捷回复刻意不做（全机可达
+//     目标几乎没有），渲染点了没反应的按钮更糟。
+
+/// 宿主存档的可点击按钮规格，按发布事件的 id 存于 `StateInner::action_specs`。
+#[cfg(windows)]
+#[derive(Debug, Clone)]
+struct ActionSpecs {
+    /// 源系统通知 id：点击成功后 worker 用它把 toast 从操作中心移除
+    notification_id: u32,
+    aumid: String,
+    /// 该应用注册的通知激活器 CLSID（发布时已解析；None = 没有可达激活器）
+    activator: Option<String>,
+    actions: Vec<StoredAction>,
+}
+
+#[cfg(windows)]
+#[derive(Debug, Clone)]
+struct StoredAction {
+    /// 过滤后的序号（从 0 起），作为 EventAction.id 给前端、点击时原样传回
+    id: String,
+    label: String,
+    arguments: String,
+    /// protocol | background | foreground
+    activation_type: String,
+}
+
+/// 从 toast XML 解析出的一个按钮元素
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, PartialEq)]
+struct ParsedToastAction {
+    content: String,
+    activation_type: String,
+    arguments: String,
+    /// 带 hint-inputId 属性（回复框）——此类按钮不渲染
+    needs_input: bool,
+}
+
+/// 解码 Payload。toast XML 以 UTF-8 为主，历史上也有 UTF-16LE 存量
+/// （ASCII 区间的奇数位字节为 0，据此区分）。
+#[cfg(any(windows, test))]
+fn decode_notification_payload(blob: &[u8]) -> Option<String> {
+    if blob.len() >= 2 && blob[0] != 0 && blob[1] == 0 {
+        let units: Vec<u16> = blob
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        String::from_utf16(&units).ok()
+    } else {
+        String::from_utf8(blob.to_vec()).ok()
+    }
+}
+
+/// 展开 XML 具名与数字实体。protocol 按钮的 arguments 带 `&` 时平台存成
+/// `&amp;`，不展开则传给应用的 URI 缺字符。
+#[cfg(any(windows, test))]
+fn unescape_xml(s: &str) -> String {
+    if !s.contains('&') {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let decoded = rest.find(';').and_then(|j| {
+            let entity = rest.get(..=j)?;
+            let c = match entity {
+                "&amp;" => '&',
+                "&lt;" => '<',
+                "&gt;" => '>',
+                "&quot;" => '"',
+                "&apos;" => '\'',
+                _ => {
+                    let inner = &entity[1..entity.len() - 1];
+                    let code = if let Some(hex) =
+                        inner.strip_prefix("#x").or_else(|| inner.strip_prefix("#X"))
+                    {
+                        u32::from_str_radix(hex, 16).ok()
+                    } else {
+                        inner.strip_prefix('#').and_then(|d| d.parse::<u32>().ok())
+                    };
+                    char::from_u32(code?)?
+                }
+            };
+            Some((c, entity.len()))
+        });
+        match decoded {
+            Some((c, len)) => {
+                out.push(c);
+                rest = &rest[len..];
+            }
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// 从 toast XML 抽 `<action>` 元素：只做属性提取、不做完整 XML 解析——payload
+/// 由平台或应用按 toast schema 生成、结构稳定；属性缺失就丢弃该元素。
+/// 注意 `<actions>` 开头同样命中 `<action` 字面量，靠「无 content 属性」跳过，
+/// 且搜索从其 `>` 之后继续，不影响真正的按钮。
+#[cfg(any(windows, test))]
+fn parse_toast_actions(xml: &str) -> Vec<ParsedToastAction> {
+    let mut out = vec![];
+    let mut rest = xml;
+    while let Some(start) = rest.find("<action") {
+        rest = &rest[start..];
+        // 标签结束于第一个不在引号内的 `>`：属性值里的 `>` 在 XML 里合法，
+        // 平台不总是转义它，按「引号感知」扫才不会把标签截断
+        let mut end = None;
+        let mut in_quote = false;
+        let mut quote_char = b'"';
+        for (i, &b) in rest.as_bytes().iter().enumerate().skip(1) {
+            if in_quote {
+                if b == quote_char {
+                    in_quote = false;
+                }
+            } else if b == b'"' || b == b'\'' {
+                in_quote = true;
+                quote_char = b;
+            } else if b == b'>' {
+                end = Some(i);
+                break;
+            }
+        }
+        let Some(end) = end else { break };
+        let tag = &rest[..=end];
+        rest = &rest[end..];
+        let get_attr = |name: &str| -> Option<String> {
+            // 前缀边界校验：避免把 hint-content=" 里的 content=" 误当 content 属性
+            let mut from = 0;
+            while let Some(rel) = tag[from..].find(&format!("{name}=\"")) {
+                let at = from + rel;
+                if at == 0 || tag[..at].ends_with(' ') || tag[..at].ends_with('<') {
+                    let value = &tag[at + name.len() + 2..];
+                    let value = &value[..value.find('"')?];
+                    return Some(unescape_xml(value));
+                }
+                from = at + name.len();
+            }
+            None
+        };
+        let Some(content) = get_attr("content") else { continue };
+        if content.is_empty() {
+            continue;
+        }
+        out.push(ParsedToastAction {
+            needs_input: tag.contains("hint-inputId"),
+            activation_type: get_attr("activationType").unwrap_or_else(|| "foreground".into()),
+            arguments: get_attr("arguments").unwrap_or_default(),
+            content,
+        });
+    }
+    out
+}
+
+/// 从通知数据库读该条通知的 toast XML Payload。任何一步失败都返回 None：
+/// 卡片没有按钮，转发不受影响。
+#[cfg(windows)]
+fn read_toast_payload(notification_id: u32) -> Option<Vec<u8>> {
+    use rusqlite::OpenFlags;
+    let local = std::env::var("LOCALAPPDATA").ok()?;
+    let path =
+        std::path::Path::new(&local).join(r"Microsoft\Windows\Notifications\wpndatabase.db");
+    let conn =
+        rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
+    conn.query_row(
+        "SELECT Payload FROM Notification WHERE Id = ?1 AND Type = 'toast'",
+        [notification_id as i64],
+        |row| row.get(0),
+    )
+    .ok()
+}
+
+/// 查该 AUMID 注册的通知激活器。未打包桌面应用登记在 HKCU/HKLM\Software\Classes
+/// \AppUserModelId\<aumid>；打包应用在 PackagedCom 目录，这里查不到——
+/// 它们的 background/foreground 按钮就此不渲染。
+#[cfg(windows)]
+fn resolve_activator(aumid: &str) -> Option<String> {
+    let rel = format!(r"Software\Classes\AppUserModelId\{aumid}");
+    for root in [&windows_registry::CURRENT_USER, &windows_registry::LOCAL_MACHINE] {
+        let Ok(key) = root.open(&rel) else { continue };
+        if let Ok(clsid) = key.get_string("CustomActivator") {
+            if !clsid.is_empty() {
+                return Some(clsid);
+            }
+        }
+    }
+    None
+}
+
+/// 读出并过滤可渲染的按钮。返回（按钮，激活器）；激活器一并进 specs 供点击用。
+#[cfg(windows)]
+fn collect_notification_actions(
+    notification_id: u32,
+    aumid: &str,
+) -> (Vec<StoredAction>, Option<String>) {
+    let Some(blob) = read_toast_payload(notification_id) else {
+        return (vec![], None);
+    };
+    let Some(xml) = decode_notification_payload(&blob) else {
+        return (vec![], None);
+    };
+    let activator = if aumid.is_empty() {
+        None
+    } else {
+        resolve_activator(aumid)
+    };
+    let mut out: Vec<StoredAction> = vec![];
+    for pa in parse_toast_actions(&xml) {
+        if pa.needs_input {
+            log_info!("notification", "action {:?} needs input, skipped", pa.content);
+            continue;
+        }
+        let renderable = match pa.activation_type.as_str() {
+            "protocol" => true,
+            // background/foreground 只有应用注册了激活器才可能忠实触发
+            "background" | "foreground" => activator.is_some(),
+            _ => false,
+        };
+        if !renderable {
+            continue;
+        }
+        out.push(StoredAction {
+            id: out.len().to_string(),
+            label: pa.content,
+            arguments: pa.arguments,
+            activation_type: pa.activation_type,
+        });
+    }
+    (out, activator)
+}
+
+/// 调用应用注册的通知激活器。InprocServer32 形式的激活器其 DLL 会被加载进本
+/// 进程——这正是原生系统从 toast 点击唤起时的机制，无额外越权。
+#[cfg(windows)]
+fn activate_via_activator(clsid: &str, aumid: &str, arguments: &str) -> Result<(), String> {
+    use windows::core::HSTRING;
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
+    use windows::Win32::UI::Notifications::INotificationActivationCallback;
+
+    // 命令线程可能从未碰过 COM，先初始化一次（已初始化的报错忽略）
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        // GUID::try_from 只收 36 位裸格式；注册表里的 CustomActivator 带 {} 花括号
+        let bare = clsid.trim().trim_start_matches('{').trim_end_matches('}');
+        let guid: windows::core::GUID =
+            windows::core::GUID::try_from(bare).map_err(|_| format!("invalid CLSID {clsid:?}"))?;
+        let callback: INotificationActivationCallback =
+            CoCreateInstance(&guid, None::<&windows::core::IUnknown>, CLSCTX_ALL)
+                .map_err(|e| format!("CoCreateInstance({clsid:?}) failed: {e}"))?;
+        callback
+            .Activate(&HSTRING::from(aumid), &HSTRING::from(arguments), &[])
+            .map_err(|e| format!("Activate failed: {e}"))
+    }
+}
+
 #[cfg(windows)]
 fn live_access() -> Option<String> {
     use windows::UI::Notifications::Management::{
@@ -834,6 +1173,86 @@ pub fn open_notification_permission_settings(app: AppHandle) -> Result<(), Strin
         let _ = app;
         Ok(())
     }
+}
+
+/// 转发卡片上的按钮点击：前端只回传 event id + action id，规格从
+/// `StateInner::action_specs` 取。成功：resolve 事件（卡片随总线的 resolved
+/// 事件消失）+ 源通知交给 worker 从操作中心移除；失败：返回 Err、卡片保留
+/// 可重试（规格不动）。
+#[tauri::command]
+pub fn trigger_notification_action(
+    app: AppHandle,
+    bus: State<'_, crate::bus::EventBus>,
+    state: State<'_, NotificationForwardState>,
+    event_id: String,
+    action_id: String,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        trigger_notification_action_inner(app, bus.inner(), state.inner(), &event_id, &action_id)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, bus, state, event_id, action_id);
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+fn trigger_notification_action_inner(
+    app: AppHandle,
+    bus: &crate::bus::EventBus,
+    state: &NotificationForwardState,
+    event_id: &str,
+    action_id: &str,
+) -> Result<(), String> {
+    let Some(spec) = state
+        .inner
+        .action_specs
+        .lock()
+        .unwrap()
+        .get(event_id)
+        .cloned()
+    else {
+        // 规格没了 = 事件已过期（35s TTL resolve 过）或已被消费；此时卡片
+        // 多半也消失了，但卡片若还挂着（水合旧事件），报错让前端提示
+        return Err(format!("action spec not found for event {event_id:?}"));
+    };
+    let Some(action) = spec.actions.iter().find(|a| a.id == action_id) else {
+        return Err(format!("action {action_id:?} not found"));
+    };
+    match action.activation_type.as_str() {
+        "protocol" => {
+            // protocol 按钮的 arguments 就是目标 URI 本身
+            use tauri_plugin_opener::OpenerExt;
+            app.opener()
+                .open_url(&action.arguments, None::<&str>)
+                .map_err(|e| format!("open {:?} failed: {e}", action.arguments))?;
+        }
+        _ => {
+            let Some(clsid) = &spec.activator else {
+                return Err("activator unresolvable".into());
+            };
+            activate_via_activator(clsid, &spec.aumid, &action.arguments)?;
+        }
+    }
+    // 到这里才算成功：消费规格（一份规格只许点一次），交付移除、resolve 事件
+    state.inner.action_specs.lock().unwrap().remove(event_id);
+    state
+        .inner
+        .pending_ac_removals
+        .lock()
+        .unwrap()
+        .push(spec.notification_id);
+    bus.resolve(
+        event_id.to_string(),
+        EventResolution {
+            kind: ResolutionKind::Action,
+            action_id: Some(action_id.to_string()),
+            payload: None,
+        },
+    )?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -953,6 +1372,58 @@ mod tests {
         let mut short = "短".to_string();
         truncate_chars(&mut short, TITLE_MAX_CHARS);
         assert_eq!(short, "短");
+    }
+
+    /// 按钮解析：protocol / background 提取，带输入框的标记出来
+    #[test]
+    fn parse_actions_extracts_and_flags() {
+        let xml = "<toast>\r\n  <actions>\r\n    \
+<action content=\"打开设置\" activationType=\"protocol\" arguments=\"ms-settings:notifications?a=1&amp;b=2\"/>\r\n    \
+<action content=\"后台动作\" activationType=\"background\" arguments=\"test=1\"/>\r\n    \
+<action content=\"回复\" activationType=\"foreground\" arguments=\"r\" hint-inputId=\"reply\"/>\r\n  \
+</actions>\r\n</toast>";
+        let actions = parse_toast_actions(xml);
+        assert_eq!(actions.len(), 3, "<actions> 前缀不该被当成按钮");
+        assert_eq!(actions[0].activation_type, "protocol");
+        assert_eq!(actions[0].arguments, "ms-settings:notifications?a=1&b=2");
+        assert!(!actions[0].needs_input);
+        assert_eq!(actions[1].activation_type, "background");
+        assert!(!actions[1].needs_input);
+        assert!(actions[2].needs_input);
+    }
+
+    /// 属性值里未转义的 `>` 不该截断标签；无 content 的元素跳过
+    #[test]
+    fn parse_actions_survives_gt_in_attributes() {
+        let xml = "<toast><actions>\
+<action content=\"比较\" activationType=\"protocol\" arguments=\"a&gt;b\"/>\
+</actions></toast>";
+        let actions = parse_toast_actions(xml);
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].content, "比较");
+        assert_eq!(actions[0].arguments, "a>b");
+    }
+
+    /// 实体展开：具名 + 十六进制/十进制数字，坏实体原样保留
+    #[test]
+    fn unescape_handles_named_numeric_and_broken() {
+        assert_eq!(unescape_xml("&#x4e2d;&#25991;"), "中文");
+        assert_eq!(unescape_xml("a&amp;&lt;b&gt;"), "a&<b>");
+        assert_eq!(unescape_xml("quote &quot;x&quot;"), "quote \"x\"");
+        assert_eq!(unescape_xml("100% & more"), "100% & more");
+        assert_eq!(unescape_xml("&unknown;"), "&unknown;");
+    }
+
+    /// Payload 解码：UTF-8 与 UTF-16LE 两种存量编码
+    #[test]
+    fn decode_payload_supports_utf8_and_utf16() {
+        let s = "<toast><action content=\"ok\"/></toast>";
+        assert_eq!(decode_notification_payload(s.as_bytes()), Some(s.to_string()));
+        let mut utf16 = Vec::new();
+        for unit in s.encode_utf16() {
+            utf16.extend_from_slice(&unit.to_le_bytes());
+        }
+        assert_eq!(decode_notification_payload(&utf16), Some(s.to_string()));
     }
 }
 
