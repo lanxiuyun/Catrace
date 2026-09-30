@@ -366,6 +366,27 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
     }
 }
 
+/// 预激活：仅清除 WS_EX_NOACTIVATE，不请求前台。
+/// 供前端在指针进入 Toast 内容时调用，让随后的首次点击能原生激活并落到输入控件；
+/// 真正的焦点接管仍由 set_window_active_mode_internal(active=true) 在 pointerdown 执行。
+pub fn prepare_window_activation_internal<R: Runtime>(window: &WebviewWindow<R>) {
+    if !is_reminder_window(window) {
+        return;
+    }
+    let wry_window = cast_to_wry(window);
+    if let Some(hwnd) = window_hwnd(wry_window) {
+        if !has_exstyle(exstyle_bits(hwnd), WS_EX_NOACTIVATE.0) {
+            return;
+        }
+        log_info!(
+            "toast-win",
+            "prepare_activation[{}] clear NOACTIVATE on pointer enter",
+            window.label()
+        );
+        restore_normal_style(hwnd);
+    }
+}
+
 /// 强制把窗口拉为前台。后台进程直接 SetForegroundWindow 会被 Windows 拒绝；
 /// 先把当前线程输入附加到前台窗口线程，调用成功后再 detach。
 unsafe fn force_foreground_window(hwnd: HWND) -> bool {

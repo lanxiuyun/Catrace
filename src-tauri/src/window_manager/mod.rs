@@ -22,9 +22,15 @@ pub async fn set_window_active_mode<R: Runtime>(window: WebviewWindow<R>, active
     platform::set_window_active_mode_internal(&window, active);
 }
 
+/// 预激活：仅移除 NOACTIVATE 样式，让下一次点击能原生激活；不抢当前前台焦点。
+#[command]
+pub async fn prepare_window_activation<R: Runtime>(window: WebviewWindow<R>) {
+    platform::prepare_window_activation_internal(&window);
+}
+
 pub use platform::{
-    ensure_reminder_topmost, hide_window_internal, os_text_scale_factor, set_window_active_mode_internal,
-    set_window_rect_physical, show_reminder_no_activate,
+    ensure_reminder_topmost, hide_window_internal, os_text_scale_factor,
+    set_window_active_mode_internal, set_window_rect_physical, show_reminder_no_activate,
 };
 
 pub fn is_fullscreen_reminder_open<R: Runtime>(app: &AppHandle<R>) -> bool {

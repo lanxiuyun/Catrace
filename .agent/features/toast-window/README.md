@@ -27,7 +27,7 @@
 - 透明无边框 WebviewWindow，复用而非销毁
 - **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
-- Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式。当前通过 Toast 内容区的 `pointerover` 提前触发 `setWindowActiveMode(true)`，避免首次点击的原生焦点时序落后于 WebView DOM 光标。该策略仍需验证普通 hover 是否造成不期望的焦点抢占
+- Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式，**但分两步**（2026-09-30）：`pointerover` 只调 `prepareWindowActivation`（仅清 NOACTIVATE，不抢前台），`pointerdown` 才调 `setWindowActiveMode(true)`（接管焦点）。此前 hover 直接全套激活，弹窗后鼠标一划过就抢走正在输入应用的键盘焦点；只清样式不抢前台同样能让首次点击原生激活，绕开 NOACTIVATE 首击焦点时序问题
 - macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 

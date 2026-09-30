@@ -1267,6 +1267,7 @@ pub fn run() {
             get_reminder_data,
             close_reminder_window,
             window_manager::set_window_active_mode,
+            window_manager::prepare_window_activation,
             reminder_toast::set_toast_content_size,
             crate::bus::publish_event,
             crate::bus::update_event,
