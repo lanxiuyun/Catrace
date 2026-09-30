@@ -1,25 +1,22 @@
 <script setup lang="ts">
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NCard, NSpace, NSwitch, NTag, useMessage } from 'naive-ui'
+import { NButton, NCard, NSpace, NSwitch, NTag, useDialog, useMessage } from 'naive-ui'
 import {
   getNotificationForwardStatus,
   setNotificationForwardEnabled,
   setNotificationTakeoverEnabled,
-  getNotificationKnownApps,
-  setNotificationMutedAumids,
   openNotificationPermissionSettings,
   type NotificationForwardStatus,
-  type NotificationKnownApp,
 } from '../../api/tauri'
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 
 const ready = ref(false)
 const loading = ref(false)
 const status = ref<NotificationForwardStatus | null>(null)
-const apps = ref<NotificationKnownApp[]>([])
 
 const enabled = computed(() => status.value?.enabled ?? false)
 const takeover = computed(() => status.value?.takeover ?? false)
@@ -41,9 +38,6 @@ const accessTag = computed(() => {
 
 async function refresh() {
   status.value = await getNotificationForwardStatus()
-  if (status.value.enabled) {
-    apps.value = await getNotificationKnownApps()
-  }
 }
 
 onMounted(async () => {
@@ -56,7 +50,7 @@ onMounted(async () => {
   }
 })
 
-// KeepAlive 下回到设置页时刷新（应用列表随通知到达增长）
+// KeepAlive 下回到设置页时刷新授权状态
 onActivated(() => {
   refresh().catch(() => {})
 })
@@ -76,24 +70,29 @@ async function onToggle(v: boolean) {
   }
 }
 
-async function onTakeoverToggle(v: boolean) {
+async function applyTakeover(v: boolean) {
   try {
     await setNotificationTakeoverEnabled(v)
     if (status.value) status.value.takeover = v
   } catch {
     message.error(t('settings.messages.saveFailed'))
+    refresh().catch(() => {})
   }
 }
 
-async function toggleMute(app: NotificationKnownApp, allow: boolean) {
-  app.muted = !allow
-  const muted = apps.value.filter((a) => a.muted).map((a) => a.aumid)
-  try {
-    await setNotificationMutedAumids(muted)
-  } catch {
-    app.muted = !app.muted
-    message.error(t('settings.messages.saveFailed'))
+function onTakeoverToggle(v: boolean) {
+  // 开启会修改系统通知设置，先说清楚再动手
+  if (!v) {
+    applyTakeover(false)
+    return
   }
+  dialog.warning({
+    title: t('settings.sysNotify.takeoverConfirmTitle'),
+    content: t('settings.sysNotify.takeoverConfirmBody'),
+    positiveText: t('settings.sysNotify.takeoverConfirmOk'),
+    negativeText: t('settings.sysNotify.cancel'),
+    onPositiveClick: () => applyTakeover(true),
+  })
 }
 
 function openSystemSettings() {
@@ -135,22 +134,6 @@ function openSystemSettings() {
         <n-button size="small" secondary @click="openSystemSettings">
           {{ t('settings.sysNotify.openSystemSettings') }}
         </n-button>
-      </div>
-
-      <div v-if="enabled && apps.length" class="apps">
-        <div class="apps-title">{{ t('settings.sysNotify.appsTitle') }}</div>
-        <div v-for="a in apps" :key="a.aumid" class="app-row">
-          <span class="app-name" :title="a.aumid">{{ a.name }}</span>
-          <n-switch
-            size="small"
-            :value="!a.muted"
-            @update:value="(v: boolean) => toggleMute(a, v)"
-          />
-        </div>
-        <div class="apps-desc">{{ t('settings.sysNotify.appsDesc') }}</div>
-      </div>
-      <div v-else-if="enabled" class="apps-empty">
-        {{ t('settings.sysNotify.appsEmpty') }}
       </div>
     </n-space>
   </n-card>
@@ -203,43 +186,5 @@ function openSystemSettings() {
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--ct-text);
-}
-
-.apps {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.apps-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ct-text-muted);
-}
-
-.app-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.25rem 0;
-}
-
-.app-name {
-  font-size: 0.8125rem;
-  color: var(--ct-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.apps-desc {
-  font-size: 0.6875rem;
-  color: var(--ct-text-muted);
-}
-
-.apps-empty {
-  font-size: 0.75rem;
-  color: var(--ct-text-muted);
 }
 </style>

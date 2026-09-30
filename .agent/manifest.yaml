@@ -192,6 +192,16 @@ features:
       - desktop-event-os
       - agent-notification
 
+  system-notification-forward:
+    docs:
+      - .agent/features/system-notification-forward/README.md
+    related:
+      - toast-window
+      - desktop-event-os
+      - settings
+      - event-sdk
+      - lightweight-mode
+
 architecture:
   project-structure:
     docs:

@@ -407,12 +407,6 @@ export interface NotificationForwardStatus {
   access: 'granted' | 'denied' | 'unspecified' | 'unavailable' | 'unknown'
 }
 
-export interface NotificationKnownApp {
-  aumid: string
-  name: string
-  muted: boolean
-}
-
 export async function getNotificationForwardStatus(): Promise<NotificationForwardStatus> {
   return invoke('get_notification_forward_status')
 }
@@ -425,14 +419,6 @@ export async function setNotificationForwardEnabled(
 
 export async function setNotificationTakeoverEnabled(enabled: boolean): Promise<void> {
   return invoke('set_notification_takeover_enabled', { enabled })
-}
-
-export async function getNotificationKnownApps(): Promise<NotificationKnownApp[]> {
-  return invoke('get_notification_known_apps')
-}
-
-export async function setNotificationMutedAumids(muted: string[]): Promise<void> {
-  return invoke('set_notification_muted_aumids', { muted })
 }
 
 export async function openNotificationPermissionSettings(): Promise<void> {
