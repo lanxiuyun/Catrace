@@ -40,8 +40,8 @@
 - **「不再弹系统横幅」只能靠注册表**：`RemoveNotification` 只能移除已经画出来的弹窗、拦不住绘制（纯轮询下原生弹窗会先画出来），所以要让系统别画——在 `HKCU\…\CurrentVersion\Notifications\Settings` 下给每个应用写 `ShowBanner=0`。**实测确认抑制横幅不影响投递**：写上之后通知仍被监听器收到（`forwarding` 日志照常出现）。系统里该键默认**没有** `ShowBanner` 值（= 显示横幅），所以抑制是写 0、还原是删值或恢复记录到的原值。
 - **必须递归下钻**：扁平 AUMID（`Chrome`、`Microsoft.PowerToysWin32`）的设置就在 Settings 的直接子键上，而**路径式 AUMID**（`{1AC14E77-…}\WindowsPowerShell\v1.0\powershell.exe`，传统 Win32 应用多为此类）被平台存成**嵌套子键**——只扫一层会漏掉这整类应用（实测 38 个应用里就漏了 PowerShell）。容器层也会被写上 `ShowBanner=0`（无害，计数与日志按「键」而非「应用」表述）。
 - **`windows_registry::Key::open` 是只读的**：它只请求 `KEY_READ`，拿它写值会静默失败，表现为「枚举到了子键但改动数为 0」——整个接管功能会无声失效。写操作必须走 `options().read().write().open()` 或 `create()`；这里封了个 `open_rw` 统一处理。这个坑是注册表往返测试抓出来的。
-- **改系统设置必须有还原路径**：改动前把原值记进 settings 表（`notification_takeover_backup`），以下时机还原——关「不再弹系统横幅」、关整个功能（否则通知既无原生横幅也不转发，只能去操作中心翻）、**应用退出**（`RunEvent::Exit`，Catrace 不在了就没人转发）。启动时按当前开关对齐一次（`reconcile_takeover`），上次硬杀留下的状态能自愈。
-- **suppress 与 restore 必须互斥，suppress 前要重读开关**：关开关时 worker 可能还在处理最后一条通知（停机标志只在轮询循环顶部检查，在途的那条会走完全流程），不加锁时「restore 刚还原完、suppress 又写回 0」会留下既无横幅也无转发的孤儿值。所有 ShowBanner 读写共用 `TAKEOVER_LOCK`；`suppress_banner_for` 在锁内重读两把开关，关了就不写。restore 只把**成功还原**的条目移出备份，失败的留着下轮 reconcile 重试（无脑清空备份会把没还原成的键变成孤儿）；备份写失败打 error 日志——写失败 = 已压下去的值从此没有还原依据。
+- **改系统设置必须有还原路径**：改动前把原值记进 settings 表（`notification_takeover_backup`），以下时机还原——关「不再弹系统横幅」、关整个功能（否则通知既无原生横幅也不转发，只能去操作中心翻）、**应用退出**（`RunEvent::Exit`，Catrace 不在了就没人转发）。启动时按当前开关对齐一次（`reconcile_takeover`），上次硬杀留下的状态能自愈；启动时若监听没起来（如授权已被撤销，`maybe_start` 失败）也立即还原——没有转发在跑就不该继续压制。
+- **suppress 与 restore 必须互斥，suppress 前要重读开关**：关开关时 worker 可能还在处理最后一条通知（停机标志只在轮询循环顶部检查，在途的那条会走完全流程），不加锁时「restore 刚还原完、suppress 又写回 0」会留下既无横幅也无转发的孤儿值。所有 ShowBanner 读写共用 `TAKEOVER_LOCK`；`suppress_banner_for` 在锁内重读两把开关，关了就不写。restore 只把**成功还原**的条目移出备份，失败的留着下轮 reconcile 重试（无脑清空备份会把没还原成的键变成孤儿；键打不开先用只读探测区分「键已不存在→放弃」与「写句柄打开失败→保留重试」）；备份写失败打 error 日志——写失败 = 已压下去的值从此没有还原依据。
 - **文本解析**：`ToastGeneric` binding 的文本元素是**两个**（标题、正文，实测确认）；正文截 200 字、标题截 120 字（系统级提示会把整段说明塞进标题，不截会撑出很高的卡）。取图标失败、单条解析失败都不影响其他通知。
 - **日志只记来源与长度**（`forwarding app=… id=… title_len=… body_len=…`）：通知正文可能是敏感信息，不落盘。这行也是「监听器到底收到没有」的判据。
 

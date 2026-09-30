@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -127,6 +127,12 @@ pub fn maybe_start(app: &AppHandle, db: &Db) {
     }
     if let Err(e) = start(app) {
         log_warn!("notification", "auto start failed: {}", e);
+        // 起不来的最常见原因是授权被撤。此刻 setup 里的 reconcile 已按「开着」
+        // 把横幅压住了，但没有任何转发在跑——通知会既无横幅也无卡片，必须
+        // 立即还原。之后授权恢复时，suppress_banner_for 会按应用重新压制。
+        if let Err(e) = restore_takeover(db) {
+            log_warn!("notification", "restore after failed auto start: {}", e);
+        }
     }
 }
 
@@ -349,6 +355,46 @@ fn drain_pending_removals(
 // 单条通知处理
 // ---------------------------------------------------------------------------
 
+/// 事件 TTL 兜底队列：发布时推入 (到期时刻, event id)，由唯一的清扫线程到点
+/// resolve（顺带清按钮规格）。多数事件在此之前已被前端自动收起时 resolve 过，
+/// 迟到的 resolve 会被 bus 以「event is not active」拒绝，吞掉即可——这正是
+/// 「安全网」语义：只兜漏网之鱼。
+static TTL_QUEUE: Mutex<Vec<(Instant, String)>> = Mutex::new(Vec::new());
+
+/// 确保 TTL 清扫线程在跑（整个进程只起一个）。此前是「每条通知 spawn 一个
+/// 睡眠线程」，通知风暴下会堆起一堆只睡不干的线程；改为单一 1s tick 的清扫，
+/// 到点最多晚 1 秒，对 35s 的 TTL 无感。
+#[cfg(windows)]
+fn ensure_ttl_sweeper(bus: crate::bus::EventBus, state: Arc<StateInner>) {
+    static STARTED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    STARTED.get_or_init(|| {
+        thread::Builder::new()
+            .name("notif-ttl".into())
+            .spawn(move || loop {
+                thread::sleep(Duration::from_secs(1));
+                let now = Instant::now();
+                // deadline 一律是「推入时刻 + EVENT_TTL」，推入序即升序，到期项必是前缀
+                let due: Vec<String> = {
+                    let mut q = TTL_QUEUE.lock().unwrap();
+                    let split = q.partition_point(|(deadline, _)| *deadline <= now);
+                    q.drain(..split).map(|(_, id)| id).collect()
+                };
+                for event_id in due {
+                    state.action_specs.lock().unwrap().remove(&event_id);
+                    let _ = bus.resolve(
+                        event_id,
+                        EventResolution {
+                            kind: ResolutionKind::Expired,
+                            action_id: None,
+                            payload: None,
+                        },
+                    );
+                }
+            })
+            .expect("spawn notification ttl sweeper");
+    });
+}
+
 #[cfg(windows)]
 fn process_notification(
     listener: &windows::UI::Notifications::Management::UserNotificationListener,
@@ -470,21 +516,11 @@ fn process_notification(
                     },
                 );
             }
-            let bus2 = bus.clone();
-            let state2 = state.clone();
-            let event_id = published.id;
-            thread::spawn(move || {
-                thread::sleep(EVENT_TTL);
-                state2.action_specs.lock().unwrap().remove(&event_id);
-                let _ = bus2.resolve(
-                    event_id,
-                    EventResolution {
-                        kind: ResolutionKind::Expired,
-                        action_id: None,
-                        payload: None,
-                    },
-                );
-            });
+            ensure_ttl_sweeper(bus.clone(), state.clone());
+            TTL_QUEUE
+                .lock()
+                .unwrap()
+                .push((Instant::now() + EVENT_TTL, published.id));
         }
         Err(e) => {
             log_error!("notification", "publish failed: {}", e);
@@ -688,8 +724,15 @@ fn restore_banners_at(db: &Db, path: &str) -> Result<usize, String> {
     // 还原只打开已存在的键：键不在了就没什么可还原的，不要凭空创建
     if let Some(root) = open_rw(windows_registry::CURRENT_USER, path) {
         for (aumid, original) in &backup {
+            // 先只读探测：键真不在了（应用的通知设置项被系统删了）才放弃还原；
+            // 只读打得开而写打不开可能是瞬时问题，直接丢弃会让原值从此没有
+            // 还原依据（孤儿值），留在备份里等下轮 reconcile 重试。
+            if root.open(aumid).is_err() {
+                continue;
+            }
             let Some(sub) = open_rw(&root, aumid) else {
-                continue; // 该应用的通知设置项已不存在，无需还原（也不必重试）
+                remaining.insert(aumid.clone(), *original);
+                continue;
             };
             let ok = match original {
                 Some(v) => sub.set_u32(SHOW_BANNER_VALUE, *v).is_ok(),

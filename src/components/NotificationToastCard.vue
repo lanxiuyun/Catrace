@@ -33,7 +33,8 @@ const displayName = () => props.appName || 'Windows'
         </svg>
       </button>
     </div>
-    <div v-if="!isHovered" class="progress-bar" />
+    <!-- 悬浮暂停而不是卸载：v-if 重挂会让动画从头重放，与 hover 暂停的 JS 计时器失步 -->
+    <div class="progress-bar" :class="{ paused: isHovered }" />
     <p v-if="title" class="notif-title">{{ title }}</p>
     <p v-if="body && body !== title" class="notif-body">{{ body }}</p>
     <div v-if="actions && actions.length" class="notif-actions">
@@ -119,6 +120,12 @@ const displayName = () => props.appName || 'Windows'
   transform-origin: left center;
   animation: shrink var(--toast-auto-hide-ms, 6000ms) linear forwards;
   margin: 0.375rem 0 0.5rem;
+}
+
+/* 与 ReminderToast 的 hover 暂停计时（stopTimer/startTimer 保 remainingMs）对齐：
+   CSS 动画同样停在原地、恢复时续走，两边始终同步 */
+.progress-bar.paused {
+  animation-play-state: paused;
 }
 
 @keyframes shrink {
