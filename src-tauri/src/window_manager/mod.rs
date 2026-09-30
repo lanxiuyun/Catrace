@@ -29,8 +29,9 @@ pub async fn prepare_window_activation<R: Runtime>(window: WebviewWindow<R>) {
 }
 
 pub use platform::{
-    ensure_reminder_topmost, hide_window_internal, os_text_scale_factor,
-    set_window_active_mode_internal, set_window_rect_physical, show_reminder_no_activate,
+    current_foreground, ensure_reminder_topmost, hide_window_internal, os_text_scale_factor,
+    reminder_hwnd_id, restore_foreground_if_taken, set_window_active_mode_internal,
+    set_window_rect_physical, show_reminder_no_activate,
 };
 
 pub fn is_fullscreen_reminder_open<R: Runtime>(app: &AppHandle<R>) -> bool {

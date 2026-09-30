@@ -354,14 +354,28 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
             "ensure: window does NOT exist — previous instance destroyed, rebuilding"
         );
 
+        // WebView2 控制器在新窗口里异步初始化完成时会把焦点切进自己的 child
+        // HWND，把 Toast 顶成前台；该抢夺发生在 build() 内部、早于 NOACTIVATE
+        // 样式应用，所以轻量模式每次按需重建都抢焦点，而复用路径从不抢。
+        // 先记下弹出前的前台窗口，show 后分几拍巡检归还：前台一旦不是 Toast
+        // 本尊（没被抢 / 用户已切走 / 已归还）即自动 no-op。
+        let prev_fg = window_manager::current_foreground();
         match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "ensure: built fresh window (rebuild path)");
+                let toast_hwnd = window_manager::reminder_hwnd_id(&window);
                 attach_toast_diagnostics(&window);
                 if let Err(e) = fit_toast_window(&window, &app, true) {
                     log_error!("toast-win", "ensure: build fit failed: {}", e);
                 }
                 window_manager::show_reminder_no_activate(&app, &window);
+
+                tauri::async_runtime::spawn(async move {
+                    for ms in [150u64, 250, 500, 700, 1000, 1500] {
+                        tokio::time::sleep(Duration::from_millis(ms)).await;
+                        window_manager::restore_foreground_if_taken(toast_hwnd, prev_fg);
+                    }
+                });
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
