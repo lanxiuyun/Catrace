@@ -9,8 +9,10 @@
 //! 是同一个坑）。所以事件只作为可选增强：订上了是混合模式，订不上就纯轮询，
 //! 不影响功能。
 //!
-//! 「收起系统弹窗」靠发布成功后立即 `RemoveNotification`（实测未打包可用）。
-//! 注意它只能移除、不能阻止绘制，所以纯轮询下原生弹窗仍会可见约一个轮询周期。
+//! 「收起系统弹窗」靠 `RemoveNotification`（实测未打包可用）。注意它只能移除、
+//! 不能阻止绘制，而且实测是**整条移除**（操作中心条目一起没）——所以只对
+//! 「本次新抑制的应用」的首条使用（那条的横幅已经被画出来了），稳态通知必须
+//! 留在操作中心。
 //!
 //! 未打包进程可直接使用该 API（Win11 26200 实测 + WinIsland 裸 EXE 分发印证），
 //! 微软未承诺此行为；若未来失效，回退方向是 sparse package 或 wpndatabase 直读。
@@ -399,16 +401,20 @@ fn process_notification(
 
     match bus.publish(event) {
         Ok(published) => {
-            // 鸠占鹊巢：发布成功后立刻移除系统通知。这条的横幅其实已经被系统画出来了
-            // （我们只能在事后学到它的 AUMID），同时在下面给该应用写上 ShowBanner=0，
-            // 让**后续**通知根本不弹。bus 失败时保留系统通知——至少一处可见。
-            if db.get_setting(TAKEOVER_SETTING_KEY, "false") == "true" {
+            // 接管模式下，只有「本次真的给新应用写了 ShowBanner=0」才收走系统通知：
+            // 那条的横幅已经被系统画出来了（我们只能在事后学到它的 AUMID），把它连
+            // 横幅带操作中心条目一起收掉。稳态通知（横幅早被压住、直接进操作中心的）
+            // 绝不能移——RemoveNotification 实测是整条移除，每条都移会让操作中心
+            // 空掉，和设置页「通知仍会进操作中心」的承诺矛盾。bus 失败时保留系统
+            // 通知——至少一处可见。
+            let newly_suppressed = db.get_setting(TAKEOVER_SETTING_KEY, "false") == "true"
+                // 用真 AUMID，不是 app_key——app_key 在缺少 AUMID 时会退回应用名，
+                // 拿应用名当注册表子键写进去是脏数据。
+                && suppress_banner_for(db, &aumid);
+            if newly_suppressed {
                 if let Err(e) = listener.RemoveNotification(id) {
                     log_warn!("notification", "remove system notification failed: {}", e);
                 }
-                // 用真 AUMID，不是 app_key——app_key 在缺少 AUMID 时会退回应用名，
-                // 拿应用名当注册表子键写进去是脏数据。
-                suppress_banner_for(db, &aumid);
             }
             let bus2 = bus.clone();
             let event_id = published.id;
@@ -515,18 +521,26 @@ fn access_label(code: u8) -> String {
 // 收起原生弹窗：给每个应用写 ShowBanner=0
 // ---------------------------------------------------------------------------
 
-// RemoveNotification 只能移除已经画出来的弹窗，拦不住绘制——所以原生弹窗会闪一下。
-// 真正「不弹」只能让系统别画：在 HKCU 的通知设置里给该应用写 ShowBanner=0，
-// 通知照常进操作中心、监听器照常读到。系统里这个键下每个子键名就是 AUMID，
-// 与我们用的 AppUserModelId 同源；默认**没有** ShowBanner 值（= 显示横幅），
+// RemoveNotification 只能移除已经画出来的弹窗、拦不住绘制，且实测是**整条移除**
+// （操作中心条目一起没）——所以它只用于「本次新抑制的应用」的首条，稳态通知必须
+// 留在操作中心。真正「不弹」只能让系统别画：在 HKCU 的通知设置里给该应用写
+// ShowBanner=0，通知照常进操作中心、监听器照常读到。系统里这个键下每个子键名就是
+// AUMID，与我们用的 AppUserModelId 同源；默认**没有** ShowBanner 值（= 显示横幅），
 // 所以抑制是写 0、还原是删掉该值（或恢复记录到的原值）。
 //
 // 这是对用户系统设置的改动，因此：改动前先把原值记进 settings 表
 // （notification_takeover_backup），关闭开关 / 关功能 / 退出应用都会还原；
 // 启动时按当前开关对齐一次（上次崩溃留下的状态也能自愈）。
+//
+// 所有「注册表 ShowBanner + 备份」的读写共用一把锁：关开关的 restore 和 worker
+// 最后一轮的 suppress 可能并发（停机标志只在轮询循环顶部检查，正在处理的那条
+// 会走完全流程），不加锁时「restore 刚清完、suppress 又写回」会留下既无横幅
+// 也无转发的孤儿值。
 
 const SHOW_BANNER_VALUE: &str = "ShowBanner";
 const TAKEOVER_BACKUP_SETTING_KEY: &str = "notification_takeover_backup";
+
+static TAKEOVER_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(windows)]
 const NOTIF_SETTINGS_PATH: &str =
@@ -541,7 +555,10 @@ fn load_backup(db: &Db) -> TakeoverBackup {
 
 fn save_backup(db: &Db, backup: &TakeoverBackup) {
     let json = serde_json::to_string(backup).unwrap_or_else(|_| "{}".into());
-    let _ = db.set_setting(TAKEOVER_BACKUP_SETTING_KEY, &json);
+    // 备份写失败 = 已写下去的 ShowBanner=0 从此没有还原依据（孤儿值），必须留痕
+    if let Err(e) = db.set_setting(TAKEOVER_BACKUP_SETTING_KEY, &json) {
+        log_error!("notification", "save takeover backup failed: {}", e);
+    }
 }
 
 /// 以**读写**权限打开子键。注意 `Key::open` 只请求 KEY_READ——用它拿到句柄再写
@@ -584,6 +601,7 @@ fn suppress_tree(
 /// 给 path 下所有应用写 ShowBanner=0，逐个记录原值。
 #[cfg(windows)]
 fn suppress_banners_at(db: &Db, path: &str) -> Result<usize, String> {
+    let _guard = TAKEOVER_LOCK.lock().unwrap();
     let root = windows_registry::CURRENT_USER
         .create(path)
         .map_err(|e| e.to_string())?;
@@ -599,19 +617,23 @@ fn suppress_banners_at(db: &Db, path: &str) -> Result<usize, String> {
     Ok(changed)
 }
 
-/// 按备份还原所有改动过的 ShowBanner，并清空备份。
+/// 按备份还原所有改动过的 ShowBanner。只把**成功还原**的条目从备份里摘掉，
+/// 失败的留着——下轮 reconcile（重启 / 切开关）会重试；无脑清空备份会把
+/// 没还原成的键变成孤儿（ShowBanner 永远压着，既无横幅也无转发）。
 #[cfg(windows)]
 fn restore_banners_at(db: &Db, path: &str) -> Result<usize, String> {
+    let _guard = TAKEOVER_LOCK.lock().unwrap();
     let backup = load_backup(db);
     if backup.is_empty() {
         return Ok(0);
     }
     let mut restored = 0usize;
+    let mut remaining = TakeoverBackup::new();
     // 还原只打开已存在的键：键不在了就没什么可还原的，不要凭空创建
     if let Some(root) = open_rw(windows_registry::CURRENT_USER, path) {
         for (aumid, original) in &backup {
             let Some(sub) = open_rw(&root, aumid) else {
-                continue; // 该应用的通知设置项已不存在，无需还原
+                continue; // 该应用的通知设置项已不存在，无需还原（也不必重试）
             };
             let ok = match original {
                 Some(v) => sub.set_u32(SHOW_BANNER_VALUE, *v).is_ok(),
@@ -621,10 +643,16 @@ fn restore_banners_at(db: &Db, path: &str) -> Result<usize, String> {
             };
             if ok {
                 restored += 1;
+            } else {
+                remaining.insert(aumid.clone(), *original);
             }
         }
+    } else {
+        // 根键都打不开：一个都没还原，备份原样保留，等下轮 reconcile 重试
+        log_warn!("notification", "restore takeover: settings key unavailable, backup kept");
+        return Ok(0);
     }
-    save_backup(db, &TakeoverBackup::new());
+    save_backup(db, &remaining);
     Ok(restored)
 }
 
@@ -657,28 +685,40 @@ pub fn reconcile_takeover(db: &Db) -> Result<(), String> {
 
 /// 转发途中遇到的新应用：立刻抑制它的横幅，让「下一条」不再闪。
 /// （当前这条无论如何已经画出来了——我们只能在事后学到它的 AUMID。）
+/// 返回是否**本次新写了**抑制——只有这种情况才需要把已画出的那条收走。
 #[cfg(windows)]
-fn suppress_banner_for(db: &Db, aumid: &str) {
+fn suppress_banner_for(db: &Db, aumid: &str) -> bool {
     if aumid.is_empty() {
-        return;
+        return false;
+    }
+    let _guard = TAKEOVER_LOCK.lock().unwrap();
+    // worker 停机前可能还在处理最后一条通知，而用户此刻已经把开关关了：
+    // 锁内重读两把开关，关了就绝不能再写——否则刚跑完的 restore 会被写回，
+    // 留下「无横幅也无转发」的孤儿状态。
+    if db.get_setting(ENABLED_SETTING_KEY, "false") != "true"
+        || db.get_setting(TAKEOVER_SETTING_KEY, "false") != "true"
+    {
+        return false;
     }
     let mut backup = load_backup(db);
     if backup.contains_key(aumid) {
-        return;
+        return false;
     }
     let Ok(root) = windows_registry::CURRENT_USER.create(NOTIF_SETTINGS_PATH) else {
-        return;
+        return false;
     };
     // 路径式 AUMID 会被 create 逐层建出来，正好让后续通知一开始就被抑制
     let Ok(sub) = root.create(aumid) else {
-        return;
+        return false;
     };
     let original = sub.get_u32(SHOW_BANNER_VALUE).ok();
     if sub.set_u32(SHOW_BANNER_VALUE, 0).is_ok() {
         backup.insert(aumid.to_string(), original);
         save_backup(db, &backup);
         log_info!("notification", "suppressed native banner for new app {:?}", aumid);
+        return true;
     }
+    false
 }
 
 #[cfg(not(windows))]

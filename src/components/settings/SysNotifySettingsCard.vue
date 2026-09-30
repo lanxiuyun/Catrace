@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NSpace, NSwitch, NTag, useDialog, useMessage } from 'naive-ui'
 import {
@@ -23,6 +23,15 @@ const takeover = computed(() => status.value?.takeover ?? false)
 const access = computed(() => status.value?.access ?? 'unknown')
 const supported = computed(() => access.value !== 'unavailable')
 
+// 未授权与待授权的出路相同（去系统设置开「允许应用访问通知」），提示一并给出
+const accessBlocked = computed(
+  () => supported.value && (access.value === 'denied' || access.value === 'unspecified'),
+)
+// 开启失败时开关会被回滚成 false，单看 enabled 提示条永远出不来；
+// 记一次「尝试过开启」，授权成功收起
+const attempted = ref(false)
+const showAccessHint = computed(() => accessBlocked.value && (enabled.value || attempted.value))
+
 const accessTag = computed(() => {
   switch (access.value) {
     case 'granted':
@@ -40,14 +49,18 @@ async function refresh() {
   status.value = await getNotificationForwardStatus()
 }
 
-onMounted(async () => {
-  try {
-    await refresh()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    ready.value = true
-  }
+onMounted(() => {
+  // 从系统设置授权回来时窗口重新聚焦，借机刷新授权状态
+  window.addEventListener('focus', onFocus)
+  refresh()
+    .catch((e) => console.error(e))
+    .finally(() => {
+      ready.value = true
+    })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('focus', onFocus)
 })
 
 // KeepAlive 下回到设置页时刷新授权状态
@@ -56,10 +69,13 @@ onActivated(() => {
 })
 
 async function onToggle(v: boolean) {
+  if (v) attempted.value = true
   loading.value = true
   try {
     status.value = await setNotificationForwardEnabled(v)
-    if (!status.value.enabled) {
+    if (status.value.enabled) {
+      attempted.value = false
+    } else {
       message.warning(t('settings.sysNotify.startFailed'))
     }
   } catch {
@@ -98,6 +114,10 @@ function onTakeoverToggle(v: boolean) {
 function openSystemSettings() {
   openNotificationPermissionSettings().catch(() => {})
 }
+
+function onFocus() {
+  refresh().catch(() => {})
+}
 </script>
 
 <template>
@@ -129,7 +149,7 @@ function openSystemSettings() {
         <n-switch :value="takeover" @update:value="onTakeoverToggle" />
       </div>
 
-      <div v-if="enabled && access === 'denied'" class="denied">
+      <div v-if="showAccessHint" class="denied">
         <span class="denied-text">{{ t('settings.sysNotify.deniedHint') }}</span>
         <n-button size="small" secondary @click="openSystemSettings">
           {{ t('settings.sysNotify.openSystemSettings') }}
@@ -178,13 +198,14 @@ function openSystemSettings() {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.625rem 0.75rem;
-  border: 0.0625rem solid var(--ct-warning-soft);
+  background: var(--ct-error-soft);
+  border: 0.0625rem solid var(--ct-error);
   border-radius: 0.5rem;
 }
 
 .denied-text {
   font-size: 0.75rem;
   line-height: 1.45;
-  color: var(--ct-text);
+  color: var(--ct-error-strong);
 }
 </style>
