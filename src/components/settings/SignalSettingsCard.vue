@@ -166,7 +166,6 @@ function onPurge() {
 
 <style scoped>
 .signal-group.group {
-  background: linear-gradient(180deg, var(--ct-surface) 0%, var(--ct-bg) 100%);
   border-color: var(--ct-border);
 }
 .signal-group :deep(.group-label) {
