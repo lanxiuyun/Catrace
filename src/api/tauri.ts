@@ -398,6 +398,38 @@ export async function rotateEventSdkToken(): Promise<string> {
   return invoke('rotate_event_sdk_token')
 }
 
+// ---------- Windows 系统通知转发 ----------
+
+export interface NotificationForwardStatus {
+  enabled: boolean
+  takeover: boolean
+  running: boolean
+  access: 'granted' | 'denied' | 'unspecified' | 'unavailable' | 'unknown'
+}
+
+export async function getNotificationForwardStatus(): Promise<NotificationForwardStatus> {
+  return invoke('get_notification_forward_status')
+}
+
+export async function setNotificationForwardEnabled(
+  enabled: boolean,
+): Promise<NotificationForwardStatus> {
+  return invoke('set_notification_forward_enabled', { enabled })
+}
+
+export async function setNotificationTakeoverEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_notification_takeover_enabled', { enabled })
+}
+
+export async function openNotificationPermissionSettings(): Promise<void> {
+  return invoke('open_notification_permission_settings')
+}
+
+/** 点击转发通知卡片上的按钮（成功后端会 resolve 事件，卡片随之消失） */
+export async function triggerNotificationAction(eventId: string, actionId: string): Promise<void> {
+  return invoke('trigger_notification_action', { eventId, actionId })
+}
+
 // ---------- External plugins ----------
 
 export interface ExternalPluginInfo {

@@ -632,6 +632,8 @@ dependencies = [
  "url",
  "uuid",
  "windows 0.61.3",
+ "windows-future",
+ "windows-registry",
  "zip 2.4.2",
 ]
 

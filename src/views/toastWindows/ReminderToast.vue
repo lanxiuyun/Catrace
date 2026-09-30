@@ -19,12 +19,15 @@ import {
   getActiveEvents,
   checkAppUpdate,
   installAppUpdate,
+  triggerNotificationAction,
 } from '../../api/tauri'
+import { useMessage } from 'naive-ui'
 import type { BusEvent } from '../../types/event'
 import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
 import SdkToastCard from '../../components/SdkToastCard.vue'
+import NotificationToastCard from '../../components/NotificationToastCard.vue'
 import SpecialDayToastCard from '../../components/SpecialDayToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
 import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
@@ -33,6 +36,7 @@ import { usePluginRegistry } from '../../stores/pluginRegistry'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
+const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
 const BUILTIN_TOAST_KINDS = [
@@ -41,6 +45,7 @@ const BUILTIN_TOAST_KINDS = [
   'rest-timer',
   'sdk',
   'special',
+  'notification',
 ] as const
 type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
 /** Builtin kinds plus external plugin kinds (string). */
@@ -100,6 +105,10 @@ interface ToastItem {
   specialTag?: string
   specialIcon?: string
   specialCategory?: 'history' | 'life'
+  // system notification (kind=notification)
+  appName?: string
+  iconUrl?: string
+  notificationActions?: EventAction[]
 }
 
 function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
@@ -760,6 +769,14 @@ function handleBusEvent(event: BusEvent) {
       p.category === 'history' || p.category === 'life'
         ? p.category
         : undefined,
+    autoHideMs: kind === 'notification' ? resolveAutoHideMs(event, false) : undefined,
+    appName:
+      kind === 'notification' && typeof p.app_name === 'string' ? p.app_name : undefined,
+    iconUrl:
+      kind === 'notification' && typeof p.icon_data_url === 'string'
+        ? p.icon_data_url
+        : undefined,
+    notificationActions: kind === 'notification' ? (event.actions || []) : undefined,
   })
 }
 
@@ -836,6 +853,10 @@ async function addNotification(payload: {
   tag?: string
   icon?: string
   category?: 'history' | 'life'
+  autoHideMs?: number
+  appName?: string
+  iconUrl?: string
+  notificationActions?: EventAction[]
 }) {
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
@@ -846,7 +867,7 @@ async function addNotification(payload: {
   const isSticky = isUpdate || isSdkSticky || isPluginSticky || isSpecial
   const autoHideMs = isSticky
     ? 0
-    : resolveAutoHideMs(payload.busEvent, false)
+    : (payload.autoHideMs ?? resolveAutoHideMs(payload.busEvent, false))
   const item: ToastItem = {
     id,
     kind: payload.kind,
@@ -879,6 +900,9 @@ async function addNotification(payload: {
     specialTag: payload.tag,
     specialIcon: payload.icon,
     specialCategory: payload.category,
+    appName: payload.appName,
+    iconUrl: payload.iconUrl,
+    notificationActions: payload.notificationActions,
   }
 
   // 新通知加到底部（数组末尾）
@@ -910,6 +934,18 @@ function scrollStackToBottom() {
     return
   }
   stack.scrollTop = stack.scrollHeight
+}
+
+// 转发通知卡片的按钮点击：成功由后端 resolve 事件、总线的 resolved 事件自动收卡，
+// 操作中心源通知由 worker 移除；失败时卡片保留，用户可重试
+async function handleNotificationAction(item: ToastItem, action: EventAction) {
+  if (!item.eventId) return
+  try {
+    await triggerNotificationAction(item.eventId, action.id)
+  } catch (e) {
+    console.warn('[notification-action] failed', { eventId: item.eventId, actionId: action.id, e })
+    message.error(t('settings.sysNotify.actionFailed'))
+  }
 }
 
 function startTimer(item: ToastItem) {
@@ -1190,6 +1226,18 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           :icon="item.specialIcon || ''"
           :category="item.specialCategory || 'life'"
           @close="handleClose(item)"
+        />
+
+        <NotificationToastCard
+          v-else-if="item.kind === 'notification'"
+          :app-name="item.appName"
+          :icon="item.iconUrl"
+          :title="item.title"
+          :body="item.body"
+          :is-hovered="item.isHovered"
+          :actions="item.notificationActions"
+          @close="handleClose(item)"
+          @action="(a) => handleNotificationAction(item, a)"
         />
 
         <PluginHostCard
