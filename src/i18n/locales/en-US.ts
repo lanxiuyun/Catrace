@@ -69,7 +69,7 @@ export default {
       endpointTitle: 'API base',
       endpointDesc: 'Loopback only; Bearer token required',
       tokenTitle: 'Access token',
-      tokenDesc: 'Send header Authorization: Bearer <token>',
+      tokenDesc: 'Send header Authorization: Bearer your-token',
       show: 'Show',
       hide: 'Hide',
       copy: 'Copy',

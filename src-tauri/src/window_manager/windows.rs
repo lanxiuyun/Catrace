@@ -11,7 +11,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SWP_SHOWWINDOW, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, WS_EX_TOPMOST,
 };
 
-use crate::{log_info, log_warn};
+use crate::{log_debug, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
 /// 用户已通过点击卡片主动接管 Toast 焦点（set_window_active_mode(true)）时置位；
@@ -177,7 +177,7 @@ pub fn set_window_rect_physical(
         if rect_matches(rect, x, y, w, h) {
             return Ok(());
         }
-        log_info!(
+        log_debug!(
             "toast-win",
             "set_window_rect_physical: DPI rescale detected, reapplying target=({},{},{}x{}) actual=({},{},{}x{})",
             x,
@@ -264,7 +264,7 @@ fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
             let _ = ensure_topmost_style(hwnd);
             let prev = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             let style = exstyle_bits(hwnd);
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "ShowWindow(SW_SHOWNOACTIVATE) hwnd={:?} prev_visible={} ex=0x{:x} topmost={} noact={}",
                 hwnd,
@@ -293,7 +293,7 @@ pub fn show_window_internal<R: Runtime>(
         return;
     }
 
-    log_info!("toast-win", "show_internal[{}] no_activate={}", label, no_activate);
+    log_debug!("toast-win", "show_internal[{}] no_activate={}", label, no_activate);
     TOAST_FOCUS_TAKEN_DELIBERATELY.store(false, Ordering::SeqCst);
     let wry_window = cast_to_wry(window);
     if no_activate {
@@ -305,7 +305,7 @@ pub fn show_window_internal<R: Runtime>(
         shared_show_window(window);
     }
     let visible_now = window.is_visible().unwrap_or(false);
-    log_info!(
+    log_debug!(
         "toast-win",
         "show_internal[{}] end, tao is_visible={}",
         label,
@@ -320,13 +320,13 @@ pub fn hide_window_internal<R: Runtime>(
 ) {
     let label = window.label().to_string();
     if is_reminder_window(window) {
-        log_info!("toast-win", "hide_internal[{}] start", label);
+        log_debug!("toast-win", "hide_internal[{}] start", label);
         shared_hide_window(window);
         let wry_window = cast_to_wry(window);
         if let Some(hwnd) = window_hwnd(wry_window) {
             unsafe {
                 let prev = ShowWindow(hwnd, SW_HIDE);
-                log_info!(
+                log_debug!(
                     "toast-win",
                     "ShowWindow(SW_HIDE) hwnd={:?} prev_visible={}",
                     hwnd,
@@ -337,7 +337,7 @@ pub fn hide_window_internal<R: Runtime>(
             log_warn!("toast-win", "hide_internal[{}] no hwnd", label);
         }
         let visible_now = window.is_visible().unwrap_or(false);
-        log_info!(
+        log_debug!(
             "toast-win",
             "hide_internal[{}] end, tao is_visible={}",
             label,
@@ -358,9 +358,9 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
         if active {
             TOAST_FOCUS_TAKEN_DELIBERATELY.store(true, Ordering::SeqCst);
             restore_normal_style(hwnd);
-            log_info!("toast-win", "active_mode[{}] -> focus", window.label());
+            log_debug!("toast-win", "active_mode[{}] -> focus", window.label());
             let ok = unsafe { force_foreground_window(hwnd) };
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "active_mode[{}] SetForegroundWindow ok={}",
                 window.label(),
@@ -368,7 +368,7 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
             );
             let _ = window.set_focus();
         } else {
-            log_info!("toast-win", "active_mode[{}] -> noactivate", window.label());
+            log_debug!("toast-win", "active_mode[{}] -> noactivate", window.label());
             apply_no_activate_style(hwnd);
         }
     }
@@ -386,7 +386,7 @@ pub fn prepare_window_activation_internal<R: Runtime>(window: &WebviewWindow<R>)
         if !has_exstyle(exstyle_bits(hwnd), WS_EX_NOACTIVATE.0) {
             return;
         }
-        log_info!(
+        log_debug!(
             "toast-win",
             "prepare_activation[{}] clear NOACTIVATE on pointer enter",
             window.label()
@@ -421,7 +421,7 @@ pub fn restore_foreground_if_taken(toast: isize, prev: isize) {
         return;
     }
     let ok = unsafe { force_foreground_window(HWND(prev as *mut _)) };
-    log_info!(
+    log_debug!(
         "toast-win",
         "restore_foreground toast={:#x} -> prev={:#x} ok={}",
         toast,

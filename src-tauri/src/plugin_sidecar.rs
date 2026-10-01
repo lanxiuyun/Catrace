@@ -11,7 +11,7 @@ use tauri::{Emitter, Manager};
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
 use crate::sidecar::{prepend_gui_path, resolve_program};
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 type RpcResult = Result<serde_json::Value, String>;
 
@@ -277,18 +277,18 @@ impl PluginSidecarManager {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown")
             .to_string();
-        log_info!(
+        log_debug!(
             "plugin-sidecar",
             "enqueue resolved stdin: plugin={plugin_id} event={event_id}"
         );
         std::thread::spawn(move || {
             let started_at = std::time::Instant::now();
-            log_info!(
+            log_debug!(
                 "plugin-sidecar",
                 "write resolved stdin start: plugin={plugin_id} event={event_id}"
             );
             match write_message(&stdin, &message) {
-                Ok(()) => log_info!(
+                Ok(()) => log_debug!(
                     "plugin-sidecar",
                     "write resolved stdin done: plugin={plugin_id} event={event_id} elapsed_ms={}",
                     started_at.elapsed().as_millis()
@@ -1046,19 +1046,22 @@ fn log_plugin_message(
     match level {
         "error" => log_error!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         "warn" => log_warn!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
+        // 与 plugin_api_log 对齐：插件 debug 级别默认不落盘
+        "debug" => log_debug!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         _ => log_info!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
     }
-    // Mirror JS plugin_api_log: forward to main DevTools via catrace:plugin-log
-    let _ = app.emit_to(
-        "main",
-        "catrace:plugin-log",
-        serde_json::json!({
-            "pluginId": plugin_id,
-            "level": level,
-            "message": message,
-            "data": data,
-        }),
-    );
+    // Mirror JS plugin_api_log: forward to main & toast DevTools via catrace:plugin-log.
+    // Toast 窗也镜像一份，F12 排插件问题不用切回主窗；plugin-bg-* 不发——
+    // 后台窗的 console 转发会把镜像行再送回 plugin_api_log，成回环。
+    let payload = serde_json::json!({
+        "pluginId": plugin_id,
+        "level": level,
+        "message": message,
+        "data": data,
+    });
+    for label in ["main", crate::window_manager::TOAST_WINDOW_LABEL] {
+        let _ = app.emit_to(label, "catrace:plugin-log", payload.clone());
+    }
 }
 
 fn write_message(stdin: &Arc<Mutex<ChildStdin>>, value: &serde_json::Value) -> Result<(), String> {

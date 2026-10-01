@@ -9,7 +9,7 @@ use crate::event::{
     EventStatus, ResolutionKind,
 };
 use crate::reminder_toast;
-use crate::log_info;
+use crate::log_debug;
 
 static CHANNEL_CAPACITY: usize = 256;
 static MAX_RESOLVED_IN_REGISTRY: usize = 200;
@@ -279,19 +279,19 @@ impl EventBus {
         payload: Option<serde_json::Value>,
     ) -> Result<BusEvent, String> {
         let started_at = std::time::Instant::now();
-        log_info!("plugin-sidecar", "resolve action start: event={id} action={action_id}");
+        log_debug!("plugin-sidecar", "resolve action start: event={id} action={action_id}");
         let out = {
             let mut reg = self.registry.write().map_err(|e| e.to_string())?;
             reg.resolve_action(&id, &action_id, payload)?
         };
         self.emit_event(out.clone());
-        log_info!(
+        log_debug!(
             "plugin-sidecar",
             "resolve action emitted: event={id} action={action_id} elapsed_ms={}",
             started_at.elapsed().as_millis()
         );
         self.notify_plugin_resolved(&out);
-        log_info!(
+        log_debug!(
             "plugin-sidecar",
             "resolve action done: event={id} action={action_id} elapsed_ms={}",
             started_at.elapsed().as_millis()
@@ -330,7 +330,7 @@ impl EventBus {
             .app_handle
             .try_state::<crate::plugin_sidecar::PluginSidecarManager>()
         {
-            log_info!(
+            log_debug!(
                 "plugin-sidecar",
                 "forward resolved: plugin={name} event={}",
                 event.id

@@ -7,7 +7,7 @@ use tauri::{Emitter, Manager, State};
 use super::require_plugin_api;
 use crate::db::Db;
 use crate::plugins::PluginManager;
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +79,8 @@ pub fn plugin_api_log(
         "error" => log_error!("plugin", "[{plugin_id}] {message}{suffix}"),
         "warn" => log_warn!("plugin", "[{plugin_id}] {message}{suffix}"),
         "info" => log_info!("plugin", "[{plugin_id}] {message}{suffix}"),
+        // 插件 WebView console.debug 转发走这条；默认级别不落盘
+        "debug" => log_debug!("plugin", "[{plugin_id}] {message}{suffix}"),
         other => log_info!("plugin", "[{plugin_id}][{other}] {message}{suffix}"),
     }
     let _ = window.app_handle().emit_to(

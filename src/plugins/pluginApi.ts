@@ -68,7 +68,7 @@ export type PluginActivityRecord = {
 }
 
 type PluginLogLevel = 'info' | 'warn' | 'error'
-type PluginLogPayload = { pluginId: string; level: string; message: string; data?: unknown }
+export type PluginLogPayload = { pluginId: string; level: string; message: string; data?: unknown }
 
 export type PluginApi = {
   env: { getAll(): Promise<Record<string, string>> }
@@ -257,13 +257,62 @@ export function wrapPluginSource(pluginId: string, source: string): string {
 
 let pluginLogListener: Promise<UnlistenFn> | null = null
 
-export function ensurePluginLogConsole() {
+/**
+ * 监听 catrace:plugin-log（sidecar log op 与后台 WebView 转发的汇聚点），
+ * 把插件日志打印到本窗口 DevTools。target 传原生 console 快照（main.ts 里的
+ * nativeConsole）：本窗口 console 若已被 patchConsole 覆盖，镜像行会被再转发
+ * 回宿主日志造成双落盘。
+ */
+export function ensurePluginLogConsole(
+  target: Pick<Console, 'info' | 'warn' | 'error'> = console,
+) {
   if (pluginLogListener) return
   pluginLogListener = listen<PluginLogPayload>('catrace:plugin-log', ({ payload }) => {
     const prefix = `[plugin:${payload.pluginId}] ${payload.message}`
     const args = payload.data === undefined || payload.data === null ? [prefix] : [prefix, payload.data]
-    if (payload.level === 'error') console.error(...args)
-    else if (payload.level === 'warn') console.warn(...args)
-    else console.info(...args)
+    if (payload.level === 'error') target.error(...args)
+    else if (payload.level === 'warn') target.warn(...args)
+    else target.info(...args)
   })
+}
+
+/**
+ * 插件后台 WebView 专用：把该窗口的 console.* 转发到宿主 plugin_api_log。
+ * 背景窗是隐藏窗，自身 DevTools 平时打不开，console 输出等于丢了；
+ * 转发后每行带插件 id 前缀落宿主日志，并镜像到主窗 DevTools（catrace:plugin-log）。
+ * 只在 plugin-bg-* 窗安装（一窗一插件，不会误收宿主 SPA 日志）；卡片 UI 走 catrace.log SDK，已带归属。
+ */
+export function installPluginConsoleForwarding(pluginId: string) {
+  const g = globalThis as { __CATRACE_PLUGIN_CONSOLE_FORWARDED__?: boolean }
+  if (g.__CATRACE_PLUGIN_CONSOLE_FORWARDED__) return
+  g.__CATRACE_PLUGIN_CONSOLE_FORWARDED__ = true
+  const levels: Array<'debug' | 'log' | 'info' | 'warn' | 'error'> = [
+    'debug',
+    'log',
+    'info',
+    'warn',
+    'error',
+  ]
+  for (const level of levels) {
+    const original = console[level].bind(console)
+    console[level] = (...args: unknown[]) => {
+      original(...args)
+      try {
+        const message = args
+          .map((a) => {
+            try {
+              if (typeof a === 'object') return JSON.stringify(a)
+              return String(a)
+            } catch {
+              return '[unstringifiable]'
+            }
+          })
+          .join(' ')
+        const mapped = level === 'log' ? 'info' : level
+        void invoke<void>('plugin_api_log', { pluginId, level: mapped, message }).catch(() => {})
+      } catch {
+        // 转发失败不影响原 console 行为
+      }
+    }
+  }
 }

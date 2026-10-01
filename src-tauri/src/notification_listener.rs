@@ -240,13 +240,15 @@ fn worker_loop(
     });
     // 未打包进程订不上：实测 0x80070490 (ERROR_NOT_FOUND)，MTA / STA 都一样；
     // WinIsland 同样降级（它的注册也包在 try/catch 里、注释写着 relying on polling）。
+    // 这是已知且预期的平台限制（NSIS 安装的用户每次启动都会走到），warn 会天天刷，
+    // 降 info——捕获模式在下方 listener started 一行里有汇总。
     let token = match listener.NotificationChanged(&handler) {
         Ok(t) => {
             log_info!("notification", "event subscription ok, hybrid capture");
             Some(t)
         }
         Err(e) => {
-            log_warn!(
+            log_info!(
                 "notification",
                 "event subscription unavailable ({}), polling only",
                 e
