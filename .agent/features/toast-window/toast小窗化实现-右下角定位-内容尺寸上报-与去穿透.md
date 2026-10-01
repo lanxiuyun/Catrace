@@ -81,10 +81,11 @@ async function reportWindowSize() {
 
 ## 前端布局调整
 
-- `.toast-root` 从 `100vw × 100vh` 改为 `24.5rem` 宽、高度撑满
+- `.toast-root` 从 `100vw × 100vh` 改为 `24.5rem` 宽。高度必须是 **`height: 100vh`（定高）**，不能只写 `min-height: 100vh`：栈的 `max-height: 100%` 要拿父元素高度做基准，父高 auto 时百分比落到 `none`，栈永远等于内容高，窗高被 `work_area` clamp 后既滚不动也没滚动条（[2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
 - `justify-content` 从 `flex-end`（贴底）改为 `flex-start`（贴顶）
 - `.toast-stack` 去掉负 margin，直接用窗口本身的 16px 出血区
-- 滚动条 gutter 用 `scrollbar-gutter: stable` 保持右侧留白恒定
+- 滚动条 gutter 用 `scrollbar-gutter: stable` 保持右侧留白恒定。滑块颜色要用中性灰：gutter 那一列是窗口透明区（背景是壁纸），纯黑滑块在深色壁纸上几乎看不见
+- 溢出后新卡会落在可视区外，靠 `scrollStackToBottom()` 跟随：**仅在栈本就贴底时**滚到底（`@scroll` 记录 + 容差），否则会把正在翻旧卡的人拽走
 
 ## 相关文件
 

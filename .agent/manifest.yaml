@@ -192,6 +192,17 @@ features:
       - desktop-event-os
       - agent-notification
 
+  system-notification-forward:
+    docs:
+      - .agent/features/system-notification-forward/README.md
+      - .agent/features/system-notification-forward/quick-reply-input-boxes-why-not-built-and-how-to-add.md
+    related:
+      - toast-window
+      - desktop-event-os
+      - settings
+      - event-sdk
+      - lightweight-mode
+
 architecture:
   project-structure:
     docs:
@@ -297,6 +308,7 @@ reference:
   - .agent/reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md
 
 bugs:
+  - .agent/bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md
   - .agent/bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md
   - .agent/bugs/2026-09-29-轻量模式重建主窗白屏未响应.md
   - .agent/bugs/2026-09-21-定时提醒蓝牙耳机无声.md

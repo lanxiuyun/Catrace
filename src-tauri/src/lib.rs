@@ -5,6 +5,7 @@ mod event_http;
 mod log;
 mod media_audio;
 mod node_runtime;
+mod notification_listener;
 mod special_day;
 mod plugin_api;
 mod plugin_commands;
@@ -1066,6 +1067,16 @@ pub fn run() {
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
             event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
+
+            // Windows 系统通知转发：设置开启时恢复监听（UserNotificationListener）
+            app.manage(notification_listener::NotificationForwardState::default());
+            // 按当前开关把系统的通知横幅状态对齐一次：开启接管就抑制，否则还原
+            // （上次非正常退出留下的改动也能在这里自愈）
+            if let Err(e) = notification_listener::reconcile_takeover(&db) {
+                log_warn!("notification", "startup reconcile failed: {}", e);
+            }
+            #[cfg(windows)]
+            notification_listener::maybe_start(app.app_handle(), &db);
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1277,6 +1288,11 @@ pub fn run() {
             event_http::get_event_sdk_status,
             event_http::set_event_sdk_enabled,
             event_http::rotate_event_sdk_token,
+            notification_listener::get_notification_forward_status,
+            notification_listener::set_notification_forward_enabled,
+            notification_listener::set_notification_takeover_enabled,
+            notification_listener::open_notification_permission_settings,
+            notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
             plugins::install_external_plugin,
             plugins::set_external_plugin_enabled,
@@ -1349,7 +1365,16 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app, event| match event {
+        .run(|app, event| match event {
+            // 退出时必须把被压下去的系统通知横幅还给用户：Catrace 不在了就没人转发，
+            // 横幅还压着的话通知只能去操作中心翻。
+            tauri::RunEvent::Exit => {
+                if let Some(db) = app.try_state::<db::Db>() {
+                    if let Err(e) = notification_listener::restore_takeover(db.inner()) {
+                        log_warn!("notification", "restore takeover on exit failed: {}", e);
+                    }
+                }
+            }
             // 轻量模式销毁主窗后可能没有任何窗口(通知按需创建、插件后台窗已下线),
             // 但应用必须留在托盘继续采样与提醒。只拦截「窗口全部关闭」的隐式退出;
             // 程序化退出(托盘退出 app.exit(0)、更新器 restart())的 code 是 Some,照常放行。

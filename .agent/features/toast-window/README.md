@@ -38,9 +38,9 @@
 - 普通卡片 8 秒自动消失，hover 暂停，离开恢复
 - **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
 - **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
-- 无 dedupe 的 kind 仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
+- 无 dedupe 的 kind 仍入栈，**当前没有数量上限**（代码里已无 `MAX_NOTIFICATIONS`，超出丢最旧的说法已过期）
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
-- 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
+- 内容超出窗高（`work_area` clamp）时 `.toast-stack` 内部滚动；栈内已贴底时新卡跟随滚到底，用户翻旧卡时不被拽走。**滚动依赖 `.toast-root` 是 `height: 100vh` 定高**（父高 auto 时栈的 `max-height: 100%` 会落到 `none`，见 [2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
 
 ## 点击抢焦点
 

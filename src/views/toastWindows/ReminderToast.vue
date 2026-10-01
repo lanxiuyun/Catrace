@@ -20,12 +20,15 @@ import {
   getActiveEvents,
   checkAppUpdate,
   installAppUpdate,
+  triggerNotificationAction,
 } from '../../api/tauri'
+import { useMessage } from 'naive-ui'
 import type { BusEvent } from '../../types/event'
 import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
 import SdkToastCard from '../../components/SdkToastCard.vue'
+import NotificationToastCard from '../../components/NotificationToastCard.vue'
 import SpecialDayToastCard from '../../components/SpecialDayToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
 import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
@@ -34,6 +37,7 @@ import { usePluginRegistry } from '../../stores/pluginRegistry'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
 
 const { t } = useI18n()
+const message = useMessage()
 const pluginRegistry = usePluginRegistry()
 
 const BUILTIN_TOAST_KINDS = [
@@ -42,6 +46,7 @@ const BUILTIN_TOAST_KINDS = [
   'rest-timer',
   'sdk',
   'special',
+  'notification',
 ] as const
 type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
 /** Builtin kinds plus external plugin kinds (string). */
@@ -101,6 +106,10 @@ interface ToastItem {
   specialTag?: string
   specialIcon?: string
   specialCategory?: 'history' | 'life'
+  // system notification (kind=notification)
+  appName?: string
+  iconUrl?: string
+  notificationActions?: EventAction[]
 }
 
 function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
@@ -148,6 +157,8 @@ const showDebug = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const stackRef = ref<HTMLElement | null>(null)
 const isAnimating = ref(false)
+/** 卡片栈是否贴底。用户向上翻旧卡后置 false，新卡到达不再把视图拽回底部。 */
+let stackPinnedToBottom = true
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
@@ -785,6 +796,14 @@ function handleBusEvent(event: BusEvent) {
       p.category === 'history' || p.category === 'life'
         ? p.category
         : undefined,
+    autoHideMs: kind === 'notification' ? resolveAutoHideMs(event, false) : undefined,
+    appName:
+      kind === 'notification' && typeof p.app_name === 'string' ? p.app_name : undefined,
+    iconUrl:
+      kind === 'notification' && typeof p.icon_data_url === 'string'
+        ? p.icon_data_url
+        : undefined,
+    notificationActions: kind === 'notification' ? (event.actions || []) : undefined,
   })
 }
 
@@ -861,6 +880,10 @@ async function addNotification(payload: {
   tag?: string
   icon?: string
   category?: 'history' | 'life'
+  autoHideMs?: number
+  appName?: string
+  iconUrl?: string
+  notificationActions?: EventAction[]
 }) {
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
@@ -871,7 +894,7 @@ async function addNotification(payload: {
   const isSticky = isUpdate || isSdkSticky || isPluginSticky || isSpecial
   const autoHideMs = isSticky
     ? 0
-    : resolveAutoHideMs(payload.busEvent, false)
+    : (payload.autoHideMs ?? resolveAutoHideMs(payload.busEvent, false))
   const item: ToastItem = {
     id,
     kind: payload.kind,
@@ -904,6 +927,9 @@ async function addNotification(payload: {
     specialTag: payload.tag,
     specialIcon: payload.icon,
     specialCategory: payload.category,
+    appName: payload.appName,
+    iconUrl: payload.iconUrl,
+    notificationActions: payload.notificationActions,
   }
 
   // 新通知加到底部（数组末尾）
@@ -925,6 +951,17 @@ async function addNotification(payload: {
   scrollStackToBottom()
 }
 
+/** 判定「算贴底」的容差（CSS px）：留出亚像素与滚轮惯性的余量。 */
+const STACK_BOTTOM_TOLERANCE_PX = 24
+
+/** 用户滚动卡片栈时记录是否贴底；窗口 resize 引起的 clamp 也会走到这里，结论一致。 */
+function handleStackScroll() {
+  const stack = stackRef.value
+  if (!stack) return
+  const distanceToBottom = stack.scrollHeight - stack.scrollTop - stack.clientHeight
+  stackPinnedToBottom = distanceToBottom <= STACK_BOTTOM_TOLERANCE_PX
+}
+
 function scrollStackToBottom() {
   const stack = stackRef.value
   if (!stack) return
@@ -932,9 +969,25 @@ function scrollStackToBottom() {
   // Keep the shadow padding visible when only one card is present.
   if (notifications.value.length <= 1) {
     stack.scrollTop = 0
+    stackPinnedToBottom = true
     return
   }
+  // 卡片堆超过窗高时新卡落在可视区外：只有本来就贴底才跟着滚，
+  // 否则会把正在翻旧卡的人拽走。
+  if (!stackPinnedToBottom) return
   stack.scrollTop = stack.scrollHeight
+}
+
+// 转发通知卡片的按钮点击：成功由后端 resolve 事件、总线的 resolved 事件自动收卡，
+// 操作中心源通知由 worker 移除；失败时卡片保留，用户可重试
+async function handleNotificationAction(item: ToastItem, action: EventAction) {
+  if (!item.eventId) return
+  try {
+    await triggerNotificationAction(item.eventId, action.id)
+  } catch (e) {
+    console.warn('[notification-action] failed', { eventId: item.eventId, actionId: action.id, e })
+    message.error(t('settings.sysNotify.actionFailed'))
+  }
 }
 
 function startTimer(item: ToastItem) {
@@ -1031,6 +1084,8 @@ function doRemoveCard(id: number) {
   cardRefs.value.delete(id)
   scheduleWindowResize()
   if (notifications.value.length === 0) {
+    // 空栈关窗：下一次弹出从「贴底」重新开始
+    stackPinnedToBottom = true
     closeWindow()
   }
 }
@@ -1157,7 +1212,7 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 
 <template>
   <div ref="rootRef" class="toast-root" :class="{ 'debug-bg': showDebug }">
-    <div ref="stackRef" class="toast-stack">
+    <div ref="stackRef" class="toast-stack" @scroll.passive="handleStackScroll">
       <div
         v-for="item in notifications"
         :key="item.id"
@@ -1218,6 +1273,18 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           @close="handleClose(item)"
         />
 
+        <NotificationToastCard
+          v-else-if="item.kind === 'notification'"
+          :app-name="item.appName"
+          :icon="item.iconUrl"
+          :title="item.title"
+          :body="item.body"
+          :is-hovered="item.isHovered"
+          :actions="item.notificationActions"
+          @close="handleClose(item)"
+          @action="(a) => handleNotificationAction(item, a)"
+        />
+
         <PluginHostCard
           v-else-if="item.busEvent && (item.pluginId || (!isBuiltinKind(item.kind) && item.kind !== 'sdk'))"
           :event="item.busEvent"
@@ -1267,8 +1334,11 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   --toast-auto-hide-ms: 8000ms;
   width: 24.5rem; /* 22.5rem card + 1rem shadow bleed each side */
   /* 兜底铺满整窗：祖先链没有定高，`height: 100%` 不生效，根元素会退化成内容高，
-     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。 */
-  min-height: 100vh;
+     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。
+     必须是定高而不是 min-height：`.toast-stack` 的 `max-height: 100%` 要拿父元素高度当基准，
+     父元素 auto 高时百分比落到 none → 栈永远撑到内容高，overflow-y 没有可滚动的溢出，
+     卡片堆超过窗口（Rust 把窗高 clamp 到 work_area）后就滚不动、也不出滚动条。 */
+  height: 100vh;
   display: flex;
   flex-direction: column;
   /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
@@ -1288,7 +1358,9 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   gap: 0.5rem;
   width: 100%;
   flex: 0 1 auto;
+  /* 父元素定高后百分比才生效：内容超出窗高时栈停在这一高度，多出来的卡片靠滚动看。 */
   max-height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -1300,10 +1372,13 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   scrollbar-gutter: stable;
 }
 
-/* 卡片超出窗口高度时的可见滚动条 */
+/* 卡片超出窗口高度时的可见滚动条。
+   注意 gutter 那一列是窗口透明区（背后是桌面/壁纸），不是卡片底色，
+   所以滑块用中性灰而不是黑：纯黑在深色壁纸上几乎看不见。
+   Chromium 下标准属性 scrollbar-color/width 会盖掉 ::-webkit-scrollbar，两处都写同一颜色。 */
 .toast-stack {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+  scrollbar-color: rgba(146, 146, 158, 0.7) transparent;
 }
 .toast-stack::-webkit-scrollbar {
   width: 10px;
@@ -1312,11 +1387,11 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   background: transparent;
 }
 .toast-stack::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(146, 146, 158, 0.7);
   border-radius: 5px;
 }
 .toast-stack::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(146, 146, 158, 0.95);
 }
 
 .toast-root.debug-bg {
