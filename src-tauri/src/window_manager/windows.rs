@@ -414,14 +414,10 @@ pub fn reminder_hwnd_id<R: Runtime>(window: &WebviewWindow<R>) -> isize {
 /// 仅当此刻前台仍是 Toast 本尊、且用户没有主动点卡接管时，把前台还给 prev；
 /// 前台是别的窗口（没被抢 / 用户已切走 / 已归还）则不动，天然幂等。
 pub fn restore_foreground_if_taken(toast: isize, prev: isize) {
-    if toast == 0 || prev == 0 {
-        return;
-    }
-    if TOAST_FOCUS_TAKEN_DELIBERATELY.load(Ordering::SeqCst) {
-        return;
-    }
+    let taken = TOAST_FOCUS_TAKEN_DELIBERATELY.load(Ordering::SeqCst);
     let cur = unsafe { GetForegroundWindow() };
-    if cur.0.is_null() || cur.0 as isize != toast {
+    // HWND(null) 转 isize 为 0，而 toast≠0 的分支在 should_restore_foreground 里挡掉
+    if !should_restore_foreground(toast, prev, taken, cur.0 as isize) {
         return;
     }
     let ok = unsafe { force_foreground_window(HWND(prev as *mut _)) };
@@ -432,6 +428,23 @@ pub fn restore_foreground_if_taken(toast: isize, prev: isize) {
         prev,
         ok
     );
+}
+
+/// 巡检是否应该归还前台（纯函数，便于单测）。
+/// 三重守卫：参数有效（0 = 无效 HWND）、用户未点卡接管、前台仍是 Toast 本尊。
+fn should_restore_foreground(
+    toast: isize,
+    prev: isize,
+    taken_deliberately: bool,
+    cur: isize,
+) -> bool {
+    if toast == 0 || prev == 0 {
+        return false;
+    }
+    if taken_deliberately {
+        return false;
+    }
+    cur == toast
 }
 
 /// 强制把窗口拉为前台。后台进程直接 SetForegroundWindow 会被 Windows 拒绝；
@@ -470,4 +483,37 @@ pub fn show_reminder_no_activate(app_handle: &tauri::AppHandle, window: &tauri::
     tauri::async_runtime::spawn(async move {
         show_window_internal(&app_handle, &window, true, false);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_hwnd_never_restores() {
+        // 0 = 无效 HWND（macOS stub / 取 hwnd 失败），任何情况下都不能动前台
+        assert!(!should_restore_foreground(0, 0x1234, false, 0x1234));
+        assert!(!should_restore_foreground(0x5678, 0, false, 0x5678));
+        assert!(!should_restore_foreground(0, 0, false, 0));
+    }
+
+    #[test]
+    fn foreground_mismatch_never_restores() {
+        // 前台是别的窗口：没被抢 / 用户已切走 / 已归还，一律不动（幂等的关键）
+        assert!(!should_restore_foreground(0x100, 0x200, false, 0x300));
+        // 前台为空（无前台窗口）同样不动
+        assert!(!should_restore_foreground(0x100, 0x200, false, 0));
+    }
+
+    #[test]
+    fn foreground_still_toast_and_not_taken_restores() {
+        // 前台仍是 Toast 本尊且用户未接管 → 归还给 prev
+        assert!(should_restore_foreground(0x100, 0x200, false, 0x100));
+    }
+
+    #[test]
+    fn deliberate_take_stops_patrol() {
+        // 用户点卡接管后，即使前台还是 Toast 也不能把用户刚点的焦点抢回去
+        assert!(!should_restore_foreground(0x100, 0x200, true, 0x100));
+    }
 }
