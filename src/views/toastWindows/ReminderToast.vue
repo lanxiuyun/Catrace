@@ -156,6 +156,8 @@ const showDebug = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const stackRef = ref<HTMLElement | null>(null)
 const isAnimating = ref(false)
+/** 卡片栈是否贴底。用户向上翻旧卡后置 false，新卡到达不再把视图拽回底部。 */
+let stackPinnedToBottom = true
 let idCounter = 0
 let resizeObserver: ResizeObserver | null = null
 let unlistenDebug: (() => void) | null = null
@@ -924,6 +926,17 @@ async function addNotification(payload: {
   scrollStackToBottom()
 }
 
+/** 判定「算贴底」的容差（CSS px）：留出亚像素与滚轮惯性的余量。 */
+const STACK_BOTTOM_TOLERANCE_PX = 24
+
+/** 用户滚动卡片栈时记录是否贴底；窗口 resize 引起的 clamp 也会走到这里，结论一致。 */
+function handleStackScroll() {
+  const stack = stackRef.value
+  if (!stack) return
+  const distanceToBottom = stack.scrollHeight - stack.scrollTop - stack.clientHeight
+  stackPinnedToBottom = distanceToBottom <= STACK_BOTTOM_TOLERANCE_PX
+}
+
 function scrollStackToBottom() {
   const stack = stackRef.value
   if (!stack) return
@@ -931,8 +944,12 @@ function scrollStackToBottom() {
   // Keep the shadow padding visible when only one card is present.
   if (notifications.value.length <= 1) {
     stack.scrollTop = 0
+    stackPinnedToBottom = true
     return
   }
+  // 卡片堆超过窗高时新卡落在可视区外：只有本来就贴底才跟着滚，
+  // 否则会把正在翻旧卡的人拽走。
+  if (!stackPinnedToBottom) return
   stack.scrollTop = stack.scrollHeight
 }
 
@@ -1042,6 +1059,8 @@ function doRemoveCard(id: number) {
   cardRefs.value.delete(id)
   scheduleWindowResize()
   if (notifications.value.length === 0) {
+    // 空栈关窗：下一次弹出从「贴底」重新开始
+    stackPinnedToBottom = true
     closeWindow()
   }
 }
@@ -1167,7 +1186,7 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
 
 <template>
   <div ref="rootRef" class="toast-root" :class="{ 'debug-bg': showDebug }">
-    <div ref="stackRef" class="toast-stack">
+    <div ref="stackRef" class="toast-stack" @scroll.passive="handleStackScroll">
       <div
         v-for="item in notifications"
         :key="item.id"
@@ -1289,8 +1308,11 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   --toast-auto-hide-ms: 8000ms;
   width: 24.5rem; /* 22.5rem card + 1rem shadow bleed each side */
   /* 兜底铺满整窗：祖先链没有定高，`height: 100%` 不生效，根元素会退化成内容高，
-     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。 */
-  min-height: 100vh;
+     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。
+     必须是定高而不是 min-height：`.toast-stack` 的 `max-height: 100%` 要拿父元素高度当基准，
+     父元素 auto 高时百分比落到 none → 栈永远撑到内容高，overflow-y 没有可滚动的溢出，
+     卡片堆超过窗口（Rust 把窗高 clamp 到 work_area）后就滚不动、也不出滚动条。 */
+  height: 100vh;
   display: flex;
   flex-direction: column;
   /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
@@ -1310,7 +1332,9 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   gap: 0.5rem;
   width: 100%;
   flex: 0 1 auto;
+  /* 父元素定高后百分比才生效：内容超出窗高时栈停在这一高度，多出来的卡片靠滚动看。 */
   max-height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -1322,10 +1346,13 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   scrollbar-gutter: stable;
 }
 
-/* 卡片超出窗口高度时的可见滚动条 */
+/* 卡片超出窗口高度时的可见滚动条。
+   注意 gutter 那一列是窗口透明区（背后是桌面/壁纸），不是卡片底色，
+   所以滑块用中性灰而不是黑：纯黑在深色壁纸上几乎看不见。
+   Chromium 下标准属性 scrollbar-color/width 会盖掉 ::-webkit-scrollbar，两处都写同一颜色。 */
 .toast-stack {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+  scrollbar-color: rgba(146, 146, 158, 0.7) transparent;
 }
 .toast-stack::-webkit-scrollbar {
   width: 10px;
@@ -1334,11 +1361,11 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
   background: transparent;
 }
 .toast-stack::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(146, 146, 158, 0.7);
   border-radius: 5px;
 }
 .toast-stack::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(146, 146, 158, 0.95);
 }
 
 .toast-root.debug-bg {
