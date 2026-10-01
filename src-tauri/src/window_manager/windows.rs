@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use tauri::{AppHandle, Runtime, WebviewWindow};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
@@ -11,6 +13,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::{log_info, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
+
+/// 用户已通过点击卡片主动接管 Toast 焦点（set_window_active_mode(true)）时置位；
+/// 前台巡检看到此标志必须停手，不能把用户刚点的焦点又抢回去。每次 show 时复位。
+static TOAST_FOCUS_TAKEN_DELIBERATELY: AtomicBool = AtomicBool::new(false);
 
 /// Windows 设置 → 辅助功能 → 文本大小。WebView2 会把页面视觉放大，但不改 CSS 布局；
 /// Toast 小窗必须按这个系数放大 HWND，否则卡片底部会被裁切。
@@ -288,6 +294,7 @@ pub fn show_window_internal<R: Runtime>(
     }
 
     log_info!("toast-win", "show_internal[{}] no_activate={}", label, no_activate);
+    TOAST_FOCUS_TAKEN_DELIBERATELY.store(false, Ordering::SeqCst);
     let wry_window = cast_to_wry(window);
     if no_activate {
         show_no_activate(wry_window);
@@ -349,6 +356,7 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
     let wry_window = cast_to_wry(window);
     if let Some(hwnd) = window_hwnd(wry_window) {
         if active {
+            TOAST_FOCUS_TAKEN_DELIBERATELY.store(true, Ordering::SeqCst);
             restore_normal_style(hwnd);
             log_info!("toast-win", "active_mode[{}] -> focus", window.label());
             let ok = unsafe { force_foreground_window(hwnd) };
@@ -364,6 +372,79 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
             apply_no_activate_style(hwnd);
         }
     }
+}
+
+/// 预激活：仅清除 WS_EX_NOACTIVATE，不请求前台。
+/// 供前端在指针进入 Toast 内容时调用，让随后的首次点击能原生激活并落到输入控件；
+/// 真正的焦点接管仍由 set_window_active_mode_internal(active=true) 在 pointerdown 执行。
+pub fn prepare_window_activation_internal<R: Runtime>(window: &WebviewWindow<R>) {
+    if !is_reminder_window(window) {
+        return;
+    }
+    let wry_window = cast_to_wry(window);
+    if let Some(hwnd) = window_hwnd(wry_window) {
+        if !has_exstyle(exstyle_bits(hwnd), WS_EX_NOACTIVATE.0) {
+            return;
+        }
+        log_info!(
+            "toast-win",
+            "prepare_activation[{}] clear NOACTIVATE on pointer enter",
+            window.label()
+        );
+        restore_normal_style(hwnd);
+    }
+}
+
+/// 当前前台窗口的裸 HWND 值（0 = 无）。重建 Toast 前记录，供 restore_foreground_if_taken 归还。
+pub fn current_foreground() -> isize {
+    unsafe { GetForegroundWindow().0 as isize }
+}
+
+/// 提醒窗口顶层 HWND 的裸值，供跨线程与 GetForegroundWindow 结果比较。
+pub fn reminder_hwnd_id<R: Runtime>(window: &WebviewWindow<R>) -> isize {
+    match window_hwnd(cast_to_wry(window)) {
+        Some(h) => h.0 as isize,
+        None => 0,
+    }
+}
+
+/// WebView2 控制器在新建窗口里异步初始化完成时会把焦点切进自己的 child HWND，
+/// 把 Toast 顶成前台；该抢夺发生在 build() 内部、早于 NOACTIVATE 样式应用——
+/// 这是轻量模式每次按需重建弹窗都抢焦点、而复用路径从不抢的根因。
+/// 仅当此刻前台仍是 Toast 本尊、且用户没有主动点卡接管时，把前台还给 prev；
+/// 前台是别的窗口（没被抢 / 用户已切走 / 已归还）则不动，天然幂等。
+pub fn restore_foreground_if_taken(toast: isize, prev: isize) {
+    let taken = TOAST_FOCUS_TAKEN_DELIBERATELY.load(Ordering::SeqCst);
+    let cur = unsafe { GetForegroundWindow() };
+    // HWND(null) 转 isize 为 0，而 toast≠0 的分支在 should_restore_foreground 里挡掉
+    if !should_restore_foreground(toast, prev, taken, cur.0 as isize) {
+        return;
+    }
+    let ok = unsafe { force_foreground_window(HWND(prev as *mut _)) };
+    log_info!(
+        "toast-win",
+        "restore_foreground toast={:#x} -> prev={:#x} ok={}",
+        toast,
+        prev,
+        ok
+    );
+}
+
+/// 巡检是否应该归还前台（纯函数，便于单测）。
+/// 三重守卫：参数有效（0 = 无效 HWND）、用户未点卡接管、前台仍是 Toast 本尊。
+fn should_restore_foreground(
+    toast: isize,
+    prev: isize,
+    taken_deliberately: bool,
+    cur: isize,
+) -> bool {
+    if toast == 0 || prev == 0 {
+        return false;
+    }
+    if taken_deliberately {
+        return false;
+    }
+    cur == toast
 }
 
 /// 强制把窗口拉为前台。后台进程直接 SetForegroundWindow 会被 Windows 拒绝；
@@ -402,4 +483,37 @@ pub fn show_reminder_no_activate(app_handle: &tauri::AppHandle, window: &tauri::
     tauri::async_runtime::spawn(async move {
         show_window_internal(&app_handle, &window, true, false);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_hwnd_never_restores() {
+        // 0 = 无效 HWND（macOS stub / 取 hwnd 失败），任何情况下都不能动前台
+        assert!(!should_restore_foreground(0, 0x1234, false, 0x1234));
+        assert!(!should_restore_foreground(0x5678, 0, false, 0x5678));
+        assert!(!should_restore_foreground(0, 0, false, 0));
+    }
+
+    #[test]
+    fn foreground_mismatch_never_restores() {
+        // 前台是别的窗口：没被抢 / 用户已切走 / 已归还，一律不动（幂等的关键）
+        assert!(!should_restore_foreground(0x100, 0x200, false, 0x300));
+        // 前台为空（无前台窗口）同样不动
+        assert!(!should_restore_foreground(0x100, 0x200, false, 0));
+    }
+
+    #[test]
+    fn foreground_still_toast_and_not_taken_restores() {
+        // 前台仍是 Toast 本尊且用户未接管 → 归还给 prev
+        assert!(should_restore_foreground(0x100, 0x200, false, 0x100));
+    }
+
+    #[test]
+    fn deliberate_take_stops_patrol() {
+        // 用户点卡接管后，即使前台还是 Toast 也不能把用户刚点的焦点抢回去
+        assert!(!should_restore_foreground(0x100, 0x200, true, 0x100));
+    }
 }

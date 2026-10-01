@@ -12,6 +12,7 @@ import {
   closeReminderWindow,
   setToastContentSize,
   setWindowActiveMode,
+  prepareWindowActivation,
   getActivitySnapshot,
   dismissRestTimer,
   resolveEvent,
@@ -165,6 +166,8 @@ let unlistenBusEvent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
 const WINDOW_LABEL = 'reminder-toast'
 let toastActivated = false
+/** pointerover 已做过预激活（清 NOACTIVATE）；真正抢焦点推迟到 pointerdown */
+let activationPrepared = false
 /** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
 const seenBusEventIds = new Set<string>()
 
@@ -248,6 +251,7 @@ onMounted(async () => {
   }
   scheduleWindowResize()
   document.addEventListener('pointerover', handleToastPointerOver, true)
+  document.addEventListener('pointerdown', handleToastPointerDown, true)
 
   // 读取初始通知
   try {
@@ -273,6 +277,7 @@ onUnmounted(() => {
   unlistenReloadPlugins?.()
   unlistenReloadPlugins = null
   document.removeEventListener('pointerover', handleToastPointerOver, true)
+  document.removeEventListener('pointerdown', handleToastPointerDown, true)
   stopRestPoll()
   notifications.value.forEach(stopTimer)
   resizeObserver?.disconnect()
@@ -363,9 +368,29 @@ async function activateToastWindow() {
   }
 }
 
+/** 指针进入内容区：只移除 NOACTIVATE，让随后的首次点击能原生激活；
+ * 不能在这里抢前台焦点，否则 hover 就会打断用户正在输入的应用。 */
+async function prepareToastActivation() {
+  if (activationPrepared) return
+  activationPrepared = true
+  try {
+    await prepareWindowActivation(WINDOW_LABEL)
+  } catch {
+    activationPrepared = false
+  }
+}
+
+function withinToastRoot(target: EventTarget | null): target is Element {
+  return target instanceof Element && !!rootRef.value?.contains(target)
+}
+
 function handleToastPointerOver(event: PointerEvent) {
-  const target = event.target
-  if (!(target instanceof Element) || !rootRef.value?.contains(target)) return
+  if (!withinToastRoot(event.target)) return
+  void prepareToastActivation()
+}
+
+function handleToastPointerDown(event: PointerEvent) {
+  if (!withinToastRoot(event.target)) return
   void activateToastWindow()
 }
 
@@ -1068,6 +1093,7 @@ function doRemoveCard(id: number) {
 async function closeWindow() {
   lastSizeKey = ''
   toastActivated = false
+  activationPrepared = false
   try {
     await setWindowActiveMode(WINDOW_LABEL, false)
   } catch {

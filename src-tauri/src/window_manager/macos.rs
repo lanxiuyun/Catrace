@@ -31,6 +31,22 @@ pub fn hide_window_internal<R: Runtime>(
 /// 内部实现：动态切换窗口激活模式（macOS Toast 始终不激活 App）
 pub fn set_window_active_mode_internal<R: Runtime>(_window: &WebviewWindow<R>, _active: bool) {}
 
+/// 内部实现：预激活（macOS 无 NOACTIVATE 机制，无需处理）
+pub fn prepare_window_activation_internal<R: Runtime>(_window: &WebviewWindow<R>) {}
+
+/// 当前前台窗口裸 HWND 值（macOS 无前台巡检需求，恒 0）
+pub fn current_foreground() -> isize {
+    0
+}
+
+/// 提醒窗口顶层 HWND 裸值（macOS 恒 0，见 current_foreground）
+pub fn reminder_hwnd_id<R: Runtime>(_window: &WebviewWindow<R>) -> isize {
+    0
+}
+
+/// 前台巡检归还（macOS 无 WebView2 控制器抢焦点问题，no-op）
+pub fn restore_foreground_if_taken(_toast: isize, _prev: isize) {}
+
 /// Windows 上用于锁屏后补回 TOPMOST；其它平台无需处理。
 pub fn ensure_reminder_topmost<R: Runtime>(_window: &WebviewWindow<R>) {}
 

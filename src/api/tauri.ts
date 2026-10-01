@@ -349,6 +349,11 @@ export async function setWindowActiveMode(label: string, active: boolean): Promi
   return invoke('set_window_active_mode', { label, active })
 }
 
+/** 预激活：仅移除 NOACTIVATE 样式让下次点击能原生激活，不抢当前前台焦点 */
+export async function prepareWindowActivation(label: string): Promise<void> {
+  return invoke('prepare_window_activation', { label })
+}
+
 // ---------- Event Bus ----------
 
 import type { BusEvent, EventPatch, EventResolution } from '../types/event'

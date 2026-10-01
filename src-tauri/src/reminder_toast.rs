@@ -18,6 +18,11 @@ const TOAST_WINDOW_WIDTH_LOGICAL: f64 = 392.0;
 /// 逻辑像素：单卡约 128 + 上下出血 16×2。
 const TOAST_WINDOW_MIN_HEIGHT_LOGICAL: f64 = 160.0;
 
+/// 重建弹窗后的前台巡检时刻表（相邻两拍的间隔毫秒，累计 ~0.15–4s 分六拍）。
+/// 首拍要快（抢夺发生后用户键击正落进 Toast），间隔递增兜底稍晚的二次抢夺；
+/// 总覆盖要 ≥4s（慢机器上 WebView2 控制器初始化完成得晚）。
+const FOREGROUND_PATROL_TICKS_MS: [u64; 6] = [150, 250, 500, 700, 1000, 1500];
+
 /// CSS 逻辑尺寸 → 物理像素。`text_scale` 是 Windows「文本大小」（默认 1.0）。
 fn physical_content_px(logical: f64, dpi_scale: f64, text_scale: f64, max: u32) -> u32 {
     let scaled = logical * dpi_scale * text_scale;
@@ -354,14 +359,28 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
             "ensure: window does NOT exist — previous instance destroyed, rebuilding"
         );
 
+        // WebView2 控制器在新窗口里异步初始化完成时会把焦点切进自己的 child
+        // HWND，把 Toast 顶成前台；该抢夺发生在 build() 内部、早于 NOACTIVATE
+        // 样式应用，所以轻量模式每次按需重建都抢焦点，而复用路径从不抢。
+        // 先记下弹出前的前台窗口，show 后分几拍巡检归还：前台一旦不是 Toast
+        // 本尊（没被抢 / 用户已切走 / 已归还）即自动 no-op。
+        let prev_fg = window_manager::current_foreground();
         match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "ensure: built fresh window (rebuild path)");
+                let toast_hwnd = window_manager::reminder_hwnd_id(&window);
                 attach_toast_diagnostics(&window);
                 if let Err(e) = fit_toast_window(&window, &app, true) {
                     log_error!("toast-win", "ensure: build fit failed: {}", e);
                 }
                 window_manager::show_reminder_no_activate(&app, &window);
+
+                tauri::async_runtime::spawn(async move {
+                    for ms in FOREGROUND_PATROL_TICKS_MS {
+                        tokio::time::sleep(Duration::from_millis(ms)).await;
+                        window_manager::restore_foreground_if_taken(toast_hwnd, prev_fg);
+                    }
+                });
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
@@ -462,6 +481,10 @@ pub fn create_toast_window(
             "create_toast_window: window missing — legacy fallback creating fresh"
         );
 
+        // ⚠️ 本旧路径的重建没有接前台巡检：WebView2 控制器初始化会把新窗口顶成
+        // 前台（根因与对策见 ensure_toast_window_visible 重建分支的注释）。
+        // 复活本函数前必须照抄那段 current_foreground + restore_foreground_if_taken
+        // 巡检，否则「轻量模式每次弹窗必抢焦点」会从这里无声回归。
         match build_toast_window(&app) {
             Ok(window) => {
                 log_info!("toast-win", "create_toast_window: built fresh window");
@@ -550,7 +573,7 @@ pub fn create_update_toast_window(
 
 #[cfg(test)]
 mod tests {
-    use super::physical_content_px;
+    use super::{physical_content_px, FOREGROUND_PATROL_TICKS_MS};
 
     #[test]
     fn physical_size_matches_dpi_only_when_text_scale_is_default() {
@@ -568,5 +591,22 @@ mod tests {
     #[test]
     fn physical_size_clamps_to_work_area() {
         assert_eq!(physical_content_px(2000.0, 1.5, 2.25, 1528), 1528);
+    }
+
+    #[test]
+    fn patrol_schedule_starts_fast_and_covers_four_seconds() {
+        // 首拍要快：抢夺发生到首拍之间用户的键击会落进 Toast，窗口越短损失越小
+        assert!(
+            FOREGROUND_PATROL_TICKS_MS[0] <= 250,
+            "首拍 {}ms 太晚",
+            FOREGROUND_PATROL_TICKS_MS[0]
+        );
+        // 总覆盖 ≥4s：慢机器上 WebView2 控制器初始化完成得晚，巡检要先于它结束
+        let total: u64 = FOREGROUND_PATROL_TICKS_MS.iter().sum();
+        assert!(total >= 4000, "巡检总覆盖 {total}ms 不足 4s");
+        // 间隔严格递增：早期拍密（快追回），后期稀疏（兜底二次抢夺）
+        for pair in FOREGROUND_PATROL_TICKS_MS.windows(2) {
+            assert!(pair[0] < pair[1], "巡检间隔必须严格递增: {pair:?}");
+        }
     }
 }
