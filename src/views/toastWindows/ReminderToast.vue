@@ -110,6 +110,8 @@ interface ToastItem {
   appName?: string
   iconUrl?: string
   notificationActions?: EventAction[]
+  /** 点卡片本体可触发源通知的主操作（后端 payload.body_clickable） */
+  bodyClickable?: boolean
 }
 
 function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
@@ -804,6 +806,7 @@ function handleBusEvent(event: BusEvent) {
         ? p.icon_data_url
         : undefined,
     notificationActions: kind === 'notification' ? (event.actions || []) : undefined,
+    bodyClickable: kind === 'notification' && p.body_clickable === true,
   })
 }
 
@@ -884,6 +887,7 @@ async function addNotification(payload: {
   appName?: string
   iconUrl?: string
   notificationActions?: EventAction[]
+  bodyClickable?: boolean
 }) {
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
   const id = ++idCounter
@@ -930,6 +934,7 @@ async function addNotification(payload: {
     appName: payload.appName,
     iconUrl: payload.iconUrl,
     notificationActions: payload.notificationActions,
+    bodyClickable: payload.bodyClickable,
   }
 
   // 新通知加到底部（数组末尾）
@@ -977,6 +982,9 @@ function scrollStackToBottom() {
   if (!stackPinnedToBottom) return
   stack.scrollTop = stack.scrollHeight
 }
+
+// 点卡片本体触发的主操作：'launch' 是后端 trigger_notification_action 的保留 action id
+const NOTIF_BODY_ACTION: EventAction = { id: 'launch', label: '' }
 
 // 转发通知卡片的按钮点击：成功由后端 resolve 事件、总线的 resolved 事件自动收卡，
 // 操作中心源通知由 worker 移除；失败时卡片保留，用户可重试
@@ -1281,8 +1289,10 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
           :body="item.body"
           :is-hovered="item.isHovered"
           :actions="item.notificationActions"
+          :body-action="item.bodyClickable"
           @close="handleClose(item)"
           @action="(a) => handleNotificationAction(item, a)"
+          @activate="handleNotificationAction(item, NOTIF_BODY_ACTION)"
         />
 
         <PluginHostCard

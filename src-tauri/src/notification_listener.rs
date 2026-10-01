@@ -48,6 +48,11 @@ const LOGO_MAX_BYTES: u32 = 256 * 1024;
 pub const EVENT_TYPE: &str = "system.notification.received";
 pub const KIND: &str = "notification";
 
+/// 点卡片本体触发的主操作，走与按钮相同的 trigger 命令；按钮 id 是纯数字
+/// 序号（"0"/"1"/…），不会与这个保留 id 撞。
+#[cfg(windows)]
+const LAUNCH_ACTION_ID: &str = "launch";
+
 const ACCESS_GRANTED: u8 = 1;
 const ACCESS_DENIED: u8 = 2;
 const ACCESS_UNSPECIFIED: u8 = 3;
@@ -436,8 +441,8 @@ fn process_notification(
     };
 
     // 按钮必须在发布**之前**读——闪现式移除后数据库行就没了。监听 API 只暴露
-    // 文本，按钮读自通知数据库，见 collect_notification_actions。
-    let (toast_actions, activator) = collect_notification_actions(id, &aumid);
+    // 文本，按钮与主操作读自通知数据库，见 collect_notification_actions。
+    let (toast_actions, activator, launch_action) = collect_notification_actions(id, &aumid);
 
     let icon = extract_logo_data_url(&app_info);
     // 只记来源与长度，不落正文——通知内容可能是敏感信息
@@ -474,6 +479,7 @@ fn process_notification(
             "aumid": app_key,
             "icon_data_url": icon,
             "auto_hide_ms": AUTO_HIDE_MS,
+            "body_clickable": launch_action.is_some(),
         }),
         created_at: 0,
         updated_at: 0,
@@ -503,9 +509,9 @@ fn process_notification(
                     log_warn!("notification", "remove system notification failed: {}", e);
                 }
             }
-            // 按钮规格按发布事件的 id 存档，点击时按 event id + action id 取回；
-            // 事件 resolve（点击成功 / 下方 TTL）时移除，不留陈旧规格。
-            if !toast_actions.is_empty() {
+            // 按钮与主操作规格按发布事件的 id 存档，点击时按 event id + action id
+            // 取回；事件 resolve（点击成功 / 下方 TTL）时移除，不留陈旧规格。
+            if !toast_actions.is_empty() || launch_action.is_some() {
                 state.action_specs.lock().unwrap().insert(
                     published.id.clone(),
                     ActionSpecs {
@@ -513,6 +519,7 @@ fn process_notification(
                         aumid: aumid.clone(),
                         activator,
                         actions: toast_actions,
+                        launch: launch_action,
                     },
                 );
             }
@@ -841,7 +848,7 @@ pub fn restore_takeover(_db: &Db) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
-// 通知按钮：wpndatabase 读取 + 解析 + 点击触发
+// 通知按钮与主操作：wpndatabase 读取 + 解析 + 点击触发
 // ---------------------------------------------------------------------------
 
 // 监听 API 只暴露文本（NotificationBinding 仅有 GetTextElements），按钮数据不在
@@ -862,6 +869,10 @@ pub fn restore_takeover(_db: &Db) -> Result<(), String> {
 //     CoCreateInstance 找不到（REGDB_E_CLASSNOTREG）——这类按钮一律不渲染；
 //   - 带输入框（hint-inputId）的按钮跳过并记日志：快捷回复刻意不做（全机可达
 //     目标几乎没有），渲染点了没反应的按钮更糟。
+//
+// 通知**本体**点击同理（原生 toast 整块可点）：主操作读自 toast 根元素的
+// launch / activationType，可触发规则与按钮一致；launch 缺失时原生点击也只是
+// 收起，卡片主体同样不做。
 
 /// 宿主存档的可点击按钮规格，按发布事件的 id 存于 `StateInner::action_specs`。
 #[cfg(windows)]
@@ -873,6 +884,8 @@ struct ActionSpecs {
     /// 该应用注册的通知激活器 CLSID（发布时已解析；None = 没有可达激活器）
     activator: Option<String>,
     actions: Vec<StoredAction>,
+    /// toast 根元素的主操作（点卡片本体）；None = 原生点击也只是收起
+    launch: Option<StoredAction>,
 }
 
 #[cfg(windows)]
@@ -961,6 +974,44 @@ fn unescape_xml(s: &str) -> String {
     out
 }
 
+/// 标签结束于第一个不在引号内的 `>`：属性值里的 `>` 在 XML 里合法，
+/// 平台不总是转义它，按「引号感知」扫才不会把标签截断。返回 `>` 的下标。
+#[cfg(any(windows, test))]
+fn find_tag_end(tag_start: &str) -> Option<usize> {
+    let mut in_quote = false;
+    let mut quote_char = b'"';
+    for (i, &b) in tag_start.as_bytes().iter().enumerate().skip(1) {
+        if in_quote {
+            if b == quote_char {
+                in_quote = false;
+            }
+        } else if b == b'"' || b == b'\'' {
+            in_quote = true;
+            quote_char = b;
+        } else if b == b'>' {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// 取标签内某属性的值（带前缀边界校验 + 实体展开）。前缀校验避免把
+/// `hint-content="` 里的 `content="` 误当 content 属性。
+#[cfg(any(windows, test))]
+fn tag_attr(tag: &str, name: &str) -> Option<String> {
+    let mut from = 0;
+    while let Some(rel) = tag[from..].find(&format!("{name}=\"")) {
+        let at = from + rel;
+        if at == 0 || tag[..at].ends_with(' ') || tag[..at].ends_with('<') {
+            let value = &tag[at + name.len() + 2..];
+            let value = &value[..value.find('"')?];
+            return Some(unescape_xml(value));
+        }
+        from = at + name.len();
+    }
+    None
+}
+
 /// 从 toast XML 抽 `<action>` 元素：只做属性提取、不做完整 XML 解析——payload
 /// 由平台或应用按 toast schema 生成、结构稳定；属性缺失就丢弃该元素。
 /// 注意 `<actions>` 开头同样命中 `<action` 字面量，靠「无 content 属性」跳过，
@@ -971,53 +1022,44 @@ fn parse_toast_actions(xml: &str) -> Vec<ParsedToastAction> {
     let mut rest = xml;
     while let Some(start) = rest.find("<action") {
         rest = &rest[start..];
-        // 标签结束于第一个不在引号内的 `>`：属性值里的 `>` 在 XML 里合法，
-        // 平台不总是转义它，按「引号感知」扫才不会把标签截断
-        let mut end = None;
-        let mut in_quote = false;
-        let mut quote_char = b'"';
-        for (i, &b) in rest.as_bytes().iter().enumerate().skip(1) {
-            if in_quote {
-                if b == quote_char {
-                    in_quote = false;
-                }
-            } else if b == b'"' || b == b'\'' {
-                in_quote = true;
-                quote_char = b;
-            } else if b == b'>' {
-                end = Some(i);
-                break;
-            }
-        }
-        let Some(end) = end else { break };
+        let Some(end) = find_tag_end(rest) else { break };
         let tag = &rest[..=end];
         rest = &rest[end..];
-        let get_attr = |name: &str| -> Option<String> {
-            // 前缀边界校验：避免把 hint-content=" 里的 content=" 误当 content 属性
-            let mut from = 0;
-            while let Some(rel) = tag[from..].find(&format!("{name}=\"")) {
-                let at = from + rel;
-                if at == 0 || tag[..at].ends_with(' ') || tag[..at].ends_with('<') {
-                    let value = &tag[at + name.len() + 2..];
-                    let value = &value[..value.find('"')?];
-                    return Some(unescape_xml(value));
-                }
-                from = at + name.len();
-            }
-            None
-        };
-        let Some(content) = get_attr("content") else { continue };
+        let Some(content) = tag_attr(tag, "content") else { continue };
         if content.is_empty() {
             continue;
         }
         out.push(ParsedToastAction {
             needs_input: tag.contains("hint-inputId"),
-            activation_type: get_attr("activationType").unwrap_or_else(|| "foreground".into()),
-            arguments: get_attr("arguments").unwrap_or_default(),
+            activation_type: tag_attr(tag, "activationType").unwrap_or_else(|| "foreground".into()),
+            arguments: tag_attr(tag, "arguments").unwrap_or_default(),
             content,
         });
     }
     out
+}
+
+/// 解析 toast 根元素 `<toast launch="…" activationType="…">`——点通知本体的
+/// 「主操作」。launch 缺失/为空时原生 toast 点了也只是收起，返回 None；
+/// activationType 按 schema 缺省是 foreground。
+#[cfg(any(windows, test))]
+fn parse_toast_launch(xml: &str) -> Option<(String, String)> {
+    let start = xml.find("<toast")?;
+    let rest = &xml[start..];
+    // 边界校验："<toast" 共 6 个字符，其后必须是空白或 `>`，
+    // 排除恰好以此为前缀的其他元素名（如 <toastful>）
+    match rest.as_bytes().get(6) {
+        Some(&b) if b == b'>' || b.is_ascii_whitespace() => {}
+        _ => return None,
+    }
+    let end = find_tag_end(rest)?;
+    let tag = &rest[..=end];
+    let launch = tag_attr(tag, "launch")?;
+    if launch.is_empty() {
+        return None;
+    }
+    let activation_type = tag_attr(tag, "activationType").unwrap_or_else(|| "foreground".into());
+    Some((launch, activation_type))
 }
 
 /// 从通知数据库读该条通知的 toast XML Payload。任何一步失败都返回 None：
@@ -1055,36 +1097,47 @@ fn resolve_activator(aumid: &str) -> Option<String> {
     None
 }
 
-/// 读出并过滤可渲染的按钮。返回（按钮，激活器）；激活器一并进 specs 供点击用。
+/// 读出并过滤可渲染的按钮与主操作。返回（按钮，激活器，主操作）；激活器一并
+/// 进 specs 供点击用。主操作读自 toast 根元素，与按钮同一条可触发规则：
+/// protocol 直开 URI，background/foreground 只有应用注册了激活器才算可达。
 #[cfg(windows)]
 fn collect_notification_actions(
     notification_id: u32,
     aumid: &str,
-) -> (Vec<StoredAction>, Option<String>) {
+) -> (Vec<StoredAction>, Option<String>, Option<StoredAction>) {
     let Some(blob) = read_toast_payload(notification_id) else {
-        return (vec![], None);
+        return (vec![], None, None);
     };
     let Some(xml) = decode_notification_payload(&blob) else {
-        return (vec![], None);
+        return (vec![], None, None);
     };
     let activator = if aumid.is_empty() {
         None
     } else {
         resolve_activator(aumid)
     };
+    let renderable =
+        |activation_type: &str| match activation_type {
+            "protocol" => true,
+            // background/foreground 只有应用注册了激活器才可能忠实触发
+            "background" | "foreground" => activator.is_some(),
+            _ => false,
+        };
+    let launch = parse_toast_launch(&xml).and_then(|(arguments, activation_type)| {
+        renderable(&activation_type).then(|| StoredAction {
+            id: LAUNCH_ACTION_ID.into(),
+            label: String::new(),
+            arguments,
+            activation_type,
+        })
+    });
     let mut out: Vec<StoredAction> = vec![];
     for pa in parse_toast_actions(&xml) {
         if pa.needs_input {
             log_info!("notification", "action {:?} needs input, skipped", pa.content);
             continue;
         }
-        let renderable = match pa.activation_type.as_str() {
-            "protocol" => true,
-            // background/foreground 只有应用注册了激活器才可能忠实触发
-            "background" | "foreground" => activator.is_some(),
-            _ => false,
-        };
-        if !renderable {
+        if !renderable(&pa.activation_type) {
             continue;
         }
         out.push(StoredAction {
@@ -1094,7 +1147,7 @@ fn collect_notification_actions(
             activation_type: pa.activation_type,
         });
     }
-    (out, activator)
+    (out, activator, launch)
 }
 
 /// 调用应用注册的通知激活器。InprocServer32 形式的激活器其 DLL 会被加载进本
@@ -1218,10 +1271,10 @@ pub fn open_notification_permission_settings(app: AppHandle) -> Result<(), Strin
     }
 }
 
-/// 转发卡片上的按钮点击：前端只回传 event id + action id，规格从
-/// `StateInner::action_specs` 取。成功：resolve 事件（卡片随总线的 resolved
-/// 事件消失）+ 源通知交给 worker 从操作中心移除；失败：返回 Err、卡片保留
-/// 可重试（规格不动）。
+/// 转发卡片上的点击（按钮 + 点卡片本体的主操作）：前端只回传 event id +
+/// action id，规格从 `StateInner::action_specs` 取。成功：resolve 事件（卡片随
+/// 总线的 resolved 事件消失）+ 源通知交给 worker 从操作中心移除；失败：返回
+/// Err、卡片保留可重试（规格不动）。
 #[tauri::command]
 pub fn trigger_notification_action(
     app: AppHandle,
@@ -1261,7 +1314,12 @@ fn trigger_notification_action_inner(
         // 多半也消失了，但卡片若还挂着（水合旧事件），报错让前端提示
         return Err(format!("action spec not found for event {event_id:?}"));
     };
-    let Some(action) = spec.actions.iter().find(|a| a.id == action_id) else {
+    let action = if action_id == LAUNCH_ACTION_ID {
+        spec.launch.clone()
+    } else {
+        spec.actions.iter().find(|a| a.id == action_id).cloned()
+    };
+    let Some(action) = action else {
         return Err(format!("action {action_id:?} not found"));
     };
     match action.activation_type.as_str() {
@@ -1467,6 +1525,34 @@ mod tests {
             utf16.extend_from_slice(&unit.to_le_bytes());
         }
         assert_eq!(decode_notification_payload(&utf16), Some(s.to_string()));
+    }
+
+    /// 主操作解析：根元素 launch/activationType；activationType 缺省 foreground；
+    /// launch 缺失/为空 → 原生点了也只是收起，不视为可点
+    #[test]
+    fn parse_launch_extracts_root_activation() {
+        let xml = "<toast launch=\"snipaste://update\" activationType=\"protocol\">\
+<actions><action content=\"x\"/></actions></toast>";
+        assert_eq!(
+            parse_toast_launch(xml),
+            Some(("snipaste://update".into(), "protocol".into()))
+        );
+        let xml = "<toast launch=\"reply=1\"><actions/></toast>";
+        assert_eq!(
+            parse_toast_launch(xml),
+            Some(("reply=1".into(), "foreground".into()))
+        );
+        // launch 属性不在根元素上（在 <action> 上）不算主操作
+        let xml = "<toast><actions><action content=\"开\" arguments=\"a=b\"/></actions></toast>";
+        assert_eq!(parse_toast_launch(xml), None);
+        assert_eq!(parse_toast_launch("<toast launch=\"\"><actions/></toast>"), None);
+        // XML 声明在前也能命中根元素；`toast` 前缀的其他元素名不误命中
+        let xml = "<?xml version=\"1.0\"?><toast launch=\"https://x\"></toast>";
+        assert_eq!(
+            parse_toast_launch(xml),
+            Some(("https://x".into(), "foreground".into()))
+        );
+        assert_eq!(parse_toast_launch("<toastful a=\"1\"/>"), None);
     }
 }
 

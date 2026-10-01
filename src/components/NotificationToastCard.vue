@@ -9,25 +9,28 @@ const props = defineProps<{
   isHovered?: boolean
   /** 后端已过滤过的可触发按钮（protocol / 有激活器的 background/foreground） */
   actions?: EventAction[]
+  /** 点卡片本体会触发源通知的主操作（toast 根元素的 launch） */
+  bodyAction?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'action', action: EventAction): void
+  (e: 'activate'): void
 }>()
 
 const displayName = () => props.appName || 'Windows'
 </script>
 
 <template>
-  <div class="notif-toast">
+  <div class="notif-toast" :class="{ clickable: bodyAction }" @click="bodyAction && emit('activate')">
     <div class="header">
       <img v-if="icon" class="app-icon" :src="icon" alt="" />
       <div v-else class="app-icon app-icon-fallback">
         {{ displayName().slice(0, 1).toUpperCase() }}
       </div>
       <span class="app-name">{{ displayName() }}</span>
-      <button class="close-btn" aria-label="Close" @click="emit('close')">
+      <button class="close-btn" aria-label="Close" @click.stop="emit('close')">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
           <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
         </svg>
@@ -38,7 +41,7 @@ const displayName = () => props.appName || 'Windows'
     <p v-if="title" class="notif-title">{{ title }}</p>
     <p v-if="body && body !== title" class="notif-body">{{ body }}</p>
     <div v-if="actions && actions.length" class="notif-actions">
-      <button v-for="a in actions" :key="a.id" class="notif-action-btn" @click="emit('action', a)">
+      <button v-for="a in actions" :key="a.id" class="notif-action-btn" @click.stop="emit('action', a)">
         {{ a.label }}
       </button>
     </div>
@@ -53,6 +56,11 @@ const displayName = () => props.appName || 'Windows'
   min-height: 0;
   --accent: var(--ct-accent);
   --light-bg: var(--ct-accent-softer);
+}
+
+/* 有主操作时整卡可点（对齐原生 toast：点本体触发跳转） */
+.notif-toast.clickable {
+  cursor: pointer;
 }
 
 .header {
