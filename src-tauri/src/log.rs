@@ -2,9 +2,9 @@
 /// 同时保留 stderr 输出，方便开发者本地调试。
 ///
 /// 级别门槛：低于阈值的日志整行丢弃（stderr 与文件都不写）。阈值从环境变量
-/// `CATRACE_LOG_LEVEL` 读一次（`error` / `warn` / `info` / `debug`，大小写不敏感），
-/// 默认 `info`——即 debug 级（逐条/逐轮的诊断细节）默认不落盘，需要排查时设
-/// `CATRACE_LOG_LEVEL=debug` 再跑即可看到全部。
+/// `CATRACE_LOG_LEVEL` 读一次（`error` / `warn` / `info` / `debug`，大小写不敏感，
+/// 非法值告警并回退默认），默认 `info`——即 debug 级（逐条/逐轮的诊断细节）默认
+/// 不落盘，需要排查时设 `CATRACE_LOG_LEVEL=debug` 再跑即可看到全部。
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -27,13 +27,27 @@ fn level_rank(level: &str) -> u8 {
     }
 }
 
+/// 环境变量值 → 门槛数值；非法值返回 None（回退默认 info，不静默放开到 debug）。
+fn parse_level_rank(raw: &str) -> Option<u8> {
+    match raw.trim().to_lowercase().as_str() {
+        "error" => Some(0),
+        "warn" => Some(1),
+        "info" => Some(2),
+        "debug" => Some(3),
+        _ => None,
+    }
+}
+
 fn min_level_rank() -> u8 {
-    *MIN_LEVEL.get_or_init(|| {
-        std::env::var("CATRACE_LOG_LEVEL")
-            .ok()
-            .map(|v| v.trim().to_lowercase())
-            .map(|v| level_rank(&v))
-            .unwrap_or(2) // 默认 info
+    *MIN_LEVEL.get_or_init(|| match std::env::var("CATRACE_LOG_LEVEL") {
+        Ok(v) => parse_level_rank(&v).unwrap_or_else(|| {
+            eprintln!(
+                "[log] unknown CATRACE_LOG_LEVEL=\"{}\", falling back to \"info\"",
+                v.trim()
+            );
+            2 // 默认 info
+        }),
+        Err(_) => 2, // 未设置，默认 info
     })
 }
 
@@ -181,4 +195,24 @@ macro_rules! log {
 /// 获取日志目录路径，用于前端打开。
 pub fn logs_dir() -> Option<&'static Path> {
     LOG_DIR.get().map(|p| p.as_path())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_level_rank_accepts_all_valid_levels() {
+        assert_eq!(parse_level_rank("error"), Some(0));
+        assert_eq!(parse_level_rank("WARN"), Some(1));
+        assert_eq!(parse_level_rank(" info "), Some(2));
+        assert_eq!(parse_level_rank("Debug"), Some(3));
+    }
+
+    #[test]
+    fn parse_level_rank_rejects_unknown_values() {
+        assert_eq!(parse_level_rank(""), None);
+        assert_eq!(parse_level_rank("verbose"), None);
+        assert_eq!(parse_level_rank("log"), None);
+    }
 }

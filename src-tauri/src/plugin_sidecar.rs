@@ -8,6 +8,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use tauri::{Emitter, Manager};
 
+use crate::plugin_api::mirror_plugin_log;
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
 use crate::sidecar::{prepend_gui_path, resolve_program};
@@ -1050,18 +1051,8 @@ fn log_plugin_message(
         "debug" => log_debug!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         _ => log_info!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
     }
-    // Mirror JS plugin_api_log: forward to main & toast DevTools via catrace:plugin-log.
-    // Toast 窗也镜像一份，F12 排插件问题不用切回主窗；plugin-bg-* 不发——
-    // 后台窗的 console 转发会把镜像行再送回 plugin_api_log，成回环。
-    let payload = serde_json::json!({
-        "pluginId": plugin_id,
-        "level": level,
-        "message": message,
-        "data": data,
-    });
-    for label in ["main", crate::window_manager::TOAST_WINDOW_LABEL] {
-        let _ = app.emit_to(label, "catrace:plugin-log", payload.clone());
-    }
+    // 镜像目标与回环防护见 mirror_plugin_log 文档
+    mirror_plugin_log(app, plugin_id, level, message, data);
 }
 
 fn write_message(stdin: &Arc<Mutex<ChildStdin>>, value: &serde_json::Value) -> Result<(), String> {
