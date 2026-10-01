@@ -10,20 +10,13 @@ import {
   snoozeReminder,
   skipReminder,
   closeReminderWindow,
-  setToastContentSize,
-  setWindowActiveMode,
-  prepareWindowActivation,
-  getActivitySnapshot,
   dismissRestTimer,
-  resolveEvent,
-  resolveEventAction,
-  getActiveEvents,
   checkAppUpdate,
   installAppUpdate,
   triggerNotificationAction,
 } from '../../api/tauri'
 import { useMessage } from 'naive-ui'
-import type { BusEvent } from '../../types/event'
+import type { EventAction } from '../../types/event'
 import RestToastCard from '../../components/RestToastCard.vue'
 import UpdateToastCard from '../../components/UpdateToastCard.vue'
 import RestTimerToastCard from '../../components/RestTimerToastCard.vue'
@@ -32,161 +25,102 @@ import NotificationToastCard from '../../components/NotificationToastCard.vue'
 import SpecialDayToastCard from '../../components/SpecialDayToastCard.vue'
 import PluginHostCard from '../../components/PluginHostCard.vue'
 import { clearPluginHostCardCache } from '../../components/pluginHostCardCache'
-import type { EventAction, EventLevel, EventProgress } from '../../types/event'
-import { usePluginRegistry } from '../../stores/pluginRegistry'
+import type { ToastItem, ToastKind, AddNotificationPayload } from './reminder/toastCard'
+import { isBuiltinKind, resolveAutoHideMs, toastCardStyle } from './reminder/toastCard'
+import { useToastCloseTimer } from './reminder/useToastCloseTimer'
+import { useToastWindowResize } from './reminder/useToastWindowResize'
+import { useToastStackScroll } from './reminder/useToastStackScroll'
+import { useToastWindowActivation, WINDOW_LABEL } from './reminder/useToastWindowActivation'
+import { useRestTimerCard } from './reminder/useRestTimerCard'
+import { useToastBusEvents } from './reminder/useToastBusEvents'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
+import { usePluginRegistry } from '../../stores/pluginRegistry'
 
 const { t } = useI18n()
 const message = useMessage()
-const pluginRegistry = usePluginRegistry()
-
-const BUILTIN_TOAST_KINDS = [
-  'rest',
-  'update',
-  'rest-timer',
-  'sdk',
-  'special',
-  'notification',
-] as const
-type BuiltinToastKind = (typeof BUILTIN_TOAST_KINDS)[number]
-/** Builtin kinds plus external plugin kinds (string). */
-type ToastKind = BuiltinToastKind | string
-
-function isBuiltinKind(kind: string): kind is BuiltinToastKind {
-  return (BUILTIN_TOAST_KINDS as readonly string[]).includes(kind)
-}
-
-function isPluginKind(kind: string): boolean {
-  if (isBuiltinKind(kind)) return false
-  return !!pluginRegistry.getPluginForKind(kind)
-}
-
-type ToastStyleObject = Record<string, string>
-type ToastStyleValue = 'standalone' | ToastStyleObject
-
-interface ToastItem {
-  id: number
-  kind: ToastKind
-  title: string
-  body: string
-  boundary: number
-  visible: boolean
-  isHovered: boolean
-  remainingMs: number
-  closeTimer: ReturnType<typeof setTimeout> | null
-  lastStartAt: number
-  totalMs: number
-  leaving?: boolean
-  version?: string
-  updateBody?: string
-  showUpdateBody?: boolean
-  updateInstalling?: boolean
-  downloadProgress?: number
-  downloadTotal?: number
-  downloadReceived?: number
-  sticky?: boolean
-  breakMinutes?: number
-  restStartTs?: number
-  restStreak?: number
-  isComplete?: boolean
-  endTimer?: ReturnType<typeof setTimeout> | null
-  // Event Bus correlation
-  eventId?: string
-  dedupeKey?: string
-  toastStyle?: ToastStyleValue
-  // sdk generic card
-  level?: EventLevel | string
-  sdkActions?: EventAction[]
-  sdkProgress?: EventProgress | null
-  // external plugin card
-  busEvent?: BusEvent
-  pluginId?: string
-  uiUrl?: string
-  // special-day fields
-  specialTag?: string
-  specialIcon?: string
-  specialCategory?: 'history' | 'life'
-  // system notification (kind=notification)
-  appName?: string
-  iconUrl?: string
-  notificationActions?: EventAction[]
-  /** 点卡片本体可触发源通知的主操作（后端 payload.body_clickable） */
-  bodyClickable?: boolean
-}
-
-function resolveToastStyle(payload: Record<string, unknown>, isPluginEvent: boolean): ToastStyleValue | undefined {
-  if (!isPluginEvent) return undefined
-  const input = payload.toastStyle as ToastStyleValue | undefined
-  if (input === 'standalone') return input
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
-  const style: ToastStyleObject = {}
-  for (const [key, value] of Object.entries(input)) {
-    if (typeof value === 'string') style[key] = value
-  }
-  return Object.keys(style).length ? style : undefined
-}
-
-function toastCardStyle(item: ToastItem): Record<string, string> {
-  const style = item.toastStyle && typeof item.toastStyle === 'object' ? item.toastStyle : {}
-  return {
-    ...style,
-    ...(item.totalMs > 0 ? { '--toast-auto-hide-ms': `${item.totalMs}ms` } : {}),
-  }
-}
-
-function resolveAutoHideMs(event: BusEvent | undefined | null, sticky: boolean): number {
-  if (sticky) return 0
-  const p = (event?.payload && typeof event.payload === 'object'
-    ? (event.payload as Record<string, unknown>)
-    : {}) as Record<string, unknown>
-  const raw =
-    typeof p.auto_hide_ms === 'number'
-      ? p.auto_hide_ms
-      : typeof p.autoHideMs === 'number'
-        ? p.autoHideMs
-        : typeof p.card_duration_sec === 'number'
-          ? p.card_duration_sec * 1000
-          : typeof p.cardDurationSec === 'number'
-            ? p.cardDurationSec * 1000
-            : AUTO_HIDE_MS
-  if (!Number.isFinite(raw)) return AUTO_HIDE_MS
-  return Math.min(MAX_AUTO_HIDE_MS, Math.max(MIN_AUTO_HIDE_MS, Math.round(raw)))
-}
 
 const notifications = ref<ToastItem[]>([])
-const cardRefs = ref<Map<number, HTMLElement>>(new Map())
 const showDebug = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const stackRef = ref<HTMLElement | null>(null)
 const isAnimating = ref(false)
-/** 卡片栈是否贴底。用户向上翻旧卡后置 false，新卡到达不再把视图拽回底部。 */
-let stackPinnedToBottom = true
+
 let idCounter = 0
-let resizeObserver: ResizeObserver | null = null
+const nextId = () => ++idCounter
+
 let unlistenDebug: (() => void) | null = null
 let unlistenBusEvent: (() => void) | null = null
 let unlistenReloadPlugins: (() => void) | null = null
-const WINDOW_LABEL = 'reminder-toast'
-let toastActivated = false
-/** pointerover 已做过预激活（清 NOACTIVATE）；真正抢焦点推迟到 pointerdown */
-let activationPrepared = false
-/** Bus event ids already shown (or resolved) — prevent double-render with eval legacy path. */
-const seenBusEventIds = new Set<string>()
 
-// 休息计时卡片：每 2 秒轮询活跃，活跃即隐藏
-let restPollTimer: ReturnType<typeof setInterval> | null = null
-let restPollBaseline = 0
-const REST_POLL_MS = 2000
-// 文档声明恢复活跃后延迟 4 秒移除
-const REST_TIMER_REMOVE_DELAY_MS = 4000
-
-const AUTO_HIDE_MS = 8000
 /** 卡片离场后移除时机：等 opacity 淡完（0.25s）即视为不可见，立即移除让剩余卡片掉落；
  *  transform 0.35s 滑出屏幕后的尾部已不可见，无需等待，避免「隐形卡占位」造成的掉卡延迟。 */
 const LEAVE_ANIMATION_MS = 250
-/** Clamp plugin/sdk payload auto-hide (ms). 0 only valid when sticky. */
-const MIN_AUTO_HIDE_MS = 3000
-const MAX_AUTO_HIDE_MS = 10 * 60 * 1000
+
+// ---------- 职责模块：计时 / 尺寸上报 / 贴底滚动 / 窗口激活 / bus 事件 / rest-timer ----------
+
+const {
+  startTimer,
+  stopTimer,
+  handleMouseEnter,
+  handleMouseLeave,
+  stopAll: stopAllTimers,
+} = useToastCloseTimer({
+  notifications,
+  onExpire: expireToast,
+})
+
+const {
+  setCardRef,
+  scheduleWindowResize,
+  releaseCard,
+  attach: attachResizeObserver,
+  detach: detachResizeObserver,
+  resetSizeKey,
+} = useToastWindowResize({
+  rootRef,
+  stackRef,
+  isAnimating,
+  isEmpty: () => notifications.value.length === 0,
+})
+
+const { handleStackScroll, scrollStackToBottom, pinToBottom } = useToastStackScroll({
+  stackRef,
+  cardCount: () => notifications.value.length,
+})
+
+const {
+  handleToastPointerOver,
+  handleToastPointerDown,
+  resetActivationState,
+  deactivateWindow,
+} = useToastWindowActivation({ rootRef })
+
+const bus = useToastBusEvents({
+  notifications,
+  updateRestTimer: (payload) => restTimer.updateRestTimer(payload),
+  startTimer,
+  stopTimer,
+  addNotification,
+  removeNotification,
+  scheduleWindowResize,
+})
+const {
+  subscribe: subscribeBusEvents,
+  hydrateActiveEvents,
+  markEventResolved,
+  markEventSeen,
+} = bus
+
+const restTimer = useRestTimerCard({
+  notifications,
+  nextId,
+  t,
+  scheduleWindowResize,
+  removeNotification,
+  markEventResolved,
+  markEventSeen,
+})
+const { stopRestPoll } = restTimer
 
 onMounted(async () => {
   // Card map must be ready before bus events (incl. plugin test from main window).
@@ -227,30 +161,13 @@ onMounted(async () => {
   })
 
   // Event Bus → Toast 统一渲染线（rest / timer / plugin 等 display_mode=toast 的 active 事件）
-  unlistenBusEvent = await listen<BusEvent>('catrace:event', (ev) => {
-    handleBusEvent(ev.payload)
-  })
+  unlistenBusEvent = await subscribeBusEvents()
   // 晚到的 Toast 窗：拉一次 active events 补水合
-  try {
-    const active = await getActiveEvents()
-    for (const e of active) handleBusEvent(e)
-  } catch {
-    // ignore
-  }
+  await hydrateActiveEvents()
 
   // 监听布局变化，按内容高度 resize 原生小窗
   await nextTick()
-  if (stackRef.value) {
-    resizeObserver = new ResizeObserver(() => {
-      if (!isAnimating.value) {
-        scheduleWindowResize()
-      }
-    })
-    resizeObserver.observe(stackRef.value)
-    for (const el of cardRefs.value.values()) {
-      resizeObserver.observe(el)
-    }
-  }
+  attachResizeObserver()
   scheduleWindowResize()
   document.addEventListener('pointerover', handleToastPointerOver, true)
   document.addEventListener('pointerdown', handleToastPointerDown, true)
@@ -281,616 +198,19 @@ onUnmounted(() => {
   document.removeEventListener('pointerover', handleToastPointerOver, true)
   document.removeEventListener('pointerdown', handleToastPointerDown, true)
   stopRestPoll()
-  notifications.value.forEach(stopTimer)
-  resizeObserver?.disconnect()
-  resizeObserver = null
+  stopAllTimers()
+  detachResizeObserver()
 })
 
-function setCardRef(el: unknown, id: number) {
-  const prev = cardRefs.value.get(id)
-  if (prev && prev !== el) {
-    resizeObserver?.unobserve(prev)
-  }
-  if (el instanceof HTMLElement) {
-    cardRefs.value.set(id, el)
-    resizeObserver?.observe(el)
-  } else {
-    cardRefs.value.delete(id)
-  }
+/** closeTimer 到点：把后端事件 resolve（否则刷新/水合时旧 toast 会复活），再移除卡片 */
+function expireToast(item: ToastItem) {
+  markEventResolved(item.eventId)
+  removeNotification(item.id, true)
 }
 
-// ---------- 小窗尺寸上报 ----------
-
-let resizeScheduled = false
-let lastSizeKey = ''
-let recompositeQueued = false
-
-/** HWND 变几何后 WebView2 不保证立刻出新帧：页面静止时合成器空闲，旧帧仍按
- *  旧窗口矩形摆放，resize 后可能残留一帧错位。翻转一次 opacity 强制重新合成。 */
-function forceRecomposite(root: HTMLElement) {
-  if (recompositeQueued) return
-  recompositeQueued = true
-  requestAnimationFrame(() => {
-    recompositeQueued = false
-    root.style.opacity = '0.999'
-    requestAnimationFrame(() => {
-      root.style.opacity = ''
-    })
-  })
-}
-
-/** 按内容实测高度钉原生小窗。stack 四边 16px 出血已计入 scrollHeight。
- *  高度必须等于内容：写死下限会让窗口比内容高，卡片（贴窗顶）与任务栏之间
- *  留出一条没人绘制的透明带——旧版是 body 深色底（看起来像黑边框）。 */
-async function reportWindowSize() {
-  const root = rootRef.value
-  const stack = stackRef.value
-  if (!root || !stack) return
-  // 空栈：窗口即将关闭。此时 stack 只剩 1rem padding，上报会把窗口缩成一条细窗，
-  // 还会和 Rust 隐藏时的 reset_toast_content_size() 抢时序，下次弹出先闪一条细窗。
-  if (notifications.value.length === 0) return
-  const width = Math.max(1, Math.ceil(root.scrollWidth))
-  const height = Math.max(1, Math.ceil(stack.scrollHeight))
-  const key = `${width}x${height}`
-
-  // 卡片离场/进入动画期间禁止收缩窗口，避免 DOM 里卡片还没移除但窗口先变小导致截断
-  if (isAnimating.value) {
-    const prevH = Number.parseFloat(lastSizeKey.split('x')[1] || '0')
-    if (height <= prevH) return
-  }
-
-  if (key === lastSizeKey) return
-  lastSizeKey = key
-  try {
-    await setToastContentSize(width, height)
-    forceRecomposite(root)
-  } catch {
-    // ignore
-  }
-}
-
-function scheduleWindowResize() {
-  if (resizeScheduled) return
-  resizeScheduled = true
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      resizeScheduled = false
-      void reportWindowSize()
-    })
-  })
-}
-
-async function activateToastWindow() {
-  if (toastActivated) return
-  toastActivated = true
-  try {
-    await setWindowActiveMode(WINDOW_LABEL, true)
-  } catch {
-    toastActivated = false
-  }
-}
-
-/** 指针进入内容区：只移除 NOACTIVATE，让随后的首次点击能原生激活；
- * 不能在这里抢前台焦点，否则 hover 就会打断用户正在输入的应用。 */
-async function prepareToastActivation() {
-  if (activationPrepared) return
-  activationPrepared = true
-  try {
-    await prepareWindowActivation(WINDOW_LABEL)
-  } catch {
-    activationPrepared = false
-  }
-}
-
-function withinToastRoot(target: EventTarget | null): target is Element {
-  return target instanceof Element && !!rootRef.value?.contains(target)
-}
-
-function handleToastPointerOver(event: PointerEvent) {
-  if (!withinToastRoot(event.target)) return
-  void prepareToastActivation()
-}
-
-function handleToastPointerDown(event: PointerEvent) {
-  if (!withinToastRoot(event.target)) return
-  void activateToastWindow()
-}
-
-function updateRestTimer(payload: {
-  break_minutes: number
-  rest_start_ts: number
-  rest_streak: number
-  remaining_minutes: number
-  is_complete: boolean
-  title?: string
-  body?: string
-  eventId?: string
-  dedupeKey?: string
-}) {
-  // 取消已有的延迟关闭定时器（如果用户在延迟期间恢复休息）
-  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
-  if (existing?.endTimer) {
-    clearTimeout(existing.endTimer)
-    existing.endTimer = null
-  }
-
-  const title =
-    payload.title ||
-    (payload.is_complete ? t('reminder.restTimerDone') : t('reminder.restTimerTitle'))
-  const body =
-    payload.body ||
-    (payload.is_complete
-      ? t('reminder.restTimerDoneBody', { n: payload.rest_streak })
-      : t('reminder.restTimerBody', {
-          n: payload.rest_streak,
-          m: payload.remaining_minutes,
-        }))
-
-  if (existing) {
-    if (existing.eventId && payload.eventId && existing.eventId !== payload.eventId) {
-      seenBusEventIds.add(existing.eventId)
-    }
-    existing.eventId = payload.eventId ?? existing.eventId
-    existing.dedupeKey = payload.dedupeKey ?? existing.dedupeKey
-    existing.title = title
-    existing.body = body
-    existing.restStreak = payload.rest_streak
-    existing.breakMinutes = payload.break_minutes
-    existing.restStartTs = payload.rest_start_ts
-    existing.isComplete = payload.is_complete
-    existing.visible = true
-  } else {
-    const id = ++idCounter
-    const item: ToastItem = {
-      id,
-      kind: 'rest-timer',
-      title,
-      body,
-      boundary: 0,
-      visible: false,
-      isHovered: false,
-      remainingMs: 0,
-      closeTimer: null,
-      lastStartAt: 0,
-      breakMinutes: payload.break_minutes,
-      restStartTs: payload.rest_start_ts,
-      restStreak: payload.rest_streak,
-      isComplete: payload.is_complete,
-      totalMs: 0,
-      eventId: payload.eventId,
-      dedupeKey: payload.dedupeKey ?? 'reminder.rest.timer',
-    }
-    notifications.value.push(item)
-    requestAnimationFrame(() => {
-      const found = notifications.value.find((n) => n.id === id)
-      if (found) {
-        found.visible = true
-      }
-    })
-  }
-
-  // 用户仍在休息：重启每 2 秒活跃轮询，并刷新基线
-  startRestPoll()
-
-  scheduleWindowResize()
-}
-
-/** 启动休息计时卡片的活跃轮询：先取一次快照作基线，之后每 2 秒比对 */
-async function startRestPoll() {
-  stopRestPoll()
-  try {
-    const snap = await getActivitySnapshot()
-    // 使用当前 count 与媒体/全屏状态建立基线。
-    // 注意：count 会在后端每分钟结算时被清零，因此 polling 只把「清零后 count
-    // 重新增长」或「媒体变为活跃」或「全屏结束」视为恢复活跃。
-    restPollBaseline = snap.count
-  } catch {
-    restPollBaseline = 0
-  }
-  restPollTimer = setInterval(pollActivity, REST_POLL_MS)
-}
-
-function stopRestPoll() {
-  if (restPollTimer) {
-    clearInterval(restPollTimer)
-    restPollTimer = null
-  }
-}
-
-async function pollActivity() {
-  // 卡片已不在则停轮询
-  if (!notifications.value.some((n) => n.kind === 'rest-timer')) {
-    stopRestPoll()
-    return
-  }
-  let snap
-  try {
-    snap = await getActivitySnapshot()
-  } catch {
-    return
-  }
-
-  // 全屏提醒期间：后端把该分钟视为休息，前端也不应把键鼠/媒体活动判断为恢复活跃
-  if (snap.fullscreen_active) {
-    restPollBaseline = snap.count
-    return
-  }
-
-  // count 跨分钟会被后端清零；count 减少时只更新基线，不判活跃
-  const keyMouseActive = snap.count > restPollBaseline
-  restPollBaseline = snap.count
-  if (keyMouseActive || snap.media_active) {
-    stopRestPoll()
-    scheduleRemoveRestTimer()
-  }
-}
-
-function scheduleRemoveRestTimer() {
-  const existing = notifications.value.find((n) => n.kind === 'rest-timer')
-  if (!existing) return
-
-  if (existing.endTimer) {
-    clearTimeout(existing.endTimer)
-  }
-
-  existing.endTimer = setTimeout(() => {
-    const item = notifications.value.find((n) => n.kind === 'rest-timer')
-    if (!item) return
-    // 恢复活跃：清后端 break_timer_active + bus，避免 active 事件水合后重新冒出
-    void dismissRestTimer().catch(() => {})
-    markEventResolved(item.eventId)
-    removeNotification(item.id, true)
-  }, REST_TIMER_REMOVE_DELAY_MS)
-}
-
-function handleBusEvent(event: BusEvent) {
-  if (!event?.id) return
-  if (event.display_mode && event.display_mode !== 'toast') return
-
-  const pluginName =
-    event.source &&
-    typeof event.source === 'object' &&
-    (event.source as { type?: string; name?: string }).type === 'plugin'
-      ? (event.source as { name?: string }).name
-      : undefined
-  const tracePluginAction = pluginName === 'sidecar-echo' || event.kind === 'sidecar-echo'
-  if (tracePluginAction) {
-    console.info('[sidecar-action] bus event', {
-      eventId: event.id,
-      status: event.status,
-      revision: event.revision,
-      resolution: event.resolution,
-      pluginName,
-      kind: event.kind,
-    })
-  }
-
-  if (event.status === 'resolved') {
-    seenBusEventIds.add(event.id)
-    // Superseded = same dedupe_key was replaced by a newer publish. Keep the visible
-    // card; the following active event will upsert in place. Removing here causes
-    // unmount+remount of PluginHostCard (Blob re-import) and freezes toast on rapid test.
-    if (event.resolution?.kind === 'superseded') {
-      if (tracePluginAction) {
-        console.info('[sidecar-action] resolved keep (superseded)', {
-          eventId: event.id,
-          resolution: event.resolution,
-        })
-      }
-      return
-    }
-    const existing = notifications.value.find((n) => n.eventId === event.id)
-    // Sticky plugin cards: only end/dismiss unload. Other action ids are the plugin's.
-    const actionId = event.resolution?.action_id
-    const keepForActionRoundtrip =
-      !!existing?.pluginId &&
-      !!existing.sticky &&
-      event.resolution?.kind === 'action' &&
-      actionId !== 'end' &&
-      actionId !== 'dismiss'
-    if (tracePluginAction) {
-      console.info('[sidecar-action] resolved handling', {
-        eventId: event.id,
-        notificationId: existing?.id,
-        found: !!existing,
-        keepForActionRoundtrip,
-        resolution: event.resolution,
-        leaving: existing?.leaving,
-      })
-    }
-    if (existing && !keepForActionRoundtrip) {
-      console.info('[sidecar-action] resolved removal', {
-        eventId: event.id,
-        notificationId: existing.id,
-      })
-      removeNotification(existing.id, true)
-    }
-    return
-  }
-
-  if (event.status && event.status !== 'active') return
-
-  const kind = event.kind as ToastKind
-  const sourceIsPlugin =
-    !!event.source &&
-    typeof event.source === 'object' &&
-    (event.source as { type?: string }).type === 'plugin'
-  const pluginHit =
-    isPluginKind(kind) || isPluginKind(event.event_type) || sourceIsPlugin
-  if (!isBuiltinKind(kind) && !pluginHit) {
-    return
-  }
-
-  const p = (event.payload ?? {}) as Record<string, unknown>
-  const boundary = typeof p.boundary === 'number' ? p.boundary : 0
-  const dedupeKey = event.dedupe_key || undefined
-  const pluginHandle =
-    pluginRegistry.getPluginForKind(kind) || pluginRegistry.getPluginForKind(event.event_type)
-  const isPluginEvent = !!pluginHandle?.external || sourceIsPlugin
-  const pluginId =
-    pluginHandle?.manifest.name ||
-    (sourceIsPlugin && typeof (event.source as { name?: string }).name === 'string'
-      ? (event.source as { name: string }).name
-      : undefined)
-  const toastStyle = resolveToastStyle(p, isPluginEvent)
-
-  if (isPluginEvent && p.dismiss === true) {
-    const existing =
-      notifications.value.find((n) => n.eventId === event.id && !n.leaving) ||
-      (dedupeKey
-        ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
-        : undefined)
-    if (existing) removeNotification(existing.id, true)
-    seenBusEventIds.add(event.id)
-    return
-  }
-
-  // sdk / plugin: same event id OR same dedupe_key → refresh in place (never remount card).
-  if (kind === 'sdk' || isPluginEvent) {
-    const existing = notifications.value.find((n) => n.eventId === event.id && !n.leaving)
-      || (dedupeKey
-        ? notifications.value.find((n) => n.dedupeKey === dedupeKey && !n.leaving)
-        : undefined)
-    if (existing) {
-      if (tracePluginAction) {
-        console.info('[sidecar-action] upsert in place', {
-          notificationId: existing.id,
-          prevEventId: existing.eventId,
-          nextEventId: event.id,
-          dedupeKey,
-          leaving: !!existing.leaving,
-          t: Date.now(),
-        })
-      }
-      if (existing.eventId && existing.eventId !== event.id) {
-        seenBusEventIds.add(existing.eventId)
-      }
-      existing.eventId = event.id
-      existing.kind = kind
-      existing.title = event.title || ''
-      existing.body = event.body || ''
-      existing.level = event.level
-      existing.sdkActions = event.actions || []
-      existing.sdkProgress = event.progress ?? null
-      existing.sticky = !!event.sticky
-      existing.dedupeKey = dedupeKey
-      existing.toastStyle = toastStyle
-      existing.busEvent = event
-      existing.pluginId = pluginId
-      // Keep prior uiUrl if registry momentarily empty — avoids card reload thrash.
-      if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
-      existing.visible = true
-      if (!event.sticky) {
-        // Hover paused the close timeout. A chat upsert must not restart it,
-        // or the CSS bar stays frozen while the card still auto-dismisses.
-        if (!existing.isHovered) {
-          const autoHideMs = resolveAutoHideMs(event, false)
-          existing.remainingMs = autoHideMs
-          existing.totalMs = autoHideMs
-          startTimer(existing)
-        }
-      } else {
-        stopTimer(existing)
-        existing.remainingMs = 0
-        existing.totalMs = 0
-      }
-      seenBusEventIds.add(event.id)
-      void nextTick(() => scheduleWindowResize())
-      return
-    }
-  }
-
-  // rest-timer: upsert in place by kind/dedupe; do not gate on seenBusEventIds
-  // because backend update() keeps the same event id with rising revision.
-  if (kind === 'rest-timer') {
-    updateRestTimer({
-      break_minutes: typeof p.break_minutes === 'number' ? p.break_minutes : 0,
-      rest_start_ts: typeof p.rest_start_ts === 'number' ? p.rest_start_ts : 0,
-      rest_streak: typeof p.rest_streak === 'number' ? p.rest_streak : 0,
-      remaining_minutes: typeof p.remaining_minutes === 'number' ? p.remaining_minutes : 0,
-      is_complete: Boolean(p.is_complete),
-      title: event.title || undefined,
-      body: event.body || undefined,
-      eventId: event.id,
-      dedupeKey: dedupeKey ?? 'reminder.rest.timer',
-    })
-    return
-  }
-
-  if (seenBusEventIds.has(event.id)) return
-  seenBusEventIds.add(event.id)
-
-  // 同 dedupe_key：原地刷新已有卡（不 remove+add），连点只重置内容/计时，不抖窗口
-  if (dedupeKey) {
-    const existing = notifications.value.find(
-      (n) => n.dedupeKey === dedupeKey && !n.leaving,
-    )
-    if (existing) {
-      if (existing.eventId && existing.eventId !== event.id) {
-        seenBusEventIds.add(existing.eventId)
-      }
-      existing.eventId = event.id
-      existing.kind = kind
-      existing.title = event.title || ''
-      existing.body = event.body || ''
-      existing.boundary = boundary
-      existing.toastStyle = toastStyle
-      existing.visible = true
-      if (kind === 'sdk' || isPluginEvent) {
-        existing.level = event.level
-        existing.sdkActions = event.actions || []
-        existing.sdkProgress = event.progress ?? null
-        existing.sticky = !!event.sticky
-        existing.busEvent = event
-        existing.pluginId = pluginId
-        if (pluginHandle?.uiUrl) existing.uiUrl = pluginHandle.uiUrl
-      }
-      if (kind === 'special') {
-        existing.sticky = true
-        existing.specialTag = typeof p.tag === 'string' ? p.tag : existing.specialTag
-        existing.specialIcon = typeof p.icon === 'string' ? p.icon : existing.specialIcon
-        if (p.category === 'history' || p.category === 'life') {
-          existing.specialCategory = p.category
-        }
-        stopTimer(existing)
-        existing.remainingMs = 0
-        existing.totalMs = 0
-      }
-      // sticky plugin 走独立生命周期，不在这里重置 auto-hide
-      const stickyPlugin = isPluginEvent && !!event.sticky
-      if (
-        kind !== 'special' &&
-        kind !== 'update' &&
-        !(kind === 'sdk' && event.sticky) &&
-        !stickyPlugin &&
-        !existing.isHovered
-      ) {
-        const autoHideMs = resolveAutoHideMs(event, false)
-        existing.remainingMs = autoHideMs
-        existing.totalMs = autoHideMs
-        startTimer(existing)
-      }
-      void scheduleWindowResize()
-      return
-    }
-  }
-
-  addNotification({
-    kind,
-    boundary,
-    title: event.title || '',
-    body: event.body || '',
-    eventId: event.id,
-    dedupeKey,
-    toastStyle,
-    version: typeof p.version === 'string' ? p.version : undefined,
-    updateBody: typeof p.updateBody === 'string' ? p.updateBody : undefined,
-    level: event.level,
-    sticky: !!event.sticky,
-    sdkActions: kind === 'sdk' || isPluginEvent ? (event.actions || []) : undefined,
-    sdkProgress: kind === 'sdk' || isPluginEvent ? (event.progress ?? null) : undefined,
-    busEvent: isPluginEvent ? event : undefined,
-    pluginId,
-    uiUrl: pluginHandle?.uiUrl,
-    tag: typeof p.tag === 'string' ? p.tag : undefined,
-    icon: typeof p.icon === 'string' ? p.icon : undefined,
-    category:
-      p.category === 'history' || p.category === 'life'
-        ? p.category
-        : undefined,
-    autoHideMs: kind === 'notification' ? resolveAutoHideMs(event, false) : undefined,
-    appName:
-      kind === 'notification' && typeof p.app_name === 'string' ? p.app_name : undefined,
-    iconUrl:
-      kind === 'notification' && typeof p.icon_data_url === 'string'
-        ? p.icon_data_url
-        : undefined,
-    notificationActions: kind === 'notification' ? (event.actions || []) : undefined,
-    bodyClickable: kind === 'notification' && p.body_clickable === true,
-  })
-}
-
-function markEventResolved(eventId: string | undefined, actionId?: string) {
-  if (!eventId) {
-    console.warn('[sidecar-action] resolve skipped: missing eventId', { actionId })
-    return
-  }
-  const startedAt = performance.now()
-  console.info('[sidecar-action] resolve invoke:start', {
-    eventId,
-    actionId,
-    t: Date.now(),
-  })
-  // Do not pre-mark seen for action resolves: sticky plugin cards may stay
-  // mounted and later receive a fresh active event with a new id.
-  if (!actionId) {
-    seenBusEventIds.add(eventId)
-  }
-  const request = actionId
-    ? resolveEventAction(eventId, actionId)
-    : resolveEvent(eventId, { kind: 'dismissed' })
-  void request.then(
-    (event) => {
-      console.info('[sidecar-action] resolve invoke:done', {
-        eventId,
-        actionId,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        status: event?.status,
-        resolution: event?.resolution,
-        t: Date.now(),
-      })
-    },
-    (error) => {
-      console.error('[sidecar-action] resolve invoke:error', {
-        eventId,
-        actionId,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        error: error instanceof Error ? error.message : String(error),
-        t: Date.now(),
-      })
-    },
-  )
-}
-
-async function addNotification(payload: {
-  kind: ToastKind
-  boundary?: number
-  title?: string
-  body?: string
-  version?: string
-  updateBody?: string
-  event?: string
-  agentState?: string
-  mode?: string
-  sessionId?: string
-  cwd?: string
-  prompt?: string
-  summary?: string
-  sessionTitle?: string
-  requestId?: number
-  toolName?: string
-  toolInput?: unknown
-  eventId?: string
-  dedupeKey?: string
-  toastStyle?: ToastStyleValue
-  level?: EventLevel | string
-  sticky?: boolean
-  sdkActions?: EventAction[]
-  sdkProgress?: EventProgress | null
-  busEvent?: BusEvent
-  pluginId?: string
-  uiUrl?: string
-  tag?: string
-  icon?: string
-  category?: 'history' | 'life'
-  autoHideMs?: number
-  appName?: string
-  iconUrl?: string
-  notificationActions?: EventAction[]
-  bodyClickable?: boolean
-}) {
+async function addNotification(payload: AddNotificationPayload) {
   // 不加数量上限：卡片超出窗口高度时由滚动容器（n-scrollbar）接管
-  const id = ++idCounter
+  const id = nextId()
   const isUpdate = payload.kind === 'update'
   const isSdkSticky = payload.kind === 'sdk' && !!payload.sticky
   const isPluginSticky = !!payload.pluginId && !!payload.sticky
@@ -956,99 +276,6 @@ async function addNotification(payload: {
   scrollStackToBottom()
 }
 
-/** 判定「算贴底」的容差（CSS px）：留出亚像素与滚轮惯性的余量。 */
-const STACK_BOTTOM_TOLERANCE_PX = 24
-
-/** 用户滚动卡片栈时记录是否贴底；窗口 resize 引起的 clamp 也会走到这里，结论一致。 */
-function handleStackScroll() {
-  const stack = stackRef.value
-  if (!stack) return
-  const distanceToBottom = stack.scrollHeight - stack.scrollTop - stack.clientHeight
-  stackPinnedToBottom = distanceToBottom <= STACK_BOTTOM_TOLERANCE_PX
-}
-
-function scrollStackToBottom() {
-  const stack = stackRef.value
-  if (!stack) return
-
-  // Keep the shadow padding visible when only one card is present.
-  if (notifications.value.length <= 1) {
-    stack.scrollTop = 0
-    stackPinnedToBottom = true
-    return
-  }
-  // 卡片堆超过窗高时新卡落在可视区外：只有本来就贴底才跟着滚，
-  // 否则会把正在翻旧卡的人拽走。
-  if (!stackPinnedToBottom) return
-  stack.scrollTop = stack.scrollHeight
-}
-
-// 点卡片本体触发的主操作：'launch' 是后端 trigger_notification_action 的保留 action id
-const NOTIF_BODY_ACTION: EventAction = { id: 'launch', label: '' }
-
-// 转发通知卡片的按钮点击：成功由后端 resolve 事件、总线的 resolved 事件自动收卡，
-// 操作中心源通知由 worker 移除；失败时卡片保留，用户可重试
-async function handleNotificationAction(item: ToastItem, action: EventAction) {
-  if (!item.eventId) return
-  try {
-    await triggerNotificationAction(item.eventId, action.id)
-  } catch (e) {
-    console.warn('[notification-action] failed', { eventId: item.eventId, actionId: action.id, e })
-    message.error(t('settings.sysNotify.actionFailed'))
-  }
-}
-
-function startTimer(item: ToastItem) {
-  if (item.isHovered && !item.sticky) return
-  stopTimer(item)
-  item.lastStartAt = Date.now()
-  // Keep original totalMs for progress UI. Only remainingMs shrinks across hover pauses.
-  if (!(item.totalMs > 0)) item.totalMs = item.remainingMs
-  item.closeTimer = setTimeout(() => {
-    // 自动消失路径必须把后端事件 resolve，否则刷新/水合时旧 toast 会复活
-    markEventResolved(item.eventId)
-    removeNotification(item.id, true)
-  }, item.remainingMs)
-}
-
-function stopTimer(item: ToastItem) {
-  if (item.closeTimer) {
-    const elapsed = Date.now() - item.lastStartAt
-    item.remainingMs = Math.max(0, item.remainingMs - elapsed)
-    clearTimeout(item.closeTimer)
-    item.closeTimer = null
-  }
-}
-
-function handleMouseEnter(item: ToastItem) {
-  // 休息计时 / sticky / permission / 特殊日 卡片不依赖 hover 控制生命周期
-  if (item.kind === 'rest-timer' || item.kind === 'special' || item.sticky) return
-  // 只允许一张卡处于 hover 态：WebView 偶发漏 mouseleave 时，
-  // 避免多张卡同时 isHovered，一次 leave 会清掉一整堆。
-  for (const n of notifications.value) {
-    if (n !== item && n.isHovered) {
-      handleMouseLeave(n)
-    }
-  }
-  item.isHovered = true
-  stopTimer(item)
-}
-
-function handleMouseLeave(item: ToastItem) {
-  if (item.kind === 'rest-timer' || item.kind === 'special' || item.sticky) return
-  item.isHovered = false
-  if (item.remainingMs > 0) {
-    startTimer(item)
-  } else if (item.kind !== 'update') {
-    // hover 暂停把剩余时间拖到 0 的卡片，离开时不再立即删除：
-    // 否则光标一碰（真实 mouseleave 或 Rust hover-exit 事件）整堆卡片连锁消失。
-    // 改为重置完整自动隐藏时长，卡片仍在最后一次交互后按时自动消失。
-    item.remainingMs = item.totalMs > 0 ? item.totalMs : AUTO_HIDE_MS
-    item.totalMs = item.remainingMs
-    startTimer(item)
-  }
-}
-
 function removeNotification(id: number, animate: boolean) {
   const index = notifications.value.findIndex((n) => n.id === id)
   if (index === -1) return
@@ -1086,27 +313,20 @@ function removeNotification(id: number, animate: boolean) {
 
 /** 真正从数据里移除一张卡，刷新窗口高度，空栈时关窗。 */
 function doRemoveCard(id: number) {
-  const el = cardRefs.value.get(id)
-  if (el) resizeObserver?.unobserve(el)
+  releaseCard(id)
   notifications.value = notifications.value.filter((n) => n.id !== id)
-  cardRefs.value.delete(id)
   scheduleWindowResize()
   if (notifications.value.length === 0) {
     // 空栈关窗：下一次弹出从「贴底」重新开始
-    stackPinnedToBottom = true
+    pinToBottom()
     closeWindow()
   }
 }
 
 async function closeWindow() {
-  lastSizeKey = ''
-  toastActivated = false
-  activationPrepared = false
-  try {
-    await setWindowActiveMode(WINDOW_LABEL, false)
-  } catch {
-    // hide 路径会再套 NOACTIVATE；失败不挡关窗
-  }
+  resetSizeKey()
+  resetActivationState()
+  await deactivateWindow()
   try {
     await closeReminderWindow(WINDOW_LABEL)
   } catch {
@@ -1214,6 +434,21 @@ async function handleUpdateInstall(item: ToastItem, source?: string) {
     item.body = t('settings.messages.updateFailed')
   } finally {
     item.updateInstalling = false
+  }
+}
+
+// 点卡片本体触发的主操作：'launch' 是后端 trigger_notification_action 的保留 action id
+const NOTIF_BODY_ACTION: EventAction = { id: 'launch', label: '' }
+
+// 转发通知卡片的按钮点击：成功由后端 resolve 事件、总线的 resolved 事件自动收卡，
+// 操作中心源通知由 worker 移除；失败时卡片保留，用户可重试
+async function handleNotificationAction(item: ToastItem, action: EventAction) {
+  if (!item.eventId) return
+  try {
+    await triggerNotificationAction(item.eventId, action.id)
+  } catch (e) {
+    console.warn('[notification-action] failed', { eventId: item.eventId, actionId: action.id, e })
+    message.error(t('settings.sysNotify.actionFailed'))
   }
 }
 </script>
