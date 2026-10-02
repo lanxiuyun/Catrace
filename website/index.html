@@ -3,23 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Catrace — 桌面小窗系统</title>
-  <meta name="description" content="Catrace 是桌面小窗系统：久坐/定时提醒、AI 进度、GitHub 与手机消息，都落在桌面小窗里。本地运行，不上传数据，免费开源。">
+  <title>Catrace — 桌面事件系统 · 在通知上，直接把事办完</title>
+  <meta name="description" content="Catrace 把通知变成交互：AI 授权、复制验证码、标记完成、小憩片刻——在卡片上直接办完，不用跳来跳去。桌面事件系统，本地运行，不上传数据，免费开源。">
+  <meta property="og:title" content="Catrace — 桌面事件系统">
+  <meta property="og:description" content="以前的通知是传送门，Catrace 的通知是办事窗口：看到即处理，在卡片上直接办完。">
+  <meta name="theme-color" content="#0C0913">
   <link rel="icon" type="image/png" href="favicon.png">
   <style>
     :root {
-      --primary: #7C3AED;
-      --primary-dark: #6D28D9;
-      --primary-light: #EDE9FE;
-      --secondary: #059669;
-      --secondary-light: #D1FAE5;
-      --bg: #F7F5FA;
-      --card: #FFFFFF;
-      --text: #2E1065;
-      --text-secondary: #8B7AAB;
-      --border: #EBE6F2;
-      --shadow: 0 0.25rem 1.5rem rgba(124, 58, 237, 0.08);
-      --shadow-lg: 0 0.75rem 2.5rem rgba(124, 58, 237, 0.12);
+      --bg: #0C0913;
+      --bg-soft: #120E1D;
+      --surface: #181227;
+      --surface-2: #201838;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #F4F1FB;
+      --text-dim: #ABA3C4;
+      --text-faint: #736A90;
+      --primary: #8B5CF6;
+      --primary-strong: #7C3AED;
+      --primary-soft: rgba(139, 92, 246, 0.14);
+      --green: #10B981;
+      --orange: #F59E0B;
+      --red: #F87171;
+      --blue: #60A5FA;
+      --card-bg: #FFFFFF;
+      --card-text: #26212F;
+      --card-dim: #8B8496;
     }
 
     * {
@@ -29,152 +39,177 @@
     }
 
     html {
-      font-size: clamp(14px, 2vw + 12px, 18px);
+      font-size: 16px;
       scroll-behavior: smooth;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.7;
+      line-height: 1.75;
+      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
+    ::selection {
+      background: rgba(139, 92, 246, 0.4);
+    }
+
     a {
-      color: var(--primary);
+      color: inherit;
       text-decoration: none;
     }
 
-    a:hover {
-      text-decoration: underline;
+    svg {
+      display: block;
     }
 
-    /* Header */
+    /* ---------- 顶部导航 ---------- */
     header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      backdrop-filter: blur(0.75rem);
+      -webkit-backdrop-filter: blur(0.75rem);
+      background: rgba(12, 9, 19, 0.72);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .header-inner {
+      max-width: 75rem;
+      margin: 0 auto;
+      padding: 0.875rem 1.5rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.25rem;
-      max-width: 75rem;
-      margin: 0 auto;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.625rem;
       font-weight: 700;
       font-size: 1.125rem;
-      color: var(--text);
-      text-decoration: none;
-    }
-
-    .logo:hover {
-      text-decoration: none;
     }
 
     .logo img {
       width: 1.75rem;
       height: 1.75rem;
+      border-radius: 0.375rem;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
     }
 
     nav a {
-      margin-left: 0.75rem;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
+      font-size: 0.875rem;
+      color: var(--text-dim);
       transition: color 0.2s;
     }
 
     nav a:hover {
-      color: var(--primary);
-      text-decoration: none;
+      color: var(--text);
     }
 
-    @media (min-width: 640px) {
-      header {
-        padding: 1rem 2rem;
-      }
+    nav .nav-cta {
+      color: #fff;
+      background: var(--primary-strong);
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
 
-      .logo {
-        font-size: 1.25rem;
-      }
+    nav .nav-cta:hover {
+      background: var(--primary);
+      color: #fff;
+    }
 
-      .logo img {
-        width: 2rem;
-        height: 2rem;
-      }
-
-      nav a {
-        margin-left: 1.5rem;
-        font-size: 0.875rem;
+    @media (max-width: 640px) {
+      nav a:not(.nav-cta) {
+        display: none;
       }
     }
 
-    /* Hero */
+    /* ---------- Hero ---------- */
     .hero {
-      text-align: center;
-      padding: 2.5rem 1rem 2rem;
-      max-width: 50rem;
-      margin: 0 auto;
+      position: relative;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 6rem 1.5rem 4rem;
+      background:
+        radial-gradient(42rem 30rem at 12% 8%, rgba(124, 58, 237, 0.22), transparent 60%),
+        radial-gradient(38rem 28rem at 88% 78%, rgba(76, 29, 149, 0.28), transparent 62%),
+        radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 1.75rem 1.75rem,
+        var(--bg);
     }
 
-    @media (min-width: 640px) {
-      .hero {
-        padding: 3.5rem 1rem 2.5rem;
-      }
+    .hero-inner {
+      max-width: 44rem;
+      margin: 0 auto;
+      width: 100%;
+      text-align: center;
     }
 
     .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.375rem;
+      gap: 0.5rem;
       font-size: 0.8125rem;
       font-weight: 600;
-      color: var(--primary);
-      background: var(--primary-light);
+      color: #C4B5FD;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
       border-radius: 9999px;
-      padding: 0.35rem 0.85rem;
-      margin-bottom: 1.25rem;
+      padding: 0.375rem 0.9375rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-badge .dot {
+      width: 0.4375rem;
+      height: 0.4375rem;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0.5rem rgba(16, 185, 129, 0.9);
     }
 
     .hero h1 {
-      font-size: clamp(1.5rem, 5.5vw, 2.75rem);
+      font-size: clamp(2.125rem, 6vw, 3.75rem);
       font-weight: 800;
-      line-height: 1.25;
-      margin-bottom: 1rem;
-      color: var(--text);
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      margin-bottom: 1.25rem;
     }
 
-    .hero h1 span {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    .hero h1 .grad {
+      background: linear-gradient(100deg, #A78BFA 0%, #8B5CF6 45%, #60A5FA 100%);
       -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
       background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
     }
 
-    .hero .note {
-      font-size: 0.9375rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-      padding: 0 0.5rem;
-      max-width: 36rem;
-      margin-left: auto;
-      margin-right: auto;
+    .hero .sub {
+      font-size: clamp(1rem, 2vw, 1.1875rem);
+      color: var(--text-dim);
+      max-width: 34rem;
+      margin: 0 auto 2rem;
     }
 
-    .hero .privacy {
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      margin-bottom: 1.75rem;
-      opacity: 0.9;
-    }
-
-    .btn-group {
+    .btn-row {
       display: flex;
       gap: 0.875rem;
       justify-content: center;
       flex-wrap: wrap;
+      margin-bottom: 1.25rem;
     }
 
     .btn {
@@ -182,1109 +217,1608 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 0.75rem 1.75rem;
+      padding: 0.8125rem 1.75rem;
       border-radius: 9999px;
       font-size: 1rem;
       font-weight: 600;
       transition: all 0.2s;
-      cursor: pointer;
       border: none;
-      width: 100%;
-    }
-
-    @media (min-width: 420px) {
-      .btn {
-        width: auto;
-      }
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 0.25rem 1rem rgba(124, 58, 237, 0.35);
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-      transform: translateY(-1px);
-      text-decoration: none;
-    }
-
-    .btn-ghost {
-      background: var(--card);
-      color: var(--text);
-      border: 0.0625rem solid var(--border);
-    }
-
-    .btn-ghost:hover {
-      border-color: #DDD6FE;
-      color: var(--primary);
-      text-decoration: none;
-      transform: translateY(-1px);
+      cursor: pointer;
     }
 
     .btn svg {
-      width: 1rem;
-      height: 1rem;
+      width: 1.0625rem;
+      height: 1.0625rem;
       flex-shrink: 0;
     }
 
-    /* Pain points */
-    .pain {
-      max-width: 68.75rem;
-      margin: 2.5rem auto 0;
-      padding: 0 1rem;
+    .btn-primary {
+      background: var(--primary-strong);
+      color: #fff;
+      box-shadow: 0 0.5rem 2rem rgba(124, 58, 237, 0.45);
     }
 
-    @media (min-width: 640px) {
-      .pain {
-        margin-top: 3rem;
-      }
+    .btn-primary:hover {
+      background: var(--primary);
+      transform: translateY(-2px);
     }
 
-    .pain-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.875rem;
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
     }
 
-    @media (min-width: 640px) {
-      .pain-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+    .btn-ghost:hover {
+      border-color: rgba(167, 139, 250, 0.6);
+      transform: translateY(-2px);
     }
 
-    @media (min-width: 1024px) {
-      .pain-grid {
-        grid-template-columns: repeat(4, 1fr);
-      }
+    .hero-chips {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3.5rem;
     }
 
-    .pain-card {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
-      border-radius: 0.875rem;
-      padding: 1rem 1.25rem;
+    .hero-chips span {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem;
+    }
+
+    .scroll-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.375rem;
+      color: var(--text-faint);
+      font-size: 0.8125rem;
+    }
+
+    .scroll-hint svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      animation: bob 1.8s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(0.375rem); }
+    }
+
+    /* ---------- 章节 ---------- */
+    .chapter {
+      position: relative;
+      padding: 7rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .chapter-inner {
+      max-width: 36rem;
+      margin-left: clamp(1.5rem, 10vw, 10rem);
+      opacity: 0.3;
+      transform: translateY(1rem);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .chapter.active .chapter-inner {
+      opacity: 1;
+      transform: none;
+    }
+
+    .kicker {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.8125rem;
+      letter-spacing: 0.14em;
+      color: #A78BFA;
+      margin-bottom: 0.875rem;
+    }
+
+    .chapter h2 {
+      font-size: clamp(1.625rem, 3.6vw, 2.375rem);
+      font-weight: 800;
+      line-height: 1.3;
+      margin-bottom: 1rem;
+    }
+
+    .chapter .lead {
+      color: var(--text-dim);
+      font-size: 1.0625rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .check-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .check-list li {
       display: flex;
       align-items: flex-start;
+      gap: 0.625rem;
+      color: var(--text-dim);
+      font-size: 0.9375rem;
+    }
+
+    .check-list svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      flex-shrink: 0;
+      color: var(--primary);
+      margin-top: 0.2rem;
+    }
+
+    .shot-frame {
+      margin-top: 2rem;
+      border-radius: 0.875rem;
+      border: 1px solid var(--border-strong);
+      overflow: hidden;
+      box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.55);
+      background: var(--surface);
+    }
+
+    .shot-frame img {
+      width: 100%;
+      display: block;
+    }
+
+    .shot-caption {
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-faint);
+      text-align: center;
+    }
+
+    /* ---------- 滚动卡片堆（桌面端固定右下角） ---------- */
+    .scene-cards {
+      display: flex;
+      flex-direction: column;
       gap: 0.75rem;
     }
 
-    @media (min-width: 640px) {
-      .pain-card {
-        padding: 1.25rem 1.5rem;
+    @media (min-width: 881px) {
+      .scene-cards {
+        position: fixed;
+        right: clamp(1.25rem, 3.5vw, 3rem);
+        bottom: 3.25rem;
+        width: min(23rem, 30vw);
+        z-index: 60;
+        visibility: hidden;
+      }
+
+      .scene-cards.show {
+        visibility: visible;
+      }
+
+      .scene-cards .tcard {
+        opacity: 0;
+        transform: translateY(1.75rem) scale(0.96);
+        transition: opacity 0.5s cubic-bezier(0.22, 1.2, 0.36, 1),
+                    transform 0.5s cubic-bezier(0.22, 1.2, 0.36, 1);
+      }
+
+      .scene-cards.show .tcard {
+        opacity: 1;
+        transform: none;
+      }
+
+      .scene-cards.show .tcard:nth-child(2) {
+        transition-delay: 0.1s;
       }
     }
 
-    .pain-icon {
-      font-size: 1.5rem;
-      line-height: 1;
-      margin-top: 0.125rem;
-      flex-shrink: 0;
-    }
-
-    .pain-card h4 {
-      font-size: 0.9375rem;
-      margin-bottom: 0.25rem;
-      line-height: 1.4;
-    }
-
-    .pain-card p {
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-
-    /* Screenshot */
-    .screenshot {
-      max-width: 68.75rem;
-      margin: 2.5rem auto 0;
-      padding: 0 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .screenshot {
-        margin-top: 3rem;
+    @media (max-width: 880px) {
+      .scene-cards {
+        margin-top: 2rem;
+        max-width: 26rem;
       }
     }
 
-    .screenshot img {
-      width: 100%;
-      border-radius: 1rem;
-      box-shadow: var(--shadow-lg);
-      border: 0.0625rem solid var(--border);
-    }
-
-    .screenshot-caption {
-      text-align: center;
-      font-size: 0.8125rem;
-      color: var(--text-secondary);
-      margin-top: 0.75rem;
-      padding: 0 0.5rem;
-    }
-
-    /* Section title */
-    .section-title {
-      text-align: center;
-      font-size: clamp(1.375rem, 4vw, 1.75rem);
-      margin-bottom: 0.75rem;
-      padding: 0 1rem;
-    }
-
-    .section-subtitle {
-      text-align: center;
-      color: var(--text-secondary);
-      max-width: 38rem;
-      margin: 0 auto 2.5rem;
-      font-size: 1rem;
-      padding: 0 1rem;
-    }
-
-    /* Why */
-    .why {
-      max-width: 68.75rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .why {
-        margin: 4rem auto;
-      }
-    }
-
-    .why-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-      align-items: stretch;
-    }
-
-    @media (min-width: 768px) {
-      .why-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .why-box {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
-      border-radius: 1rem;
-      padding: 1.5rem;
-    }
-
-    @media (min-width: 640px) {
-      .why-box {
-        padding: 1.75rem;
-      }
-    }
-
-    .why-box.better {
-      border-color: var(--primary);
-      position: relative;
-    }
-
-    .why-box.better::before {
-      content: "✓ Catrace";
-      position: absolute;
-      top: -0.75rem;
-      left: 1.5rem;
-      background: var(--primary);
-      color: #fff;
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 0.25rem 0.75rem;
+    .tray-pill {
+      position: fixed;
+      right: clamp(1.25rem, 3.5vw, 3rem);
+      bottom: 1rem;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 9999px;
+      padding: 0.3125rem 0.75rem;
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
     }
 
-    .why-box h3 {
-      font-size: 1.0625rem;
-      margin-bottom: 1rem;
+    .tray-pill.show {
+      opacity: 1;
+    }
+
+    .tray-pill svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    @media (max-width: 880px) {
+      .tray-pill {
+        display: none;
+      }
+    }
+
+    /* 中窄屏：收窄卡片与正文，避免右下角卡片压住内容；hero 改左对齐 */
+    @media (min-width: 881px) and (max-width: 1199px) {
+      .scene-cards {
+        width: 19.5rem;
+      }
+
+      .chapter-inner {
+        max-width: 31rem;
+        margin-left: clamp(1.5rem, 6vw, 4rem);
+      }
+
+      .hero-inner {
+        max-width: 32rem;
+        margin-left: clamp(1.5rem, 6vw, 4rem);
+        margin-right: auto;
+        text-align: left;
+      }
+
+      .hero .sub {
+        margin-left: 0;
+      }
+
+      .hero-chips {
+        justify-content: flex-start;
+      }
+
+      .hero .btn-row {
+        justify-content: flex-start;
+      }
+
+      .hero .scroll-hint {
+        align-items: flex-start;
+      }
+    }
+
+    @media (min-width: 1280px) {
+      .shot-frame {
+        width: calc(100% + 6rem);
+        max-width: 44rem;
+      }
+    }
+
+    /* ---------- Toast 卡片复刻 ---------- */
+    .tcard {
+      background: var(--card-bg);
+      color: var(--card-text);
+      border-radius: 1rem;
+      border-left: 0.1875rem solid var(--accent, var(--primary-strong));
+      box-shadow: 0 1.5rem 3.5rem rgba(0, 0, 0, 0.5), 0 0.25rem 0.75rem rgba(0, 0, 0, 0.3);
+      padding: 0.875rem 1rem 0.875rem 1.125rem;
+      font-size: 0.875rem;
+      line-height: 1.55;
+    }
+
+    .tcard-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+    }
+
+    .tcard-avatar {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.625rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9375rem;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    .tcard-avatar svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    .tcard-head-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tcard-title {
+      font-weight: 700;
+      font-size: 0.9375rem;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .tcard-meta {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      margin-top: 0.125rem;
+      font-size: 0.75rem;
+      color: var(--card-dim);
     }
 
-    .why-box ul {
-      list-style: none;
-    }
-
-    .why-box li {
-      padding: 0.5rem 0;
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-      border-bottom: 0.0625rem dashed var(--border);
+    .tcard-side {
       display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-
-    .why-box li:last-child {
-      border-bottom: none;
-    }
-
-    .why-box li .mark {
-      color: var(--secondary);
-      font-weight: 700;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.375rem;
       flex-shrink: 0;
     }
 
-    .why-box.better li .mark {
-      color: var(--primary);
+    .tcard-tag {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      padding: 0.1875rem 0.5625rem;
+      white-space: nowrap;
     }
 
-    /* Features */
-    .features {
-      max-width: 68.75rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
+    .tag-green { background: #DCFCE7; color: #15803D; }
+    .tag-orange { background: #FEF3C7; color: #B45309; }
+    .tag-purple { background: #EDE9FE; color: #6D28D9; }
+
+    .tcard-close {
+      color: #C4BECE;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0.125rem;
     }
 
-    @media (min-width: 640px) {
-      .features {
-        margin: 4rem auto;
-      }
+    .tcard-body {
+      margin-top: 0.625rem;
+      color: #4A4458;
     }
 
-    .feature-grid {
+    .tcard-path {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.6875rem;
+      color: var(--card-dim);
+      margin-top: 0.125rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tcard-divider {
+      height: 0.125rem;
+      border-radius: 9999px;
+      margin-top: 0.5rem;
+      background: linear-gradient(90deg, var(--accent, var(--primary-strong)), transparent);
+    }
+
+    .tcard-code {
+      margin-top: 0.625rem;
+      background: #E8F9F0;
+      color: #0B9E5E;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-weight: 700;
+      font-size: 1.5rem;
+      letter-spacing: 0.3em;
+      text-align: center;
+      border-radius: 0.625rem;
+      padding: 0.5rem 0 0.5rem 0.3em;
+    }
+
+    .tcard-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .tcard-time {
+      font-size: 0.75rem;
+      color: var(--card-dim);
+      flex-shrink: 0;
+    }
+
+    .tcard-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4375rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .tbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3125rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      padding: 0.375rem 0.9375rem;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tbtn svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .tbtn-solid {
+      background: var(--primary-strong);
+      color: #fff;
+    }
+
+    .tbtn-ghost {
+      background: #F1EEF6;
+      color: #5B5468;
+    }
+
+    .tbtn-link {
+      background: none;
+      padding: 0.375rem 0.25rem;
+    }
+
+    .tbtn-link.green { color: #0B9E5E; }
+    .tbtn-link.red { color: #DC5A5A; }
+
+    .tcard-warn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.6875rem;
+      color: #B45309;
+      background: #FEF3C7;
+      border-radius: 0.375rem;
+      padding: 0.0625rem 0.4375rem;
+    }
+
+    .tcard-warn svg {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+
+    /* ---------- 切换税对比 ---------- */
+    .tax {
+      padding: 7rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .tax-inner {
+      max-width: 60rem;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .tax-grid {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 2.25rem;
+      text-align: left;
+    }
+
+    @media (max-width: 880px) {
+      .tax-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tax-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.75rem 1.625rem;
+    }
+
+    .tax-panel.win {
+      border-color: rgba(139, 92, 246, 0.55);
+      background:
+        linear-gradient(180deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.03)),
+        var(--surface);
+    }
+
+    .tax-panel h3 {
+      font-size: 1.0625rem;
+      margin-bottom: 1.375rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tax-panel h3 .sub-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-faint);
+    }
+
+    .tax-steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .tax-steps li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+    }
+
+    .tax-steps .n {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+
+    .tax-steps b {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .tax-steps em {
+      font-style: normal;
+      font-size: 0.8125rem;
+      color: var(--text-faint);
+    }
+
+    .tax-verdict {
+      margin-top: 1.375rem;
+      padding-top: 1.125rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--red);
+    }
+
+    .tax-big {
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+
+    .tax-big .grad {
+      background: linear-gradient(100deg, #A78BFA 0%, #8B5CF6 55%, #60A5FA 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+
+    .tax-line {
+      color: var(--text-dim);
+      font-size: 0.9688rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .chip-row span {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #C4B5FD;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem;
+    }
+
+    .tax-punch {
+      max-width: 44rem;
+      margin: 0 auto;
+      color: var(--text-dim);
+      font-size: 1rem;
+      line-height: 1.85;
+    }
+
+    /* ---------- 事件系统一屏 ---------- */
+    .core {
+      padding: 7rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      background:
+        radial-gradient(40rem 26rem at 50% 0%, rgba(124, 58, 237, 0.12), transparent 65%),
+        var(--bg-soft);
+      text-align: center;
+    }
+
+    .core h2,
+    .section-h2 {
+      font-size: clamp(1.625rem, 3.6vw, 2.375rem);
+      font-weight: 800;
+      margin-bottom: 0.875rem;
+    }
+
+    .section-lead {
+      color: var(--text-dim);
+      max-width: 40rem;
+      margin: 0 auto 3rem;
+      font-size: 1.0625rem;
+    }
+
+    .core-diagram {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
       gap: 1rem;
+      max-width: 60rem;
+      margin: 0 auto;
     }
 
-    @media (min-width: 640px) {
-      .feature-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.25rem;
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .feature-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    .feature-card {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
+    .core-node {
+      flex: 1;
+      max-width: 17rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 1rem;
-      padding: 1.5rem;
-      transition: all 0.2s;
+      padding: 1.5rem 1.25rem;
+      text-align: left;
+      transition: border-color 0.25s, transform 0.25s;
     }
 
-    @media (min-width: 640px) {
-      .feature-card {
-        padding: 1.75rem;
+    .core-node:hover {
+      border-color: rgba(139, 92, 246, 0.5);
+      transform: translateY(-3px);
+    }
+
+    .core-node .icon-chip {
+      margin-bottom: 0.875rem;
+    }
+
+    .core-node h3 {
+      font-size: 1.0625rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .core-node p {
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .core-arrow {
+      align-self: center;
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+
+    .core-arrow svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    @media (max-width: 880px) {
+      .core-diagram {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .core-node {
+        width: 100%;
+        max-width: 26rem;
+      }
+
+      .core-arrow svg {
+        transform: rotate(90deg);
       }
     }
 
-    .feature-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-      border-color: #DDD6FE;
-    }
-
-    .feature-icon {
-      width: 2.75rem;
-      height: 2.75rem;
+    .icon-chip {
+      width: 2.5rem;
+      height: 2.5rem;
       border-radius: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.375rem;
-      margin-bottom: 1rem;
+      flex-shrink: 0;
     }
 
-    .feature-card h3 {
-      font-size: 1.0625rem;
-      margin-bottom: 0.375rem;
+    .icon-chip svg {
+      width: 1.25rem;
+      height: 1.25rem;
     }
 
-    .feature-card p {
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-      line-height: 1.6;
+    .core-note {
+      margin-top: 2rem;
+      color: var(--text-faint);
+      font-size: 0.875rem;
     }
 
-    /* Plugins */
+    /* ---------- 插件 ---------- */
     .plugins {
-      max-width: 68.75rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
+      padding: 7rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    @media (min-width: 640px) {
-      .plugins {
-        margin: 4rem auto;
-      }
+    .plugins-head {
+      text-align: center;
     }
 
     .plugin-grid {
+      max-width: 66rem;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .plugin-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+      grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+      gap: 0.875rem;
     }
 
     .plugin-card {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
-      border-radius: 1rem;
-      padding: 1.35rem 1.5rem;
       display: flex;
-      gap: 1rem;
+      gap: 0.875rem;
       align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.125rem 1.25rem;
+      transition: border-color 0.25s, transform 0.25s;
     }
 
-    .plugin-card .tag {
-      font-size: 0.6875rem;
-      font-weight: 700;
-      color: var(--primary);
-      background: var(--primary-light);
-      border-radius: 9999px;
-      padding: 0.15rem 0.5rem;
-      white-space: nowrap;
-      margin-top: 0.2rem;
+    .plugin-card:hover {
+      border-color: rgba(139, 92, 246, 0.45);
+      transform: translateY(-2px);
     }
 
     .plugin-card h3 {
-      font-size: 1rem;
-      margin-bottom: 0.25rem;
+      font-size: 0.9688rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .plugin-card h3 .ptag {
+      font-size: 0.625rem;
+      font-weight: 700;
+      color: #A78BFA;
+      background: var(--primary-soft);
+      border-radius: 9999px;
+      padding: 0.0938rem 0.4375rem;
     }
 
     .plugin-card p {
-      color: var(--text-secondary);
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
+      color: var(--text-dim);
       line-height: 1.6;
+      margin-top: 0.1875rem;
     }
 
     .plugin-foot {
       text-align: center;
-      margin-top: 1.5rem;
+      margin-top: 2rem;
       font-size: 0.875rem;
-      color: var(--text-secondary);
+      color: var(--text-faint);
     }
 
-    /* Plugin showcase */
-    .plugin-showcase {
-      max-width: 72rem;
-      margin: 4rem auto;
-      padding: 0 1.25rem;
+    .plugin-foot a {
+      color: #A78BFA;
     }
 
-    @media (min-width: 640px) {
-      .plugin-showcase {
-        margin: 5rem auto;
-        padding: 0 2rem;
-      }
+    .plugin-foot a:hover {
+      text-decoration: underline;
     }
 
-    .showcase-layout {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 2rem;
-      margin-top: 2.5rem;
+    /* ---------- 开发者 ---------- */
+    .dev {
+      padding: 7rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      background: var(--bg-soft);
     }
 
-    @media (min-width: 900px) {
-      .showcase-layout {
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 3rem;
-        align-items: start;
-      }
-    }
-
-    .showcase-frame {
-      position: relative;
-      border-radius: 2rem;
-      background: #161226;
-      box-shadow:
-        0 0 0 0.0625rem rgba(255, 255, 255, 0.06),
-        0 2rem 4rem rgba(0, 0, 0, 0.45),
-        inset 0 0 1.5rem rgba(0, 0, 0, 0.4);
-      border: 0.5rem solid #1e1935;
-      overflow: hidden;
-      aspect-ratio: 16 / 10;
-    }
-
-    @media (min-width: 900px) {
-      .showcase-frame {
-        position: sticky;
-        top: 10vh;
-        aspect-ratio: 4 / 3;
-      }
-    }
-
-    /* 屏幕黑色区域 */
-    .showcase-frame::before {
-      content: "";
-      position: absolute;
-      top: 1.75rem;
-      left: 1rem;
-      right: 1rem;
-      bottom: 2rem;
-      background: #000;
-      border-radius: 0.75rem;
-      z-index: 1;
-    }
-
-    /* 顶部刘海 */
-    .device-notch {
-      position: absolute;
-      top: 0.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 4.5rem;
-      height: 1.25rem;
-      background: #1e1935;
-      border-radius: 9999px;
-      z-index: 4;
-      box-shadow: inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.08);
-    }
-
-    /* 底部 Home 指示条 */
-    .device-home {
-      position: absolute;
-      bottom: 0.625rem;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 3.5rem;
-      height: 0.25rem;
-      background: rgba(255, 255, 255, 0.18);
-      border-radius: 9999px;
-      z-index: 4;
-    }
-
-    .showcase-frame img {
-      position: absolute;
-      top: 1.75rem;
-      left: 1rem;
-      right: 1rem;
-      bottom: 2rem;
-      width: calc(100% - 2rem);
-      height: calc(100% - 3.75rem);
-      object-fit: contain;
-      padding: 0.75rem;
-      opacity: 0;
-      transform: scale(0.96) translateY(1rem);
-      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-                  transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 2;
-      border-radius: 0.75rem;
-    }
-
-    .showcase-frame img.active {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-
-    .showcase-panels {
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    @media (min-width: 900px) {
-      .showcase-panels {
-        gap: 0;
-      }
-    }
-
-    .showcase-panel {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
-      border-radius: 1rem;
-      padding: 1.25rem;
-      opacity: 0.45;
-      transform: translateY(0);
-      transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease;
-    }
-
-    @media (min-width: 900px) {
-      .showcase-panel {
-        min-height: 70vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        border: none;
-        background: transparent;
-        border-radius: 0;
-        padding: 1.5rem 0;
-        opacity: 0.35;
-      }
-    }
-
-    .showcase-panel.active {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @media (min-width: 900px) {
-      .showcase-panel.active {
-        opacity: 1;
-      }
-    }
-
-    .showcase-panel .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-size: 0.6875rem;
-      font-weight: 700;
-      color: var(--primary);
-      background: var(--primary-light);
-      border-radius: 9999px;
-      padding: 0.25rem 0.625rem;
-      margin-bottom: 0.75rem;
-      letter-spacing: 0.02em;
-    }
-
-    .showcase-panel h4 {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.5rem;
-      line-height: 1.4;
-    }
-
-    .showcase-panel p {
-      font-size: 0.9375rem;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-
-    /* Quote */
-    .quote {
-      max-width: 47.5rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
+    .dev-inner {
+      max-width: 44rem;
+      margin: 0 auto;
       text-align: center;
     }
 
-    @media (min-width: 640px) {
-      .quote {
-        margin: 4rem auto;
-      }
+    .code-block {
+      margin: 0 auto 1.25rem;
+      max-width: 40rem;
+      text-align: left;
+      background: #0A0812;
+      border: 1px solid var(--border-strong);
+      border-radius: 0.875rem;
+      padding: 1.25rem 1.375rem;
+      overflow-x: auto;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.7;
+      color: #C9C2DC;
     }
 
-    .quote-box {
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
-      border-radius: 1.25rem;
-      padding: 1.75rem 1.5rem;
-      position: relative;
+    .code-block .c-cmd { color: #A78BFA; }
+    .code-block .c-str { color: #7DD3A7; }
+    .code-block .c-dim { color: #5E5678; }
+
+    .dev-links {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      font-size: 0.9375rem;
     }
 
-    @media (min-width: 640px) {
-      .quote-box {
-        padding: 2.25rem 2rem;
-      }
+    .dev-links a {
+      color: #A78BFA;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
     }
 
-    .quote-box::before {
-      content: """;
-      font-size: 3rem;
-      color: var(--primary-light);
-      line-height: 1;
-      position: absolute;
-      top: 0.5rem;
-      left: 1rem;
-      font-family: Georgia, serif;
+    .dev-links a:hover {
+      text-decoration: underline;
     }
 
-    @media (min-width: 640px) {
-      .quote-box::before {
-        font-size: 4rem;
-        top: 0.75rem;
-        left: 1.25rem;
-      }
+    .dev-links svg {
+      width: 1rem;
+      height: 1rem;
     }
 
-    .quote-text {
-      font-size: 1rem;
-      color: var(--text);
-      font-style: italic;
-      margin-bottom: 1rem;
-      position: relative;
-      z-index: 1;
+    /* ---------- 隐私条 ---------- */
+    .privacy {
+      padding: 3.5rem 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    @media (min-width: 640px) {
-      .quote-text {
-        font-size: 1.125rem;
-      }
+    .privacy-row {
+      max-width: 66rem;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      gap: 1.5rem;
     }
 
-    .quote-author {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
+    .privacy-item {
+      display: flex;
+      gap: 0.875rem;
+      align-items: flex-start;
     }
 
-    /* How it works */
-    .how {
-      max-width: 50rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
+    .privacy-item .icon-chip {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34D399;
     }
 
-    @media (min-width: 640px) {
-      .how {
-        margin: 4rem auto;
-      }
+    .privacy-item h4 {
+      font-size: 0.9375rem;
+      margin-bottom: 0.125rem;
+    }
+
+    .privacy-item p {
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ---------- 下载 ---------- */
+    .download {
+      padding: 7rem 1.5rem 5rem;
+      text-align: center;
+      background:
+        radial-gradient(36rem 24rem at 50% 100%, rgba(124, 58, 237, 0.2), transparent 65%),
+        var(--bg);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .steps {
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       gap: 1rem;
-    }
-
-    @media (min-width: 640px) {
-      .steps {
-        gap: 1.25rem;
-      }
+      max-width: 52rem;
+      margin: 0 auto 2.75rem;
+      flex-wrap: wrap;
     }
 
     .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      background: var(--card);
-      border: 0.0625rem solid var(--border);
+      flex: 1;
+      min-width: 13rem;
+      max-width: 16rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 1rem;
       padding: 1.25rem;
+      text-align: left;
     }
 
-    @media (min-width: 640px) {
-      .step {
-        gap: 1.25rem;
-        padding: 1.5rem 2rem;
-      }
-    }
-
-    .step-num {
-      width: 2.25rem;
-      height: 2.25rem;
-      min-width: 2.25rem;
-      border-radius: 50%;
-      background: var(--primary);
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 0.9375rem;
-    }
-
-    @media (min-width: 640px) {
-      .step-num {
-        width: 2.5rem;
-        height: 2.5rem;
-        min-width: 2.5rem;
-        font-size: 1rem;
-      }
+    .step .num {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.8125rem;
+      color: #A78BFA;
+      margin-bottom: 0.375rem;
     }
 
     .step h4 {
-      font-size: 1rem;
-      margin-bottom: 0.25rem;
-    }
-
-    @media (min-width: 640px) {
-      .step h4 {
-        font-size: 1.0625rem;
-      }
+      font-size: 0.9688rem;
+      margin-bottom: 0.1875rem;
     }
 
     .step p {
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+      line-height: 1.6;
     }
 
-    /* CTA */
-    .cta {
-      max-width: 47.5rem;
-      margin: 3rem auto 0;
-      padding: 0 1rem;
+    .download .platform-note {
+      margin-top: 1rem;
+      font-size: 0.8125rem;
+      color: var(--text-faint);
     }
 
-    @media (min-width: 640px) {
-      .cta {
-        margin: 4rem auto 0;
-      }
-    }
-
-    .cta-box {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      border-radius: 1.25rem;
-      padding: 2rem 1.5rem;
-      text-align: center;
-      color: #fff;
-    }
-
-    @media (min-width: 640px) {
-      .cta-box {
-        padding: 2.5rem 2rem;
-      }
-    }
-
-    .cta-box h2 {
-      font-size: clamp(1.25rem, 4vw, 1.5rem);
-      margin-bottom: 0.75rem;
-    }
-
-    .cta-box p {
-      opacity: 0.9;
-      margin-bottom: 1.5rem;
-      max-width: 32rem;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .cta-box .btn {
-      background: #fff;
-      color: var(--primary);
-    }
-
-    .cta-box .btn:hover {
-      background: #F3F0FF;
-      transform: translateY(-1px);
-    }
-
-    /* Footer */
+    /* ---------- 页脚 ---------- */
     footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 2.5rem 1.5rem 3rem;
       text-align: center;
-      padding: 2.5rem 1rem;
-      color: var(--text-secondary);
-      font-size: 0.875rem;
-      margin-top: 3rem;
+      color: var(--text-faint);
+      font-size: 0.8125rem;
     }
 
-    @media (min-width: 640px) {
-      footer {
-        padding: 3rem 1rem;
-        margin-top: 4rem;
-      }
+    footer .foot-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.375rem 1.5rem;
+      margin-bottom: 0.875rem;
     }
 
     footer a {
-      margin: 0 0.5rem;
-      color: var(--text-secondary);
+      color: var(--text-dim);
     }
 
     footer a:hover {
-      color: var(--primary);
+      color: var(--text);
+    }
+
+    /* ---------- 动效兜底 ---------- */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ---------- 手机端整体节奏 ---------- */
+    @media (max-width: 880px) {
+      .hero {
+        padding: 5.5rem 1.25rem 3.5rem;
+      }
+
+      .chapter,
+      .tax,
+      .core,
+      .plugins,
+      .dev,
+      .privacy,
+      .download {
+        padding: 4.5rem 1.25rem;
+      }
+
+      .chapter-inner {
+        margin-left: 0;
+      }
+
+      .section-lead {
+        margin-bottom: 2.25rem;
+      }
+
+      .code-block {
+        font-size: 0.75rem;
+        padding: 1rem 1.125rem;
+      }
+
+      .footer .foot-links,
+      footer .foot-links {
+        gap: 0.375rem 1.125rem;
+      }
     }
   </style>
 </head>
 <body>
 
   <header>
-    <a class="logo" href=".">
-      <img src="favicon.png" alt="Catrace">
-      Catrace
-    </a>
-    <nav>
-      <a href="#why">为什么选它</a>
-      <a href="#features">功能</a>
-      <a href="#plugins">插件</a>
-      <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
-    </nav>
+    <div class="header-inner">
+      <a class="logo" href="#">
+        <img src="favicon.png" alt="Catrace">
+        Catrace
+      </a>
+      <nav>
+        <a href="#why">为什么是 Catrace</a>
+        <a href="#plugins">插件</a>
+        <a href="#dev">开发者</a>
+        <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">免费下载</a>
+      </nav>
+    </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-badge">桌面小窗系统</div>
-    <h1>该看的内容，<br><span>都住在桌面小窗里</span></h1>
-    <p class="note">久坐提醒你休息，定时叫你喝水；AI 编程进度、GitHub 动态、手机短信——都是同一块小窗里的内容。</p>
-    <p class="privacy">不偷拍、不上传。键鼠只判忙闲，数据只留本机。</p>
-    <div class="btn-group">
-      <a class="btn btn-primary" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        免费下载
-      </a>
-      <a class="btn btn-ghost" href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">
-        GitHub
-      </a>
-    </div>
-  </section>
-
-  <section class="pain">
-    <div class="pain-grid">
-      <div class="pain-card">
-        <div class="pain-icon">😫</div>
-        <div>
-          <h4>一忙就忘了时间</h4>
-          <p>写代码、写文档、追剧，回过神来已经坐了半天。</p>
-        </div>
+  <!-- ============ Hero ============ -->
+  <section class="hero" data-scene="approve">
+    <div class="hero-inner">
+      <div class="hero-badge"><span class="dot"></span>桌面事件系统 · 免费开源</div>
+      <h1>在通知上，<br><span class="grad">直接把事办完</span></h1>
+      <p class="sub">以前的通知是传送门：弹出来，点一下，跳到 App 里再操作。Catrace 把通知变成办事窗口——授权、复制验证码、标记完成，看到就能办，不用跳来跳去。</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          免费下载
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">🔀</div>
-        <div>
-          <h4>通知散落各处</h4>
-          <p>终端盯 AI、浏览器刷 GitHub、手机震动——注意力被撕成碎片。</p>
-        </div>
+      <div class="hero-chips">
+        <span>Windows · macOS · Linux</span>
+        <span>本地运行，不上传数据</span>
+        <span>AGPL-3.0</span>
       </div>
-      <div class="pain-card">
-        <div class="pain-icon">⏰</div>
-        <div>
-          <h4>闹钟不懂你忙不忙</h4>
-          <p>固定时间响，不管你在开会还是已经歇着。</p>
-        </div>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon">🐱</div>
-        <div>
-          <h4>Catrace 收进桌面小窗</h4>
-          <p>真正在忙才提醒；提醒和插件消息都住在小窗里，可点可跳过。</p>
-        </div>
+      <div class="scroll-hint">
+        <span>往下滚，看通知怎么变成一次交互</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
       </div>
     </div>
-  </section>
 
-  <section class="screenshot">
-    <img src="screenshot.png" alt="Catrace 主界面：今日统计、活动时间轴、活跃与休息时段">
-    <p class="screenshot-caption">主界面：今天坐了多久、什么时候休息过，一眼看清</p>
-  </section>
-
-  <section class="why" id="why">
-    <h2 class="section-title">和「再弹一条通知」有什么不同？</h2>
-    <p class="section-subtitle">Catrace 不是通知中心，也不再开一个大窗口。它管的是桌面小窗：打开、收拢、叠在一起，里面显示什么由插件说了算。</p>
-    <div class="why-grid">
-      <div class="why-box">
-        <h3>❌ 系统通知 / 再开窗口</h3>
-        <ul>
-          <li><span class="mark">·</span> 划掉就没了，回头找不到</li>
-          <li><span class="mark">·</span> 每个软件自己弹，抢焦点、打断正在做的事</li>
-          <li><span class="mark">·</span> 看进度、看消息，得在终端和浏览器之间来回切</li>
-          <li><span class="mark">·</span> 小事也要塞进一个完整应用</li>
-        </ul>
-      </div>
-      <div class="why-box better">
-        <h3>✅ 桌面小窗</h3>
-        <ul>
-          <li><span class="mark">✓</span> 内容住在小窗里，就在桌面上</li>
-          <li><span class="mark">✓</span> 插件决定里面是提醒、进度还是消息</li>
-          <li><span class="mark">✓</span> 打开、收拢、移动，不抢你正在用的窗口</li>
-          <li><span class="mark">✓</span> 不必为一条信息再开一个大窗口</li>
-        </ul>
+    <!-- 场景卡：AI 权限审批（首屏主打：通知即交互） -->
+    <div class="scene-cards" data-scene="approve">
+      <div class="tcard" style="--accent:#F59E0B;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#18181B;">C</div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">Claude Code 请求授权</div>
+            <div class="tcard-path">D:\workspace\my-project</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-orange">权限审批</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">想在 my-project 里运行 git push，是否允许？</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">刚刚</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">允许</button>
+            <button class="tbtn tbtn-ghost">拒绝</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="features" id="features">
-    <h2 class="section-title">装好就能用</h2>
-    <p class="section-subtitle">轻量、本地、可定制。休息与定时开箱即用，插件按需加装。</p>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#F3E8FF;">🖱️</div>
-        <h3>自动感知你在用电脑</h3>
-        <p>不记录键入内容与点击位置，只判断忙闲。纯本地运行，隐私不离机。</p>
+  <!-- ============ 切换税 ============ -->
+  <section class="tax" id="why">
+    <div class="tax-inner">
+      <h2 class="section-h2">处理一条通知，要跳几次？</h2>
+      <p class="section-lead">传统通知只负责把你送过去——真正把事办了，还要跳好几趟。</p>
+      <div class="tax-grid">
+        <div class="tax-panel">
+          <h3>传统通知 <span class="sub-label">· 传送门</span></h3>
+          <ul class="tax-steps">
+            <li><span class="n">01</span><span><b>通知弹出</b><em>知道有件事</em></span></li>
+            <li><span class="n">02</span><span><b>点它，跳走</b><em>离开当前工作</em></span></li>
+            <li><span class="n">03</span><span><b>打开 App</b><em>等它加载</em></span></li>
+            <li><span class="n">04</span><span><b>找到那件事</b><em>回忆刚才要干嘛</em></span></li>
+            <li><span class="n">05</span><span><b>办完，切回</b><em>重新进入状态</em></span></li>
+          </ul>
+          <p class="tax-verdict">4 步，才能办完一件事</p>
+        </div>
+        <div class="tax-panel win">
+          <h3>Catrace 的通知 <span class="sub-label">· 办事窗口</span></h3>
+          <div class="tax-big"><span class="grad">1 步</span></div>
+          <p class="tax-line">看到即处理：卡片上有状态、有按钮，办完即走，不用挪窝。</p>
+          <div class="chip-row">
+            <span>放行授权</span><span>复制验证码</span><span>小憩片刻</span><span>直达源通知</span><span>完成 · 延迟</span>
+          </div>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#D1FAE5;">⏱️</div>
-        <h3>久坐提醒</h3>
-        <p>连续工作太久就弹卡；可温柔卡片，也可全屏盖住屏幕逼你歇会儿。支持稍后 / 跳过。</p>
+      <p class="tax-punch">每条通知都在收你的「切换税」——所以你把它关了。不是不想要信息，是付不起这个成本。通知的本意只是让你知道有件事，Catrace 让你顺手把它办完。</p>
+    </div>
+  </section>
+
+  <!-- ============ 01 久坐 ============ -->
+  <section class="chapter" id="story" data-scene="rest">
+    <div class="chapter-inner">
+      <div class="kicker">01 · 该休息的时候</div>
+      <h2>忙满 45 分钟，它才开口</h2>
+      <p class="lead">键鼠有动静就算活跃；看视频、听歌，它会听系统声音，同样算你在忙。真忙才提醒，歇过了重新计时——不打断，也不放过。</p>
+      <ul class="check-list">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>知道了、小憩 5 分钟、跳过——怎么歇，卡片上点一下</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>轻卡片提醒，也能开全屏休息窗，盖住屏幕逼你歇会儿</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>今天坐了多久、几点休息过，主窗里一目了然</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>键鼠只判忙闲，不记录按了什么、点了哪里</li>
+      </ul>
+    </div>
+
+    <!-- 场景卡：久坐提醒 -->
+    <div class="scene-cards" data-scene="rest">
+      <div class="tcard" style="--accent:#7C3AED;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#F3E8FF;color:#7C3AED;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/><path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/><path d="M5 18v2"/><path d="M19 18v2"/></svg>
+          </div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">连续工作 45 分钟了</div>
+            <div class="tcard-meta">久坐提醒</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-purple">休息一下</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">起来接杯水，活动一下吧。今天已经坐了 3 小时 20 分。</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">刚刚</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">知道了</button>
+            <button class="tbtn tbtn-ghost">小憩 5 分钟</button>
+            <button class="tbtn tbtn-ghost">跳过</button>
+          </div>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#EDE9FE;">💧</div>
-        <h3>定时提醒</h3>
-        <p>按间隔喝水、拉伸，或定每天固定时间（如下班前打卡）。文案你来写。</p>
+    </div>
+  </section>
+
+  <!-- ============ 02 AI ============ -->
+  <section class="chapter" data-scene="agent">
+    <div class="chapter-inner">
+      <div class="kicker">02 · AI 干活的时候</div>
+      <h2>要授权？卡片上点一下</h2>
+      <p class="lead">Claude Code、ZCode、Codex、Gemini、Kimi——检测到本机 Agent，hook 一键写入。授权请求自己弹到右下角，不用切回去盯终端；跑完一轮，卡片叫你回。</p>
+      <ul class="check-list">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>卡片上「允许 / 拒绝」，点完即走——授权请求不会再一闪而过</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>正在调用什么工具、跑到哪一步，卡片实时刷新</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>等 AI 的时间自己安排，同时带几个项目也各回各的会话</li>
+      </ul>
+      <div class="shot-frame">
+        <img src="assets/app-agent-hooks.png" alt="Catrace 插件中心：Agent 通知插件，一键为本机 AI Agent 写入 hook 配置">
       </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#ECFDF5;">🎬</div>
-        <h3>看视频也算在活动</h3>
-        <p>追剧、看电影时不会被误判为休息；到点仍会提醒起来活动一下。</p>
+      <p class="shot-caption">Agent 通知插件：检测到本机的 AI Agent，一键写入 hook 配置</p>
+    </div>
+
+    <!-- 场景卡：授权 → 调用工具 → 完成 -->
+    <div class="scene-cards" data-scene="agent">
+      <div class="tcard" style="--accent:#F59E0B;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#18181B;">Z</div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">ZCode 请求授权</div>
+            <div class="tcard-path">D:\workspace\my-project</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-orange">权限审批</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">想在此项目运行 git push，是否允许？</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">刚刚</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">允许</button>
+            <button class="tbtn tbtn-ghost">拒绝</button>
+          </div>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#F3E8FF;">🔔</div>
+      <div class="tcard" style="--accent:#F59E0B;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#18181B;">Z</div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">正在重构设置页的开关组件</div>
+            <div class="tcard-path">D:\workspace\my-project</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-orange">调用工具中</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">正在调用工具 Edit</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">刚刚</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">前往会话</button>
+          </div>
+        </div>
+      </div>
+      <div class="tcard" style="--accent:#10B981;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#18181B;">Z</div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">设置页开关组件重构完成</div>
+            <div class="tcard-path">D:\workspace\my-project</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-green">任务完成</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">本轮任务已完成，等你继续。</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">刚刚</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">前往会话</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 手机 ============ -->
+  <section class="chapter" data-scene="phone">
+    <div class="chapter-inner">
+      <div class="kicker">03 · 手机在兜里的时候</div>
+      <h2>验证码：一秒复制，不用掏手机</h2>
+      <p class="lead">安卓手机装个 SmsForwarder，短信和 App 通知转发成桌面卡片。验证码点一下直接复制、粘贴即用；聊天消息合成对话小窗，新消息往上顶。</p>
+      <ul class="check-list">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>全屏打游戏时，消息安静躺在右下角，不抢焦点</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>不想看的 App，卡片上点一下就屏蔽</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Windows 系统通知也能转发进小窗，一起就地处理</li>
+      </ul>
+    </div>
+
+    <!-- 场景卡：验证码 -->
+    <div class="scene-cards" data-scene="phone">
+      <div class="tcard" style="--accent:#10B981;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#EA580C;">AP</div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">短信验证码</div>
+            <div class="tcard-meta">10:26:25 <span class="tcard-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>延迟 5 分</span></div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-tag tag-green">验证码</span>
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-divider"></div>
+        <div class="tcard-body">您的验证码是 483920，5 分钟内有效，请勿泄露。</div>
+        <div class="tcard-code">483920</div>
+        <div class="tcard-foot">
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-link green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" y="8"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>复制验证码</button>
+            <button class="tbtn tbtn-link red">屏蔽此应用</button>
+            <button class="tbtn tbtn-link red">屏蔽这个标题</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 聚合 ============ -->
+  <section class="chapter" data-scene="notify">
+    <div class="chapter-inner">
+      <div class="kicker">04 · 摸鱼的时候</div>
+      <h2>动态和待办，看完就能办</h2>
+      <p class="lead">GitHub 的 issue、PR、star，linux.do 的回复，企业微信的新待办——该来的会来，人不在不吵；来了就在卡片上处理掉。</p>
+      <ul class="check-list">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Release 更新，卡片里直接看 changelog，点卡片直达</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>企业微信待办，卡片上点「完成」就好</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>人不在时静默暂存，回来再补推，不堆积不刷屏</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>令牌、cookie 只存本机配置，不经过任何第三方</li>
+      </ul>
+    </div>
+
+    <!-- 场景卡：GitHub Release -->
+    <div class="scene-cards" data-scene="notify">
+      <div class="tcard" style="--accent:#60A5FA;">
+        <div class="tcard-head">
+          <div class="tcard-avatar" style="background:#18181B;">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          </div>
+          <div class="tcard-head-main">
+            <div class="tcard-title">Release · lanxiuyun/Catrace</div>
+            <div class="tcard-meta">v26.10.2</div>
+          </div>
+          <div class="tcard-side">
+            <span class="tcard-close">✕</span>
+          </div>
+        </div>
+        <div class="tcard-body">这次把桌面通知和插件运行时一起收了一轮：Toast 卡堆滚动更顺、插件日志全链路可见、Windows 系统通知也能进小窗。</div>
+        <div class="tcard-foot">
+          <span class="tcard-time">10 分钟前</span>
+          <div class="tcard-actions">
+            <button class="tbtn tbtn-solid">查看 Release</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 事件系统 ============ -->
+  <section class="core" id="core">
+    <h2>一块小窗，背后是一套事件系统</h2>
+    <p class="section-lead">每张卡片是一个微型界面：有状态、有按钮、有生命周期。插件不各弹各的窗口——感知、事件、渲染三层分离，所有内容走同一条事件协议，进同一块小窗。</p>
+    <div class="core-diagram">
+      <div class="core-node">
+        <div class="icon-chip" style="background:rgba(139,92,246,0.14);color:#A78BFA;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3>行为感知</h3>
+        <p>键鼠忙闲、系统声音、蓝牙设备、AI hook——安静地知道桌面上发生了什么。</p>
+      </div>
+      <div class="core-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div>
+      <div class="core-node">
+        <div class="icon-chip" style="background:rgba(96,165,250,0.14);color:#93C5FD;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+        </div>
+        <h3>事件总线</h3>
+        <p>统一协议承载每条事件的生命周期：弹出、更新、点掉，一个 id 跟到底。</p>
+      </div>
+      <div class="core-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div>
+      <div class="core-node">
+        <div class="icon-chip" style="background:rgba(16,185,129,0.14);color:#6EE7B7;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+        </div>
         <h3>桌面小窗</h3>
-        <p>右下角小窗可点、可操作；需要时也可以变成全屏休息窗，盖住屏幕逼你歇会儿。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background:#D1FAE5;">📊</div>
-        <h3>今日节奏一目了然</h3>
-        <p>统计、活动时间轴、分钟级热力图，看清高效时段和休息缺口。</p>
+        <p>右下角堆叠、点击操作、滑出收拢。里面显示什么，由插件说了算。</p>
       </div>
     </div>
+    <p class="core-note">活跃感知只服务一件事：让卡片在对的时机出现。判断只发生在本机——判断是为了少打扰，不是为了监视。</p>
   </section>
 
+  <!-- ============ 插件 ============ -->
   <section class="plugins" id="plugins">
-    <h2 class="section-title">插件加装，内容仍进小窗</h2>
-    <p class="section-subtitle">内置功能开箱即用；想更强就从本地文件夹或 zip 装插件。随用随开，不用就关。</p>
+    <div class="plugins-head">
+      <h2 class="section-h2">内置开箱即用，插件按需加装</h2>
+      <p class="section-lead">插件从本地文件夹或 zip 安装，无需编译；随用随开，不用就关。</p>
+    </div>
     <div class="plugin-grid">
       <div class="plugin-card">
-        <span class="tag">内置</span>
+        <div class="icon-chip" style="background:rgba(245,158,11,0.14);color:#FBBF24;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/><path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/><path d="M5 18v2"/><path d="M19 18v2"/></svg>
+        </div>
         <div>
-          <h3>定时提醒</h3>
-          <p>间隔提醒 + 定点提醒，每条都有自己的标题、正文和停留秒数；卡片上可稍后或跳过。</p>
+          <h3>久坐提醒 <span class="ptag">内置</span></h3>
+          <p>忙满一段连续工作，弹卡或全屏催你起身。</p>
         </div>
       </div>
       <div class="plugin-card">
-        <span class="tag">AI</span>
+        <div class="icon-chip" style="background:rgba(245,158,11,0.14);color:#FBBF24;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+        </div>
         <div>
-          <h3>AI 助手动态</h3>
-          <p>Claude、Codex 等编程 Agent 跑到哪一步、要你授权什么，弹卡告诉你，不用死盯终端。</p>
+          <h3>定时提醒 <span class="ptag">内置</span></h3>
+          <p>间隔或定点都行，喝水、护眼、打卡，文案自己写。</p>
         </div>
       </div>
       <div class="plugin-card">
-        <span class="tag">耳机</span>
+        <div class="icon-chip" style="background:rgba(139,92,246,0.16);color:#A78BFA;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+        </div>
         <div>
-          <h3>蓝牙耳机听歌</h3>
-          <p>耳机连上电脑可弹通知或打开听歌软件；断开时按你的设置暂停或关闭。</p>
+          <h3>Agent 通知</h3>
+          <p>Claude / ZCode / Codex / Gemini / Kimi 的进度与授权审批。</p>
         </div>
       </div>
       <div class="plugin-card">
-        <span class="tag">GitHub</span>
+        <div class="icon-chip" style="background:rgba(255,255,255,0.08);color:#E5E7EB;">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        </div>
         <div>
-          <h3>GitHub 动态</h3>
-          <p>有人提 issue、点 star，桌面弹卡提醒，少刷网页。</p>
+          <h3>GitHub 通知</h3>
+          <p>issue、PR、star、Release，人不在就静默暂存。</p>
         </div>
       </div>
       <div class="plugin-card">
-        <span class="tag">手机</span>
+        <div class="icon-chip" style="background:rgba(239,68,68,0.14);color:#F87171;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h8"/><path d="M8 8h5"/></svg>
+        </div>
         <div>
-          <h3>手机消息转发</h3>
-          <p>安卓短信或 App 通知转发到电脑小窗（需搭配 SmsForwarder 等工具）。</p>
+          <h3>SmsForwarder 通知</h3>
+          <p>安卓短信与 App 通知转发到电脑，验证码一键复制。</p>
         </div>
       </div>
       <div class="plugin-card">
-        <span class="tag">社区</span>
+        <div class="icon-chip" style="background:rgba(16,185,129,0.14);color:#6EE7B7;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+        </div>
         <div>
           <h3>LINUX DO 通知</h3>
-          <p>linux.do 论坛有新的回复、@我或点赞时，桌面弹卡提醒。</p>
+          <p>论坛有新回复、@我或点赞，及时弹卡。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <div class="icon-chip" style="background:rgba(59,130,246,0.14);color:#93C5FD;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5Z"/><path d="M3 14v-3a9 9 0 0 1 18 0v3"/></svg>
+        </div>
+        <div>
+          <h3>蓝牙听歌</h3>
+          <p>耳机一连上电脑，自动帮你打开音乐软件。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <div class="icon-chip" style="background:rgba(245,158,11,0.14);color:#FBBF24;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h3>PasteDrop 存图</h3>
+          <p>复制的图，一键存到桌面或资源管理器。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <div class="icon-chip" style="background:rgba(99,102,241,0.16);color:#A5B4FC;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h3>企业微信待办</h3>
+          <p>工作台新待办弹卡提醒，卡片上直接标完成。</p>
+        </div>
+      </div>
+      <div class="plugin-card">
+        <div class="icon-chip" style="background:rgba(20,184,166,0.14);color:#5EEAD4;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h3>作息回顾</h3>
+          <p>翻日期回看往日的专注与休息，表盘和时间线都有。</p>
         </div>
       </div>
     </div>
-    <p class="plugin-foot">
-      仓库里还有 notify-demo、sidecar-echo 等演示插件。开发者想自己写？看
-      <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">catrace-plugin</a>
-    </p>
+    <p class="plugin-foot">想自己写一个插件？协议、模板和开发文档都在 <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">catrace-plugin</a> 仓库。</p>
   </section>
 
-  <section class="plugin-showcase" id="gallery">
-    <h2 class="section-title">插件内容，统一落在小窗里</h2>
-    <p class="section-subtitle">无论手机通知、耳机连接还是验证码，都收敛到同一块桌面小窗。</p>
-    <div class="showcase-layout">
-      <div class="showcase-frame" id="showcase-frame">
-        <div class="device-notch"></div>
-        <div class="device-home"></div>
-        <img src="assets/plugin-sms.png" data-index="0" alt="SmsForwarder 通知插件：安卓通知转发到电脑小窗" class="active">
-        <img src="assets/plugin-bt-music.webp" data-index="1" alt="蓝牙听歌插件：耳机连接后弹出通知">
-        <img src="assets/plugin-trae-sms.webp" data-index="2" alt="手机消息转发插件：接收 Trae 验证码">
+  <!-- ============ 开发者 ============ -->
+  <section class="dev" id="dev">
+    <div class="dev-inner">
+      <h2 class="section-h2">想接点自己的东西？一行 HTTP</h2>
+      <p class="section-lead">本地回环 Event API：脚本、CI、你自己的 agent，都能把事件发进桌面小窗。</p>
+      <div class="code-block"><span class="c-dim"># 本地回环，Token 在 Catrace 调试页生成</span><br><span class="c-cmd">curl</span> -X POST http://127.0.0.1:23457/v1/events \ <br> &nbsp;&nbsp;-H <span class="c-str">"Authorization: Bearer &lt;token&gt;"</span> \ <br> &nbsp;&nbsp;-H <span class="c-str">"Content-Type: application/json"</span> \ <br> &nbsp;&nbsp;-d <span class="c-str">'{"title":"构建完成","body":"exit 0 · 用时 42s","level":"success"}'</span></div>
+      <div class="dev-links">
+        <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          插件开发文档
+        </a>
+        <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          源码
+        </a>
       </div>
-      <div class="showcase-panels" id="showcase-panels">
-        <div class="showcase-panel active" data-index="0">
-          <span class="tag">📱 手机消息转发</span>
-          <h4>安卓通知直达桌面</h4>
-          <p>短信、App 通知、验证码……转发到电脑小窗，可一键复制或拉黑应用。</p>
+    </div>
+  </section>
+
+  <!-- ============ 隐私 ============ -->
+  <section class="privacy">
+    <div class="privacy-row">
+      <div class="privacy-item">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
         </div>
-        <div class="showcase-panel" data-index="1">
-          <span class="tag">🎧 蓝牙听歌</span>
-          <h4>耳机连上自动提醒</h4>
-          <p>蓝牙耳机连接 / 断开时弹卡，可自动打开你指定的音乐播放器。</p>
+        <div>
+          <h4>数据不出本机</h4>
+          <p>所有记录存在本地，没有账号，也没有云端。</p>
         </div>
-        <div class="showcase-panel" data-index="2">
-          <span class="tag">🔑 验证码直达</span>
-          <h4>登录验证码直接弹卡</h4>
-          <p>手机收到 Trae 等登录验证码，桌面同步弹窗，不用反复低头看手机。</p>
+      </div>
+      <div class="privacy-item">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h4>键鼠只判忙闲</h4>
+          <p>不记录按键内容和点击位置，只回答一个问题：你在不在忙。</p>
+        </div>
+      </div>
+      <div class="privacy-item">
+        <div class="icon-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h4>轻量省资源</h4>
+          <p>轻量模式下主窗销毁重建，托盘静默时几乎不占内存。</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="quote">
-    <div class="quote-box">
-      <p class="quote-text">「有些东西不需要再开一个大窗口。提醒、进度、消息，小窗里就够。」</p>
-      <p class="quote-author">—— Catrace</p>
-    </div>
-  </section>
-
-  <section class="how">
-    <h2 class="section-title">三分钟上手</h2>
-    <p class="section-subtitle">没有复杂设置，安装后就能用。</p>
+  <!-- ============ 下载 ============ -->
+  <section class="download" id="download">
+    <h2 class="section-h2">今天开始体验小窗的魅力</h2>
+    <p class="section-lead">完全免费开源，装上就能用。</p>
     <div class="steps">
       <div class="step">
-        <div class="step-num">1</div>
-        <div>
-          <h4>下载安装</h4>
-          <p>支持 Windows、macOS、Linux。安装后可开开机自启，后台静默跑。</p>
-        </div>
+        <div class="num">01</div>
+        <h4>下载安装</h4>
+        <p>支持 Windows、macOS、Linux，可开机自启、静默启动。</p>
       </div>
       <div class="step">
-        <div class="step-num">2</div>
-        <div>
-          <h4>像往常一样用电脑</h4>
-          <p>写代码、写文档、回邮件、看视频……久坐与定时按你的节奏自动记、自动提醒。</p>
-        </div>
+        <div class="num">02</div>
+        <h4>像平常一样干活</h4>
+        <p>该提醒的自动来，都落在右下角小窗里。</p>
       </div>
       <div class="step">
-        <div class="step-num">3</div>
-        <div>
-          <h4>需要时再加插件</h4>
-          <p>在插件中心开关功能；从文件夹或 zip 安装扩展。内容仍进桌面小窗。</p>
-        </div>
+        <div class="num">03</div>
+        <h4>需要时加插件</h4>
+        <p>AI 进度、手机消息、GitHub 动态，从文件夹或 zip 装进小窗。</p>
       </div>
     </div>
-  </section>
-
-  <section class="cta">
-    <div class="cta-box">
-      <h2>从今天开始，少切窗口，少久坐</h2>
-      <p>Catrace 完全免费开源。下载试用，把休息提醒和重要动态收进桌面小窗。</p>
-      <a class="btn" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        立即下载 Catrace
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载最新版本
       </a>
+      <a class="btn btn-ghost" href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
     </div>
+    <p class="platform-note">Windows · macOS · Linux — AGPL-3.0 开源，永久免费</p>
   </section>
 
   <footer>
-    <p>
+    <div class="foot-links">
       <a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lanxiuyun/Catrace/releases" target="_blank" rel="noopener">Releases</a>
       <a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noopener">插件仓库</a>
       <a href="https://github.com/lanxiuyun/Catrace/issues" target="_blank" rel="noopener">问题反馈</a>
-      <a href="https://linux.do/" target="_blank" rel="noopener">linux.do 社区</a>
-    </p>
-    <p style="margin-top:0.75rem;">© Catrace — AGPL-3.0 License</p>
+      <span>QQ 群 468998176</span>
+    </div>
+    <p>© Catrace — 桌面事件系统 · 本地运行，不上传数据</p>
   </footer>
+
+  <!-- 托盘锚点（桌面端，卡片堆可见时出现） -->
+  <div class="tray-pill" id="tray-pill">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20.5 12 12 20.5 3.5 12Z"/></svg>
+  </div>
+
+  <noscript>
+    <style>
+      .chapter-inner { opacity: 1; transform: none; }
+    </style>
+  </noscript>
 
   <script>
     (function () {
-      const frame = document.getElementById('showcase-frame');
-      const panels = document.getElementById('showcase-panels');
-      if (!frame || !panels) return;
+      // 只观察章节区块：卡片堆自带 data-scene 但不是 section，且固定于视口，不能参与竞逐
+      var sections = Array.prototype.slice.call(document.querySelectorAll('section[data-scene]'));
+      var groups = Array.prototype.slice.call(document.querySelectorAll('.scene-cards'));
+      var tray = document.getElementById('tray-pill');
+      var current = null;
 
-      const images = Array.from(frame.querySelectorAll('img[data-index]'));
-      const panelList = Array.from(panels.querySelectorAll('.showcase-panel[data-index]'));
-
-      function activate(index) {
-        images.forEach((img) => img.classList.toggle('active', img.dataset.index === String(index)));
-        panelList.forEach((panel) => panel.classList.toggle('active', panel.dataset.index === String(index)));
+      function apply(scene) {
+        if (scene === current) return;
+        current = scene;
+        groups.forEach(function (g) {
+          g.classList.toggle('show', g.dataset.scene === scene);
+        });
+        if (tray) tray.classList.toggle('show', !!scene);
+        sections.forEach(function (s) {
+          s.classList.toggle('active', s.dataset.scene === scene);
+        });
       }
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              activate(entry.target.dataset.index);
-            }
-          });
-        },
-        {
-          root: null,
-          rootMargin: '-45% 0px -45% 0px',
-          threshold: 0,
-        }
-      );
+      // 按区块（而非场景名）记录可见度：hero 与第一章同属 rest，不能互相覆盖
+      var ratios = new Map();
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          ratios.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0);
+        });
+        var best = null, bestRatio = 0;
+        ratios.forEach(function (ratio, section) {
+          if (ratio > bestRatio) {
+            bestRatio = ratio;
+            best = section.dataset.scene;
+          }
+        });
+        apply(best);
+      }, { rootMargin: '-12% 0px -12% 0px', threshold: [0, 0.15, 0.35, 0.6, 0.85] });
 
-      panelList.forEach((panel) => observer.observe(panel));
+      sections.forEach(function (s) { observer.observe(s); });
     })();
   </script>
 
