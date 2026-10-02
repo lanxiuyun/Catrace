@@ -457,6 +457,18 @@ if (station.missing.some((m) => m.startsWith('submodule'))) {
   station.missing = missingBits(station.path)
 }
 
+// 新工位 node_modules 缺失时自动装，省掉三件套里的手工 install；失败则回落到警告 + 询问。
+// pnpm 在 Windows 上是 .cmd shim，execFileSync 必须带 shell。
+if (station.missing.includes('node_modules 未装')) {
+  console.log(dim(`  正在为「${station.slug}」安装依赖（pnpm install，新工位首次要几分钟）…`))
+  try {
+    execFileSync('pnpm', ['install'], { cwd: station.path, stdio: 'inherit', shell: process.platform === 'win32' })
+  } catch (err) {
+    console.error(`${yellow('[station]')} ⚠ pnpm install 失败：${err.message}`)
+  }
+  station.missing = missingBits(station.path)
+}
+
 if (station.missing.length) warnMissing(station.missing)
 if (busy) warnBusy()
 if (station.build === 'cold') {
