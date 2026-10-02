@@ -23,14 +23,14 @@ git ls-tree <pr-head> tools/plugin-demo
 
 ### 修法
 
-在**有该 PR 分支检出的那个工位**里操作（指针改动要提交到 PR 分支上）：
+在主仓 `D:\workspace\Catrace`（main）里直接操作，指针改动提交到 main（2026-10-02 起 main 直开，无 PR 分支工位）：
 
 ```bash
-cd <工位>/tools/plugin-demo
+cd D:/workspace/Catrace/tools/plugin-demo
 git fetch origin && git checkout main && git merge --ff-only origin/main   # 跟到插件 main tip
-cd <工位> && git add tools/plugin-demo                                    # 只 stage 这一个
+cd D:/workspace/Catrace && git add tools/plugin-demo                       # 只 stage 这一个
 git commit -m "chore(submodule): point at catrace-plugin main (<sha>)"
-git push origin <PR 分支>
+git push origin main
 ```
 
 改完核对 `git ls-tree HEAD tools/plugin-demo` 与 `gh api repos/lanxiuyun/catrace-plugin/commits/main --jq .sha` 一致。内容通常等价（squash 只换了 SHA），但目录树要顺手确认一眼：插件版本号、`background` 字段有没有、被删的文件是否真的没了。
@@ -70,4 +70,4 @@ git -c url."https://ghfast.top/https://github.com/lanxiuyun/catrace-plugin.git".
 ## 相关
 
 - [../../AGENTS.md](../../AGENTS.md) 规则 11 — 插件仓库与 submodule 的日常流程
-- `.agent/reference/worktree-testing.md` — 工位与 app_data junction（该文件在 main 上由 #85 引入）
+- `.agent/reference/dev-workflow.md` — 开发工作流（main 直开；原 worktree-testing.md，#85 引入）

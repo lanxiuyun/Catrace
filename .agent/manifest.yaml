@@ -300,7 +300,7 @@ reference:
   - .agent/reference/test-strategy.md
   - .agent/reference/config-reference.md
   - .agent/reference/version-management.md
-  - .agent/reference/worktree-testing.md
+  - .agent/reference/dev-workflow.md
   - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
