@@ -69,7 +69,7 @@ export default {
       endpointTitle: 'API 地址',
       endpointDesc: '仅监听本机回环；Bearer token 鉴权',
       tokenTitle: '访问令牌',
-      tokenDesc: '外部脚本请求头：Authorization: Bearer <token>',
+      tokenDesc: '外部脚本请求头：Authorization: Bearer 你的令牌',
       show: '显示',
       hide: '隐藏',
       copy: '复制',

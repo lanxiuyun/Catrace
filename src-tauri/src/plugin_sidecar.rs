@@ -8,10 +8,11 @@ use std::time::Duration;
 use serde::Deserialize;
 use tauri::{Emitter, Manager};
 
+use crate::plugin_api::mirror_plugin_log;
 use crate::plugin_commands::{publish_plugin_event, PluginPublishInput};
 use crate::plugins::{PluginManager, PluginSidecarSpec};
 use crate::sidecar::{prepend_gui_path, resolve_program};
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 type RpcResult = Result<serde_json::Value, String>;
 
@@ -277,18 +278,18 @@ impl PluginSidecarManager {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown")
             .to_string();
-        log_info!(
+        log_debug!(
             "plugin-sidecar",
             "enqueue resolved stdin: plugin={plugin_id} event={event_id}"
         );
         std::thread::spawn(move || {
             let started_at = std::time::Instant::now();
-            log_info!(
+            log_debug!(
                 "plugin-sidecar",
                 "write resolved stdin start: plugin={plugin_id} event={event_id}"
             );
             match write_message(&stdin, &message) {
-                Ok(()) => log_info!(
+                Ok(()) => log_debug!(
                     "plugin-sidecar",
                     "write resolved stdin done: plugin={plugin_id} event={event_id} elapsed_ms={}",
                     started_at.elapsed().as_millis()
@@ -1046,19 +1047,12 @@ fn log_plugin_message(
     match level {
         "error" => log_error!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         "warn" => log_warn!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
+        // 与 plugin_api_log 对齐：插件 debug 级别默认不落盘
+        "debug" => log_debug!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
         _ => log_info!("plugin-sidecar", "[{plugin_id}] {message}{suffix}"),
     }
-    // Mirror JS plugin_api_log: forward to main DevTools via catrace:plugin-log
-    let _ = app.emit_to(
-        "main",
-        "catrace:plugin-log",
-        serde_json::json!({
-            "pluginId": plugin_id,
-            "level": level,
-            "message": message,
-            "data": data,
-        }),
-    );
+    // 镜像目标与回环防护见 mirror_plugin_log 文档
+    mirror_plugin_log(app, plugin_id, level, message, data);
 }
 
 fn write_message(stdin: &Arc<Mutex<ChildStdin>>, value: &serde_json::Value) -> Result<(), String> {

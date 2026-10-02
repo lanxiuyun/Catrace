@@ -306,7 +306,22 @@ fn log_frontend(payload: FrontendLogPayload) {
     match level {
         "error" => log_error!("frontend", "{}", payload.message),
         "warn" => log_warn!("frontend", "{}", payload.message),
-        _ => log_info!("frontend", "{}", payload.message),
+        // 前端逐条 console 输出是高频源，默认不落盘
+        _ => log_debug!("frontend", "{}", payload.message),
+    }
+}
+
+/// 切换调用窗口自身的 DevTools（F12 触发，前端各窗口共享入口）。
+/// `devtools` feature 在 Cargo.toml 无条件开启，dev/release 均可用；
+/// 这三个方法以 `any(debug_assertions, feature = "devtools")` 为编译条件，
+/// 若有人移除该 feature，本命令会在 release 构建编译失败（fail-fast），
+/// 避免静默失去排查能力。
+#[tauri::command]
+fn toggle_devtools(window: tauri::WebviewWindow) {
+    if window.is_devtools_open() {
+        window.close_devtools();
+    } else {
+        window.open_devtools();
     }
 }
 
@@ -727,7 +742,7 @@ fn close_reminder_window(
     label: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    log_info!(
+    log_debug!(
         "toast-win",
         "close_reminder_window[{}] called (前端生命周期结束)",
         label
@@ -754,7 +769,7 @@ fn close_reminder_window(
             let visible_after = window
                 .is_visible()
                 .unwrap_or(false);
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "close_reminder_window[{}] hide returned, tao is_visible={}",
                 label,
@@ -762,7 +777,7 @@ fn close_reminder_window(
             );
         } else {
             let r = window.close();
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "close_reminder_window[{}] window.close() ok={}",
                 label,
@@ -1144,7 +1159,8 @@ pub fn run() {
                     } else {
                         count >= 3 || media_active
                     };
-                    log_info!(
+                    // 逐分钟结算属高频诊断细节，降为 debug；活跃/休息的可见信号走 reminder/bus
+                    log_debug!(
                         "settle",
                         "count={} media={} fscreen={} active={}",
                         count,
@@ -1346,6 +1362,7 @@ pub fn run() {
             plugin_api::plugin_api_log,
             plugin_sidecar::plugin_sidecar_request,
             plugin_commands::get_plugin_background_source,
+            toggle_devtools,
             plugin_commands::plugin_publish_event,
             plugin_commands::plugin_report_memory,
             plugin_commands::plugin_get_activity,

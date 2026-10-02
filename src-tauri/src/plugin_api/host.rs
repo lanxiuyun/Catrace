@@ -7,7 +7,7 @@ use tauri::{Emitter, Manager, State};
 use super::require_plugin_api;
 use crate::db::Db;
 use crate::plugins::PluginManager;
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +61,27 @@ pub fn plugin_api_spawn_process(
     Ok(PluginProcessInfo { pid: child.id() })
 }
 
+/// 插件日志镜像：`catrace:plugin-log` 事件发到 main 与 reminder-toast 两窗 DevTools，
+/// 后台 WebView console 转发（plugin_api_log）与 sidecar log op 两条链路共用。
+/// plugin-bg-* 窗不发——后台窗的 console 转发会把镜像行再送回 plugin_api_log，成回环。
+pub fn mirror_plugin_log(
+    app: &tauri::AppHandle,
+    plugin_id: &str,
+    level: &str,
+    message: &str,
+    data: Option<&serde_json::Value>,
+) {
+    let payload = serde_json::json!({
+        "pluginId": plugin_id,
+        "level": level,
+        "message": message,
+        "data": data,
+    });
+    for label in ["main", crate::window_manager::TOAST_WINDOW_LABEL] {
+        let _ = app.emit_to(label, "catrace:plugin-log", payload.clone());
+    }
+}
+
 #[tauri::command]
 pub fn plugin_api_log(
     window: tauri::WebviewWindow,
@@ -79,17 +100,16 @@ pub fn plugin_api_log(
         "error" => log_error!("plugin", "[{plugin_id}] {message}{suffix}"),
         "warn" => log_warn!("plugin", "[{plugin_id}] {message}{suffix}"),
         "info" => log_info!("plugin", "[{plugin_id}] {message}{suffix}"),
+        // 插件 WebView console.debug 转发走这条；默认级别不落盘
+        "debug" => log_debug!("plugin", "[{plugin_id}] {message}{suffix}"),
         other => log_info!("plugin", "[{plugin_id}][{other}] {message}{suffix}"),
     }
-    let _ = window.app_handle().emit_to(
-        "main",
-        "catrace:plugin-log",
-        serde_json::json!({
-            "pluginId": plugin_id,
-            "level": level,
-            "message": message,
-            "data": data,
-        }),
+    mirror_plugin_log(
+        window.app_handle(),
+        &plugin_id,
+        &level,
+        &message,
+        data.as_ref(),
     );
     Ok(())
 }

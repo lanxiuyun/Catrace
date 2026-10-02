@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 /// Kinds plugins must not claim (includes sdk — reserved for M9 generic path).
 pub const RESERVED_KINDS: &[&str] = &[
@@ -221,7 +221,9 @@ impl PluginManager {
         }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
-        log_info!(
+        // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
+        // 启动时的汇总见 log_loaded_plugins 的一行版
+        log_debug!(
             "plugins",
             "scanned {} plugin(s) in {}",
             list.len(),
@@ -465,12 +467,13 @@ impl PluginManager {
         let Ok(guard) = self.inner.lock() else {
             return;
         };
+        let mut enabled: Vec<&str> = Vec::new();
         for p in &guard.plugins {
             if let Some(err) = &p.info.error {
                 log_warn!("plugins", "loaded {} error={err}", p.info.id);
                 continue;
             }
-            log_info!(
+            log_debug!(
                 "plugins",
                 "loaded {} v{} hash={} enabled={}",
                 p.info.id,
@@ -478,7 +481,22 @@ impl PluginManager {
                 p.content_hash,
                 p.info.enabled
             );
+            if p.info.enabled {
+                enabled.push(p.info.id.as_str());
+            }
         }
+        // 逐插件明细走 debug（今日日志实测：每启动 14 行、多轮重启时占日志大头）；
+        // 默认级别只留一行汇总，enabled 名单是「装了没生效」类问题的第一排查线索
+        log_info!(
+            "plugins",
+            "loaded {} plugin(s), enabled: {}",
+            guard.plugins.len(),
+            if enabled.is_empty() {
+                "none".to_string()
+            } else {
+                enabled.join(", ")
+            }
+        );
     }
 }
 
@@ -1639,7 +1657,9 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
         wanted.push(name.to_string());
         match ensure_dir_link(&src, &dst) {
             Ok(DevLinkResult::AlreadyLinked) => {
-                log_info!("plugins", "dev link ok: {name} already linked");
+                // 无变化的常态分支降 debug：14 个插件每次启动都刷一遍；re-pointed/
+                // created/pruned 才是状态变化，留在 info（dev-link 钉错工位的排查线索）
+                log_debug!("plugins", "dev link ok: {name} already linked");
             }
             Ok(DevLinkResult::Created) => {
                 log_info!(

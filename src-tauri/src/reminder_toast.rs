@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use tauri::Manager;
 
 use crate::{
-    accessibility_permission_granted, log_error, log_info, log_warn, window_manager,
+    accessibility_permission_granted, log_debug, log_error, log_info, log_warn, window_manager,
     ReminderWindowData, ReminderWindowStore,
 };
 
@@ -185,7 +185,7 @@ fn fit_toast_window(
     let x = area.position.x + area.size.width as i32 - width as i32;
     let y = area.position.y + area.size.height as i32 - height as i32;
 
-    log_info!(
+    log_debug!(
         "toast-win",
         "fit: work_area=({},{},{}x{}) scale={} text_scale={} content_logical={}x{} physical=({},{},{}x{}) follow_cursor={}",
         area.position.x,
@@ -279,10 +279,10 @@ fn build_toast_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWin
 
 /// 在应用启动时预创建 Toast 窗口（隐藏），避免通知到达时才动态创建导致抢焦点。
 pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
-    log_info!("toast-win", "prepare: start");
+    log_debug!("toast-win", "prepare: start");
 
     if app_handle.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
-        log_info!("toast-win", "prepare: window already exists, skip build");
+        log_debug!("toast-win", "prepare: window already exists, skip build");
         return;
     }
 
@@ -298,7 +298,7 @@ pub fn prepare_toast_window(app_handle: &tauri::AppHandle) {
                 // Windows 上 .visible(false) 偶尔不会立即生效，创建后再显式 hide 一次作为防御
                 let hide_ok = window.hide().is_ok();
                 let visible_after = window.is_visible().unwrap_or(false);
-                log_info!(
+                log_debug!(
                     "toast-win",
                     "prepare: hide ok={} visible_after={}",
                     hide_ok,
@@ -327,15 +327,15 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
     let app = app_handle.clone();
     tauri::async_runtime::spawn(async move {
         let _guard = TOAST_MUTEX.lock().await;
-        log_info!("toast-win", "ensure: acquired TOAST_MUTEX");
+        log_debug!("toast-win", "ensure: acquired TOAST_MUTEX");
 
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
             if window.is_visible().unwrap_or(false) {
-                log_info!("toast-win", "ensure: already visible (double-check under lock), skip");
+                log_debug!("toast-win", "ensure: already visible (double-check under lock), skip");
                 window_manager::ensure_reminder_topmost(&window);
                 return;
             }
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "ensure: reuse existing window, hwnd={}",
                 toast_hwnd_debug(&window)
@@ -351,7 +351,7 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
         }
 
         if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
-            log_info!("toast-win", "ensure: window appeared between checks, skip");
+            log_debug!("toast-win", "ensure: window appeared between checks, skip");
             return;
         }
         log_warn!(
@@ -385,7 +385,7 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 let route_js = "window.__CATRACE_REMINDER_TYPE__ = 'toast'; window.location.hash = '#/reminder-toast';";
                 let eval_ok = window.eval(route_js).is_ok();
-                log_info!(
+                log_debug!(
                     "toast-win",
                     "ensure: rebuild path route eval ok={}",
                     eval_ok
@@ -450,7 +450,7 @@ pub fn create_toast_window(
         let _guard = TOAST_MUTEX.lock().await;
 
         if let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) {
-            log_info!("toast-win", "create_toast_window: reuse, injecting kind={}", data.kind);
+            log_debug!("toast-win", "create_toast_window: reuse, injecting kind={}", data.kind);
             let payload = serde_json::json!({
                 "kind": data.kind,
                 "boundary": data.boundary,
@@ -473,7 +473,7 @@ pub fn create_toast_window(
         }
 
         if app.get_webview_window(TOAST_WINDOW_LABEL).is_some() {
-            log_info!("toast-win", "create_toast_window: appeared between checks, skip");
+            log_debug!("toast-win", "create_toast_window: appeared between checks, skip");
             return;
         }
         log_warn!(
@@ -507,7 +507,7 @@ pub fn create_toast_window(
 
 fn try_publish_toast_event(app_handle: &tauri::AppHandle, event: crate::event::BusEvent) -> bool {
     use tauri::Manager;
-    log_info!(
+    log_debug!(
         "toast-win",
         "bus.publish event_type={} kind={} sticky={:?} dedupe={:?}",
         event.event_type,
