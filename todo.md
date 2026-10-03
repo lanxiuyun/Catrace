@@ -1,6 +1,5 @@
 codex 跳转APP对话 https://github.com/bohu8264/N-Agent-Bridge/releases/tag/v0.15.0-development
 sms活跃提醒有bug，我那一分钟前30秒活跃了，后30秒去厕所了，可能就错过了这个通知。所有活跃提醒都有这个bug
-ReminderToast.vue 重构
 api 调整为 webhook?先了解一下先
 发小红书
 用React来重构，让插件也支持使用 React，并且支持第三方包
@@ -8,8 +7,6 @@ api 调整为 webhook?先了解一下先
 添加类似rubick的启动器功能？
 dsh 通知，dsh小窗模式
 整个框架重构，像 DSH 一样，把所有的页面设置、信息统计面板都做成插件化？
-当前log日志过多，而且toast窗口按下F12是否能获取到插件日志？
-log系统重构？
 
 ## 已完成
 测试 toast window 弹出是否会影响全屏游戏
@@ -31,3 +28,5 @@ node自动安装
 agent通知，完善opencode 以及 opencode小窗计划
 轻量模式（issue #82，两期已落地，PR #83 已合并进 main）
 windows 通知劫持 → 系统通知转发（#87 已上线；26.10.2 补通知本体点击跳转）
+ReminderToast.vue 重构
+log 日志瘦身 + 全窗口 F12 DevTools + 插件日志全链路可见（PR #92 已合并进 main 3e9c128；Toast 窗点卡片拿焦点后按 F12 可看 [plugin:xxx] 日志；全量排查设 CATRACE_LOG_LEVEL=debug）
