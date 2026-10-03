@@ -20,6 +20,44 @@ pnpm tauri dev
 - **同一时刻只能跑一个 dev 实例**：单实例插件是无条件注册的（`src-tauri/src/lib.rs`，没有 debug 门），第二个实例启动即退出、把事件转给第一个；且所有构建共用同一份 app_data（`%APPDATA%\com.lanxiuyun.catrace`）。要看另一个改动，先停掉当前 dev
 - dev 与正式安装的 Catrace 共用 app_data，测试前先从托盘退出正式版，避免单实例互相干扰
 
+## 坑：改插件会把 dev server 打死（Vite watcher EBUSY）
+
+**症状**：每次在 `tools/plugin-demo/` 下写文件（尤其连续改几个文件），`pnpm tauri dev` 突然整体退出：
+
+```
+Error: EBUSY: resource busy or locked, watch '...\tools\plugin-demo\dsh-chat\runtime\lib\
+  .gui-proxy.mjs.<pid>.<uuid>.tmpdir\gui-proxy.mjs.tmp'
+    at FSWatcher.<computed> (node:fs:watchers) ← createFsWatchInstance ← vite .../_watchWithNodeFs
+[ELIFECYCLE] Command failed with exit code 1.  Error The "beforeDevCommand" terminated with a non-zero status code.
+```
+
+**根因**（**与 `beforeDevCommand` 内容、与 worktree/station 都无关**）：`beforeDevCommand` 一直是 `pnpm dev`（vite）；
+而 `vite.config.ts` 的 `server.watch.ignored` **只排除了 `src-tauri`**，于是 Vite 的 chokidar 把
+`tools/plugin-demo/` 也纳入监视（实测：43 个目录 / 221 个条目）。编辑器/工具有序写入会在**同目录**建
+`.xxx.tmpdir/` 临时文件再 rename，chokidar 把新目录/新文件加进 `fs.watch` 的瞬间撞上 rename/占用 → `EBUSY`；
+这个 error 事件在 Vite 里没人接 → **进程直接退出** → tauri 判定 `beforeDevCommand` 失败 → 连带 App 一起关。
+
+**修法**（已落在 `vite.config.ts`）：把不参与前端构建的目录整片排除
+
+```ts
+watch: {
+  ignored: [
+    "**/src-tauri/**",
+    "**/tools/plugin-demo/**",  // 插件源码不参与前端构建，宿主运行时按需读文件
+    "**/*.tmpdir/**", "**/*.tmpdir",
+    "**/e2e-temp/**",
+  ],
+}
+```
+
+**验证口径**（不依赖复现那个竞态）：用 `createServer()` 起一份、等 chokidar 初扫完，看 `server.watcher.getWatched()`：
+修前命中 `tools/plugin-demo` 43 个目录 / 221 条目，修后 **0**（监视目录总数 139 → 90）。
+脚本留在 `e2e-temp/watch-set-check.mjs`（对照用未修复配置 `e2e-temp/vite-nofix.config.ts`）。
+
+> 注：`pnpm station` / `pnpm st` / `scripts/dev-station.mjs`（worktree 工位时代的启动器）**已删除**（2026-10-03）。
+> `src-tauri/src/plugins.rs` 里的 dev-link 重指向 / prune 逻辑**保留**——它当年为工位而写，但作用不止工位
+> （仓库搬家、重新 clone、插件移出子仓时都靠它清理幽灵链接），只是注释里的"工位"字样已中性化。
+
 ## 并行开发守则
 
 所有任务共用一个工作区，未提交改动会混在一起，所以：
