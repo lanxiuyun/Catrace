@@ -9,8 +9,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "station": "node scripts/dev-station.mjs",
-    "st": "node scripts/dev-station.mjs",
     "version:set": "node scripts/set-version.mjs"
   },
   "dependencies": {
