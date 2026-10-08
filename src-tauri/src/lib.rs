@@ -5,6 +5,7 @@ mod event_http;
 mod log;
 mod media_audio;
 mod node_runtime;
+mod notification_listener;
 mod special_day;
 mod plugin_api;
 mod plugin_commands;
@@ -305,7 +306,22 @@ fn log_frontend(payload: FrontendLogPayload) {
     match level {
         "error" => log_error!("frontend", "{}", payload.message),
         "warn" => log_warn!("frontend", "{}", payload.message),
-        _ => log_info!("frontend", "{}", payload.message),
+        // 前端逐条 console 输出是高频源，默认不落盘
+        _ => log_debug!("frontend", "{}", payload.message),
+    }
+}
+
+/// 切换调用窗口自身的 DevTools（F12 触发，前端各窗口共享入口）。
+/// `devtools` feature 在 Cargo.toml 无条件开启，dev/release 均可用；
+/// 这三个方法以 `any(debug_assertions, feature = "devtools")` 为编译条件，
+/// 若有人移除该 feature，本命令会在 release 构建编译失败（fail-fast），
+/// 避免静默失去排查能力。
+#[tauri::command]
+fn toggle_devtools(window: tauri::WebviewWindow) {
+    if window.is_devtools_open() {
+        window.close_devtools();
+    } else {
+        window.open_devtools();
     }
 }
 
@@ -365,6 +381,26 @@ fn set_silent_start(enabled: bool, db: tauri::State<db::Db>) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+const LIGHTWEIGHT_MODE_KEY: &str = "lightweight_mode";
+
+/// 轻量模式开关（默认 false）。使用点现读 settings 表，切换后即时生效。
+fn lightweight_mode_enabled(app: &tauri::AppHandle) -> bool {
+    app.state::<db::Db>()
+        .get_setting(LIGHTWEIGHT_MODE_KEY, "false")
+        == "true"
+}
+
+#[tauri::command]
+fn get_lightweight_mode(db: tauri::State<db::Db>) -> bool {
+    db.get_setting(LIGHTWEIGHT_MODE_KEY, "false") == "true"
+}
+
+#[tauri::command]
+fn set_lightweight_mode(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String> {
+    db.set_setting(LIGHTWEIGHT_MODE_KEY, &enabled.to_string())
+        .map_err(|e| e.to_string())
+}
+
 /** 获取「隐藏统计面板」开关状态（默认 false）。 */
 #[tauri::command]
 fn get_hide_stats(db: tauri::State<db::Db>) -> bool {
@@ -380,10 +416,7 @@ fn set_hide_stats(enabled: bool, db: tauri::State<db::Db>) -> Result<(), String>
 
 #[tauri::command]
 fn show_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    }
+    show_or_rebuild_main_window(&app_handle);
     Ok(())
 }
 
@@ -393,6 +426,67 @@ fn hide_main_window(app_handle: tauri::AppHandle) -> Result<(), String> {
         window.hide().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// 挂主窗事件：关闭时按「轻量模式」分流——普通模式拦截关闭、隐藏到托盘（原行为）；
+/// 轻量模式放行关闭让窗口销毁，销毁前保存窗口几何供重建时恢复。
+/// 主窗重建后必须重新挂这套回调，setup 与 show_or_rebuild_main_window 共用。
+fn attach_main_window_events(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+    let app = app.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if lightweight_mode_enabled(&app) {
+                // 轻量模式：放行关闭（窗口随之销毁），先落盘窗口几何
+                let _ = app.save_window_state(StateFlags::all());
+                return;
+            }
+            api.prevent_close();
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+    });
+}
+
+/// 显示主窗口；轻量模式下主窗可能已被销毁，此时异步重建。
+/// 不能同步 build：Windows 上在事件回调里建 WebView 会阻塞主事件循环
+/// （同 reminder_toast 的重建先例）。
+pub(crate) fn show_or_rebuild_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    log_info!("main-win", "main window missing, rebuilding (lightweight mode)");
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // 镜像 tauri.conf.json 中 main 窗的配置（label 默认 "main"）。
+        // 必须先隐藏创建、再 show：与插件后台窗同款（plugin_window.rs）。创建期
+        // 立即可见会卡死主线程（白屏未响应，2026-09-28 实测）；位置/尺寸由
+        // window-state 插件在 on_window_ready 自动恢复，这里不要手动 restore。
+        let builder = tauri::WebviewWindowBuilder::new(
+            &app,
+            "main",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .title("Catrace")
+        .inner_size(800.0, 600.0)
+        .min_inner_size(800.0, 600.0)
+        .visible(false);
+        match builder.build() {
+            Ok(window) => {
+                log_info!("main-win", "main window built, showing");
+                attach_main_window_events(&app, &window);
+                let _ = window.show();
+                let _ = window.set_focus();
+                log_info!("main-win", "main window rebuilt");
+            }
+            Err(e) => {
+                log_error!("main-win", "rebuild main window failed: {}", e);
+            }
+        }
+    });
 }
 
 #[tauri::command]
@@ -648,7 +742,7 @@ fn close_reminder_window(
     label: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    log_info!(
+    log_debug!(
         "toast-win",
         "close_reminder_window[{}] called (前端生命周期结束)",
         label
@@ -658,8 +752,12 @@ fn close_reminder_window(
         return Ok(());
     }
     if let Some(window) = app_handle.get_webview_window(&label) {
-        // Toast/Popup 复用窗口，隐藏而非关闭，避免下次创建时抢焦点
-        if label == window_manager::TOAST_WINDOW_LABEL
+        // 轻量模式：Toast 卡片清空后直接销毁窗口，下次通知按需重建；
+        // 其余情况（popup、普通模式）复用窗口，隐藏而非关闭，避免下次创建时抢焦点
+        if label == window_manager::TOAST_WINDOW_LABEL && lightweight_mode_enabled(&app_handle) {
+            log_info!("toast-win", "close_reminder_window[{}] destroying (lightweight mode)", label);
+            reminder_toast::request_destroy_toast_window(&app_handle);
+        } else if label == window_manager::TOAST_WINDOW_LABEL
             || label == window_manager::POPUP_WINDOW_LABEL
         {
             log_info!("toast-win", "close_reminder_window[{}] hiding (reuse)", label);
@@ -671,7 +769,7 @@ fn close_reminder_window(
             let visible_after = window
                 .is_visible()
                 .unwrap_or(false);
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "close_reminder_window[{}] hide returned, tao is_visible={}",
                 label,
@@ -679,7 +777,7 @@ fn close_reminder_window(
             );
         } else {
             let r = window.close();
-            log_info!(
+            log_debug!(
                 "toast-win",
                 "close_reminder_window[{}] window.close() ok={}",
                 label,
@@ -851,11 +949,9 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 单例模式：当用户尝试启动第二个实例时，聚焦到已有实例的主窗口
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            // 单例模式：用户尝试启动第二个实例时聚焦主窗口；轻量模式下主窗
+            // 可能已销毁，走重建路径
+            show_or_rebuild_main_window(app);
         }))
         .setup(move |app| {
             let settle_state = state.clone();
@@ -976,13 +1072,26 @@ pub fn run() {
                 });
             }
 
-            // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点
-            reminder_toast::prepare_toast_window(app.app_handle());
+            // 预创建 Toast 窗口（隐藏），避免通知到达时动态创建抢焦点；
+            // 轻量模式下不预创建，首次通知到达时按需重建
+            if !lightweight_mode_enabled(app.app_handle()) {
+                reminder_toast::prepare_toast_window(app.app_handle());
+            }
 
             // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
             event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
+
+            // Windows 系统通知转发：设置开启时恢复监听（UserNotificationListener）
+            app.manage(notification_listener::NotificationForwardState::default());
+            // 按当前开关把系统的通知横幅状态对齐一次：开启接管就抑制，否则还原
+            // （上次非正常退出留下的改动也能在这里自愈）
+            if let Err(e) = notification_listener::reconcile_takeover(&db) {
+                log_warn!("notification", "startup reconcile failed: {}", e);
+            }
+            #[cfg(windows)]
+            notification_listener::maybe_start(app.app_handle(), &db);
             // 启动后异步检查更新，若存在新版本则弹出更新 Toast
             let update_app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1050,7 +1159,8 @@ pub fn run() {
                     } else {
                         count >= 3 || media_active
                     };
-                    log_info!(
+                    // 逐分钟结算属高频诊断细节，降为 debug；活跃/休息的可见信号走 reminder/bus
+                    log_debug!(
                         "settle",
                         "count={} media={} fscreen={} active={}",
                         count,
@@ -1084,22 +1194,27 @@ pub fn run() {
                 }
             });
 
-            // 主窗口：静默启动时隐藏，拦截关闭事件改为最小化到托盘
+            // 主窗口：静默启动时隐藏（轻量模式下直接销毁，界面完全不驻留）；
+            // 关闭行为按「轻量模式」开关分流，见 attach_main_window_events
             let window = app.get_webview_window("main").unwrap();
             let args: Vec<String> = std::env::args().collect();
             let is_autostart = args.contains(&"--autostart".to_string());
             let silent_start = db.get_setting("silent_start", "false") == "true";
             if is_autostart && silent_start {
-                let _ = window.hide();
+                if lightweight_mode_enabled(app.app_handle()) {
+                    let handle = app.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(w) = handle.get_webview_window("main") {
+                            log_info!("main-win", "autostart silent: destroying main window (lightweight mode)");
+                            let _ = w.destroy();
+                        }
+                    });
+                } else {
+                    let _ = window.hide();
+                }
             }
 
-            let win_clone = window.clone();
-            window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    let _ = win_clone.hide();
-                }
-            });
+            attach_main_window_events(app.app_handle(), &window);
 
             // 系统托盘：先移除可能已存在的旧图标，防止重复创建
             let _ = app.remove_tray_by_id("main");
@@ -1113,21 +1228,14 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_or_rebuild_main_window(app);
                     }
                     "quit" => app.exit(0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_or_rebuild_main_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
@@ -1142,6 +1250,8 @@ pub fn run() {
             rest_plugin::snooze_reminder,
             get_silent_start,
             set_silent_start,
+            get_lightweight_mode,
+            set_lightweight_mode,
             get_hide_stats,
             set_hide_stats,
             get_locale,
@@ -1184,6 +1294,7 @@ pub fn run() {
             get_reminder_data,
             close_reminder_window,
             window_manager::set_window_active_mode,
+            window_manager::prepare_window_activation,
             reminder_toast::set_toast_content_size,
             crate::bus::publish_event,
             crate::bus::update_event,
@@ -1193,6 +1304,11 @@ pub fn run() {
             event_http::get_event_sdk_status,
             event_http::set_event_sdk_enabled,
             event_http::rotate_event_sdk_token,
+            notification_listener::get_notification_forward_status,
+            notification_listener::set_notification_forward_enabled,
+            notification_listener::set_notification_takeover_enabled,
+            notification_listener::open_notification_permission_settings,
+            notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
             plugins::install_external_plugin,
             plugins::set_external_plugin_enabled,
@@ -1227,6 +1343,7 @@ pub fn run() {
             plugin_api::plugin_api_shell_show_item_in_folder,
             plugin_api::plugin_api_platform_get_info,
             plugin_api::plugin_api_theme_is_dark,
+            plugin_api::plugin_api_i18n_get_locale,
             plugin_api::plugin_api_notification_show,
             plugin_api::plugin_api_event_publish,
             plugin_api::plugin_api_event_close,
@@ -1245,6 +1362,7 @@ pub fn run() {
             plugin_api::plugin_api_log,
             plugin_sidecar::plugin_sidecar_request,
             plugin_commands::get_plugin_background_source,
+            toggle_devtools,
             plugin_commands::plugin_publish_event,
             plugin_commands::plugin_report_memory,
             plugin_commands::plugin_get_activity,
@@ -1262,6 +1380,27 @@ pub fn run() {
             signal::purge_key_sequences,
             signal::get_recent_signal_minutes,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| match event {
+            // 退出时必须把被压下去的系统通知横幅还给用户：Catrace 不在了就没人转发，
+            // 横幅还压着的话通知只能去操作中心翻。
+            tauri::RunEvent::Exit => {
+                if let Some(db) = app.try_state::<db::Db>() {
+                    if let Err(e) = notification_listener::restore_takeover(db.inner()) {
+                        log_warn!("notification", "restore takeover on exit failed: {}", e);
+                    }
+                }
+            }
+            // 轻量模式销毁主窗后可能没有任何窗口(通知按需创建、插件后台窗已下线),
+            // 但应用必须留在托盘继续采样与提醒。只拦截「窗口全部关闭」的隐式退出;
+            // 程序化退出(托盘退出 app.exit(0)、更新器 restart())的 code 是 Some,照常放行。
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
+                if code.is_none() {
+                    log_info!("main-win", "all windows closed, staying in tray (lightweight mode)");
+                    api.prevent_exit();
+                }
+            }
+            _ => {}
+        });
 }

@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "catrace"
-version = "26.9.22"
+version = "26.10.7"
 dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
@@ -615,6 +615,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
@@ -631,6 +632,8 @@ dependencies = [
  "url",
  "uuid",
  "windows 0.61.3",
+ "windows-future",
+ "windows-registry",
  "zip 2.4.2",
 ]
 

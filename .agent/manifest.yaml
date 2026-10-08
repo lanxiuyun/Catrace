@@ -55,6 +55,7 @@ features:
       - .agent/features/timer-plugin/定时提醒-settings内联编辑与规则排序约定.md
       - .agent/features/timer-plugin/定时提醒-toast颜色与提示音规则字段.md
       - .agent/features/timer-plugin/外部插件如何使用宿主注入的-naive-ui.md
+      - .agent/features/timer-plugin/定时提醒-toast按钮语言读宿主locale不要读html-lang.md
     related:
       - eye-reminder
       - plugin-center
@@ -62,6 +63,7 @@ features:
       - desktop-event-os
       - event-sdk
       - reminder
+      - i18n
 
   bt-music:
     docs:
@@ -87,6 +89,7 @@ features:
       - .agent/features/toast-window/外部插件通过payload-toastStyle选择默认或独立卡片外壳.md
       - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
       - .agent/features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md
+      - .agent/features/toast-window/Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md
       - .agent/features/toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md
     related:
       - reminder
@@ -137,6 +140,7 @@ features:
       - .agent/features/i18n/README.md
     related:
       - settings
+      - timer-plugin
   auto-update:
     docs:
       - .agent/features/auto-update/README.md
@@ -188,6 +192,17 @@ features:
       - desktop-event-os
       - agent-notification
 
+  system-notification-forward:
+    docs:
+      - .agent/features/system-notification-forward/README.md
+      - .agent/features/system-notification-forward/quick-reply-input-boxes-why-not-built-and-how-to-add.md
+    related:
+      - toast-window
+      - desktop-event-os
+      - settings
+      - event-sdk
+      - lightweight-mode
+
 architecture:
   project-structure:
     docs:
@@ -214,6 +229,17 @@ architecture:
     related:
       - toast-window
       - platform-input
+
+  lightweight-mode:
+    docs:
+      - .agent/features/lightweight-mode/README.md
+      - .agent/features/lightweight-mode/轻量模式省下的是哪些进程-WebView2进程构成与排查方法.md
+    related:
+      - settings
+      - toast-window
+      - window-manager
+      - desktop-event-os
+      - plugin-center
 
   platform-input:
     docs:
@@ -246,6 +272,7 @@ architecture:
       - .agent/architecture/desktop-event-os/step3-收尾评估-核心目标已达成与Step4候选.md
       - .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
+      - .agent/architecture/desktop-event-os/插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md
       - .agent/architecture/desktop-event-os/sidecar孤儿进程清理-Windows-Job-Object实现.md
       - .agent/architecture/desktop-event-os/sidecar-storage往返协议与Plugins-UI运行态约定.md
       - .agent/architecture/desktop-event-os/外部插件-settings调用宿主桌面能力-demo.md
@@ -277,8 +304,12 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
+  - .agent/reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md
 
 bugs:
+  - .agent/bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md
+  - .agent/bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md
+  - .agent/bugs/2026-09-29-轻量模式重建主窗白屏未响应.md
   - .agent/bugs/2026-09-21-定时提醒蓝牙耳机无声.md
   - .agent/bugs/2026-09-21-macOS关Toast弹出主窗.md
   - .agent/bugs/2026-09-20-插件详情顶栏插槽图标scoped样式失效撑破布局.md
@@ -331,6 +362,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-09-29-轻量模式落地与插件后台WebView下线sidecar.md
   - .agent/devlog/2026-09-20-便携Node安装补上macOS与Linux.md
   - .agent/devlog/2026-09-20-mac不催辅助功能授权-横幅和设置项都藏掉.md
   - .agent/devlog/2026-09-20-sidecar缺node一键安装便携Node与详情页整页遮罩.md
@@ -363,6 +395,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/features/plugin-center/sidecar-缺node时一键安装便携Node.md
-  phase: 便携 Node 一键安装已覆盖 Win/mac/Linux（PR #75）；mac 辅助功能走兜底、不催授权
-  next: 下载加超时或非中文先走 nodejs.org；mac Developer ID 签名见 input-monitoring 待做；签名稳定前不要把授权横幅挂回主窗
+  plan: .agent/features/lightweight-mode/README.md
+  phase: 轻量模式两期已落地（主窗销毁重建 + 插件后台 WebView 下线 sidecar），PR #83 已开、CI 全绿、待合并
+  next: 合并 PR #83（插件仓库 #8 已先合）；合并后跟进两个缺口——插件页内存看门狗对无后台窗插件失去样本、运行中打开轻量模式时已预创建的 Toast 残留

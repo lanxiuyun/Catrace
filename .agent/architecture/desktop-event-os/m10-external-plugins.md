@@ -266,3 +266,7 @@ padding: 1.25rem;
 | Toast 卡兜底加载 | `src/components/PluginHostCard.vue` → `ensurePluginRuntime()` |
 | 实现 | `src/plugins/pluginRuntime.ts` |
 | 类型 | `src/vite-env.d.ts` 声明三个 global |
+
+### 语言
+
+`plugin.i18n.getLocale()` 读宿主 DB `locale`（`zh-CN` | `en-US`，空则 `zh-CN`）。插件后台窗与主窗共用 `index.html`（`lang="en"`），**不要**用 `document.documentElement.lang` 决定 Toast 按钮文案。

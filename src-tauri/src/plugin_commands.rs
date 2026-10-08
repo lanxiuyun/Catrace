@@ -13,7 +13,7 @@ use crate::event::{
 };
 use crate::plugin_window::plugin_id_from_label;
 use crate::plugins::PluginManager;
-use crate::{log_error, log_info, log_warn, ActivityState};
+use crate::{log_debug, log_error, log_info, log_warn, ActivityState};
 
 const RESOURCE_ACTIVITY_WINDOW: Duration = Duration::from_secs(60);
 const EVENT_COUNT_WARNING_THRESHOLD: usize = 60;
@@ -459,6 +459,8 @@ pub fn plugin_log(
         "error" => log_error!("plugin", "[{id}] {message}{suffix}"),
         "warn" => log_warn!("plugin", "[{id}] {message}{suffix}"),
         "info" => log_info!("plugin", "[{id}] {message}{suffix}"),
+        // 与 plugin_api_log 对齐：插件 debug 级别默认不落盘
+        "debug" => log_debug!("plugin", "[{id}] {message}{suffix}"),
         other => log_info!("plugin", "[{id}][{other}] {message}{suffix}"),
     }
     Ok(())

@@ -8,6 +8,8 @@
 
 **WebView background 继续编排；要动 OS 时插件自带 sidecar 进程；Rust 只托管进程 + 窄 bridge，不写业务洞。**
 
+> **2026-09-29 更新**：能力 op 补齐后（`activity.get` / `clipboard.write_text` / `shell.open_url` / `config.get` / `config.set`），**`background` 不再是后台逻辑的必要条件**——定时、读活跃、写 storage、处理卡片动作 sidecar 都能做。新插件建议把后台逻辑直接写在 `runtime/main.mjs`，不再新增 `background` 字段（每个 background 插件多一个隐藏 WebView，约 60MB 私有内存）。详见 [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。
+
 ## 1. 为什么要有这层
 
 | 压力 | 没有 sidecar | 有 sidecar |
@@ -116,7 +118,13 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 | `publish` | 发 Bus 事件 | body 同 `PluginPublishInput` 语义；source 由宿主填 |
 | `log` | 写宿主日志 | |
 | `storage.set` / `storage.get` | 私有 KV | get 需 `id` 关联响应 |
+| `activity.get` | 活跃快照（键鼠/媒体/全屏） | 口径同 `plugin_api_get_activity`；取代 `plugin.activity.get` |
+| `clipboard.write_text` | 写剪贴板 | `ClipboardExt` 挂在 AppHandle 上，不依赖 WebView |
+| `shell.open_url` | 开外部链接 | **仅 http/https**（比 webview 版严） |
+| `config.get` / `config.set` | 插件配置读写 | set 会广播 `catrace:plugin-config-changed`；payload 未带 `enabled` 时保留存量值 |
 | `error` | 插件自报错误 | 可标 anomaly |
+
+能力 op 与 `storage.*` 同模板：带 `requestId`，宿主回 `op:"response"`；插件侧 2.5s 超时按失败处理（门控逻辑应 fail-open）；宿主按「已安装 + 已启用」鉴权。落点见 [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。
 
 示例：
 
@@ -136,11 +144,12 @@ Without `sidecar`, behavior is unchanged. Manifest scanning only parses structur
 
 | op | 时机 |
 |----|------|
-| `config` | 启动后推送整包 config；config 变更可再推 |
-| `response` | 应答 sidecar 请求（含 `storage.get` / `storage.set`） |
-| `resolved` | 用户点 Toast action / dismiss（Plugin 源） |
+| `config` | **仅 spawn 时**推送整包 config；运行期改配置要到 reload/重启 sidecar 才到达 |
+| `response` | 应答 sidecar 的请求（`storage.*` 与全部能力 op） |
+| `resolved` | 用户点 Toast action / dismiss（Plugin 源）；**携带完整事件 payload + `actionId`**，sidecar 可直接据此做动作（不再需要 DOM 事件通道） |
 | `shutdown` | 禁用前尽量优雅退出；随后仍 SIGKILL/taskkill 兜底 |
-| `activity`（可选 v1.1） | 周期推送 activity 快照，免 sidecar 再调别的 |
+
+> activity 最终做成**拉取式** `activity.get`（sidecar 主动问），不是设计里预留的宿主周期推送——少一条推送路径，也不需要 sidecar 处理时序。
 
 ### 5.4 身份
 
@@ -178,12 +187,12 @@ stopping → (shutdown 宽限 e.g. 1s) → kill → disabled
 
 | 需求 | 推荐落点 |
 |------|----------|
-| 定时提醒、读 activity、发 Toast | background.mjs（现有） |
+| 定时提醒、读 activity、发 Toast、处理卡片动作 | **sidecar**（`setInterval` + `activity.get` + `publish` + `resolved`）；只有需要 DOM/页面级能力时才用 background.mjs |
 | 蓝牙/USB/音频端点/WMI | **sidecar** |
-| 启动播放器/打开目录 | sidecar `spawn` 或原语 `plugin_open_path` |
+| 启动播放器/打开目录/开链接 | sidecar `spawn` 或 `shell.open_url` |
 | 自定义 Toast UI | ui.mjs |
 | 用户配置播放器路径 | settings.mjs → plugin_config |
-| 连 napcat WebSocket | background `WebSocket` 即可，不必 sidecar |
+| 连 napcat WebSocket | sidecar（Node 自带 WebSocket），不必 background |
 
 `plugin_open_path`（若做）：
 

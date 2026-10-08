@@ -22,8 +22,8 @@
 ### 设计尺寸
 
 - 窗口逻辑宽度固定 **392 CSS px**（卡片 360 + 左右阴影出血 16×2）
-- 最小逻辑高度 **160 CSS px**
-- 实际高度 = 前端上报的 `stack.scrollHeight`，Rust 按光标屏 `work_area` clamp
+- 窗口高度**严格等于**前端上报的 `stack.scrollHeight`，不设最小值（2026-09-28 起；此前写死 160 下限，会把窗口撑高并在卡片下方留出未绘制带，见 [toast-卡片紧凑尺寸规范](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md)）
+- Rust 另有 `TOAST_WINDOW_MIN_HEIGHT_LOGICAL = 160`，只作前端上报前的默认值与建窗 `inner_size`
 
 ### Rust 定位流程
 
@@ -54,8 +54,9 @@ fn fit_toast_window(window, app_handle, follow_cursor) {
 
 ```ts
 async function reportWindowSize() {
+  if (notifications.value.length === 0) return  // 空栈即将关窗，不要把窗口缩成一条
   const width = Math.max(1, Math.ceil(root.scrollWidth))
-  const height = Math.max(160, Math.ceil(stack.scrollHeight))
+  const height = Math.max(1, Math.ceil(stack.scrollHeight))  // 不设最小值：窗口高度 = 内容高度
   await setToastContentSize(width, height)
 }
 ```
@@ -80,10 +81,11 @@ async function reportWindowSize() {
 
 ## 前端布局调整
 
-- `.toast-root` 从 `100vw × 100vh` 改为 `24.5rem` 宽、高度撑满
+- `.toast-root` 从 `100vw × 100vh` 改为 `24.5rem` 宽。高度必须是 **`height: 100vh`（定高）**，不能只写 `min-height: 100vh`：栈的 `max-height: 100%` 要拿父元素高度做基准，父高 auto 时百分比落到 `none`，栈永远等于内容高，窗高被 `work_area` clamp 后既滚不动也没滚动条（[2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
 - `justify-content` 从 `flex-end`（贴底）改为 `flex-start`（贴顶）
 - `.toast-stack` 去掉负 margin，直接用窗口本身的 16px 出血区
-- 滚动条 gutter 用 `scrollbar-gutter: stable` 保持右侧留白恒定
+- 滚动条 gutter 用 `scrollbar-gutter: stable` 保持右侧留白恒定。滑块颜色要用中性灰：gutter 那一列是窗口透明区（背景是壁纸），纯黑滑块在深色壁纸上几乎看不见
+- 溢出后新卡会落在可视区外，靠 `scrollStackToBottom()` 跟随：**仅在栈本就贴底时**滚到底（`@scroll` 记录 + 容差），否则会把正在翻旧卡的人拽走
 
 ## 相关文件
 

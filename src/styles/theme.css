@@ -84,3 +84,10 @@
   /* 强调/深色底上的前景白 */
   --ct-on-accent: #ffffff;
 }
+
+/* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */
+html.catrace-shell,
+html.catrace-shell body,
+html.catrace-shell #app {
+  background: var(--ct-bg);
+}

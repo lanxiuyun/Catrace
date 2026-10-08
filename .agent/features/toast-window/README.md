@@ -27,7 +27,8 @@
 - 透明无边框 WebviewWindow，复用而非销毁
 - **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
-- **点击卡片才抢焦点**：`pointerdown` 触发 `setWindowActiveMode(true)`，移入/移出只控制 auto-hide 倒计时暂停
+- Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式，**但分两步**（2026-09-30）：`pointerover` 只调 `prepareWindowActivation`（仅清 NOACTIVATE，不抢前台），`pointerdown` 才调 `setWindowActiveMode(true)`（接管焦点）。此前 hover 直接全套激活，弹窗后鼠标一划过就抢走正在输入应用的键盘焦点；只清样式不抢前台同样能让首次点击原生激活，绕开 NOACTIVATE 首击焦点时序问题
+- **轻量模式按需重建必抢焦点（2026-09-30）**：WebView2 控制器在新窗口里异步初始化完成时把焦点切进自己的 child HWND、把 Toast 顶成前台，发生在 `build_toast_window()` 内部、早于 NOACTIVATE 样式应用——所以轻量模式每次弹窗必抢、复用路径从不抢。对策：重建前 `current_foreground()` 记下前台，show 后 ~0.15–4s 分六拍 `restore_foreground_if_taken(toast_hwnd, prev_fg)`，仅当前台仍是 Toast 本尊且用户没点卡接管（`TOAST_FOCUS_TAKEN_DELIBERATELY`）时归还，机制无关、幂等
 - macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
@@ -37,9 +38,9 @@
 - 普通卡片 8 秒自动消失，hover 暂停，离开恢复
 - **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
 - **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
-- 无 dedupe 的 kind 仍入栈，受 `MAX_NOTIFICATIONS` 上限；超出丢最旧
+- 无 dedupe 的 kind 仍入栈，**当前没有数量上限**（代码里已无 `MAX_NOTIFICATIONS`，超出丢最旧的说法已过期）
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
-- 内容超出时 `.toast-stack` 可滚动，并自动滚动到底部
+- 内容超出窗高（`work_area` clamp）时 `.toast-stack` 内部滚动；栈内已贴底时新卡跟随滚到底，用户翻旧卡时不被拽走。**滚动依赖 `.toast-root` 是 `height: 100vh` 定高**（父高 auto 时栈的 `max-height: 100%` 会落到 `none`，见 [2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
 
 ## 点击抢焦点
 
@@ -91,6 +92,8 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - **仅** sticky 插件卡 + `resolution.kind === 'action'` + `action_id === 'echo'` 时 **留卡**，供 sidecar roundtrip 原地 upsert。
 - 其它 action（如 `dismiss`）/ dismissed / completed：正常 `removeNotification`。
 - 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
+
+- 点击唤醒与 NOACTIVATE 输入焦点时序：[Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md](Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md)
 
 ## 子文档
 - [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 2026-08-27 从全屏覆盖层改回右下角原生小窗的实现细节

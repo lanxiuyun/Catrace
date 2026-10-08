@@ -48,6 +48,16 @@ export async function setSilentStart(enabled: boolean): Promise<void> {
   return invoke('set_silent_start', { enabled })
 }
 
+/** 获取轻量模式开关 */
+export async function getLightweightMode(): Promise<boolean> {
+  return invoke('get_lightweight_mode')
+}
+
+/** 设置轻量模式开关 */
+export async function setLightweightMode(enabled: boolean): Promise<void> {
+  return invoke('set_lightweight_mode', { enabled })
+}
+
 /** 获取界面语言，未设置时返回 null */
 export async function getLocale(): Promise<string | null> {
   return invoke('get_locale')
@@ -339,6 +349,11 @@ export async function setWindowActiveMode(label: string, active: boolean): Promi
   return invoke('set_window_active_mode', { label, active })
 }
 
+/** 预激活：仅移除 NOACTIVATE 样式让下次点击能原生激活，不抢当前前台焦点 */
+export async function prepareWindowActivation(label: string): Promise<void> {
+  return invoke('prepare_window_activation', { label })
+}
+
 // ---------- Event Bus ----------
 
 import type { BusEvent, EventPatch, EventResolution } from '../types/event'
@@ -386,6 +401,38 @@ export async function setEventSdkEnabled(enabled: boolean): Promise<void> {
 
 export async function rotateEventSdkToken(): Promise<string> {
   return invoke('rotate_event_sdk_token')
+}
+
+// ---------- Windows 系统通知转发 ----------
+
+export interface NotificationForwardStatus {
+  enabled: boolean
+  takeover: boolean
+  running: boolean
+  access: 'granted' | 'denied' | 'unspecified' | 'unavailable' | 'unknown'
+}
+
+export async function getNotificationForwardStatus(): Promise<NotificationForwardStatus> {
+  return invoke('get_notification_forward_status')
+}
+
+export async function setNotificationForwardEnabled(
+  enabled: boolean,
+): Promise<NotificationForwardStatus> {
+  return invoke('set_notification_forward_enabled', { enabled })
+}
+
+export async function setNotificationTakeoverEnabled(enabled: boolean): Promise<void> {
+  return invoke('set_notification_takeover_enabled', { enabled })
+}
+
+export async function openNotificationPermissionSettings(): Promise<void> {
+  return invoke('open_notification_permission_settings')
+}
+
+/** 点击转发通知卡片上的按钮（成功后端会 resolve 事件，卡片随之消失） */
+export async function triggerNotificationAction(eventId: string, actionId: string): Promise<void> {
+  return invoke('trigger_notification_action', { eventId, actionId })
 }
 
 // ---------- External plugins ----------

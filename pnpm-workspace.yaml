@@ -1,5 +1,9 @@
 packages:
   - '.'
 
+# pnpm 11+: 构建脚本审批（pnpm 10 读 onlyBuiltDependencies）
+allowBuilds:
+  esbuild: true
+
 onlyBuiltDependencies:
   - esbuild

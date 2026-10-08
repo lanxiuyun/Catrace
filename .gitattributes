@@ -1,0 +1,5 @@
+# 显式声明行尾：版本脚本会重写这几个文件，行尾靠 core.autocrlf 猜会出现「status 说脏、diff 为空」的假脏
+src-tauri/Cargo.toml      text eol=lf
+src-tauri/Cargo.lock      text eol=lf
+src-tauri/tauri.conf.json text eol=lf
+package.json              text eol=lf

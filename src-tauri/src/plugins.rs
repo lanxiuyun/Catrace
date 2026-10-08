@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::{log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_info, log_warn};
 
 /// Kinds plugins must not claim (includes sdk — reserved for M9 generic path).
 pub const RESERVED_KINDS: &[&str] = &[
@@ -98,6 +98,7 @@ struct CachedPlugin {
     settings_abs: Option<PathBuf>,
     icon_abs: Option<PathBuf>,
     sidecar: Option<PluginSidecarSpec>,
+    content_hash: String,
 }
 
 struct PluginCache {
@@ -115,6 +116,8 @@ impl PluginCache {
 #[derive(Debug, Clone)]
 pub struct PluginBackgroundSpec {
     pub id: String,
+    pub version: String,
+    pub content_hash: String,
     pub fingerprint: String,
 }
 
@@ -197,6 +200,7 @@ impl PluginManager {
                         settings_abs: None,
                         icon_abs: None,
                         sidecar: None,
+                        content_hash: String::new(),
                     });
                 }
             }
@@ -217,7 +221,9 @@ impl PluginManager {
         }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
-        log_info!(
+        // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
+        // 启动时的汇总见 log_loaded_plugins 的一行版
+        log_debug!(
             "plugins",
             "scanned {} plugin(s) in {}",
             list.len(),
@@ -319,6 +325,8 @@ impl PluginManager {
             .filter_map(|p| {
                 p.background_abs.as_ref().map(|path| PluginBackgroundSpec {
                     id: p.info.id.clone(),
+                    version: p.info.version.clone(),
+                    content_hash: p.content_hash.clone(),
                     fingerprint: background_fingerprint(&p.info.version, path),
                 })
             })
@@ -454,6 +462,42 @@ impl PluginManager {
             .ok_or_else(|| format!("plugin not found: {id}"))?;
         Ok(p.dir.to_string_lossy().to_string())
     }
+
+    fn log_loaded_plugins(&self) {
+        let Ok(guard) = self.inner.lock() else {
+            return;
+        };
+        let mut enabled: Vec<&str> = Vec::new();
+        for p in &guard.plugins {
+            if let Some(err) = &p.info.error {
+                log_warn!("plugins", "loaded {} error={err}", p.info.id);
+                continue;
+            }
+            log_debug!(
+                "plugins",
+                "loaded {} v{} hash={} enabled={}",
+                p.info.id,
+                p.info.version,
+                p.content_hash,
+                p.info.enabled
+            );
+            if p.info.enabled {
+                enabled.push(p.info.id.as_str());
+            }
+        }
+        // 逐插件明细走 debug（今日日志实测：每启动 14 行、多轮重启时占日志大头）；
+        // 默认级别只留一行汇总，enabled 名单是「装了没生效」类问题的第一排查线索
+        log_info!(
+            "plugins",
+            "loaded {} plugin(s), enabled: {}",
+            guard.plugins.len(),
+            if enabled.is_empty() {
+                "none".to_string()
+            } else {
+                enabled.join(", ")
+            }
+        );
+    }
 }
 
 fn plugins_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -536,6 +580,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         .unwrap_or(m.enabled_by_default);
 
     let content_mtime_ms = file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
+    let content_hash = plugin_content_hash(dir);
 
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
@@ -565,6 +610,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
         settings_abs,
         icon_abs,
         sidecar,
+        content_hash,
     })
 }
 
@@ -576,6 +622,69 @@ fn file_mtime_ms(path: Option<&PathBuf>) -> u64 {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+fn skip_plugin_hash_entry(name: &str) -> bool {
+    name == "."
+        || name == ".."
+        || name == ".git"
+        || name == "node_modules"
+        || name == "runtime"
+        || name.starts_with('.')
+}
+
+/// Short content hash of the installed package (what actually runs from app_data).
+/// Skips .git / node_modules / runtime / dotfiles so sidecar state does not churn the hash.
+fn plugin_content_hash(dir: &Path) -> String {
+    use sha2::Digest;
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+    collect_plugin_hash_files(dir, dir, &mut files);
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut hasher = sha2::Sha256::new();
+    for (rel, bytes) in files {
+        hasher.update(rel.as_bytes());
+        hasher.update([0u8]);
+        hasher.update(&bytes);
+        hasher.update([0u8]);
+    }
+    let hex = format!("{:x}", hasher.finalize());
+    hex.chars().take(12).collect()
+}
+
+fn collect_plugin_hash_files(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if skip_plugin_hash_entry(&name) {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(ft) = entry.file_type() else {
+            continue;
+        };
+        if ft.is_dir() {
+            collect_plugin_hash_files(root, &path, out);
+            continue;
+        }
+        if !ft.is_file() {
+            continue;
+        }
+        let Ok(bytes) = fs::read(&path) else {
+            continue;
+        };
+        if bytes.len() > 1024 * 1024 {
+            continue;
+        }
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        out.push((rel, bytes));
+    }
 }
 
 fn sidecar_spec(
@@ -1324,14 +1433,18 @@ fn seed_bundled_plugins(app: &AppHandle) {
         let bundled_version = read_manifest_version(&src);
         let dest = target_root.join(&name);
         let existed = dest.exists();
-        let should_seed = match read_manifest_version(&dest) {
-            None => true,
-            Some(installed) => match bundled_version {
-                Some(ref bundled) => compare_versions(bundled, &installed) > 0,
-                None => false,
-            },
-        };
+        let installed_version = read_manifest_version(&dest);
+        let should_seed = should_seed_bundled(
+            bundled_version.as_deref(),
+            installed_version.as_deref(),
+        );
         if !should_seed {
+            log_info!(
+                "plugins",
+                "bundled plugin {name} skip (installed v{}, bundled v{})",
+                installed_version.as_deref().unwrap_or("?"),
+                bundled_version.as_deref().unwrap_or("?"),
+            );
             continue;
         }
 
@@ -1356,6 +1469,17 @@ fn read_manifest_version(dir: &Path) -> Option<String> {
     m.get("version")?.as_str().map(String::from)
 }
 
+/// Whether bundled resources should copy over an existing app_data plugin.
+/// Equal versions are kept as-is so user edits survive; bump `manifest.version` to ship a fix.
+#[cfg(any(test, not(debug_assertions)))]
+fn should_seed_bundled(bundled_version: Option<&str>, installed_version: Option<&str>) -> bool {
+    match (bundled_version, installed_version) {
+        (_, None) => true,
+        (None, Some(_)) => false,
+        (Some(bundled), Some(installed)) => compare_versions(bundled, installed) > 0,
+    }
+}
+
 /// Replace `dest` with a copy of `src` (skip install-time dirs), atomically-ish:
 /// copy to a temp sibling first, then swap so a crash never leaves a half package.
 #[cfg(not(debug_assertions))]
@@ -1376,7 +1500,7 @@ fn replace_plugin_package(src: &Path, dest: &Path) -> Result<(), String> {
 }
 
 /// Numeric semver-ish compare (e.g. "0.10.0" > "0.3.0"). >0 when a>b.
-#[cfg(not(debug_assertions))]
+#[cfg(any(test, not(debug_assertions)))]
 fn compare_versions(a: &str, b: &str) -> i32 {
     fn parts(s: &str) -> Vec<u32> {
         s.split('.')
@@ -1396,6 +1520,82 @@ fn compare_versions(a: &str, b: &str) -> i32 {
     0
 }
 
+#[cfg(test)]
+mod seed_version_tests {
+    use super::{compare_versions, should_seed_bundled};
+
+    #[test]
+    fn equal_version_does_not_upgrade() {
+        assert!(
+            !should_seed_bundled(Some("0.1.0"), Some("0.1.0")),
+            "locale/content changes without a version bump must not overwrite app_data"
+        );
+    }
+
+    #[test]
+    fn newer_bundled_upgrades() {
+        assert!(should_seed_bundled(Some("0.1.1"), Some("0.1.0")));
+        assert_eq!(compare_versions("0.1.1", "0.1.0"), 1);
+    }
+
+    #[test]
+    fn missing_install_seeds() {
+        assert!(should_seed_bundled(Some("0.1.0"), None));
+    }
+
+    #[test]
+    fn bundled_without_version_does_not_clobber() {
+        assert!(!should_seed_bundled(None, Some("0.1.0")));
+    }
+}
+
+#[cfg(test)]
+mod content_hash_tests {
+    use super::plugin_content_hash;
+
+    #[test]
+    fn same_files_same_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-a-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("manifest.json"), r#"{"id":"x","version":"0.1.0"}"#).unwrap();
+        std::fs::write(dir.join("background.mjs"), "console.log(1)").unwrap();
+        let a = plugin_content_hash(&dir);
+        let b = plugin_content_hash(&dir);
+        assert_eq!(a.len(), 12);
+        assert_eq!(a, b);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn content_change_changes_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-b-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("background.mjs"), "console.log(1)").unwrap();
+        let before = plugin_content_hash(&dir);
+        std::fs::write(dir.join("background.mjs"), "console.log(2)").unwrap();
+        let after = plugin_content_hash(&dir);
+        assert_ne!(before, after);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn runtime_and_node_modules_do_not_affect_hash() {
+        let dir = std::env::temp_dir().join(format!("catrace-hash-c-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("runtime")).unwrap();
+        std::fs::create_dir_all(dir.join("node_modules/x")).unwrap();
+        std::fs::write(dir.join("background.mjs"), "ok").unwrap();
+        let before = plugin_content_hash(&dir);
+        std::fs::write(dir.join("runtime/state.json"), "{\"n\":1}").unwrap();
+        std::fs::write(dir.join("node_modules/x/index.js"), "nope").unwrap();
+        let after = plugin_content_hash(&dir);
+        assert_eq!(before, after);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
 /// Called from setup after PluginManager is managed.
 pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
     #[cfg(not(debug_assertions))]
@@ -1406,6 +1606,8 @@ pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
 
     if let Err(e) = mgr.rescan(app) {
         log_error!("plugins", "initial scan failed: {e}");
+    } else {
+        mgr.log_loaded_plugins();
     }
 }
 
@@ -1438,6 +1640,7 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
     let Ok(entries) = fs::read_dir(&demo_root) else {
         return;
     };
+    let mut wanted: Vec<String> = Vec::new();
     for entry in entries.flatten() {
         let src = entry.path();
         if !src.is_dir() {
@@ -1451,14 +1654,25 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
             continue;
         }
         let dst = root.join(name);
+        wanted.push(name.to_string());
         match ensure_dir_link(&src, &dst) {
             Ok(DevLinkResult::AlreadyLinked) => {
-                log_info!("plugins", "dev link ok: {name} already linked");
+                // 无变化的常态分支降 debug：14 个插件每次启动都刷一遍；re-pointed/
+                // created/pruned 才是状态变化，留在 info（dev-link 钉错工位的排查线索）
+                log_debug!("plugins", "dev link ok: {name} already linked");
             }
             Ok(DevLinkResult::Created) => {
                 log_info!(
                     "plugins",
                     "dev link created: {} -> {}",
+                    dst.display(),
+                    src.display()
+                );
+            }
+            Ok(DevLinkResult::Relinked) => {
+                log_info!(
+                    "plugins",
+                    "dev link re-pointed: {} -> {}",
                     dst.display(),
                     src.display()
                 );
@@ -1473,12 +1687,43 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
             Err(e) => log_warn!("plugins", "dev link failed for {name}: {e}"),
         }
     }
+
+    // Links left by another checkout (previous worktree, or a branch with more plugins)
+    // would silently keep loading that checkout's code — drop the ones this tree lacks.
+    prune_stale_dev_links(&root, &wanted);
+}
+
+/// Drop links that point into some `tools/plugin-demo` but are not part of this checkout.
+#[cfg(debug_assertions)]
+fn prune_stale_dev_links(root: &Path, wanted: &[String]) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if wanted.iter().any(|w| w == &name) {
+            continue;
+        }
+        let dst = entry.path();
+        let Some(target) = link_target(&dst) else {
+            continue;
+        };
+        let target = target.to_string_lossy().replace('\\', "/");
+        if !target.contains("/tools/plugin-demo/") {
+            continue;
+        }
+        match remove_dir_link(&dst) {
+            Ok(()) => log_info!("plugins", "dev link pruned: {name} (not in this checkout)"),
+            Err(e) => log_warn!("plugins", "dev link prune failed for {name}: {e}"),
+        }
+    }
 }
 
 #[cfg(debug_assertions)]
 enum DevLinkResult {
     AlreadyLinked,
     Created,
+    Relinked,
     SkippedExisting,
 }
 
@@ -1486,13 +1731,19 @@ enum DevLinkResult {
 fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
     let src_canon = fs::canonicalize(src).map_err(|e| format!("canonicalize src: {e}"))?;
 
-    if dst.exists() || is_symlink_like(dst) {
+    if dst.exists() || link_target(dst).is_some() {
         if let Ok(dst_canon) = fs::canonicalize(dst) {
             if dst_canon == src_canon {
                 return Ok(DevLinkResult::AlreadyLinked);
             }
         }
-        // Real directory / foreign link — do not clobber user installs.
+        // A link left behind by another checkout (typically the previous worktree) is ours
+        // to re-point; a real directory is a user install we must not clobber.
+        if link_target(dst).is_some() {
+            remove_dir_link(dst)?;
+            create_dir_link(&src_canon, dst)?;
+            return Ok(DevLinkResult::Relinked);
+        }
         return Ok(DevLinkResult::SkippedExisting);
     }
 
@@ -1500,11 +1751,42 @@ fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
     Ok(DevLinkResult::Created)
 }
 
+/// Target of a symlink or a Windows junction. `read_link` resolves both, so this is the
+/// reliable "is this one of our links" test — a real directory yields `None`.
 #[cfg(debug_assertions)]
-fn is_symlink_like(path: &Path) -> bool {
-    fs::symlink_metadata(path)
-        .map(|m| m.file_type().is_symlink())
-        .unwrap_or(false)
+fn link_target(path: &Path) -> Option<PathBuf> {
+    fs::read_link(path).ok()
+}
+
+#[cfg(debug_assertions)]
+fn remove_dir_link(dst: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        // RemoveDirectoryW deletes a junction itself and never walks into the target.
+        if fs::remove_dir(dst).is_ok() {
+            return Ok(());
+        }
+        // Broken reparse points can resist the above; cmd rmdir is the last resort.
+        use std::process::Command;
+        let out = Command::new("cmd")
+            .args(["/C", "rmdir"])
+            .arg(dst.as_os_str())
+            .output()
+            .map_err(|e| format!("rmdir spawn: {e}"))?;
+        if out.status.success() {
+            return Ok(());
+        }
+        Err(format!("remove link failed: {}", dst.display()))
+    }
+    #[cfg(unix)]
+    {
+        fs::remove_file(dst).map_err(|e| format!("remove link: {e}"))
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = dst;
+        Err("dev plugin link removal unsupported on this platform".into())
+    }
 }
 
 #[cfg(debug_assertions)]
