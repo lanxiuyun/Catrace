@@ -41,16 +41,15 @@ VSCode 提供代码视窗，插件提供能力；Catrace 提供小窗视窗，�
 
 ## 小窗可以是什么
 
-| DSH 对话 | 手机消息 | 蓝牙耳机 |
-| :-: | :-: | :-: |
-| <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH 对话小窗"> | <img src=".readme/plugin-sms.png" width="230" alt="手机消息小窗"> | <img src=".readme/plugin-bt-music.webp" width="230" alt="蓝牙耳机连接小窗"> |
-| 在 DSH 标题栏点一下，当前会话就落到小窗。 | 短信、验证码、App 通知转发过来，一键复制。 | 耳机一连上就弹卡，点一下打开音乐软件。 |
+| DSH 对话 | AI 助手进度 | 手机消息 | 蓝牙耳机 |
+| :-: | :-: | :-: | :-: |
+| <img src=".readme/plugin-dsh-chat.png" width="210" alt="DSH 对话小窗"> | <img src=".readme/plugin-agent-notify.png" width="210" alt="AI 助手进度小窗"> | <img src=".readme/plugin-sms.png" width="210" alt="手机消息小窗"> | <img src=".readme/plugin-bt-music.webp" width="210" alt="蓝牙耳机连接小窗"> |
+| 在 DSH 标题栏点一下，当前会话就落到小窗。 | Claude Code 干完一轮，改了哪些、要不要授权，都写在卡上。 | 短信、验证码、App 通知转发过来，一键复制。 | 耳机一连上就弹卡，点一下打开音乐软件。 |
 
-除了图上这三种，小窗里还能出现：
+除了图上这四种，小窗里还能出现：
 
 - **久坐提醒** — 忙满一个工作窗口（比如 45 分钟），弹窗/全屏提醒。
 - **定时提醒** — 每小时喝口水、下午三点看一眼数据、下班前记得打卡，间隔或固定时刻都行。
-- **AI 助手进度** — 终端里跑着 Claude Code、Codex 时，跑到哪一步、要不要授权。
 - **GitHub 动态** — 有人提 issue、点 star，第一时间知道。
 
 ## 下载

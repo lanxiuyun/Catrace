@@ -41,16 +41,15 @@ The rest reminder is Catrace's first plugin; more capabilities will plug in as p
 
 ## What a small window can be
 
-| DSH chat | Phone messages | Headphones |
-| :-: | :-: | :-: |
-| <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH chat in the small window"> | <img src=".readme/plugin-sms.png" width="230" alt="Phone messages in the small window"> | <img src=".readme/plugin-bt-music.webp" width="230" alt="Headphone card in the small window"> |
-| One click in the DSH title bar drops the live session into the window. | SMS, codes and app notifications, one click to copy. | Plug them in and the card pops up; one click opens your music app. |
+| DSH chat | Agent progress | Phone messages | Headphones |
+| :-: | :-: | :-: | :-: |
+| <img src=".readme/plugin-dsh-chat.png" width="210" alt="DSH chat in the small window"> | <img src=".readme/plugin-agent-notify.png" width="210" alt="AI agent progress card in the small window"> | <img src=".readme/plugin-sms.png" width="210" alt="Phone messages in the small window"> | <img src=".readme/plugin-bt-music.webp" width="210" alt="Headphone card in the small window"> |
+| One click in the DSH title bar drops the live session into the window. | Claude Code finished a round: what changed, whether it needs approval. | SMS, codes and app notifications, one click to copy. | Plug them in and the card pops up; one click opens your music app. |
 
-Besides the three above, the small window can also show:
+Besides the four above, the small window can also show:
 
 - **Rest reminders** — After a full work window (say, 45 minutes), a popup or full-screen reminder.
 - **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — interval or a fixed time both work.
-- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval.
 - **GitHub activity** — New issues and stars reach you the moment they happen.
 
 ## Download
