@@ -41,20 +41,17 @@ The rest reminder is Catrace's first plugin; more capabilities will plug in as p
 
 ## What a small window can be
 
-- **Rest reminders** — After a full work window (say, 45 minutes), a popup or full-screen reminder.
-- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — interval or a fixed time both work.
-- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval.
-- **DSH chat** — Click once in the DSH Desktop chat title bar and the session lands in the small window, code and answer side by side.
-- **Headphones** — Headphones connect, your music app opens by itself; when they disconnect, it pauses or wraps up per your settings.
-- **Phone messages** — SMS, app notifications and verification codes forwarded to your desktop, landing in the corner window.
-- **GitHub activity** — New issues and stars reach you the moment they happen.
-
-### What the small window looks like
-
 | DSH chat | Phone messages | Headphones |
 | :-: | :-: | :-: |
 | <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH chat in the small window"> | <img src=".readme/plugin-sms.png" width="230" alt="Phone messages in the small window"> | <img src=".readme/plugin-bt-music.webp" width="230" alt="Headphone card in the small window"> |
 | One click in the DSH title bar drops the live session into the window. | SMS, codes and app notifications, one click to copy. | Plug them in and the card pops up; one click opens your music app. |
+
+Besides the three above, the small window can also show:
+
+- **Rest reminders** — After a full work window (say, 45 minutes), a popup or full-screen reminder.
+- **Scheduled reminders** — Water every hour, check the numbers at 3pm, clock out on time — interval or a fixed time both work.
+- **AI assistant progress** — Claude Code or Codex running in the terminal: which step it's on, whether it needs approval.
+- **GitHub activity** — New issues and stars reach you the moment they happen.
 
 ## Download
 
