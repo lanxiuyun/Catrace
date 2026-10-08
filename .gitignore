@@ -1,5 +1,6 @@
 127.0.0.1
 *.png
+!.readme/*.png
 promo/
 
 # Logs
