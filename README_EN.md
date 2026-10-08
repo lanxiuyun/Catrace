@@ -51,24 +51,10 @@ The rest reminder is Catrace's first plugin; more capabilities will plug in as p
 
 ### What the small window looks like
 
-<table>
-  <tbody>
-    <tr>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH chat in the small window"><br>
-        <b>DSH chat</b> — one click in the DSH title bar drops the live session into the window.
-      </td>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-sms.png" width="230" alt="Phone messages in the small window"><br>
-        <b>Phone messages</b> — SMS, verification codes and app notifications, one click to copy.
-      </td>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-bt-music.webp" width="230" alt="Headphone connection card in the small window"><br>
-        <b>Headphones</b> — plug them in and the card pops up; one click opens your music app.
-      </td>
-    </tr>
-  </tbody>
-</table>
+| DSH chat | Phone messages | Headphones |
+| :-: | :-: | :-: |
+| <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH chat in the small window"> | <img src=".readme/plugin-sms.png" width="230" alt="Phone messages in the small window"> | <img src=".readme/plugin-bt-music.webp" width="230" alt="Headphone card in the small window"> |
+| One click in the DSH title bar drops the live session into the window. | SMS, codes and app notifications, one click to copy. | Plug them in and the card pops up; one click opens your music app. |
 
 ## Download
 

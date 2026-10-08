@@ -51,24 +51,10 @@ VSCode 提供代码视窗，插件提供能力；Catrace 提供小窗视窗，�
 
 ### 小窗里长什么样
 
-<table>
-  <tbody>
-    <tr>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH 对话小窗"><br>
-        <b>DSH 对话</b> — 在 DSH 标题栏点一下，当前会话就落到小窗。
-      </td>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-sms.png" width="230" alt="手机消息小窗"><br>
-        <b>手机消息</b> — 短信、验证码、App 通知转发过来，一键复制。
-      </td>
-      <td align="center" width="33%">
-        <img src=".readme/plugin-bt-music.webp" width="230" alt="蓝牙耳机连接小窗"><br>
-        <b>蓝牙耳机</b> — 耳机一连上就弹卡，点一下打开音乐软件。
-      </td>
-    </tr>
-  </tbody>
-</table>
+| DSH 对话 | 手机消息 | 蓝牙耳机 |
+| :-: | :-: | :-: |
+| <img src=".readme/plugin-dsh-chat.png" width="230" alt="DSH 对话小窗"> | <img src=".readme/plugin-sms.png" width="230" alt="手机消息小窗"> | <img src=".readme/plugin-bt-music.webp" width="230" alt="蓝牙耳机连接小窗"> |
+| 在 DSH 标题栏点一下，当前会话就落到小窗。 | 短信、验证码、App 通知转发过来，一键复制。 | 耳机一连上就弹卡，点一下打开音乐软件。 |
 
 ## 下载
 
