@@ -45,8 +45,7 @@ VSCode 提供代码视窗，插件提供能力；Catrace 提供小窗视窗，�
 | :-: | :-: | :-: |
 | <img src=".readme/plugin-dsh-chat.png" width="210" alt="DSH 对话小窗"> | <img src=".readme/plugin-agent-notify.png" width="210" alt="AI 助手进度小窗"> | <img src=".readme/plugin-sms.png" width="210" alt="手机消息小窗"> |
 | 在 DSH 标题栏点一下，当前会话就落到小窗。 | Claude Code 干完一轮，改了哪些、要不要授权，都写在卡上。 | 短信、验证码、App 通知转发过来，一键复制。 |
-| **蓝牙耳机** |  |  |
-| <img src=".readme/plugin-bt-music.webp" width="210" alt="蓝牙耳机连接小窗"> |  |  |
+| **蓝牙耳机**<br><img src=".readme/plugin-bt-music.webp" width="210" alt="蓝牙耳机连接小窗"> |  |  |
 | 耳机一连上就弹卡，点一下打开音乐软件。 |  |  |
 
 除了图上这四种，小窗里还能出现：
