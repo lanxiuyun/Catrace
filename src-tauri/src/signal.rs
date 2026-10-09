@@ -148,6 +148,25 @@ fn normalize_process_name(path: &std::path::Path, app_name: &str) -> String {
         .unwrap_or_else(|| UNKNOWN_APP.to_string())
 }
 
+/// 前台窗口标题最多带多少字符（窗口标题可能很长；插件只做包含匹配，够用即可）
+const ACTIVE_TITLE_MAX_CHARS: usize = 200;
+
+/// 前台窗口的「谁（进程名）+ 什么标题」——给插件用（`activity.get` 的 `app`/`title` 字段）。
+///
+/// **现查**而不是读 1s 采样器的快照：`get_active_window()` 是亚毫秒级的纯读，
+/// 插件每 ~500ms 问一次毫无压力，而"你切到 DSH"能立刻反映、不必等采样周期
+/// （那 1s 采样是行为统计用的，也不该被插件查询拖密）。
+///
+/// 平台：依赖的 `active-win-pos-rs` 自带 Windows / macOS / Linux 三个后端（返回结构都含 `title`），
+/// 与已经在跑的 `start_foreground_sampling` 同一条路径，所以这里不需要再 `#[cfg]` 分平台。
+/// 拿不到时（Wayland、无权限、平台不支持）一律返回 `None` —— 调用方按"读不到"处理，绝不 panic。
+pub fn active_window_info() -> Option<(String, String)> {
+    let win = get_active_window().ok()?;
+    let app = normalize_process_name(&win.process_path, &win.app_name);
+    let title: String = win.title.chars().take(ACTIVE_TITLE_MAX_CHARS).collect();
+    Some((app, title))
+}
+
 fn keycode_name(key: &Keycode) -> String {
     format!("{:?}", key)
 }
