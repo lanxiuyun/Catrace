@@ -13,6 +13,7 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
 
 ## 关键规则
 
+- **PR 使用中文**：创建或更新 Pull Request 时，标题和描述均用中文撰写。
 1. **先读代码再改** — Rust 主组合在 `src-tauri/src/lib.rs`；Event/Signal 在 `event.rs` / `bus.rs` / `signal.rs`；前端在 `src/views/`、`src/components/`、`src/stores/`
 2. **跨平台** — 任何平台相关代码必须 `#[cfg]` 隔离，标配降级方案
 3. **不要自动启动 dev server** — 先跑 `pnpm vue-tsc --noEmit` / `pnpm build` / `cargo check`
