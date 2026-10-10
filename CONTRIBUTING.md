@@ -37,6 +37,9 @@ Catrace 是一款基于 **Tauri 2 + Vue 3 + Rust** 的跨平台桌面应用，�
 git clone https://github.com/lanxiuyun/Catrace.git
 cd Catrace
 
+# 初始化插件 submodule（仓库克隆后只需执行一次；未初始化时 Tauri 资源目录缺失会导致 tauri dev 启动失败）
+git submodule update --init --recursive
+
 # 安装前端依赖
 pnpm install
 
@@ -150,6 +153,7 @@ Catrace is a cross-platform desktop app built with **Tauri 2 + Vue 3 + Rust**, t
 ```bash
 git clone https://github.com/lanxiuyun/Catrace.git
 cd Catrace
+git submodule update --init --recursive
 pnpm install
 pnpm tauri dev          # full app
 cd src-tauri && cargo test

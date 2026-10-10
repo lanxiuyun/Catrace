@@ -1462,16 +1462,14 @@ fn seed_bundled_plugins(app: &AppHandle) {
     }
 }
 
-#[cfg(not(debug_assertions))]
 fn read_manifest_version(dir: &Path) -> Option<String> {
     let raw = fs::read_to_string(dir.join("manifest.json")).ok()?;
     let m: serde_json::Value = serde_json::from_str(&raw).ok()?;
     m.get("version")?.as_str().map(String::from)
 }
 
-/// Whether bundled resources should copy over an existing app_data plugin.
+/// Whether the source plugin is newer than the installed plugin.
 /// Equal versions are kept as-is so user edits survive; bump `manifest.version` to ship a fix.
-#[cfg(any(test, not(debug_assertions)))]
 fn should_seed_bundled(bundled_version: Option<&str>, installed_version: Option<&str>) -> bool {
     match (bundled_version, installed_version) {
         (_, None) => true,
@@ -1500,7 +1498,6 @@ fn replace_plugin_package(src: &Path, dest: &Path) -> Result<(), String> {
 }
 
 /// Numeric semver-ish compare (e.g. "0.10.0" > "0.3.0"). >0 when a>b.
-#[cfg(any(test, not(debug_assertions)))]
 fn compare_versions(a: &str, b: &str) -> i32 {
     fn parts(s: &str) -> Vec<u32> {
         s.split('.')
@@ -1546,6 +1543,11 @@ mod seed_version_tests {
     #[test]
     fn bundled_without_version_does_not_clobber() {
         assert!(!should_seed_bundled(None, Some("0.1.0")));
+    }
+
+    #[test]
+    fn older_source_does_not_replace_installed() {
+        assert!(!should_seed_bundled(Some("0.9.9"), Some("1.0.0")));
     }
 }
 
@@ -1655,6 +1657,27 @@ fn ensure_dev_plugin_links(app: &AppHandle) {
         }
         let dst = root.join(name);
         wanted.push(name.to_string());
+        let demo_version = read_manifest_version(&src);
+        let installed_version = read_manifest_version(&dst);
+        if (dst.exists() || link_target(&dst).is_some()) && link_target(&dst).is_none() {
+            match should_seed_bundled(demo_version.as_deref(), installed_version.as_deref()) {
+                true => {
+                    if let Err(e) = remove_path_all(&dst) {
+                        log_warn!("plugins", "dev link replace failed for {name}: {e}");
+                        continue;
+                    }
+                }
+                false => {
+                    log_info!(
+                        "plugins",
+                        "dev link skip: {name} installed v{} >= demo v{}",
+                        installed_version.as_deref().unwrap_or("?"),
+                        demo_version.as_deref().unwrap_or("?")
+                    );
+                    continue;
+                }
+            }
+        }
         match ensure_dir_link(&src, &dst) {
             Ok(DevLinkResult::AlreadyLinked) => {
                 // 无变化的常态分支降 debug：14 个插件每次启动都刷一遍；re-pointed/

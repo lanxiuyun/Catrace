@@ -4,7 +4,10 @@
   "version": "26.10.9",
   "identifier": "com.lanxiuyun.catrace",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": {
+      "cwd": "..",
+      "script": "node scripts/sync-plugins.mjs && pnpm dev"
+    },
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": {
       "cwd": "..",
