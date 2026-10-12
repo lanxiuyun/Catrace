@@ -105,5 +105,16 @@
     </article>
     <footer><span>内容以官网当前发布为准</span><span>© Catrace · 本地运行，不上传数据</span></footer>
   </main>
+  <script>
+    (() => {
+      const sendHeight = () => {
+        const height = Math.ceil(document.documentElement.scrollHeight);
+        window.parent.postMessage({ type: 'catrace-release-notes-height', height }, '*');
+      };
+      new ResizeObserver(sendHeight).observe(document.documentElement);
+      window.addEventListener('load', sendHeight);
+      sendHeight();
+    })();
+  </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { listen } from '@tauri-apps/api/event'
@@ -361,9 +361,14 @@ async function handleSkip(item: ToastItem) {
 }
 
 function toggleUpdateDetails(item: ToastItem) {
-  item.showUpdateBody = !item.showUpdateBody
+  item.showUpdateBody = import.meta.env.DEV ? true : !item.showUpdateBody
   nextTick(() => scheduleWindowResize())
 }
+
+watch(
+  () => notifications.value.map((item) => `${item.id}:${item.showUpdateBody}`).join('|'),
+  () => nextTick(() => scheduleWindowResize()),
+)
 
 function handleSdkAction(item: ToastItem, actionId: string) {
   markEventResolved(item.eventId, actionId)
@@ -494,6 +499,7 @@ async function handleNotificationAction(item: ToastItem, action: EventAction) {
           :download-progress="item.downloadProgress"
           @close="handleClose(item)"
           @toggle-details="toggleUpdateDetails(item)"
+          @resize="scheduleWindowResize()"
           @install="(source) => handleUpdateInstall(item, source)"
         />
 

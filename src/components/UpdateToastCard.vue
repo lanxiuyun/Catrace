@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import {
   getUpdateSource,
   setUpdateSource,
@@ -18,11 +19,58 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'toggleDetails'): void
+  (e: 'resize'): void
   (e: 'install', source: UpdateSourceId): void
 }>()
 
 const { t } = useI18n()
 const source = ref<UpdateSourceId>('auto')
+const latestNotesUrl = import.meta.env.DEV
+  ? 'http://localhost:1420/website/latest/preview.html'
+  : 'https://lanxiuyun.github.io/Catrace/latest/'
+const isLocalNotesPreview = import.meta.env.DEV
+const latestNotesBrowserUrl = 'https://lanxiuyun.github.io/Catrace/latest/'
+const notesFrameVisible = ref(import.meta.env.DEV)
+const notesFrameFailed = ref(false)
+const notesFrameHeight = ref(160)
+const notesFrameMaxHeight = 440
+let notesFrameTimer: ReturnType<typeof setTimeout> | undefined
+
+function onNotesMessage(event: MessageEvent) {
+  const isTrustedOrigin = isLocalNotesPreview
+    ? event.origin === 'http://localhost:1420'
+    : event.origin === 'https://lanxiuyun.github.io'
+  if (!isTrustedOrigin || event.source !== (document.querySelector('.release-notes-frame') as HTMLIFrameElement | null)?.contentWindow) return
+
+  const payload = event.data as { type?: unknown; height?: unknown } | null
+  if (!payload || payload.type !== 'catrace-release-notes-height' || typeof payload.height !== 'number') return
+  notesFrameHeight.value = Math.max(120, Math.min(Math.ceil(payload.height), notesFrameMaxHeight))
+}
+
+function showLatestNotes() {
+  notesFrameVisible.value = true
+  notesFrameFailed.value = false
+  if (notesFrameTimer) clearTimeout(notesFrameTimer)
+  notesFrameTimer = setTimeout(() => {
+    if (!notesFrameFailed.value) notesFrameFailed.value = true
+  }, 8000)
+}
+
+function onNotesFrameLoad() {
+  notesFrameFailed.value = false
+  if (notesFrameTimer) clearTimeout(notesFrameTimer)
+}
+
+function openLatestNotes() {
+  void openUrl(latestNotesBrowserUrl).catch((error) => console.error('Failed to open release notes:', error))
+}
+
+onMounted(() => window.addEventListener('message', onNotesMessage))
+
+onUnmounted(() => {
+  if (notesFrameTimer) clearTimeout(notesFrameTimer)
+  window.removeEventListener('message', onNotesMessage)
+})
 
 const sourceOptions: { id: UpdateSourceId; labelKey: string }[] = [
   { id: 'auto', labelKey: 'settings.update.sourceAuto' },
@@ -85,9 +133,28 @@ async function onSourceChange(event: Event) {
       </button>
     </div>
 
-    <div v-if="showUpdateBody && updateBody" class="update-body">
-      {{ updateBody }}
-    </div>
+    <section v-if="showUpdateBody" class="release-notes" aria-label="最新版本更新说明">
+      <iframe
+        v-if="notesFrameVisible && !notesFrameFailed"
+        class="release-notes-frame"
+        :src="latestNotesUrl"
+        title="Catrace 最新版本更新说明"
+        loading="eager"
+        :sandbox="isLocalNotesPreview ? undefined : 'allow-same-origin allow-scripts'"
+        referrerpolicy="no-referrer"
+        :style="{ height: `${notesFrameHeight}px`, maxHeight: `${notesFrameMaxHeight}px` }"
+        @load="onNotesFrameLoad"
+      />
+      <div v-if="notesFrameFailed" class="release-notes-fallback">
+        <p>{{ updateBody || '暂时无法加载官网更新说明，请检查网络后重试。' }}</p>
+      </div>
+      <div v-if="!isLocalNotesPreview" class="release-notes-footer">
+        <button v-if="!notesFrameVisible || notesFrameFailed" type="button" class="notes-link" @click="showLatestNotes">
+          {{ notesFrameFailed ? '重试加载' : '加载官网最新说明' }}
+        </button>
+        <button type="button" class="notes-link" @click="openLatestNotes">浏览器打开 ↗</button>
+      </div>
+    </section>
 
     <div v-if="updateInstalling" class="update-progress">
       <div class="update-progress-track">
@@ -187,20 +254,62 @@ async function onSourceChange(event: Event) {
   transform: scale(0.95);
 }
 
-.update-body {
+.release-notes {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 10rem;
-  overflow-y: auto;
+  margin: 0.125rem 0 0.25rem;
+  overflow: hidden;
+  border: 1px solid var(--ct-warning-soft);
+  border-radius: 0.375rem;
+  background: var(--ct-warning-soft);
+}
+
+.release-notes-frame {
+  display: block;
+  width: 100%;
+  height: 160px;
+  min-height: 120px;
+  max-height: 440px;
+  border: 0;
+  background: #11100f;
+}
+
+.release-notes-fallback {
+  max-height: 8rem;
+  overflow: auto;
+  padding: 0.5rem 0.625rem;
+  color: var(--ct-warning-strong);
+  font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.75rem;
-  line-height: 1.5;
+}
+
+.release-notes-fallback p {
+  margin: 0;
+}
+
+.release-notes-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
   color: var(--ct-warning-strong);
-  background: var(--ct-warning-soft);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  margin: 0.375rem 0 0.625rem 0;
+  font-size: 0.6875rem;
+}
+
+
+.notes-link {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .update-progress {
