@@ -248,6 +248,7 @@ async function onSourceChange(event: Event) {
 .close-btn:hover {
   background: var(--ct-warning-soft);
   color: var(--ct-warning);
+  transform: rotate(4deg);
 }
 
 .close-btn:active {
@@ -300,16 +301,34 @@ async function onSourceChange(event: Event) {
   font-size: 0.6875rem;
 }
 
-
 .notes-link {
   flex-shrink: 0;
-  padding: 0;
+  padding: 0.2rem 0.35rem;
   border: 0;
+  border-radius: 0.25rem;
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
+  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.notes-link:hover {
+  background: color-mix(in srgb, var(--ct-warning) 12%, transparent);
+  color: var(--ct-warning);
+}
+
+.notes-link:active {
+  transform: scale(0.96);
+}
+
+.notes-link:focus-visible,
+.source-select:focus-visible,
+.btn:focus-visible,
+.close-btn:focus-visible {
+  outline: 2px solid var(--ct-warning);
+  outline-offset: 2px;
 }
 
 .update-progress {
@@ -354,6 +373,16 @@ async function onSourceChange(event: Event) {
   font-weight: 600;
   padding: 0 0.25rem;
   cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.source-select:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ct-warning) 12%, var(--ct-warning-soft));
+  border-color: color-mix(in srgb, var(--ct-warning) 38%, transparent);
+}
+
+.source-select:active:not(:disabled) {
+  background: color-mix(in srgb, var(--ct-warning) 18%, var(--ct-warning-soft));
 }
 
 .source-select:disabled {
@@ -385,27 +414,36 @@ async function onSourceChange(event: Event) {
 .btn-secondary {
   background: var(--ct-warning-soft);
   color: var(--ct-warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 8%, transparent);
 }
 
-.btn-secondary:hover {
-  background: var(--ct-warning-soft);
+.btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ct-warning) 14%, var(--ct-warning-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 24%, transparent);
+  transform: translateY(-1px);
 }
 
 .btn-primary {
   background: var(--ct-warning);
   color: var(--ct-on-accent);
+  box-shadow: 0 0.2rem 0.55rem color-mix(in srgb, var(--ct-warning) 22%, transparent);
 }
 
-.btn-primary:hover {
-  background: var(--ct-warning);
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ct-warning) 88%, white);
+  box-shadow: 0 0.3rem 0.75rem color-mix(in srgb, var(--ct-warning) 34%, transparent);
+  transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
   background: var(--ct-warning-soft);
   cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.72;
 }
 
-.btn:active {
-  transform: scale(0.97);
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
 }
 </style>
