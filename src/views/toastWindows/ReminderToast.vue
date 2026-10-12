@@ -361,7 +361,7 @@ async function handleSkip(item: ToastItem) {
 }
 
 function toggleUpdateDetails(item: ToastItem) {
-  item.showUpdateBody = import.meta.env.DEV ? true : !item.showUpdateBody
+  item.showUpdateBody = !item.showUpdateBody
   nextTick(() => scheduleWindowResize())
 }
 
