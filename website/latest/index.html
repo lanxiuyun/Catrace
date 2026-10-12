@@ -20,18 +20,24 @@
     .timeline::before { content: ""; position: absolute; top: .45rem; bottom: .45rem; left: 1.17rem; width: 2px; background: var(--line); }
     .item { position: relative; min-height: 3.5rem; padding: 0 0 0 1.5rem; }
     .item::before { content: ""; position: absolute; top: .2rem; left: 0; width: .9rem; height: .9rem; border: 2px solid var(--paper); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-    .time { margin-bottom: 0; color: var(--muted); font: 600 .66rem/1.3 "Cascadia Code", Consolas, monospace; letter-spacing: .04em; }
+    .time { margin: 0; color: var(--muted); font: 600 .9rem/1.55 "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif; letter-spacing: 0; }
     .text { margin: 0; font-size: .9rem; line-height: 1.55; }
-    @media (max-width: 22rem) { .text { font-size: .84rem; } }
+    .details { display: grid; gap: .45rem; margin: .45rem 0 0; padding-left: 1rem; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+    @media (max-width: 22rem) { .text { font-size: .84rem; } .details { font-size: .78rem; } }
   </style>
 </head>
 <body>
   <main>
-    <ol class="timeline" aria-label="本次更新摘要">
-      <li class="item"><div class="time">2026.10.02 · 更新说明</div><p class="text">更新提醒改为展示官网最新版本说明，支持在弹窗内查看简洁时间线。</p></li>
-      <li class="item"><div class="time">2026.10.02 · 窗口体验</div><p class="text">详情窗口可随说明内容调整高度，并限制最大高度，内容过长时在框内滚动。</p></li>
-      <li class="item"><div class="time">2026.10.02 · 交互优化</div><p class="text">完善更新卡片按钮、更新源选择和关闭控件的悬停、按下与键盘焦点反馈。</p></li>
-      <li class="item"><div class="time">2026.10.02 · 稳定性</div><p class="text">详情可正常展开和收起；官网说明不可用时保留更新正文回退，更新操作不受影响。</p></li>
+    <ol class="timeline" aria-label="本次更新说明">
+      <li class="item">
+        <div class="time">2026.10.12 - 更新提醒升级，官网说明直接展示，查看更新更清楚。</div>
+        <ul class="details">
+          <li>更新提醒改为展示官网最新版本说明，支持在弹窗内查看简洁时间线。</li>
+          <li>详情窗口可随说明内容调整高度，并限制最大高度，内容过长时在框内滚动。</li>
+          <li>完善更新卡片按钮、更新源选择和关闭控件的悬停、按下与键盘焦点反馈。</li>
+          <li>详情可正常展开和收起；官网说明不可用时保留更新正文回退，更新操作不受影响。</li>
+        </ul>
+      </li>
     </ol>
   </main>
   <script>
