@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11100f">
+  <meta name="description" content="Catrace 最新版本更新说明。查看最近发布内容、改进和修复。">
+  <title>最新更新 · Catrace</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f0e7;
+      --muted: #aaa69b;
+      --faint: #77746b;
+      --line: rgba(244, 240, 231, .13);
+      --accent: #d9ff63;
+      --panel: #191917;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: #11100f; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 92% 0%, rgba(217,255,99,.09), transparent 34rem),
+        #11100f;
+      font-family: var(--sans);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    .page { width: min(100% - 2rem, 57rem); margin: 0 auto; padding: 2rem 0 3rem; }
+    .topline { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: .65rem; color: var(--ink); text-decoration: none; font-weight: 750; letter-spacing: -.03em; }
+    .brand img { width: 1.7rem; height: 1.7rem; border-radius: .45rem; }
+    .back { color: var(--muted); font-size: .82rem; text-decoration: none; }
+    .back:hover { color: var(--accent); }
+    .eyebrow { margin: 2.7rem 0 .65rem; color: var(--accent); font: 600 .72rem/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2.15rem, 8vw, 4.5rem); line-height: 1.05; letter-spacing: -.065em; font-weight: 760; }
+    .intro { max-width: 39rem; margin: 1rem 0 2rem; color: var(--muted); font-size: 1rem; }
+    .release { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 1rem; background: linear-gradient(145deg, rgba(255,255,255,.035), transparent 55%), var(--panel); }
+    .release-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.35rem; border-bottom: 1px solid var(--line); }
+    .version { display: inline-flex; align-items: center; gap: .55rem; font: 700 1.2rem/1.3 var(--mono); }
+    .version::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 1rem rgba(217,255,99,.55); }
+    .date { color: var(--faint); font: .72rem/1.5 var(--mono); white-space: nowrap; }
+    .release-body { padding: 1.35rem; }
+    .summary { max-width: 44rem; margin: 0; color: #d2cec3; font-size: 1.02rem; }
+    .section-label { margin: 1.65rem 0 .7rem; color: var(--faint); font: 600 .68rem/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .changes { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+    .changes li { min-height: 3.5rem; padding: .8rem .9rem; border: 1px solid var(--line); border-radius: .65rem; color: #dfdacf; font-size: .88rem; background: rgba(255,255,255,.018); }
+    .changes li::before { content: "+"; margin-right: .55rem; color: var(--accent); font: 700 .9rem var(--mono); }
+    figure { margin: 1.2rem 0 0; }
+    figure img { display: block; width: 100%; height: auto; max-height: 28rem; object-fit: contain; border: 1px solid var(--line); border-radius: .7rem; background: #0d0d0c; }
+    figcaption { margin-top: .45rem; color: var(--faint); font-size: .75rem; }
+    .actions { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-top: 1.5rem; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.7rem; padding: .65rem 1rem; border: 1px solid var(--line); border-radius: .55rem; color: var(--ink); font-size: .83rem; text-decoration: none; transition: transform .18s, border-color .18s, color .18s; }
+    .button:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--accent); }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: #17190f; font-weight: 750; }
+    .button.primary:hover { color: #17190f; filter: brightness(1.05); }
+    footer { display: flex; justify-content: space-between; gap: .75rem; margin-top: 1rem; color: var(--faint); font-size: .72rem; }
+    @media (max-width: 34rem) {
+      .page { width: min(100% - 1.25rem, 57rem); padding-top: 1.1rem; }
+      .eyebrow { margin-top: 2rem; }
+      .release-head, .release-body { padding: 1rem; }
+      .changes { grid-template-columns: 1fr; gap: .5rem; }
+      .changes li { min-height: auto; }
+      .date { font-size: .65rem; }
+      footer { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topline">
+      <a class="brand" href="../" aria-label="Catrace 官网"><img src="../favicon.png" alt=""><span>Catrace</span></a>
+      <a class="back" href="../">返回官网 ↗</a>
+    </div>
+
+    <p class="eyebrow">Release notes / 最新发布</p>
+    <h1>最近，Catrace<br>更新了什么？</h1>
+    <p class="intro">这里始终展示官网当前维护的最新版本说明。版本内容会随每次发布更新；如果你正在安装较早的版本，以下说明也可能包含更新的内容。</p>
+
+    <!-- 发布新版本时只需更新下方这一张卡片。此处内容依据官网首页展示的 v26.10.2 更新摘要整理。 -->
+    <article class="release" aria-labelledby="release-version">
+      <header class="release-head">
+        <div class="version" id="release-version">v26.10.2</div>
+        <time class="date" datetime="2026-10-02">LATEST RELEASE</time>
+      </header>
+      <div class="release-body">
+        <p class="summary">这次把桌面通知和插件运行时一起收了一轮：Toast 卡堆滚动更顺、插件日志全链路可见、Windows 系统通知也能进小窗。</p>
+        <h2 class="section-label">更新内容 / What's new</h2>
+        <ul class="changes">
+          <li>优化 Toast 卡堆滚动与浏览体验。</li>
+          <li>完善插件运行日志的全链路可见性。</li>
+          <li>支持 Windows 系统通知进入桌面小窗。</li>
+        </ul>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/lanxiuyun/Catrace/releases/latest" target="_blank" rel="noopener noreferrer">获取最新版本 ↗</a>
+          <a class="button" href="https://github.com/lanxiuyun/Catrace/releases" target="_blank" rel="noopener noreferrer">查看全部 Release</a>
+        </div>
+      </div>
+    </article>
+    <footer><span>内容以官网当前发布为准</span><span>© Catrace · 本地运行，不上传数据</span></footer>
+  </main>
+</body>
+</html>
