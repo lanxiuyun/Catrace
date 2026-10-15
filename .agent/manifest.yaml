@@ -144,6 +144,7 @@ features:
   auto-update:
     docs:
       - .agent/features/auto-update/README.md
+      - .agent/features/auto-update/官网版本说明页与更新弹窗改造评估.md
     related:
       - toast-window
   report:

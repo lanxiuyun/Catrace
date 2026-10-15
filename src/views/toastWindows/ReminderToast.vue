@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { listen } from '@tauri-apps/api/event'
@@ -365,6 +365,11 @@ function toggleUpdateDetails(item: ToastItem) {
   nextTick(() => scheduleWindowResize())
 }
 
+watch(
+  () => notifications.value.map((item) => `${item.id}:${item.showUpdateBody}`).join('|'),
+  () => nextTick(() => scheduleWindowResize()),
+)
+
 function handleSdkAction(item: ToastItem, actionId: string) {
   markEventResolved(item.eventId, actionId)
   removeNotification(item.id, true)
@@ -494,6 +499,7 @@ async function handleNotificationAction(item: ToastItem, action: EventAction) {
           :download-progress="item.downloadProgress"
           @close="handleClose(item)"
           @toggle-details="toggleUpdateDetails(item)"
+          @resize="scheduleWindowResize()"
           @install="(source) => handleUpdateInstall(item, source)"
         />
 

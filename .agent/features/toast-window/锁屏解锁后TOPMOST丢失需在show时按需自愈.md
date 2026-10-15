@@ -8,7 +8,7 @@ Toast 小窗创建时带 `always_on_top(true)`，平时 show 路径**禁止** `S
 
 - `show_no_activate`：先套 `WS_EX_NOACTIVATE`，再读 `GWL_EXSTYLE`；**只有缺少 `WS_EX_TOPMOST` 时**才 `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE)`。
 - sticky 卡让窗口保持可见时，`ensure_toast_window_visible` 不会再走 show；此时同样检查并按需补回。
-- 样式还在则什么都不推，全屏游戏路径不变。
+- 样式还在则不因为「缺位」再推。另外：每个 Toast HWND **第一次变为可见**时仍推一次 topmost 带（`raise_topmost_once`）。开机时窗口是隐藏创建的，样式位从 `CreateWindowEx` 起就在，但后出现的其它 topmost 窗（邮件客户端等）排在它前面；`SW_SHOWNOACTIVATE` + `SWP_NOZORDER` 不改这个顺序，所以第一次弹出被盖住，要点一下（`SetForegroundWindow`）才到最前。同一 HWND 的后续 show 不再推，全屏游戏路径不变。
 
 ## 为什么必须这样
 

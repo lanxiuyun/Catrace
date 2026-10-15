@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 
 use tauri::{AppHandle, Runtime, WebviewWindow};
 use windows::Win32::Foundation::{HWND, RECT};
@@ -11,12 +11,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SWP_SHOWWINDOW, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, WS_EX_TOPMOST,
 };
 
-use crate::{log_debug, log_warn};
+use crate::{log_debug, log_info, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
 /// 用户已通过点击卡片主动接管 Toast 焦点（set_window_active_mode(true)）时置位；
 /// 前台巡检看到此标志必须停手，不能把用户刚点的焦点又抢回去。每次 show 时复位。
 static TOAST_FOCUS_TAKEN_DELIBERATELY: AtomicBool = AtomicBool::new(false);
+
+/// 已经在可见状态下被推到 topmost 带最前的 Toast HWND。
+/// 0 = 还没有。换了 HWND（重建窗口）会再推一次；同一个 HWND 的后续 show 不再推。
+static TOPMOST_RAISED_HWND: AtomicIsize = AtomicIsize::new(0);
 
 /// Windows 设置 → 辅助功能 → 文本大小。WebView2 会把页面视觉放大，但不改 CSS 布局；
 /// Toast 小窗必须按这个系数放大 HWND，否则卡片底部会被裁切。
@@ -96,6 +100,48 @@ fn ensure_topmost_style(hwnd: HWND) -> bool {
         has_exstyle(after, WS_EX_TOPMOST.0)
     );
     ok
+}
+
+/// 这个 HWND 是否还没在「可见」状态下被推到 topmost 带最前。
+///
+/// 开机时 Toast 以隐藏窗口创建，`WS_EX_TOPMOST` 样式位一开始就在。
+/// 之后起来的其它 topmost 窗（邮件客户端、壳层）会排在它前面；
+/// `ShowWindow(SW_SHOWNOACTIVATE)` 带 `SWP_NOZORDER`，不会改这个顺序。
+/// 样式位检查因此会跳过，窗口看起来就不置顶，要点一次（SetForegroundWindow）才抬上去。
+/// 每个 HWND 只在第一次可见 show 时推一次，避免每次 show 都 `HWND_TOPMOST` 把全屏游戏切出。
+fn should_raise_topmost_once(already_raised: isize, hwnd: isize) -> bool {
+    hwnd != 0 && already_raised != hwnd
+}
+
+/// 窗口已经可见时，把这个 HWND 推到 topmost 带最前。同一 HWND 只做一次。
+fn raise_topmost_once(hwnd: HWND) {
+    let key = hwnd.0 as isize;
+    let already = TOPMOST_RAISED_HWND.load(Ordering::SeqCst);
+    if !should_raise_topmost_once(already, key) {
+        return;
+    }
+    let ok = unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+        )
+        .is_ok()
+    };
+    if ok {
+        TOPMOST_RAISED_HWND.store(key, Ordering::SeqCst);
+    }
+    log_info!(
+        "toast-win",
+        "raise_topmost_once: first visible show hwnd={:?} ok={} ex=0x{:x}",
+        hwnd,
+        ok,
+        exstyle_bits(hwnd)
+    );
 }
 
 /// 已可见的 Toast 也可能丢 TOPMOST（锁屏解锁后 sticky 卡还在，ensure 会提前 return）。
@@ -254,9 +300,9 @@ fn restore_normal_style(hwnd: HWND) {
     }
 }
 
-/// 使用原生 Win32 无焦点显示窗口（不触发 Z 序变更）。
-/// 窗口已在 Tauri builder 设 always_on_top(true) 带有 WS_EX_TOPMOST，
-/// 不需要额外 SetWindowPos(HWND_TOPMOST) —— 那会推高 Z 序并导致全屏独占模式游戏被切出全屏。
+/// 使用原生 Win32 无焦点显示窗口。
+/// 平时不改 Z 序（`SWP_NOZORDER`），避免每次 show 都 `HWND_TOPMOST` 把全屏游戏切出。
+/// 每个 HWND 第一次可见 show 仍会推一次 topmost 带：隐藏创建时样式位已在，但排在后出现的其它 topmost 窗下面。
 fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
     if let Some(hwnd) = window_hwnd(window) {
         unsafe {
@@ -274,10 +320,13 @@ fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
                 has_exstyle(style, WS_EX_NOACTIVATE.0)
             );
         }
+        // 必须在窗口已经可见之后再推。隐藏创建时样式位就在，但 Z 序还在其它 topmost 窗下面。
+        let _ = window.unminimize();
+        raise_topmost_once(hwnd);
     } else {
         log_warn!("toast-win", "show_no_activate: no hwnd");
+        let _ = window.unminimize();
     }
-    let _ = window.unminimize();
 }
 
 /// 内部实现：显示窗口
@@ -515,5 +564,17 @@ mod tests {
     fn deliberate_take_stops_patrol() {
         // 用户点卡接管后，即使前台还是 Toast 也不能把用户刚点的焦点抢回去
         assert!(!should_restore_foreground(0x100, 0x200, true, 0x100));
+    }
+
+    #[test]
+    fn first_visible_show_raises_topmost_once_per_hwnd() {
+        // 隐藏创建的 HWND 样式位已在，但还没在可见时推过 Z 序
+        assert!(should_raise_topmost_once(0, 0x100));
+        // 同一个 HWND 后续 show 不再推，避免每次通知都把全屏游戏切出
+        assert!(!should_raise_topmost_once(0x100, 0x100));
+        // 重建窗口换了 HWND，再推一次
+        assert!(should_raise_topmost_once(0x100, 0x200));
+        // 无效 HWND 不动
+        assert!(!should_raise_topmost_once(0, 0));
     }
 }
