@@ -833,10 +833,8 @@ fn handle_stdout_line(
                 let fullscreen_active = crate::window_manager::is_fullscreen_reminder_open(app);
                 let active =
                     !fullscreen_active && (state.count > 0 || state.media_active_snapshot);
-                Ok(serde_json::json!({
-                    "active": active,
-                    "at": chrono::Utc::now().timestamp_millis(),
-                }))
+                // 立刻现查一次前台窗口（亚毫秒级纯读）：插件靠它判断"用户正在看 DSH"
+                Ok(activity_payload(active, crate::signal::active_window_info()))
             }) {
                 Ok(result) => serde_json::json!({
                     "v": 1,
@@ -1036,6 +1034,24 @@ fn reply_sidecar(manager: &PluginSidecarManager, plugin_id: &str, response: &ser
     }
 }
 
+/// `activity.get` 的响应体：用户是否活跃 + **前台窗口是谁**（app / title）。
+///
+/// 抽成纯函数是为了能单测字段形状：插件（dsh-chat 的「你在 DSH 里时不弹小窗」）靠 `app`/`title`
+/// 判断"用户正在看 DSH"，字段少一个就会静默失效。拿不到前台窗口时给 `null`，
+/// 插件侧按"读不到"处理（Wayland / 无权限 / 平台不支持都走这条路）。
+fn activity_payload(active: bool, foreground: Option<(String, String)>) -> serde_json::Value {
+    let (app, title) = match foreground {
+        Some((app, title)) => (Some(app), Some(title)),
+        None => (None, None),
+    };
+    serde_json::json!({
+        "active": active,
+        "at": chrono::Utc::now().timestamp_millis(),
+        "app": app,
+        "title": title,
+    })
+}
+
 fn log_plugin_message(
     app: &tauri::AppHandle,
     plugin_id: &str,
@@ -1109,7 +1125,7 @@ fn kill_process_tree(child: &mut Child) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_log_level, SidecarOutput};
+    use super::{activity_payload, default_log_level, SidecarOutput};
 
     #[test]
     fn parses_publish_and_log_messages() {
@@ -1206,6 +1222,35 @@ mod tests {
             other => panic!("expected config.set, got {other:?}"),
         }
     }
+    #[test]
+    fn activity_payload_exposes_foreground_window() {
+        // 插件（dsh-chat）靠 app/title 判断"用户正在看 DSH"，据此决定"在 DSH 里不弹小窗"。
+        // 字段形状是契约：少了 app/title，插件侧会静默失效（不报错，就是不收卡）。
+        let with_window = activity_payload(
+            true,
+            Some(("DSH Desktop".to_string(), "DeepSeek Harness Desktop".to_string())),
+        );
+        assert_eq!(with_window["active"], serde_json::json!(true));
+        assert_eq!(with_window["app"], serde_json::json!("DSH Desktop"));
+        assert_eq!(with_window["title"], serde_json::json!("DeepSeek Harness Desktop"));
+        assert!(with_window["at"].is_i64(), "at 必须还在（其它插件在用）");
+
+        // 拿不到前台窗口：字段要在，但为 null（插件按"读不到"处理，而不是崩）
+        let without = activity_payload(false, None);
+        assert_eq!(without["active"], serde_json::json!(false));
+        assert!(without["app"].is_null());
+        assert!(without["title"].is_null());
+    }
+
+    #[test]
+    fn active_window_info_never_panics() {
+        // 无头环境 / Wayland / 无权限都可能拿不到：这里只要求"要么给出 app+title，要么 None"
+        if let Some((app, title)) = crate::signal::active_window_info() {
+            assert!(!app.is_empty(), "拿到窗口就不该是空 app 名");
+            assert!(title.chars().count() <= 200, "标题应被截断到 200 字符内");
+        }
+    }
+
     #[test]
     fn send_resolved_does_not_hold_running_lock_while_writing() {
         // Regression contract: send_resolved clones the stdin handle under the running map lock,
