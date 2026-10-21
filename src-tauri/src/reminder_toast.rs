@@ -227,6 +227,10 @@ pub fn set_toast_content_size(app: tauri::AppHandle, width: f64, height: f64) {
 fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
     let win = window.clone();
     let app = window.app_handle().clone();
+    #[cfg(target_os = "windows")]
+    let destroyed = std::sync::Arc::new(AtomicBool::new(false));
+    #[cfg(target_os = "windows")]
+    let destroyed_event = destroyed.clone();
     window.on_window_event(move |event| {
         match event {
             tauri::WindowEvent::CloseRequested { .. } => {
@@ -236,6 +240,8 @@ fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
                 );
             }
             tauri::WindowEvent::Destroyed => {
+                #[cfg(target_os = "windows")]
+                destroyed_event.store(true, Ordering::SeqCst);
                 log_warn!(
                     "toast-win",
                     "on_window_event: Destroyed — 窗口已销毁，下次显示会重建"
@@ -252,6 +258,30 @@ fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
             _ => {}
         }
     });
+
+    // 常驻卡片可能在没有新事件时被遮挡；窗口销毁后停止巡检。
+    #[cfg(target_os = "windows")]
+    {
+        let app = window.app_handle().clone();
+        let hwnd = window_manager::reminder_hwnd_id(window);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                if destroyed.load(Ordering::SeqCst) {
+                    break;
+                }
+                let Some(window) = app.get_webview_window(TOAST_WINDOW_LABEL) else {
+                    break;
+                };
+                if window_manager::reminder_hwnd_id(&window) != hwnd {
+                    break;
+                }
+                if window.is_visible().unwrap_or(false) {
+                    window_manager::ensure_reminder_topmost(&window);
+                }
+            }
+        });
+    }
 }
 
 fn build_toast_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
@@ -318,7 +348,7 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
     // 已可见：连点堆叠时不必反复抢 mutex / Win32 show / eval
     if let Some(window) = app_handle.get_webview_window(TOAST_WINDOW_LABEL) {
         if window.is_visible().unwrap_or(false) {
-            // sticky 卡跨过锁屏后窗口仍可见，不会再走 show；这里补回可能被 DWM 清掉的 TOPMOST。
+            // 已可见也要检查真实 Z 序：TOPMOST 位还在，不代表没有被其它置顶窗遮住。
             window_manager::ensure_reminder_topmost(&window);
             return;
         }

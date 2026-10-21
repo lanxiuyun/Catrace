@@ -1,14 +1,28 @@
 # 锁屏解锁后 TOPMOST 丢失，需在 show 时按需自愈
 
-Toast 小窗创建时带 `always_on_top(true)`，平时 show 路径**禁止** `SetWindowPos(HWND_TOPMOST)`，以免把全屏独占游戏切出全屏。见 [Z 序约束](../../architecture/window-manager/README.md#z-序约束重要) 与 [2026-07-14 全屏游戏退出](../../bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md)。
+Toast 小窗创建时带 `always_on_top(true)`，但置顶窗口之间仍有 Z 序。禁止无条件反复 `SetWindowPos(HWND_TOPMOST)`，也不能只检查样式位。见 [Z 序约束](../../architecture/window-manager/README.md#z-序约束重要) 与 [2026-07-14 全屏游戏退出](../../bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md)。
 
 前提「窗口一直带着 `WS_EX_TOPMOST`」在锁屏/解锁后不成立。
 
 ## 现行行为
 
-- `show_no_activate`：先套 `WS_EX_NOACTIVATE`，再读 `GWL_EXSTYLE`；**只有缺少 `WS_EX_TOPMOST` 时**才 `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE)`。
-- sticky 卡让窗口保持可见时，`ensure_toast_window_visible` 不会再走 show；此时同样检查并按需补回。
-- 样式还在则不因为「缺位」再推。另外：每个 Toast HWND **第一次变为可见**时仍推一次 topmost 带（`raise_topmost_once`）。开机时窗口是隐藏创建的，样式位从 `CreateWindowEx` 起就在，但后出现的其它 topmost 窗（邮件客户端等）排在它前面；`SW_SHOWNOACTIVATE` + `SWP_NOZORDER` 不改这个顺序，所以第一次弹出被盖住，要点一下（`SetForegroundWindow`）才到最前。同一 HWND 的后续 show 不再推，全屏游戏路径不变。
+- `show_no_activate` 显示后与已可见的 ensure 分支共用 `ensure_topmost`：缺少 `WS_EX_TOPMOST` 或存在可见、重叠且排在前面的窗口时才修复。
+- 从 `GW_HWNDPREV` 查实际顺序，排除隐藏、最小化、DWM cloaked、Toast 自己的直接 owned 弹窗及不重叠窗口。使用 `HWND_TOPMOST + SWP_NOACTIVATE`，不抢前台焦点；修复后验证实际顺序，最多补一次。
+- `SHQueryUserNotificationState` 仅在 ACCEPTS_NOTIFICATIONS / QUIET_TIME 允许抬升；全屏、演示、离开桌面、APP 或查询失败时不改 Z 序。恢复桌面后再次按需修复。
+- 每个 Toast 生命周期有一个 500ms 巡检，处理显示中被遮挡、退出全屏、解锁等没有新通知的情况；隐藏时不扫描，销毁后结束，不能重新显示已隐藏窗口。
+- `apply_no_activate_style` 不再携带 `SWP_SHOWWINDOW`，避免关闭路径恢复样式时意外重新显示。
+
+## 2026-10-21 复发与验证
+
+此前 `raise_topmost_once` 仅首次显示有效；同一 HWND 之后被其它置顶窗压住时，复用路径跳过抬升，已可见路径又只查样式位。现已移除一次性 HWND 缓存。
+
+原生测试直接创建屏幕外 Win32 窗口并调用生产修复函数，修复前断言 `reused Toast is still covered despite WS_EX_TOPMOST` 失败。覆盖首次显示、20 轮复用和显示中遮挡、焦点不变、样式丢失恢复、无重叠/隐藏时不操作，以及受保护状态不改顺序。全屏状态通过注入系统查询结果验证，未实测独占游戏。
+
+```powershell
+cargo test --manifest-path C:\work_sapce\Catrace\src-tauri\Cargo.toml --lib native_toast_z_order -- --ignored --test-threads=1
+```
+
+该测试需交互式 Windows 桌面，默认忽略以免无桌面的 CI 误报。普通策略单测仍随 `cargo test --lib` 执行。
 
 ## 为什么必须这样
 
@@ -22,7 +36,7 @@ Toast HWND 是复用的。锁屏（Win+L）/ 解锁会让 DWM 清掉已有窗口
 
 ## 不要做的
 
-- 不要每次 show 都 `HWND_TOPMOST`（会再踩 2026-07-14）
+- 不要无条件每次 show 都 `HWND_TOPMOST`，也不要以“每个 HWND 仅一次”代替全屏保护
 - 不要靠用户点击恢复置顶
 - 不要把 Win+D 异常先当成「系统 hide」，先看 HWND 的 `topmost` 位
 

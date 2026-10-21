@@ -8,7 +8,7 @@ window_manager 是 Tauri 插件形式的窗口管理模块，核心能力：**�
 
 - 利用 `WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE` 实现不夺焦弹出
 - 同时保持窗口置顶（`always_on_top(true)` 提供 `WS_EX_TOPMOST`）
-- 不会推高 Z 序，全屏独占模式游戏不受影响
+- 桌面场景仅在被遮挡或置顶标志缺失时修复 Z 序；系统报告全屏/演示等受保护状态时不抬升
 
 见 [Z 序约束](../architecture/window-manager/README.md#z-序约束重要)。
 
@@ -29,6 +29,7 @@ window_manager 是 Tauri 插件形式的窗口管理模块，核心能力：**�
 2. **commit `3c9d0b3`**：去掉 `SWP_NOZORDER` 修复置顶 bug → `HWND_TOPMOST` 真正生效 → **每次 Toast 弹出把窗口推到 topmost 最顶层 → Windows 将全屏独占模式游戏切出全屏**
 3. **2026-07-14 后**：窗口已有 `always_on_top(true)` 的 `WS_EX_TOPMOST`，不需要额外推高。`apply_no_activate_style` 和 `restore_normal_style` 都带 `SWP_NOZORDER` 只改样式，`show_no_activate` 去掉每次 `SetWindowPos(HWND_TOPMOST)`。
 4. **2026-09-19**：锁屏/解锁会清掉复用 HWND 上的 `WS_EX_TOPMOST`。show / ensure 时**仅在该位缺失**才 `HWND_TOPMOST` + `SWP_NOACTIVATE`。见 [锁屏解锁后 TOPMOST 丢失](../toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md)。
+5. **2026-10-21**：移除“每个 HWND 只抬升一次”的补丁。改为实际遮挡检测 + 系统全屏状态保护，show、已可见 ensure、500ms 生命周期巡检共用策略；详见上述现行行为文档。
 
 ### 隐藏复用
 
@@ -100,7 +101,7 @@ invoke('set_window_active_mode', { label, active: true })
 
 ### `HWND_TOPMOST` 与 `SWP_NOZORDER` 互斥
 
-`SetWindowPos` 传 `HWND_TOPMOST` 时不能同时带 `SWP_NOZORDER`，否则 Win32 会忽略层级参数，窗口不会置顶。但去掉 `SWP_NOZORDER` 又会在每次 Toast 弹出时推高 Z 序 → 全屏游戏被切出。最终方案：窗口已有 `always_on_top(true)` 的 `WS_EX_TOPMOST`，不再调用 `SetWindowPos(HWND_TOPMOST)`。
+`SetWindowPos` 传 `HWND_TOPMOST` 时不能同时带 `SWP_NOZORDER`，否则 Win32 会忽略层级参数。现行方案通过系统通知状态保护全屏，仅在真实遮挡或样式缺失时按需抬升；不能把 `WS_EX_TOPMOST` 等同于最前面。
 
 详见上文的 [Z 序约束演变](#z-序约束演变)。
 
