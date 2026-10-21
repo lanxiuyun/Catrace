@@ -4,6 +4,8 @@ mod shared;
 
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(target_os = "windows")]
+pub use windows::start_toast_diagnostics;
 #[cfg(not(target_os = "windows"))]
 mod macos;
 

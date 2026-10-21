@@ -14,6 +14,13 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use crate::{log_debug, log_info, log_warn};
 use super::shared::{is_reminder_window, shared_hide_window, shared_show_window};
 
+#[path = "windows_diagnostics.rs"]
+mod diagnostics;
+
+pub fn start_toast_diagnostics(window: &tauri::WebviewWindow) {
+    diagnostics::start(window);
+}
+
 /// 用户已通过点击卡片主动接管 Toast 焦点（set_window_active_mode(true)）时置位；
 /// 前台巡检看到此标志必须停手，不能把用户刚点的焦点又抢回去。每次 show 时复位。
 static TOAST_FOCUS_TAKEN_DELIBERATELY: AtomicBool = AtomicBool::new(false);
@@ -151,7 +158,9 @@ pub fn ensure_reminder_topmost<R: Runtime>(window: &WebviewWindow<R>) {
     }
     let wry_window = cast_to_wry(window);
     if let Some(hwnd) = window_hwnd(wry_window) {
+        diagnostics::record(hwnd, "ensure-before");
         let _ = ensure_topmost_style(hwnd);
+        diagnostics::record(hwnd, "ensure-after");
     }
 }
 
@@ -305,9 +314,12 @@ fn restore_normal_style(hwnd: HWND) {
 /// 每个 HWND 第一次可见 show 仍会推一次 topmost 带：隐藏创建时样式位已在，但排在后出现的其它 topmost 窗下面。
 fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
     if let Some(hwnd) = window_hwnd(window) {
+        diagnostics::record(hwnd, "show-before");
         unsafe {
             apply_no_activate_style(hwnd);
+            diagnostics::record(hwnd, "show-after-noactivate-style");
             let _ = ensure_topmost_style(hwnd);
+            diagnostics::record(hwnd, "show-after-topmost-check");
             let prev = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             let style = exstyle_bits(hwnd);
             log_debug!(
@@ -320,9 +332,12 @@ fn show_no_activate(window: &WebviewWindow<tauri::Wry>) {
                 has_exstyle(style, WS_EX_NOACTIVATE.0)
             );
         }
+        diagnostics::record(hwnd, "show-after-showwindow");
         // 必须在窗口已经可见之后再推。隐藏创建时样式位就在，但 Z 序还在其它 topmost 窗下面。
-        let _ = window.unminimize();
+        let unminimize = window.unminimize();
+        log_info!("toast-win", "[DEBUG-toast-zorder] stage=unminimize hwnd={:?} result={:?}", hwnd, unminimize);
         raise_topmost_once(hwnd);
+        diagnostics::record(hwnd, "show-completed");
     } else {
         log_warn!("toast-win", "show_no_activate: no hwnd");
         let _ = window.unminimize();
@@ -369,6 +384,9 @@ pub fn hide_window_internal<R: Runtime>(
 ) {
     let label = window.label().to_string();
     if is_reminder_window(window) {
+        if let Some(hwnd) = window_hwnd(cast_to_wry(window)) {
+            diagnostics::record(hwnd, "hide-before");
+        }
         log_debug!("toast-win", "hide_internal[{}] start", label);
         shared_hide_window(window);
         let wry_window = cast_to_wry(window);
@@ -386,6 +404,9 @@ pub fn hide_window_internal<R: Runtime>(
             log_warn!("toast-win", "hide_internal[{}] no hwnd", label);
         }
         let visible_now = window.is_visible().unwrap_or(false);
+        if let Some(hwnd) = window_hwnd(wry_window) {
+            diagnostics::record(hwnd, "hide-completed");
+        }
         log_debug!(
             "toast-win",
             "hide_internal[{}] end, tao is_visible={}",
@@ -404,6 +425,7 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
     }
     let wry_window = cast_to_wry(window);
     if let Some(hwnd) = window_hwnd(wry_window) {
+        diagnostics::record(hwnd, if active { "active-mode-before" } else { "inactive-mode-before" });
         if active {
             TOAST_FOCUS_TAKEN_DELIBERATELY.store(true, Ordering::SeqCst);
             restore_normal_style(hwnd);
@@ -420,6 +442,7 @@ pub fn set_window_active_mode_internal<R: Runtime>(window: &WebviewWindow<R>, ac
             log_debug!("toast-win", "active_mode[{}] -> noactivate", window.label());
             apply_no_activate_style(hwnd);
         }
+        diagnostics::record(hwnd, "active-mode-after");
     }
 }
 

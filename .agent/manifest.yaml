@@ -79,6 +79,7 @@ features:
   toast-window:
     docs:
       - .agent/features/toast-window/README.md
+      - .agent/features/toast-window/Toast被普通窗口遮挡时的只读诊断日志.md
       - .agent/features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md
       - .agent/features/toast-window/toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md
       - .agent/features/toast-window/连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md

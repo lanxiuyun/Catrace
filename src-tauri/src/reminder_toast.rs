@@ -225,6 +225,8 @@ pub fn set_toast_content_size(app: tauri::AppHandle, width: f64, height: f64) {
 /// 挂载 Toast 窗口生命周期诊断日志：窗口是否被真正销毁（前端兜底 close 会走这条路），
 /// 以及是否收到意外的 CloseRequested。
 fn attach_toast_diagnostics(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    window_manager::start_toast_diagnostics(window);
     let win = window.clone();
     let app = window.app_handle().clone();
     window.on_window_event(move |event| {
@@ -346,7 +348,7 @@ pub fn ensure_toast_window_visible(app_handle: &tauri::AppHandle) {
                 log_error!("toast-win", "ensure: reuse fit failed: {}", e);
             }
             window_manager::show_reminder_no_activate(&app, &window);
-            log_info!("toast-win", "ensure: shown (reuse path)");
+            log_info!("toast-win", "ensure: show requested (reuse path)");
             return;
         }
 
@@ -468,7 +470,7 @@ pub fn create_toast_window(
                 log_error!("toast-win", "create_toast_window: reuse fit failed: {}", e);
             }
             window_manager::show_reminder_no_activate(&app, &window);
-            log_info!("toast-win", "create_toast_window: shown (reuse path)");
+            log_info!("toast-win", "create_toast_window: show requested (reuse path)");
             return;
         }
 
