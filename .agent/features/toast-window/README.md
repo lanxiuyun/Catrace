@@ -27,8 +27,9 @@
 - 透明无边框 WebviewWindow，复用而非销毁
 - **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
+- **Toast 必须排除在窗口状态插件之外（2026-10-21）**：`lib.rs` 注册 `tauri-plugin-window-state` 时用 `with_denylist` 排除 `TOAST_WINDOW_LABEL`。该插件默认在窗口 ready 时恢复可见性并调用 `show()` + `set_focus()`，即使 builder 已设置 `focused(false)` / `visible(false)` 也会抢焦点；轻量模式每次重建都会再次触发。Toast 的尺寸、位置和显示由 `reminder_toast.rs` / `window_manager` 管理，不应恢复历史状态。现有前台巡检仅为兜底，不能替代此排除规则。
 - Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式，**但分两步**（2026-09-30）：`pointerover` 只调 `prepareWindowActivation`（仅清 NOACTIVATE，不抢前台），`pointerdown` 才调 `setWindowActiveMode(true)`（接管焦点）。此前 hover 直接全套激活，弹窗后鼠标一划过就抢走正在输入应用的键盘焦点；只清样式不抢前台同样能让首次点击原生激活，绕开 NOACTIVATE 首击焦点时序问题
-- **轻量模式按需重建必抢焦点（2026-09-30）**：WebView2 控制器在新窗口里异步初始化完成时把焦点切进自己的 child HWND、把 Toast 顶成前台，发生在 `build_toast_window()` 内部、早于 NOACTIVATE 样式应用——所以轻量模式每次弹窗必抢、复用路径从不抢。对策：重建前 `current_foreground()` 记下前台，show 后 ~0.15–4s 分六拍 `restore_foreground_if_taken(toast_hwnd, prev_fg)`，仅当前台仍是 Toast 本尊且用户没点卡接管（`TOAST_FOCUS_TAKEN_DELIBERATELY`）时归还，机制无关、幂等
+- **重建后的前台巡检兜底（2026-09-30，2026-10-21 修正归因）**：重建前 `current_foreground()` 记下前台，show 后 ~0.15–4s 分六拍 `restore_foreground_if_taken(toast_hwnd, prev_fg)`，仅当前台仍是 Toast 本尊且用户没点卡接管（`TOAST_FOCUS_TAKEN_DELIBERATELY`）时归还。此前把创建期间的抢焦点归因于 WebView2 初始化，但窗口状态插件存在明确的 `set_focus()` 调用，必须先排除该路径；延迟归还仍可能丢失键击，不能视为不抢焦点的保证。
 - macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
 - Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
 
