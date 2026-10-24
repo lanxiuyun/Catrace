@@ -26,6 +26,7 @@ import {
   type NodeRuntimeStatus,
 } from '../../api/tauri'
 import { loadExternalPlugins } from '../../plugins/loadExternalPlugins'
+import { REST_ONLY_MIGRATION } from '../../config/pluginScope'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -124,6 +125,11 @@ async function refreshBuiltinEnabled() {
 }
 
 async function refreshExternal(restartSidecars = false) {
+  // React 迁移期：外部插件全部停用，页面只展示内置久坐提醒。
+  if (REST_ONLY_MIGRATION) {
+    externalList.value = []
+    return
+  }
   loading.value = true
   try {
     externalList.value = await listExternalPlugins({ restartSidecars })
@@ -450,6 +456,7 @@ async function onTestExternal(p: ExternalPluginInfo) {
       v-model:search-query="searchQuery"
       :items="plugins"
       :loading="loading"
+      :can-manage-external="!REST_ONLY_MIGRATION"
       @refresh="() => refreshExternal(true)"
       @open-dir="onOpenDir"
       @install-folder="onInstallFolder"

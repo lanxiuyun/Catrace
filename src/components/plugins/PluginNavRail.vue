@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -34,11 +34,14 @@ interface Props {
   selectedId: string
   loading?: boolean
   searchQuery?: string
+  /** React 迁移期：外部插件停用，隐藏刷新 / 安装 / 打开目录等管理入口。 */
+  canManageExternal?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
   searchQuery: '',
+  canManageExternal: true,
 })
 
 const emit = defineEmits<{
@@ -130,6 +133,7 @@ onBeforeUnmount(() => {
         <span class="plugin-count">{{ items.length }}</span>
       </div>
       <button
+        v-if="canManageExternal"
         type="button"
         class="icon-btn"
         :title="t('plugins.external.refresh')"
@@ -145,7 +149,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div class="rail-install">
+    <div v-if="canManageExternal" class="rail-install">
       <div ref="installMenuRoot" class="install-menu">
         <button
           type="button"

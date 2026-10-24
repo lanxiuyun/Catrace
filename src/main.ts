@@ -13,6 +13,7 @@ import { registerBuiltinPlugins } from './plugins/registerBuiltins'
 import { loadExternalPlugins } from './plugins/loadExternalPlugins'
 import { ensurePluginLogConsole, installPluginConsoleForwarding } from './plugins/pluginApi'
 import { useTheme } from './composables/useTheme'
+import { REST_ONLY_MIGRATION } from './config/pluginScope'
 
 // 从 URL query 参数读取提醒类型（弹窗创建时传入）
 const url = new URL(window.location.href)
@@ -107,10 +108,15 @@ if (isToastOrReminder && !isPluginHost) {
 
 // External plugins: Card map must exist in toast window; Settings list in main.
 // A background host loads only its own background source.
+// React 迁移期：外部插件整体停用，只保留内置「久坐提醒」。
 if (!isPluginHost) {
-  void loadExternalPlugins().catch((e) => {
-    console.warn('[plugins] loadExternalPlugins failed', e)
-  })
+  if (REST_ONLY_MIGRATION) {
+    console.info('[plugins] 迁移期收口：外部插件已全部停用，仅保留久坐提醒')
+  } else {
+    void loadExternalPlugins().catch((e) => {
+      console.warn('[plugins] loadExternalPlugins failed', e)
+    })
+  }
 }
 
 async function applyHostLocale(loc: string | null | undefined) {

@@ -223,6 +223,14 @@ architecture:
       - toast-window
       - plugin-center
       - input-monitoring
+  react-migration:
+    docs:
+      - .agent/architecture/react-migration/README.md
+    related:
+      - app-shell
+      - project-structure
+      - plugin-center
+      - toast-window
   window-manager:
     docs:
       - .agent/features/window-manager/README.md

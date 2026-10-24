@@ -20,6 +20,13 @@ pub const RESERVED_KINDS: &[&str] = &[
     "sdk",
 ];
 
+/// React 迁移期收口：宿主只保留内置「久坐提醒」，外部插件整体停用
+/// （不扫描、不启动后台 WebView / sidecar、不下发 UI / 事件权限）。
+///
+/// 与前端 `src/config/pluginScope.ts` 的 `REST_ONLY_MIGRATION` 成对维护：
+/// 某个插件改写成 React 后再统一放开。迁移结束（M6）删除本常量。
+const REST_ONLY_MIGRATION: bool = true;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifestFile {
@@ -154,6 +161,14 @@ impl PluginManager {
     }
 
     pub fn rescan(&self, app: &AppHandle) -> Result<Vec<ExternalPluginInfo>, String> {
+        if REST_ONLY_MIGRATION {
+            if let Ok(mut cache) = self.inner.lock() {
+                cache.plugins.clear();
+            }
+            log_info!("plugins", "REST_ONLY_MIGRATION: external plugins disabled (rest only)");
+            return Ok(Vec::new());
+        }
+
         let root = plugins_root(app)?;
         fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
 
