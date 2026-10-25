@@ -143,27 +143,50 @@
   color: var(--ct-accent-strong);
 }
 
-.ct-dashboard .panel {
+.ct-dashboard .activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ct-dashboard .activity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ct-dashboard .activity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ct-dashboard .activity-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ct-text);
+}
+
+.ct-dashboard .activity-count {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: var(--ct-surface-2);
+  color: var(--ct-text-subtle);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ct-dashboard .activity-panel {
   border-radius: 1rem;
   border: 0.0625rem solid var(--ct-border);
   box-shadow: var(--ct-shadow-card);
   background: var(--ct-surface);
   padding: 1rem;
-}
-
-.ct-dashboard .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-  gap: 0.75rem;
-}
-
-.ct-dashboard .panel-title {
-  margin: 0;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--ct-text);
 }
 
 .ct-dashboard .empty {

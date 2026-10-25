@@ -225,13 +225,18 @@ export function Dashboard() {
             </section>
           )}
 
-          <div className="panel">
-            <div className="panel-header">
-              <h2 className="panel-title">{t('dashboard.activity.title')}</h2>
+          <section className="activity-section">
+            <div className="activity-head">
+              <div className="activity-title-row">
+                <h2 className="activity-title">{t('dashboard.activity.title')}</h2>
+                <span className="activity-count">
+                  {t('dashboard.activity.count', { n: blocks.length })}
+                </span>
+              </div>
               <SegmentedControl.Root
+                className="ct-segmented"
                 value={timelineMode}
                 size="1"
-                variant="classic"
                 onValueChange={(value) => setTimelineMode(value === 'grid' ? 'grid' : 'segments')}
               >
                 <SegmentedControl.Item value="segments">
@@ -244,7 +249,9 @@ export function Dashboard() {
             </div>
 
             {timelineMode === 'grid' ? (
-              <TimelineGrid minutes={allMinutes} />
+              <div className="activity-panel">
+                <TimelineGrid minutes={allMinutes} />
+              </div>
             ) : (
               <TimelineWindows
                 minutes={allMinutes}
@@ -254,7 +261,7 @@ export function Dashboard() {
             )}
 
             {records.size === 0 && <p className="empty">{t('dashboard.activity.empty')}</p>}
-          </div>
+          </section>
         </div>
       </RadixPage>
     </PageScroll>

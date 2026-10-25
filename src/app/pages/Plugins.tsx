@@ -489,9 +489,9 @@ export function Plugins() {
                     description={t('plugins.rest.modeDesc')}
                     control={
                       <SegmentedControl.Root
+                        className="ct-segmented"
                         value={mode}
                         size="1"
-                        variant="classic"
                         onValueChange={(value) => void changeMode(value)}
                       >
                         <SegmentedControl.Item value="toast">

@@ -85,7 +85,12 @@ export function MainShell({ children }: { children: ReactNode }) {
               <Dialog.Description size="2" mb="4">
                 {t('shell.appearanceDesc')}
               </Dialog.Description>
-              <SegmentedControl.Root value={themeMode} size="2" onValueChange={changeThemeMode}>
+              <SegmentedControl.Root
+                className="ct-segmented"
+                value={themeMode}
+                size="2"
+                onValueChange={changeThemeMode}
+              >
                 <SegmentedControl.Item value="light">{t('shell.light')}</SegmentedControl.Item>
                 <SegmentedControl.Item value="dark">{t('shell.dark')}</SegmentedControl.Item>
                 <SegmentedControl.Item value="system">{t('shell.system')}</SegmentedControl.Item>

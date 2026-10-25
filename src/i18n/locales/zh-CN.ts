@@ -25,7 +25,8 @@ export default {
       blocksUnit: '个',
     },
     activity: {
-      title: '今日活动',
+      title: '今日活动记录',
+      count: '{n} 条',
       overview: '概览',
       detailed: '详细',
       empty: '暂无数据，程序运行一段时间后会生成。',

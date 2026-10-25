@@ -25,7 +25,8 @@ export default {
       blocksUnit: '',
     },
     activity: {
-      title: "Today's Activity",
+      title: "Today's Activity Log",
+      count: '{n} entries',
       overview: 'Overview',
       detailed: 'Detailed',
       empty: 'No data yet. Records will appear after the app runs for a while.',
