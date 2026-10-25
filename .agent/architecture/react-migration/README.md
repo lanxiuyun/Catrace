@@ -17,7 +17,7 @@
 | M0 插件收口 | ✅ 已落地 | 前端 `pluginScope.ts` + Rust `REST_ONLY_MIGRATION`，插件页只剩久坐提醒 |
 | M1 React 壳 | ✅ 已落地 | React 入口/路由/主题/i18n/zustand + Vue 岛桥；8 条路由用 Playwright 跑过 dist（页面正常渲染，浏览器里 Tauri API 报错属预期）；页面暂全部保持 Vue |
 | M2 Dashboard | ✅ 已落地 | Dashboard 改成 React 页（统计卡 + 概览/详细时间线），旧 Vue 入口（main.ts/App.vue/vue-router）同步删除 |
-| M2.5 壳视觉 | ✅ 已落地 | 主窗壳按 `catrace-ui-concept.html` 重做（左侧图标导航 + 顶栏面包屑 + 白色主题 slate/indigo，Radix 单一根主题）；设置/调试页仍按旧布局但已跟随新色板 |
+| M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色/字体按该参考换肤（macOS 系统色 + SF 字体 + 透光 blur）；设置/调试页仍按旧布局但已跟随新色板 |
 | M3 插件中心 | ✅ 已落地（先于设置） | 插件中心 + 久坐提醒面板改成 React（Radix Tabs/Slider/Select/Switch），只保留久坐提醒；旧 `Plugins.vue` / `RestPluginPanel.vue` 等已删除 |
 | M4 设置 | 待开始 | Settings + 各设置卡 |
 
@@ -97,7 +97,7 @@ Vite 保持单入口；共存期间 `plugins: [vue(), react()]` 同时启用。*
 6. **测试**：`vue-tsc` 随 Vue 页面减少逐步退役，新增 `tsc --noEmit`（React 侧）；Playwright 覆盖插件开关、更新卡片、Toast 关键路径；`pnpm build` 作为每次替换后的硬门槛。
 7. **包体**：共存期 Radix Themes 全量 CSS（约 690 KB）+ naive-ui 同时进包，构建 CSS 到 761 KB；M6 删掉 naive-ui 后再收敛，必要时改用 Radix 的分文件 CSS（`tokens.css` / `components.css`）。
 8. **Radix 主题只建一个根**：主窗在 `src/app/main.tsx` 用**一个** `<Theme>` 包住整棵树；壳里的侧栏/顶栏、页面容器都不再各自建根主题。Radix 的根主题自带 `.radix-themes[data-is-root-theme='true'] { min-height: 100vh }`，局部容器再建根会被撑满整窗、把同级内容区压成 0 高（M1/M2.5 两次实机截图都是这个症状）。Toast/弹窗窗全是 Vue 岛，不建 Radix 主题。
-9. **色板 = 概念稿白色主题**：`src/styles/theme.css` 的 `--ct-*` 与 `src/theme.ts` 的 naive-ui overrides 都改成 slate 中性色 + indigo 强调（`#f8fafc` / `#ffffff` / `#e2e8f0` / `#4f46e5`）；`src/app/radix-theme.css` 再把 Radix 的 accent/gray 变量接到同一套 token，保证 Radix 组件和旧页面同色。
+9. **色板 = macOS 风格（参考根目录 `catrace_macos_edition.html`）**：`src/styles/theme.css` 的 `--ct-*` 与 `src/theme.ts` 的 naive-ui overrides 用系统色 —— 背景 `#f6f6f6`、卡片白、微边框 `rgba(0,0,0,.08)`、系统蓝 `#007aff`、系统紫 `#5e5ce6`、系统绿 `#34c759`、系统橙 `#ff9500`，深色 `#1e1e1e` / `#2c2c2e`；字体走 `-apple-system / SF Pro / PingFang SC`，数字用 `--ct-font-mono`（SF Mono）并开 `tnum`；侧栏/顶栏用 `backdrop-filter: blur(20px) saturate(180%)` 的透光效果。`src/app/radix-theme.css` 把 Radix 的 accent/gray 变量接到同一套 token。换肤只改 CSS/token，不动组件结构与布局。
 10. **dev server 缓存中间的半成品模块**：在 dev server 运行中删大文件或分两步改入口路由，Vite 可能缓存在两次编辑之间的 `router.tsx`（比如路由还走 `mainPage()`，但导入已换成 React 组件），表现为 Vue 把 React 函数当函数式组件调用、报 `Invalid hook call`。重启 `pnpm tauri dev`（或 touch 改动文件）即可；生产构建不受影响。
 
 ## 7. 迁移顺序与里程碑

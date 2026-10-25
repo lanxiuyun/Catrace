@@ -17,7 +17,7 @@
 }
 
 .ct-timeline-windows .card:hover {
-  box-shadow: 0 0.25rem 0.75rem rgba(46, 16, 101, 0.08);
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.08);
   transform: translateY(0.0625rem);
 }
 
@@ -101,7 +101,7 @@
 }
 
 .ct-timeline-windows .card-time {
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-family: var(--ct-font-mono);
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--ct-text);
@@ -267,6 +267,6 @@
 .ct-timeline-windows .minute-row-time {
   font-size: 0.6875rem;
   color: var(--ct-text-subtle);
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-family: var(--ct-font-mono);
   white-space: nowrap;
 }

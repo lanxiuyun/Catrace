@@ -1,4 +1,4 @@
-/* 插件中心（React）：左侧插件列表 + 右侧详情工作区，对齐 catrace-ui-concept.html。 */
+/* 插件中心（React）：左侧插件列表 + 右侧详情工作区，macOS 风格。 */
 
 .ct-plugins-page {
   height: 100%;
@@ -104,7 +104,7 @@
   padding: 0.875rem 1rem;
   background: var(--ct-surface);
   border: 0;
-  border-bottom: 0.0625rem solid var(--ct-surface-2);
+  border-bottom: 0.0625rem solid var(--ct-border);
   border-left: 0.1875rem solid transparent;
   border-radius: 0;
   position: relative;
@@ -225,6 +225,7 @@
   border: 0.0625rem solid var(--ct-border);
   border-radius: 1.5rem;
   background: var(--ct-surface);
+  box-shadow: var(--ct-shadow-card);
 }
 
 .ct-plugin-hero {
@@ -318,7 +319,7 @@
   border-radius: 1.5rem;
   background: var(--ct-surface);
   padding: 1.5rem;
-  box-shadow: 0 0.0625rem 0.1875rem rgb(15 23 42 / 0.035), 0 0.0625rem 0.125rem rgb(15 23 42 / 0.015);
+  box-shadow: var(--ct-shadow-card);
 }
 
 .ct-panel-head {
@@ -585,7 +586,7 @@
 }
 
 .ct-log-list time {
-  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-family: var(--ct-font-mono);
   font-size: 0.6875rem;
   color: var(--ct-text-subtle);
   min-width: 3.25rem;

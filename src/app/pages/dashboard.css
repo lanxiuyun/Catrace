@@ -70,10 +70,10 @@
 
 .ct-dashboard .stat {
   background: var(--ct-surface);
-  border: 0.0625rem solid var(--ct-accent-soft);
+  border: 0.0625rem solid var(--ct-border);
   border-radius: 0.75rem;
   padding: 0.375rem 0.5rem;
-  box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04);
+  box-shadow: var(--ct-shadow-card);
 }
 
 .ct-dashboard .stat-head {
@@ -114,6 +114,8 @@
 
 .ct-dashboard .stat-value {
   margin: 0;
+  font-family: var(--ct-font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
@@ -142,9 +144,9 @@
 }
 
 .ct-dashboard .panel {
-  border-radius: 0.75rem;
-  border: 0.0625rem solid var(--ct-accent-soft);
-  box-shadow: 0 0.0625rem 0.1875rem rgba(46, 16, 101, 0.04);
+  border-radius: 1rem;
+  border: 0.0625rem solid var(--ct-border);
+  box-shadow: var(--ct-shadow-card);
   background: var(--ct-surface);
   padding: 1rem;
 }

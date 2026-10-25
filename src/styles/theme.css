@@ -1,89 +1,114 @@
 /* Catrace 主题 token 层 — 颜色单一真源
- * 亮色：对齐 catrace-ui-concept.html 的白色主题（slate 中性 + indigo 强调）
- * [data-theme="dark"]：概念稿的深色中性灰，只用中性色不染紫
- * 组件 <style> 里的颜色应引用这些变量，勿再写裸 hex。
+ * macOS 风格：背景 #F6F6F6 / 卡片白 / 系统蓝 #007AFF / 系统紫 #5E5CE6 /
+ * 系统绿 #34C759 / 系统橙 #FF9500；深色 #1E1E1E / #2C2C2E。
+ * 参考根目录 catrace_macos_edition.html 的配色与字体，仅换皮不改布局。
  */
 
 :root {
-  /* 强调（indigo） */
-  --ct-accent: #4f46e5;
-  --ct-accent-hover: #4338ca;
-  --ct-accent-strong: #3730a3;
-  --ct-accent-soft: #eef2ff;
-  --ct-accent-softer: #f5f6ff;
-  --ct-accent-border: #c7d2fe;
+  /* 字体（macOS 系统字体栈） */
+  --ct-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+  --ct-font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
 
-  /* 表面 / 背景 / 边框 */
-  --ct-bg: #f8fafc;
+  /* 强调（macOS 系统蓝） */
+  --ct-accent: #007aff;
+  --ct-accent-hover: #0066d6;
+  --ct-accent-strong: #0055b3;
+  --ct-accent-soft: rgba(0, 122, 255, 0.1);
+  --ct-accent-softer: rgba(0, 122, 255, 0.05);
+  --ct-accent-border: rgba(0, 122, 255, 0.32);
+  --ct-purple: #5e5ce6;
+
+  /* 表面 / 背景 / 边框（苹果微边框） */
+  --ct-bg: #f6f6f6;
   --ct-surface: #ffffff;
-  --ct-surface-2: #f1f5f9;
-  --ct-border: #e2e8f0;
+  --ct-surface-2: #f2f2f4;
+  --ct-border: rgba(0, 0, 0, 0.08);
 
-  /* 文本 */
-  --ct-text: #0f172a;
-  --ct-text-muted: #64748b;
-  --ct-text-subtle: #94a3b8;
+  /* 文本（macOS label / secondary / tertiary） */
+  --ct-text: #1c1c1e;
+  --ct-text-muted: #6e6e73;
+  --ct-text-subtle: #8e8e93;
 
   /* 状态 */
-  --ct-success: #059669;
-  --ct-success-strong: #047857;
-  --ct-success-soft: #ecfdf5;
-  --ct-warning: #a16207;
-  --ct-warning-strong: #92400e;
-  --ct-warning-soft: #fef9c3;
-  --ct-error: #dc2626;
-  --ct-error-strong: #b91c1c;
-  --ct-error-soft: #fef2f2;
+  --ct-success: #34c759;
+  --ct-success-strong: #248a3d;
+  --ct-success-soft: rgba(52, 199, 89, 0.12);
+  --ct-warning: #ff9500;
+  --ct-warning-strong: #c93400;
+  --ct-warning-soft: rgba(255, 149, 0, 0.14);
+  --ct-error: #ff3b30;
+  --ct-error-strong: #d70015;
+  --ct-error-soft: rgba(255, 59, 48, 0.1);
 
-  /* 蓝 / 青 */
-  --ct-info: #2563eb;
-  --ct-info-soft: #eff6ff;
-  --ct-cyan: #0891b2;
-  --ct-cyan-soft: #ecfeff;
+  /* 蓝 / 青（时间线里 cyan 用作"休息"，换成系统绿） */
+  --ct-info: #007aff;
+  --ct-info-soft: rgba(0, 122, 255, 0.1);
+  --ct-cyan: #34c759;
+  --ct-cyan-soft: rgba(52, 199, 89, 0.12);
 
   /* 强调/深色底上的前景白 */
   --ct-on-accent: #ffffff;
+
+  /* 苹果卡片阴影 */
+  --ct-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="dark"] {
-  /* 强调（indigo，暗底提亮保证对比度） */
-  --ct-accent: #6366f1;
-  --ct-accent-hover: #818cf8;
-  --ct-accent-strong: #a5b4fc;
-  --ct-accent-soft: #282828;
-  --ct-accent-softer: #232323;
-  --ct-accent-border: #454545;
+[data-theme='dark'] {
+  /* 强调（暗底提亮系统蓝） */
+  --ct-accent: #0a84ff;
+  --ct-accent-hover: #409cff;
+  --ct-accent-strong: #64b5ff;
+  --ct-accent-soft: rgba(10, 132, 255, 0.18);
+  --ct-accent-softer: rgba(10, 132, 255, 0.1);
+  --ct-accent-border: rgba(10, 132, 255, 0.42);
+  --ct-purple: #7d7aff;
 
   /* 表面 / 背景 / 边框 */
-  --ct-bg: #141414;
-  --ct-surface: #1c1c1c;
-  --ct-surface-2: #252525;
-  --ct-border: #343434;
+  --ct-bg: #1e1e1e;
+  --ct-surface: #2c2c2e;
+  --ct-surface-2: #3a3a3c;
+  --ct-border: rgba(255, 255, 255, 0.1);
 
   /* 文本 */
-  --ct-text: #ededed;
-  --ct-text-muted: #ababab;
-  --ct-text-subtle: #8a8a8a;
+  --ct-text: #f2f2f7;
+  --ct-text-muted: #aeaeb2;
+  --ct-text-subtle: #8e8e93;
 
   /* 状态 */
-  --ct-success: #34d399;
-  --ct-success-strong: #6ee7b7;
-  --ct-success-soft: #183028;
-  --ct-warning: #facc15;
-  --ct-warning-strong: #fde047;
-  --ct-warning-soft: #302b21;
-  --ct-error: #f87171;
-  --ct-error-strong: #fca5a5;
-  --ct-error-soft: #2e1616;
+  --ct-success: #30d158;
+  --ct-success-strong: #30d158;
+  --ct-success-soft: rgba(48, 209, 88, 0.15);
+  --ct-warning: #ffd60a;
+  --ct-warning-strong: #ffd60a;
+  --ct-warning-soft: rgba(255, 214, 10, 0.15);
+  --ct-error: #ff453a;
+  --ct-error-strong: #ff6961;
+  --ct-error-soft: rgba(255, 69, 58, 0.15);
 
   /* 蓝 / 青 */
-  --ct-info: #60a5fa;
-  --ct-info-soft: #16233a;
-  --ct-cyan: #22d3ee;
-  --ct-cyan-soft: #0c2a30;
+  --ct-info: #0a84ff;
+  --ct-info-soft: rgba(10, 132, 255, 0.15);
+  --ct-cyan: #30d158;
+  --ct-cyan-soft: rgba(48, 209, 88, 0.15);
 
   /* 强调/深色底上的前景白 */
   --ct-on-accent: #ffffff;
+
+  /* 苹果卡片阴影（深色） */
+  --ct-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+html,
+body,
+#app {
+  font-family: var(--ct-font-sans);
+  color: var(--ct-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
 }
 
 /* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */
