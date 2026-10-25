@@ -1,0 +1,272 @@
+.ct-timeline-windows .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15.625rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ct-timeline-windows .card {
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-accent-soft);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ct-timeline-windows .card:hover {
+  box-shadow: 0 0.25rem 0.75rem rgba(46, 16, 101, 0.08);
+  transform: translateY(0.0625rem);
+}
+
+.ct-timeline-windows .card.is-current {
+  border-color: var(--ct-accent-border);
+}
+
+.ct-timeline-windows .card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ct-timeline-windows .dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.ct-timeline-windows .dot.pulse {
+  position: relative;
+  animation: ct-dot-breathe 2s ease-in-out infinite;
+}
+
+.ct-timeline-windows .dot.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: ct-dot-ripple 2s ease-out infinite;
+}
+
+@keyframes ct-dot-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+@keyframes ct-dot-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+.ct-timeline-windows .badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+.ct-timeline-windows .badge-active {
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent-hover);
+}
+
+.ct-timeline-windows .badge-rest {
+  background: var(--ct-success-soft);
+  color: var(--ct-success-strong);
+}
+
+.ct-timeline-windows .badge-null {
+  background: var(--ct-surface-2);
+  color: var(--ct-text-subtle);
+}
+
+.ct-timeline-windows .badge-current {
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent-hover);
+}
+
+.ct-timeline-windows .card-time {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ct-text);
+}
+
+.ct-timeline-windows .time-sep {
+  color: var(--ct-border);
+  margin: 0 0.25rem;
+}
+
+.ct-timeline-windows .card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ct-timeline-windows .card-duration {
+  font-size: 0.8125rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-timeline-windows .card-nested-active {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+/* 展开详情 */
+.ct-timeline-windows .detail {
+  margin-top: 0.25rem;
+  padding-top: 0.625rem;
+  border-top: 0.0625rem solid var(--ct-accent-soft);
+  animation: ct-detail-in 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes ct-detail-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 25rem;
+  }
+}
+
+.ct-timeline-windows .minute-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ct-timeline-windows .minute-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.ct-timeline-windows .minute-row-bar {
+  display: flex;
+  height: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  gap: 0.0625rem;
+  border-radius: 0.125rem;
+  overflow: visible;
+}
+
+.ct-timeline-windows .m-seg {
+  height: 100%;
+  min-width: 0.0625rem;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
+}
+
+.ct-timeline-windows .m-seg:hover {
+  filter: brightness(1.15);
+  transform: translateY(0.125rem);
+  z-index: 2;
+}
+
+.ct-timeline-windows .m-cells {
+  display: flex;
+  gap: 0.0625rem;
+  height: 100%;
+  min-width: 0;
+}
+
+.ct-timeline-windows .m-cell {
+  flex: 1;
+  min-width: 0.0625rem;
+  height: 100%;
+  border-radius: 0.0625rem;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.ct-timeline-windows .m-cell:hover {
+  filter: brightness(1.15);
+  transform: translateY(0.125rem);
+  z-index: 2;
+}
+
+.ct-timeline-windows .m-cell-active {
+  background: var(--ct-accent);
+}
+
+.ct-timeline-windows .m-cell-rest {
+  background: var(--ct-success);
+}
+
+.ct-timeline-windows .m-cell-null {
+  background: var(--ct-border);
+}
+
+.ct-timeline-windows .seg-tip {
+  position: absolute;
+  bottom: calc(100% + 0.375rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.1875rem 0.625rem;
+  background: rgba(24, 24, 27, 0.95);
+  color: var(--ct-on-accent);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  line-height: 1.4;
+  box-shadow: 0 0.25rem 0.875rem rgba(0, 0, 0, 0.3);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.08);
+}
+
+.ct-timeline-windows .m-seg:hover .seg-tip,
+.ct-timeline-windows .m-cell:hover .seg-tip {
+  opacity: 1;
+}
+
+.ct-timeline-windows .m-seg-active {
+  background: var(--ct-accent);
+}
+
+.ct-timeline-windows .m-seg-rest {
+  background: var(--ct-success);
+}
+
+.ct-timeline-windows .m-seg-null {
+  background: var(--ct-border);
+}
+
+.ct-timeline-windows .m-placeholder {
+  height: 100%;
+  border-radius: 0.0625rem;
+  min-width: 0.0625rem;
+}
+
+.ct-timeline-windows .minute-row-time {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  white-space: nowrap;
+}

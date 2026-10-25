@@ -1,0 +1,36 @@
+/* 把 Radix Themes 的颜色变量接到 Catrace 的 --ct-* token 上。
+   这样 Radix 组件（Slider / Switch / Tabs / Button / Badge）与页面共用一套
+   白色主题 + indigo 强调，且 [data-theme="dark"] 切换时自动跟随。 */
+
+.radix-themes {
+  --default-font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei",
+    "PingFang SC", "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, sans-serif;
+  --heading-font-family: var(--default-font-family);
+
+  --color-background: var(--ct-bg);
+  --color-panel-solid: var(--ct-surface);
+  --color-surface: var(--ct-surface);
+  --color-panel-translucent: var(--ct-surface);
+
+  --iris-9: var(--ct-accent);
+  --iris-10: var(--ct-accent-hover);
+  --iris-11: var(--ct-accent);
+  --accent-9: var(--ct-accent);
+  --accent-10: var(--ct-accent-hover);
+  --accent-11: var(--ct-accent);
+
+  --gray-1: var(--ct-surface);
+  --gray-2: var(--ct-bg);
+  --gray-3: var(--ct-surface-2);
+  --gray-4: var(--ct-surface-2);
+  --gray-5: var(--ct-border);
+  --gray-6: var(--ct-border);
+  --gray-7: var(--ct-border);
+  --gray-8: var(--ct-text-subtle);
+  --gray-9: var(--ct-text-muted);
+  --gray-10: var(--ct-text-muted);
+  --gray-11: var(--ct-text-muted);
+  --gray-12: var(--ct-text);
+
+  color: var(--ct-text);
+}

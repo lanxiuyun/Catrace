@@ -3,8 +3,8 @@ import type { Component } from 'vue'
 import { MainShell } from './shell/MainShell'
 import { ToastShell } from './shell/ToastShell'
 import { VueIsland } from './legacy/VueIsland'
-import Dashboard from '../views/mainWindow/Dashboard.vue'
-import Plugins from '../views/mainWindow/Plugins.vue'
+import { Dashboard } from './pages/Dashboard'
+import { Plugins } from './pages/Plugins'
 import Settings from '../views/mainWindow/Settings.vue'
 import Debug from '../views/mainWindow/Debug.vue'
 import ReminderToast from '../views/toastWindows/ReminderToast.vue'
@@ -35,8 +35,22 @@ function toastPage(Page: Component) {
 
 export function createAppRouter() {
   return createHashRouter([
-    { path: '/dashboard', element: mainPage(Dashboard) },
-    { path: '/plugins', element: mainPage(Plugins) },
+    {
+      path: '/dashboard',
+      element: (
+        <MainShell>
+          <Dashboard />
+        </MainShell>
+      ),
+    },
+    {
+      path: '/plugins',
+      element: (
+        <MainShell>
+          <Plugins />
+        </MainShell>
+      ),
+    },
     { path: '/settings', element: mainPage(Settings) },
     { path: '/debug', element: mainPage(Debug) },
 

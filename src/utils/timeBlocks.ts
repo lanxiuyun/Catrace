@@ -1,4 +1,4 @@
-import type { MinuteData } from '../components/Timeline.vue'
+import type { MinuteData } from '../types/minute'
 
 /**
  * 一个 block 代表一段连续的时间区间，按「前瞻式窗口」切分得到。

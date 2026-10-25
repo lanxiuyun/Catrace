@@ -1,0 +1,684 @@
+/* 插件中心（React）：左侧插件列表 + 右侧详情工作区，对齐 catrace-ui-concept.html。 */
+
+.ct-plugins-page {
+  height: 100%;
+}
+
+.ct-plugins {
+  display: flex;
+  height: 100%;
+  background: var(--ct-bg);
+}
+
+/* ---------- 左侧插件列表 ---------- */
+.ct-plugin-list {
+  width: 22rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--ct-surface);
+  border-right: 0.0625rem solid var(--ct-border);
+  overflow: hidden;
+}
+
+.ct-plugin-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ct-plugin-list-head h1 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--ct-text);
+}
+
+.ct-plugin-list-head span {
+  font-size: 0.75rem;
+  color: var(--ct-text-subtle);
+  white-space: nowrap;
+}
+
+.ct-plugin-categories {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.ct-plugin-categories button {
+  border: 0.0625rem solid var(--ct-border);
+  background: var(--ct-surface);
+  color: var(--ct-text-muted);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  cursor: default;
+}
+
+.ct-plugin-categories button[aria-pressed='true'] {
+  border-color: var(--ct-accent-border);
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent-hover);
+  font-weight: 600;
+}
+
+.ct-plugin-list-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+  padding-top: 0.25rem;
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+.ct-plugin-rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ct-border) transparent;
+}
+
+.ct-plugin-rows::-webkit-scrollbar {
+  width: 0.375rem;
+}
+
+.ct-plugin-rows::-webkit-scrollbar-thumb {
+  background: var(--ct-border);
+  border-radius: 0.1875rem;
+}
+
+.ct-plugin-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--ct-surface);
+  border: 0;
+  border-bottom: 0.0625rem solid var(--ct-surface-2);
+  border-left: 0.1875rem solid transparent;
+  border-radius: 0;
+  position: relative;
+}
+
+.ct-plugin-row:hover {
+  background: var(--ct-bg);
+}
+
+.ct-plugin-row.is-selected {
+  background: var(--ct-accent-soft);
+  border-left-color: var(--ct-accent);
+}
+
+.ct-plugin-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
+}
+
+.ct-plugin-row-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ct-plugin-row-copy strong {
+  font-size: 0.875rem;
+  color: var(--ct-text);
+}
+
+.ct-plugin-row-copy > span {
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+  line-height: 1.45;
+}
+
+.ct-plugin-row-meta {
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle) !important;
+}
+
+.ct-plugin-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  color: var(--ct-text-subtle);
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.ct-plugin-empty p {
+  margin: 0;
+}
+
+.ct-plugin-list-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+  padding-top: 0.5rem;
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+/* ---------- 右侧详情 ---------- */
+.ct-plugin-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-plugin-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ct-border) transparent;
+}
+
+.ct-detail-content {
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ct-plugin-detail-scroll::-webkit-scrollbar {
+  width: 0.375rem;
+}
+
+.ct-plugin-detail-scroll::-webkit-scrollbar-thumb {
+  background: var(--ct-accent-border);
+  border-radius: 0.1875rem;
+}
+
+.ct-plugin-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 1.5rem;
+  background: var(--ct-surface);
+}
+
+.ct-plugin-hero {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.875rem;
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
+}
+
+.ct-plugin-identity-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ct-plugin-title-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ct-plugin-title-line h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 650;
+  color: var(--ct-text);
+}
+
+.ct-plugin-identity-copy p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ct-text-muted);
+}
+
+.ct-plugin-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-plugin-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+}
+
+/* ---------- Tabs ---------- */
+.ct-plugin-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 0.0625rem solid var(--ct-border);
+  box-shadow: inset 0 -0.0625rem var(--ct-border);
+}
+
+.ct-plugin-tabs .rt-TabsTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--ct-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 0.125rem solid transparent;
+  margin-bottom: -0.0625rem;
+  cursor: pointer;
+}
+
+.ct-plugin-tabs .rt-TabsTrigger[data-state='active'] {
+  color: var(--ct-accent-hover);
+  border-bottom-color: var(--ct-accent);
+}
+
+/* ---------- 面板 / 设置行 ---------- */
+.ct-panel {
+  margin: 0;
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 1.5rem;
+  background: var(--ct-surface);
+  padding: 1.5rem;
+  box-shadow: 0 0.0625rem 0.1875rem rgb(15 23 42 / 0.035), 0 0.0625rem 0.125rem rgb(15 23 42 / 0.015);
+}
+
+.ct-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ct-panel-head h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--ct-text);
+}
+
+.ct-panel-head span {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+}
+
+.ct-setting-row + .ct-setting-row {
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+.ct-setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.ct-setting-copy strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-setting-copy span {
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+  line-height: 1.45;
+}
+
+.ct-setting-control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ct-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 14rem;
+}
+
+.ct-slider-row .rt-SliderRoot {
+  flex: 1;
+}
+
+.ct-slider-row > span {
+  width: 3.75rem;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--ct-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 全屏背景上传 */
+.ct-fs-bg {
+  width: 12rem;
+}
+
+.ct-fs-bg-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  padding: 0.5rem;
+  border: 0.125rem dashed var(--ct-border);
+  border-radius: 0.5rem;
+  background: var(--ct-bg);
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+  text-align: center;
+  cursor: pointer;
+}
+
+.ct-fs-bg-preview {
+  position: relative;
+  height: 4.5rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 0.0625rem solid var(--ct-border);
+}
+
+.ct-fs-bg-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-fs-btn {
+  position: absolute;
+  bottom: 0.375rem;
+  right: 0.375rem;
+  padding: 0.2rem 0.45rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--ct-surface) 92%, transparent);
+  color: var(--ct-text-muted);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.ct-fs-btn.is-danger {
+  right: auto;
+  left: 0.375rem;
+  color: var(--ct-error);
+}
+
+/* ---------- 预览 ---------- */
+.ct-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 0.0625rem solid var(--ct-accent-border);
+  border-radius: 0.75rem;
+  background: var(--ct-accent-softer);
+}
+
+.ct-preview-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--ct-accent-hover);
+}
+
+.ct-preview-copy p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.ct-preview-copy small {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-notification-sample {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 0.75rem;
+  background: var(--ct-surface);
+}
+
+.ct-notification-sample-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-notification-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  border: 0.0625rem solid var(--ct-border);
+  background: var(--ct-surface-2);
+  max-width: 28rem;
+}
+
+.ct-notification-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ct-notification-title strong {
+  font-size: 0.8125rem;
+  color: var(--ct-text);
+}
+
+.ct-notification-title small {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-notification-card p {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+}
+
+/* ---------- 运行统计 ---------- */
+.ct-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ct-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem 1rem;
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 0.75rem;
+  background: var(--ct-surface);
+}
+
+.ct-stat span {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-stat strong {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ct-accent-hover);
+  line-height: 1.1;
+}
+
+.ct-stat small {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ct-log-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+}
+
+.ct-log-list time {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+  min-width: 3.25rem;
+}
+
+.ct-empty {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ct-text-subtle);
+}
+
+/* ---------- 关于 ---------- */
+.ct-about-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.ct-about-grid dt {
+  font-size: 0.6875rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-about-grid dd {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ct-text);
+}
+
+.ct-permission {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning-strong);
+}
+
+.ct-permission h4,
+.ct-boundary h4 {
+  margin: 0 0 0.125rem;
+  font-size: 0.8125rem;
+}
+
+.ct-permission p,
+.ct-boundary p {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+}
+
+.ct-boundary {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+/* ---------- 底栏 ---------- */
+.ct-plugin-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1.25rem;
+  border-top: 0.0625rem solid var(--ct-border);
+  background: var(--ct-surface);
+}
+
+.ct-plugin-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--ct-text-subtle);
+}
+
+.ct-plugin-status > span {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--ct-success);
+}
+
+.ct-plugin-status > span.is-error {
+  background: var(--ct-error);
+}
+
+.ct-plugin-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
