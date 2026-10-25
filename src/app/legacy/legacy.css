@@ -1,0 +1,35 @@
+/* 迁移期：Vue 岛依赖的全局基础样式（原 src/App.vue 的 <style> 平移）。 */
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* 主窗页面岛：撑满 .app-workspace，滚动交给页面自己的 PageScroll。 */
+.vue-island-page {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Toast / 弹窗岛：页面根节点自己按视口定位。 */
+.vue-island-toast {
+  height: 100%;
+  width: 100%;
+}

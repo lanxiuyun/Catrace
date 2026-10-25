@@ -1,3 +1,5 @@
+// 已由 src/app/main.tsx（React 壳）取代，此文件仅在迁移期保留对照。
+// 旧 Vue 入口：createApp(App) + vue-router + pinia + vue-i18n。
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { invoke } from '@tauri-apps/api/core'
