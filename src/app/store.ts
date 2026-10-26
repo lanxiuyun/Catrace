@@ -10,8 +10,11 @@ type ShellState = {
   resolvedTheme: 'light' | 'dark'
   /** 宿主界面语言，与 vue-i18n 的 locale 保持同步。 */
   locale: LocaleKey
+  /** 界面透明度（应用内设置，真源在 useTransparency；不跟随系统）。 */
+  transparency: boolean
   setThemeState: (themeMode: ThemeMode, resolvedTheme: 'light' | 'dark') => void
   setLocale: (locale: LocaleKey) => void
+  setTransparency: (enabled: boolean) => void
 }
 
 /**
@@ -23,6 +26,8 @@ export const useShellStore = create<ShellState>((set) => ({
   themeMode: 'system',
   resolvedTheme: 'light',
   locale: 'zh-CN',
+  transparency: true,
   setThemeState: (themeMode, resolvedTheme) => set({ themeMode, resolvedTheme }),
   setLocale: (locale) => set({ locale }),
+  setTransparency: (enabled) => set({ transparency: enabled }),
 }))

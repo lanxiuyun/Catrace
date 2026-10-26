@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { getVersion } from '@tauri-apps/api/app'
 import { Button, Dialog, Flex, SegmentedControl } from '@radix-ui/themes'
-import { ChartColumn, LayoutGrid, Plug, Settings2, Sun } from 'lucide-react'
+import { ChartColumn, FlaskConical, LayoutGrid, Plug, Settings2, Sun } from 'lucide-react'
 import { useT } from '../i18n'
 import { useShellStore } from '../store'
 import { useTheme } from '../../composables/useTheme'
@@ -69,6 +69,16 @@ export function MainShell({ children }: { children: ReactNode }) {
                 <span>{t(labelKey)}</span>
               </NavLink>
             ))}
+            {import.meta.env.DEV && (
+              <NavLink
+                to="/lab/glass"
+                title="玻璃实验（DEV）"
+                className={({ isActive }) => `ct-sidebar-item${isActive ? ' is-active' : ''}`}
+              >
+                <FlaskConical size={16} strokeWidth={1.9} aria-hidden="true" />
+                <span>玻璃实验</span>
+              </NavLink>
+            )}
           </nav>
         </div>
 

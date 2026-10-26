@@ -193,6 +193,10 @@ export default {
       light: 'Light',
       dark: 'Dark',
     },
+    transparency: {
+      title: 'Interface Transparency',
+      desc: 'Turn off to make glass surfaces opaque. Controlled by the app, not by the system transparency setting',
+    },
     agent: {
       enabledTitle: 'Agent Status Notifications',
       enabledDesc: 'Show a toast when an AI assistant (e.g. Claude Code) changes state',

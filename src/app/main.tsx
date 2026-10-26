@@ -6,9 +6,11 @@ import '../styles/theme.css'
 import './radix-theme.css'
 import './legacy/legacy.css'
 import './shell/shell.css'
+import './glass.css'
 import { createAppRouter } from './router'
 import { bootstrap } from './bootstrap'
 import { detectWindowMode, normalizeReminderHash } from './preflight'
+import { installTransparencyPolicy } from './transparency'
 import { useShellStore } from './store'
 
 /**
@@ -18,6 +20,9 @@ import { useShellStore } from './store'
 
 // 必须在 createHashRouter 之前把旧的 ?reminder= 形式归一成 hash 路由。
 normalizeReminderHash()
+
+// 必须在任何玻璃 provider 挂载前执行：界面透明度只认应用设置，不跟随系统。
+installTransparencyPolicy()
 
 const windowMode = detectWindowMode()
 const router = createAppRouter()

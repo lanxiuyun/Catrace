@@ -32,6 +32,13 @@
   background: rgba(32, 32, 36, 0.75);
 }
 
+/* 应用内「界面透明度」关闭：侧栏也退回实心，与玻璃材质的降级保持一致。 */
+[data-ct-transparency='off'] .ct-sidebar {
+  background: var(--ct-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 .ct-sidebar-profile {
   display: flex;
   align-items: center;

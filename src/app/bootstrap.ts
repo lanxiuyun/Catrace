@@ -5,6 +5,7 @@ import { getLocale, logFrontend, setLocale } from '../api/tauri'
 import { detectDefaultLocale, type SupportedLocale } from '../utils/locale'
 import i18n from '../i18n'
 import { useTheme } from '../composables/useTheme'
+import { useTransparency } from '../composables/useTransparency'
 import { registerBuiltinPlugins } from '../plugins/registerBuiltins'
 import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
 import { ensurePluginLogConsole, installPluginConsoleForwarding } from '../plugins/pluginApi'
@@ -73,9 +74,10 @@ async function initLocale(): Promise<void> {
   }
 }
 
-/** 迁移期：theme / locale 的真源在 Vue 单例，镜像到 zustand 供 React 渲染。 */
+/** 迁移期：theme / locale / transparency 的真源在 Vue 单例，镜像到 zustand 供 React 渲染。 */
 function mirrorVueStateIntoStore(): void {
   const { mode, resolved } = useTheme()
+  const { enabled: transparency } = useTransparency()
   const syncTheme = () => {
     useShellStore.getState().setThemeState(mode.value, resolved.value)
   }
@@ -85,6 +87,13 @@ function mirrorVueStateIntoStore(): void {
     () => i18n.global.locale.value,
     (value) => {
       useShellStore.getState().setLocale(value === 'en-US' ? 'en-US' : 'zh-CN')
+    },
+    { immediate: true },
+  )
+  watch(
+    transparency,
+    (value) => {
+      useShellStore.getState().setTransparency(value)
     },
     { immediate: true },
   )
@@ -121,6 +130,7 @@ export async function bootstrap(): Promise<void> {
 
   await initLocale()
   await useTheme().init()
+  await useTransparency().init()
   mirrorVueStateIntoStore()
 
   if (windowMode === 'main') {

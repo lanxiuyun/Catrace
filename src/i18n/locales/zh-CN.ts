@@ -193,6 +193,10 @@ export default {
       light: '亮色',
       dark: '暗色',
     },
+    transparency: {
+      title: '界面透明度',
+      desc: '关闭后玻璃材质改为不透明。此项由应用控制，不跟随系统「透明效果」',
+    },
     agent: {
       enabledTitle: 'Agent 状态通知',
       enabledDesc: 'AI 助手（如 Claude Code）状态变化时弹出通知卡片',

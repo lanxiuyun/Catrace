@@ -35,6 +35,9 @@ importers:
       '@tauri-apps/plugin-updater':
         specifier: ^2.10.1
         version: 2.10.1
+      '@ttqtt/liquid-glass-react':
+        specifier: ^0.0.2
+        version: 0.0.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       lucide-react:
         specifier: 0.468.0
         version: 0.468.0(react@19.0.0)
@@ -1370,6 +1373,13 @@ packages:
 
   '@tauri-apps/plugin-updater@2.10.1':
     resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
+
+  '@ttqtt/liquid-glass-react@0.0.2':
+    resolution: {integrity: sha512-xdFSP/apYY7dttpTWGs58OK1IoOF37EEcnFgJhRYTUW5YLrFWyZYvhcM9WLuiAgCUB89bgX5tDANbXctHh9fJQ==}
+    engines: {node: '>=20.19.0'}
+    peerDependencies:
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -3118,6 +3128,11 @@ snapshots:
   '@tauri-apps/plugin-updater@2.10.1':
     dependencies:
       '@tauri-apps/api': 2.11.0
+
+  '@ttqtt/liquid-glass-react@0.0.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
 
   '@types/babel__core@7.20.5':
     dependencies:

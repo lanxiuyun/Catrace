@@ -1,0 +1,26 @@
+/*
+ * liquid-glass-react 的样式表里有一条 `@media (prefers-reduced-transparency: reduce)`，
+ * 会把玻璃强制画成实心（backdrop-filter: none、tint 用实心色）。它走的是 CSS 媒体查询，
+ * JS 侧覆盖 matchMedia 管不到，所以这里按应用开关把被改写的三条声明恢复回来。
+ *
+ * 产品决定：界面透明度只认应用设置（设置 → 系统 → 界面透明度）。
+ * 开关为开时恢复玻璃；关闭时不拦，让 LGR 走它自己的 opaque 材质。
+ *
+ * 选择器都比 LGR 媒体查询里的规则更具体（多一个 html[attr] 前缀），
+ * 靠特异性胜出，不依赖样式表加载顺序。
+ */
+html[data-ct-transparency='on'] .lg-backdrop {
+  backdrop-filter: var(--lg-backdrop, blur(14px)) !important;
+  -webkit-backdrop-filter: var(--lg-backdrop, blur(14px)) !important;
+}
+
+html[data-ct-transparency='on'] .lg-tint {
+  background: rgb(var(--lg-tint-color) / var(--lg-tint-opacity)) !important;
+}
+
+html[data-ct-transparency='on'] .lg-root:not([data-renderer='shared']) {
+  background: transparent !important;
+}
+
+/* 目前只用到上面三个表面。以后接入 .lg-material-view / .lg-scroll-edge / 对话框
+   的 backdrop 时，它们在同一条媒体查询里也会被改，需要按同样方式补回来。 */

@@ -25,11 +25,13 @@ import {
 } from '../../api/tauri'
 import SettingRow from './SettingRow.vue'
 import { useTheme, type ThemeMode } from '../../composables/useTheme'
+import { useTransparency } from '../../composables/useTransparency'
 
 const { t } = useI18n()
 const message = useMessage()
 
 const { mode: themeMode, setMode: setThemeMode } = useTheme()
+const { enabled: transparencyEnabled, setEnabled: setTransparencyEnabled } = useTransparency()
 const themeOptions = computed(() => [
   { label: t('settings.theme.system'), value: 'system' },
   { label: t('settings.theme.light'), value: 'light' },
@@ -37,6 +39,11 @@ const themeOptions = computed(() => [
 ])
 function changeTheme(v: ThemeMode) {
   void setThemeMode(v)
+}
+
+async function changeTransparency(value: boolean) {
+  await setTransparencyEnabled(value)
+  message.success(t('settings.messages.saved'))
 }
 
 const autostart = ref(false)
@@ -324,6 +331,12 @@ async function handleInstallUpdate() {
         style="width: 10rem;"
         @update:value="changeTheme"
       />
+    </setting-row>
+
+    <div class="divider" />
+
+    <setting-row :title="t('settings.transparency.title')" :desc="t('settings.transparency.desc')">
+      <n-switch :value="transparencyEnabled" @update:value="changeTransparency" />
     </setting-row>
 
     <div class="divider" />

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { createHashRouter, Navigate } from 'react-router-dom'
 import type { Component } from 'vue'
 import { MainShell } from './shell/MainShell'
@@ -11,6 +12,9 @@ import ReminderToast from '../views/toastWindows/ReminderToast.vue'
 import ReminderPopup from '../views/toastWindows/ReminderPopup.vue'
 import ReminderFullscreen from '../views/toastWindows/ReminderFullscreen.vue'
 import PluginHost from '../views/toastWindows/PluginHost.vue'
+
+/** DEV-only PoC（液玻），只在 dev 构建注册；按需加载，不进主 chunk。 */
+const GlassLab = lazy(() => import('./pages/GlassLab').then((module) => ({ default: module.GlassLab })))
 
 /**
  * React 路由表，hash 模式，路径与 Tauri 建窗 URL 完全一致：
@@ -53,6 +57,21 @@ export function createAppRouter() {
     },
     { path: '/settings', element: mainPage(Settings) },
     { path: '/debug', element: mainPage(Debug) },
+
+    ...(import.meta.env.DEV
+      ? [
+          {
+            path: '/lab/glass',
+            element: (
+              <MainShell>
+                <Suspense fallback={null}>
+                  <GlassLab />
+                </Suspense>
+              </MainShell>
+            ),
+          },
+        ]
+      : []),
 
     { path: '/reminder-toast', element: toastPage(ReminderToast) },
     { path: '/reminder-popup', element: toastPage(ReminderPopup) },
