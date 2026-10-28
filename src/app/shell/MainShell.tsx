@@ -6,6 +6,7 @@ import { ChartColumn, LayoutGrid, Plug, Settings2, Sun } from 'lucide-react'
 import { useT } from '../i18n'
 import { useShellStore } from '../store'
 import { useTheme } from '../../composables/useTheme'
+import { Toaster } from '../ui/toast'
 import './shell.css'
 
 const NAV_ITEMS = [
@@ -106,6 +107,7 @@ export function MainShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="ct-workspace">{children}</main>
+      <Toaster />
     </div>
   )
 }

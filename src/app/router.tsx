@@ -5,7 +5,7 @@ import { ToastShell } from './shell/ToastShell'
 import { VueIsland } from './legacy/VueIsland'
 import { Dashboard } from './pages/Dashboard'
 import { Plugins } from './pages/Plugins'
-import Settings from '../views/mainWindow/Settings.vue'
+import { Settings } from './pages/Settings'
 import Debug from '../views/mainWindow/Debug.vue'
 import ReminderToast from '../views/toastWindows/ReminderToast.vue'
 import ReminderPopup from '../views/toastWindows/ReminderPopup.vue'
@@ -51,7 +51,14 @@ export function createAppRouter() {
         </MainShell>
       ),
     },
-    { path: '/settings', element: mainPage(Settings) },
+    {
+      path: '/settings',
+      element: (
+        <MainShell>
+          <Settings />
+        </MainShell>
+      ),
+    },
     { path: '/debug', element: mainPage(Debug) },
 
     { path: '/reminder-toast', element: toastPage(ReminderToast) },

@@ -236,6 +236,40 @@
   }
 }
 
+/* Toast 提示（替代 naive-ui message） */
+.ct-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.ct-toast {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.ct-toast.is-error {
+  background: rgba(255, 59, 48, 0.95);
+}
+
+.ct-toast.is-warning {
+  background: rgba(255, 149, 0, 0.95);
+}
+
 /* Toast / 提醒窗：壳只负责铺满，页面自己定位。 */
 .toast-window-shell {
   height: 100%;

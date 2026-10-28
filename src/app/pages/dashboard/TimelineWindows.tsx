@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import type { MinuteData } from '../../../types/minute'
 import { computeTimeBlocks, mergeRestBlocks, type TimeBlock } from '../../../utils/timeBlocks'
 import { useT } from '../../i18n'
@@ -166,7 +167,13 @@ export function TimelineWindows({
 }) {
   const t = useT()
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
+  const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
+
+  const showTip = (event: ReactMouseEvent<HTMLElement>, text: string) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setTip({ text, x: rect.left + rect.width / 2, y: rect.top - 6 })
+  }
 
   const dayStart = minutes[0]?.ts ?? 0
   const nowIdx = dayStart
@@ -275,12 +282,14 @@ export function TimelineWindows({
                                       : 'm-seg-null'
                                 }`}
                                 style={{ flex: item.count }}
-                              >
-                                <span className="seg-tip">
-                                  {formatTime(item.startTs)}–{formatTime(item.startTs + item.count * 60)}{' '}
-                                  · {formatDuration(item.count)}
-                                </span>
-                              </div>
+                                onMouseEnter={(event) =>
+                                  showTip(
+                                    event,
+                                    `${formatTime(item.startTs)}–${formatTime(item.startTs + item.count * 60)} · ${formatDuration(item.count)}`,
+                                  )
+                                }
+                                onMouseLeave={() => setTip(null)}
+                              />
                             ) : (
                               <div key={itemIndex} className="m-cells" style={{ flex: item.count }}>
                                 {item.minutes.map((minute, minuteIndex) => (
@@ -293,11 +302,14 @@ export function TimelineWindows({
                                           ? 'm-cell-rest'
                                           : 'm-cell-null'
                                     }`}
-                                  >
-                                    <span className="seg-tip">
-                                      {formatTime(minute.ts)} · {getLabel(t, minute.active, false)}
-                                    </span>
-                                  </div>
+                                    onMouseEnter={(event) =>
+                                      showTip(
+                                        event,
+                                        `${formatTime(minute.ts)} · ${getLabel(t, minute.active, false)}`,
+                                      )
+                                    }
+                                    onMouseLeave={() => setTip(null)}
+                                  />
                                 ))}
                               </div>
                             ),
@@ -322,6 +334,13 @@ export function TimelineWindows({
           )
         })}
       </div>
+      {tip &&
+        createPortal(
+          <div className="ct-seg-tip" style={{ left: tip.x, top: tip.y }}>
+            {tip.text}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

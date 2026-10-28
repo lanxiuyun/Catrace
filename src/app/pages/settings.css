@@ -1,0 +1,295 @@
+/* 系统设置页：React 卡片网格 + 拖拽排序；Vue 岛的 System 卡也共用同一套卡片外观。 */
+
+.ct-settings-page {
+  height: 100%;
+}
+
+.ct-settings {
+  padding: 1.25rem;
+}
+
+.ct-settings-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--ct-text);
+}
+
+.ct-settings-subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--ct-text-muted);
+}
+
+.ct-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(23.75rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ct-settings-slot {
+  position: relative;
+  min-width: 0;
+}
+
+.ct-settings-card,
+.ct-settings-grid .group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-accent-soft);
+  border-radius: 0.875rem;
+  padding: 1rem 1.25rem 0.875rem;
+  box-sizing: border-box;
+  height: 100%;
+  transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ct-settings-grid .group-label,
+.ct-settings-card-label {
+  padding-right: 2rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.0312rem;
+  text-transform: uppercase;
+  color: var(--ct-text-muted);
+}
+
+.ct-settings-grid .divider,
+.ct-settings-divider {
+  height: 0.0625rem;
+  background: var(--ct-accent-softer);
+  margin: 0;
+}
+
+/* ---------- 设置行 ---------- */
+.ct-setting-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.625rem 0;
+}
+
+.ct-setting-copy {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 4rem);
+}
+
+.ct-setting-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+  overflow-wrap: break-word;
+}
+
+.ct-setting-desc {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+  overflow-wrap: break-word;
+}
+
+.ct-setting-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-settings-side {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ct-settings-hint {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--ct-info-soft);
+  color: var(--ct-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.ct-settings-denied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 0.0625rem solid var(--ct-error);
+  border-radius: 0.5rem;
+  background: var(--ct-error-soft);
+  color: var(--ct-error-strong);
+  font-size: 0.75rem;
+}
+
+/* ---------- 媒体排除列表 ---------- */
+.ct-whitelist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.ct-whitelist-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-whitelist-desc {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+}
+
+.ct-whitelist-textarea {
+  font-family: var(--ct-font-mono) !important;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* ---------- 链接卡 ---------- */
+.ct-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.ct-link-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--ct-accent-softer);
+  border: 0.0625rem solid var(--ct-accent-softer);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.ct-link-item:hover {
+  border-color: var(--ct-accent-soft);
+  transform: translateY(0.0625rem);
+}
+
+.ct-link-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  background: var(--ct-surface-2);
+  color: var(--ct-text);
+}
+
+.ct-link-icon.is-info {
+  background: var(--ct-info-soft);
+  color: var(--ct-info);
+}
+
+.ct-link-icon.is-warning {
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning);
+}
+
+.ct-link-icon.is-accent {
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
+}
+
+.ct-link-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ct-link-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-link-desc {
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+}
+
+.ct-link-arrow {
+  flex-shrink: 0;
+  color: var(--ct-accent-border);
+  transition: color 0.15s ease;
+}
+
+.ct-link-item:hover .ct-link-arrow {
+  color: var(--ct-accent);
+}
+
+/* ---------- 拖拽手柄 ---------- */
+.ct-drag-handle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.3125rem;
+  color: var(--ct-text-subtle);
+  cursor: grab;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ct-drag-handle:hover {
+  opacity: 1;
+  background: var(--ct-accent-softer);
+  color: var(--ct-accent);
+}
+
+.ct-drag-handle:active {
+  cursor: grabbing;
+}
+
+.ct-settings-slot.ct-dragging {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.ct-settings-slot.ct-dragging .ct-settings-card,
+.ct-settings-slot.ct-dragging .group {
+  border-style: dashed;
+  background: var(--ct-accent-softer);
+}
+
+.ct-settings-slot.ct-drag-over {
+  opacity: 0.95;
+  transform: scale(1.02) rotate(1deg);
+  z-index: 1000;
+  filter: drop-shadow(0 0.75rem 2rem rgba(0, 0, 0, 0.18));
+  transition: none !important;
+}
+
+/* Vue 岛的 System 卡：容器别限制高度 */
+.ct-settings-system {
+  height: 100%;
+}
