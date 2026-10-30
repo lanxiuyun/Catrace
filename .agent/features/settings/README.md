@@ -4,21 +4,23 @@
 
 ## 涉及文件
 
-- `src/views/mainWindow/Settings.vue` — 页面容器
-- `src/components/settings/SettingRow.vue` — 通用设置行
-- `src/components/settings/SliderControl.vue` — 滑块+数值
-- `src/components/settings/MediaSettingsCard.vue` — 视频与音乐
-- `src/components/settings/SystemSettingsCard.vue` — 语言/自启/更新；macOS 辅助功能授权行
-- `src/components/AccessibilityBanner.vue` — macOS 未授权时主窗顶部横幅（不在设置网格里）
-- `src/components/settings/SignalSettingsCard.vue` — 行为采集
-- `src/components/settings/LinksSettingsCard.vue` — 相关链接
-- `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
-- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 方式 toast·fullscreen / 内容 / 测试；popup 下线）
+- `src/app/pages/Settings.tsx` — 页面容器（React，网格 + Sortable 拖拽排序）
+- `src/app/pages/settings/SettingRow.tsx` — 通用设置行
+- `src/app/pages/settings/MediaSettingsCard.tsx` — 视频与音乐
+- `src/app/pages/settings/SignalSettingsCard.tsx` — 行为采集
+- `src/app/pages/settings/SystemSettingsCard.tsx` — 语言 / 主题 / 自启 / 静默 / 轻量 / 更新
+- `src/app/pages/settings/SysNotifySettingsCard.tsx` — 系统通知转发
+- `src/app/pages/settings/LinksSettingsCard.tsx` — 相关链接
+- `src/app/pages/settings.css` — 卡片网格、设置行、拖拽把手样式
+- `src/app/pages/Plugins.tsx` — 功能插件页（久坐提醒面板）
+- `src/components/settings/SettingRow.vue`、`SliderControl.vue` — 仅剩给外部插件 UI 契约用（迁移期插件已停用）
+- `src/components/AccessibilityBanner.vue` — 已无引用（macOS 不催授权，行与横幅都藏掉），待 M6 清理
 
 ## 卡片规范
 
 - 响应式网格布局，右上角拖拽把手，高度撑满 Grid 行
-- 拖拽排序持久化（Tauri Store 插件保存顺序）
+- 拖拽用 SortableJS（`forceFallback`），`filter` 掉输入框、按钮、滑块、开关、下拉，避免在这些控件上按下时误拖
+- 拖拽排序持久化（Tauri Store 的 `settings_group_order`）
 - 间距统一 rem 单位
 - MediaSettingsCard：排除列表 500ms 防抖自动保存，「重置为默认」按钮在标题右侧
 
@@ -26,21 +28,19 @@
 
 | 面 | 内容 |
 |----|------|
-| 系统设置 core | `media` / `signal` / `system` / `links`（macOS 辅助功能授权行在 system 卡） |
-| 主窗横幅 | macOS 未授权时 `AccessibilityBanner` 挂 `MainShell`，不进设置拖拽网格 |
-| 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen、测试通知（popup 下线） |
-| 功能插件 `agent` | Hook / 事件模式 / 提示音 |
+| 系统设置 core | `media` / `signal` / `system` / `sysNotify` / `links`，五张卡都是 React 组件 |
+| 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen、测试通知（popup 下线），在功能插件页 |
 | 调试页 | Event SDK（不进设置拖拽网格） |
 
-**久坐提醒的展示方式与内容不在系统设置**，统一在 `RestPluginPanel`。
+**久坐提醒的展示方式与内容不在系统设置**，统一在功能插件页的久坐提醒面板（`src/app/pages/Plugins.tsx`）。
 
-带 `SettingsComponent` 且 `settingsSurface === 'settings'` 的插件由 `usePluginRegistry().getSettingsPlugins('settings')` 动态挂载。
+带 `SettingsComponent` 且 `settingsSurface === 'settings'` 的插件由 `usePluginRegistry().getSettingsPlugins('settings')` 动态挂载（迁移期外部插件已停用，见 [React 迁移方案](../../architecture/react-migration/README.md)）。
 
 当前：
-- `rest` / `agent` → `settingsSurface: plugins`
-- 系统设置页暂无 registry 插件卡（架构保留）
+- 系统设置页暂无 registry 插件卡；5 张核心卡是写死的 React 组件（架构保留）
+- `rest` → 功能插件页内嵌面板
 
-注册入口：`src/plugins/registerBuiltins.ts`（主窗 `main.ts` mount 前调用）。
+注册入口：`src/plugins/registerBuiltins.ts`（React 主窗在 `src/app/bootstrap.ts` 里调用）。
 
 ## 子文档
 

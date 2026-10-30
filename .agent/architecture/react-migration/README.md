@@ -19,7 +19,7 @@
 | M2 Dashboard | ✅ 已落地 | Dashboard 改成 React 页（统计卡 + 概览/详细时间线），旧 Vue 入口（main.ts/App.vue/vue-router）同步删除 |
 | M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色/字体按该参考换肤（macOS 系统色 + SF 字体 + 透光 blur）；设置/调试页仍按旧布局但已跟随新色板 |
 | M3 插件中心 | ✅ 已落地（先于设置） | 插件中心 + 久坐提醒面板改成 React（Radix Tabs/Slider/Select/Switch），只保留久坐提醒；旧 `Plugins.vue` / `RestPluginPanel.vue` 等已删除 |
-| M4 设置 | 🚧 进行中 | 设置页主框架（网格 + Sortable 拖拽排序 + 全局 toast）与视频/信号/系统通知/链接 4 张卡已 React；`SystemSettingsCard` 暂以 Vue 岛挂载，迁完摘掉 |
+| M4 设置 | ✅ 已落地 | 设置页主框架（网格 + Sortable 拖拽排序 + 全局 toast）与 5 张卡（视频/信号/系统/系统通知/链接）全部 React；`SystemSettingsCard` 已从 Vue 岛换成 React（语言/主题/自启/静默/轻量/更新），旧 `.vue` 已删除 |
 
 ## 2. 现状盘点
 

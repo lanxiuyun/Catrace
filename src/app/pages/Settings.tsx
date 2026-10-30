@@ -3,13 +3,12 @@ import Sortable from 'sortablejs'
 import { useT } from '../i18n'
 import { PageScroll } from '../components/PageScroll'
 import { RadixPage } from '../components/RadixPage'
-import { VueIsland } from '../legacy/VueIsland'
 import { getSettingsStore } from '../lib/settingsStore'
-import SystemSettingsCard from '../../components/settings/SystemSettingsCard.vue'
 import { MediaSettingsCard } from './settings/MediaSettingsCard'
 import { SignalSettingsCard } from './settings/SignalSettingsCard'
 import { SysNotifySettingsCard } from './settings/SysNotifySettingsCard'
 import { LinksSettingsCard } from './settings/LinksSettingsCard'
+import { SystemSettingsCard } from './settings/SystemSettingsCard'
 import './settings.css'
 
 const CORE_KEYS = ['media', 'signal', 'system', 'sysNotify', 'links'] as const
@@ -18,8 +17,7 @@ type CoreKey = (typeof CORE_KEYS)[number]
 const CARD_BY_KEY: Record<CoreKey, () => ReactElement> = {
   media: () => <MediaSettingsCard />,
   signal: () => <SignalSettingsCard />,
-  // SystemSettingsCard 还没迁完，先以 Vue 岛形式挂进网格；迁完换成 React 组件。
-  system: () => <VueIsland component={SystemSettingsCard} className="ct-settings-system" />,
+  system: () => <SystemSettingsCard />,
   sysNotify: () => <SysNotifySettingsCard />,
   links: () => <LinksSettingsCard />,
 }
@@ -40,7 +38,7 @@ function normalizeOrder(saved: unknown): CoreKey[] {
   return order
 }
 
-/** 系统设置页（React 版网格 + Sortable 拖拽排序；System 卡片暂为 Vue 岛）。 */
+/** 系统设置页（React 版网格 + Sortable 拖拽排序），5 张设置卡全部是 React 组件。 */
 export function Settings() {
   const t = useT()
   const [order, setOrder] = useState<CoreKey[]>([...CORE_KEYS])
