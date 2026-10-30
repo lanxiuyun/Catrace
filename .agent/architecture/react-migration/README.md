@@ -17,7 +17,7 @@
 | M0 插件收口 | ✅ 已落地 | 前端 `pluginScope.ts` + Rust `REST_ONLY_MIGRATION`，插件页只剩久坐提醒 |
 | M1 React 壳 | ✅ 已落地 | React 入口/路由/主题/i18n/zustand + Vue 岛桥；8 条路由用 Playwright 跑过 dist（页面正常渲染，浏览器里 Tauri API 报错属预期）；页面暂全部保持 Vue |
 | M2 Dashboard | ✅ 已落地 | Dashboard 改成 React 页（统计卡 + 概览/详细时间线），旧 Vue 入口（main.ts/App.vue/vue-router）同步删除 |
-| M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色按该参考换肤（macOS 系统色 + 透光 blur），字体沿用 main 的系统 UI 字体栈（见 §6.9）；设置/调试页仍按旧布局但已跟随新色板 |
+| M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色按该参考换肤（macOS 系统色 + 透光 blur），字体沿用 main 的系统 UI 字体栈（见 §6.9）；设置/调试页仍按旧布局但已跟随新色板。后来按用户要求去掉了侧栏的 Profile 头、分组标题和底部外观入口，侧栏只留导航（主题切换改在「系统设置 → 外观主题」） |
 | M3 插件中心 | ✅ 已落地（先于设置） | 插件中心 + 久坐提醒面板改成 React（Radix Tabs/Slider/Select/Switch），只保留久坐提醒；旧 `Plugins.vue` / `RestPluginPanel.vue` 等已删除 |
 | M4 设置 | ✅ 已落地 | 设置页主框架（网格 + Sortable 拖拽排序 + 全局 toast）与 5 张卡（视频/信号/系统/系统通知/链接）全部 React；`SystemSettingsCard` 已从 Vue 岛换成 React（语言/主题/自启/静默/轻量/更新），旧 `.vue` 已删除 |
 | M4.5 调试 | ✅ 已落地（先于 Toast） | 调试页改成 React（媒体检测 / Signal 分钟桶 / 通知测试 / Event SDK 卡），每 2 秒轮询、离开页面停轮询与通知测试与旧版一致；旧 `Debug.vue` / `EventSdkSettingsCard.vue` 已删除，主窗四条路由全部 React |

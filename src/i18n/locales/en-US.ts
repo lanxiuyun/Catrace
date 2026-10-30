@@ -500,15 +500,6 @@ export default {
       installFailed: 'Failed to install Node.js — check your network and retry',
     },
   },
-  shell: {
-    workspace: 'Workspace',
-    appearance: 'Appearance',
-    appearanceDesc: 'Choose the light or dark appearance. The setting syncs to every window.',
-    light: 'Light',
-    dark: 'Dark',
-    system: 'System',
-    done: 'Done',
-  },
   pluginsCenter: {
     tabsSettings: 'Preferences',
     tabsActivity: 'Activity & logs',

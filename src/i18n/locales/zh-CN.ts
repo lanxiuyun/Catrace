@@ -499,15 +499,6 @@ export default {
       installFailed: 'Node.js 安装失败，请检查网络后重试',
     },
   },
-  shell: {
-    workspace: '工作空间',
-    appearance: '外观设置',
-    appearanceDesc: '选择界面明暗模式，设置会同步到所有窗口。',
-    light: '浅色',
-    dark: '深色',
-    system: '跟随系统',
-    done: '完成',
-  },
   pluginsCenter: {
     tabsSettings: '偏好设置',
     tabsActivity: '运行统计与日志',

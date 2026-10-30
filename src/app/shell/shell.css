@@ -1,5 +1,4 @@
-/* React 壳样式：macOS 风格透光侧边栏 + 工作区（无顶栏）。
-   侧边栏结构参考 catrace_macos_edition.html（Profile / 分组导航 / 底部设置）。 */
+/* React 壳样式：macOS 风格透光侧边栏 + 工作区（无顶栏，侧边栏只保留导航分组）。 */
 
 .ct-app,
 .ct-app * {
@@ -30,70 +29,6 @@
 
 [data-theme='dark'] .ct-sidebar {
   background: rgba(32, 32, 36, 0.75);
-}
-
-.ct-sidebar-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.4rem 0.5rem;
-  border-radius: 0.5rem;
-}
-
-.ct-sidebar-avatar {
-  width: 1.75rem;
-  height: 1.75rem;
-  flex-shrink: 0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  background: linear-gradient(40deg, var(--ct-purple), var(--ct-accent));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  user-select: none;
-}
-
-.ct-sidebar-profile-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.ct-sidebar-profile-copy strong {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ct-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ct-sidebar-profile-copy span {
-  font-size: 0.625rem;
-  color: var(--ct-text-subtle);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ct-sidebar-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.ct-sidebar-label {
-  padding: 0 0.5rem;
-  margin-bottom: 0.125rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ct-text-subtle);
-  white-space: nowrap;
 }
 
 .ct-sidebar-nav {
@@ -135,21 +70,6 @@
 .ct-sidebar-item.is-active:hover {
   background: var(--ct-accent-hover);
   color: #fff;
-}
-
-.ct-sidebar-item-button {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-}
-
-.ct-sidebar-bottom {
-  margin-top: auto;
-  padding-top: 0.5rem;
-  border-top: 0.0625rem solid var(--ct-border);
 }
 
 /* ---------- macOS 风格分段控件（灰轨道 + 白色滑块） ---------- */
@@ -213,13 +133,6 @@
     align-items: center;
   }
 
-  .ct-sidebar-profile {
-    justify-content: center;
-    padding: 0.4rem 0;
-  }
-
-  .ct-sidebar-profile-copy,
-  .ct-sidebar-label,
   .ct-sidebar-item span {
     display: none;
   }
@@ -229,7 +142,6 @@
     padding: 0.5rem;
   }
 
-  .ct-sidebar-group,
   .ct-sidebar-nav {
     width: 100%;
     align-items: center;
