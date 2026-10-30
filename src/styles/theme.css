@@ -1,14 +1,17 @@
 /* Catrace 主题 token 层 — 颜色单一真源
  * macOS 风格：背景 #F6F6F6 / 卡片白 / 系统蓝 #007AFF / 系统紫 #5E5CE6 /
  * 系统绿 #34C759 / 系统橙 #FF9500；深色 #1E1E1E / #2C2C2E。
- * 参考根目录 catrace_macos_edition.html 的配色与字体，仅换皮不改布局。
+ * 参考根目录 catrace_macos_edition.html 的配色，仅换皮不改布局；字体跟随 main 版（系统 UI 字体）。
  */
 
 :root {
-  /* 字体（macOS 系统字体栈） */
-  --ct-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
-    'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
-  --ct-font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
+  /* 字体：和 main（Vue 版）实际渲染的一致。
+     main 自己没写全局字体，body 的字体来自 naive-ui 的全局基础样式
+     `v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+     —— v-sans 不是真实字体，实际落在 system-ui：macOS = SF Pro、Windows = Segoe UI（中文回落雅黑）。
+     等宽同理沿用 main 各组件里的写法：ui-monospace 优先（Windows = Consolas）。 */
+  --ct-font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ct-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 
   /* 强调（macOS 系统蓝） */
   --ct-accent: #007aff;
@@ -108,7 +111,8 @@ body,
   color: var(--ct-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
+  /* 只留 tnum：cv02/03/04/11 是 Inter 的替代字形开关，main 上没有，系统字体上也无意义。 */
+  font-feature-settings: 'tnum';
 }
 
 /* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */

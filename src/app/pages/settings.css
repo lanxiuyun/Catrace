@@ -151,12 +151,6 @@
   color: var(--ct-text-muted);
 }
 
-.ct-whitelist-textarea {
-  font-family: var(--ct-font-mono) !important;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-
 /* ---------- 链接卡 ---------- */
 .ct-link-list {
   display: flex;

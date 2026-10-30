@@ -5,6 +5,8 @@
 .radix-themes {
   --default-font-family: var(--ct-font-sans);
   --heading-font-family: var(--default-font-family);
+  /* Radix 默认的 code 字体是自己点名的 Menlo / Consolas，这里统一到 --ct-font-mono。 */
+  --code-font-family: var(--ct-font-mono);
 
   --color-background: var(--ct-bg);
   --color-panel-solid: var(--ct-surface);

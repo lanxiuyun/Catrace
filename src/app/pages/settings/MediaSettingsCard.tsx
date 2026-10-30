@@ -91,7 +91,6 @@ export function MediaSettingsCard() {
             </Button>
           </div>
           <TextArea
-            className="ct-whitelist-textarea"
             rows={6}
             placeholder={t('mediaWhitelist.placeholder')}
             value={whitelist.value}
