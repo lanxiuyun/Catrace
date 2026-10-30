@@ -6,7 +6,7 @@ import { VueIsland } from './legacy/VueIsland'
 import { Dashboard } from './pages/Dashboard'
 import { Plugins } from './pages/Plugins'
 import { Settings } from './pages/Settings'
-import Debug from '../views/mainWindow/Debug.vue'
+import { Debug } from './pages/Debug'
 import ReminderToast from '../views/toastWindows/ReminderToast.vue'
 import ReminderPopup from '../views/toastWindows/ReminderPopup.vue'
 import ReminderFullscreen from '../views/toastWindows/ReminderFullscreen.vue'
@@ -15,16 +15,8 @@ import PluginHost from '../views/toastWindows/PluginHost.vue'
 /**
  * React 路由表，hash 模式，路径与 Tauri 建窗 URL 完全一致：
  *   index.html#/dashboard、#/reminder-toast、?plugin_id=x#/plugin-host ...
- * 迁移期页面仍以 Vue 岛挂载；迁完一个页面就把它换成 React 组件。
+ * 主窗页面已全部是 React；Toast / 插件宿主窗仍是 Vue 岛。
  */
-function mainPage(Page: Component) {
-  return (
-    <MainShell>
-      <VueIsland component={Page} className="vue-island-page" />
-    </MainShell>
-  )
-}
-
 function toastPage(Page: Component) {
   return (
     <ToastShell>
@@ -59,7 +51,7 @@ export function createAppRouter() {
         </MainShell>
       ),
     },
-    { path: '/debug', element: mainPage(Debug) },
+    { path: '/debug', element: <MainShell><Debug /></MainShell> },
 
     { path: '/reminder-toast', element: toastPage(ReminderToast) },
     { path: '/reminder-popup', element: toastPage(ReminderPopup) },

@@ -271,6 +271,7 @@ export default {
   debug: {
     title: 'Media Detection Debug',
     refresh: 'Refresh',
+    toastDebugMode: 'Toast debug background',
     notificationTest: {
       title: 'Notification Test',
       interval: 'Trigger Interval',

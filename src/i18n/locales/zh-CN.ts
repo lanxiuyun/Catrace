@@ -271,6 +271,7 @@ export default {
   debug: {
     title: '媒体检测调试',
     refresh: '手动刷新',
+    toastDebugMode: 'Toast 调试背景',
     notificationTest: {
       title: '通知测试',
       interval: '触发间隔',

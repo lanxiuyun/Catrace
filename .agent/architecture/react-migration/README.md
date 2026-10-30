@@ -20,6 +20,7 @@
 | M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色/字体按该参考换肤（macOS 系统色 + SF 字体 + 透光 blur）；设置/调试页仍按旧布局但已跟随新色板 |
 | M3 插件中心 | ✅ 已落地（先于设置） | 插件中心 + 久坐提醒面板改成 React（Radix Tabs/Slider/Select/Switch），只保留久坐提醒；旧 `Plugins.vue` / `RestPluginPanel.vue` 等已删除 |
 | M4 设置 | ✅ 已落地 | 设置页主框架（网格 + Sortable 拖拽排序 + 全局 toast）与 5 张卡（视频/信号/系统/系统通知/链接）全部 React；`SystemSettingsCard` 已从 Vue 岛换成 React（语言/主题/自启/静默/轻量/更新），旧 `.vue` 已删除 |
+| M4.5 调试 | ✅ 已落地（先于 Toast） | 调试页改成 React（媒体检测 / Signal 分钟桶 / 通知测试 / Event SDK 卡），每 2 秒轮询、离开页面停轮询与通知测试与旧版一致；旧 `Debug.vue` / `EventSdkSettingsCard.vue` 已删除，主窗四条路由全部 React |
 
 ## 2. 现状盘点
 
@@ -28,7 +29,7 @@
 | 构建 | Vite 6 + `@vitejs/plugin-vue`；M1 起加 `@vitejs/plugin-react`（双插件共存），单入口 `index.html`，hash 路由 | [vite.config.ts](../../../vite.config.ts) |
 | 窗口 | 单 HTML，多窗口靠 hash 区分：`#/dashboard`、`#/reminder-toast`、`?plugin_id=x#/plugin-host` 等 | `src-tauri/src/lib.rs`、`reminder_toast.rs`、`plugin_window.rs` |
 | 壳 | 已是 React：`src/app/shell/MainShell.tsx`（顶栏） + `ToastShell.tsx`（提醒窗出口）；旧 `MainShell.vue` / `ToastShell.vue` 已删除 | `src/app/shell/` |
-| 页面体量 | 已迁 React：Dashboard（`src/app/pages/Dashboard.tsx`）、插件中心（`src/app/pages/Plugins.tsx` + 久坐提醒面板）；仍为 Vue：Settings 7.9 KB、Debug 12.9 KB，以及 ReminderToast 23.4 KB、ReminderFullscreen 17.9 KB、ReminderPopup 8.7 KB | 迁移工作量按此排序 |
+| 页面体量 | 已迁 React：Dashboard（`src/app/pages/Dashboard.tsx`）、插件中心（`src/app/pages/Plugins.tsx` + 久坐提醒面板）、设置（`src/app/pages/Settings.tsx` + 5 张卡）、调试（`src/app/pages/Debug.tsx` + `debug/EventSdkCard.tsx`）；仍为 Vue：ReminderToast 23.4 KB、ReminderFullscreen 17.9 KB、ReminderPopup 8.7 KB、PluginHost 2 KB | 迁移工作量按此排序 |
 | 状态 | pinia：`eventHub`（Event Bus 订阅 + 150 条已解决上限）、`pluginRegistry` | `src/stores/` |
 | i18n | vue-i18n，词条是纯 TS 对象（zh-CN 19.7 KB / en-US 20.3 KB） | `src/i18n/` |
 | 主题 | `useTheme`：Store 持久化 `theme.mode` → `data-theme` → 跨窗口 `catrace-theme-changed`；naive-ui overrides + `--ct-*` CSS 变量 | `src/composables/useTheme.ts`、`src/theme.ts`、`src/styles/theme.css` |
