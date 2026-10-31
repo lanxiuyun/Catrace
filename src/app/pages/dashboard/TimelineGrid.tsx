@@ -35,12 +35,6 @@ export function TimelineGrid({ minutes }: { minutes: MinuteData[] }) {
     return t('timeline.rest')
   }
 
-  const isAdjacentSame = (index: number): boolean => {
-    if (index <= 0 || index >= minutes.length - 1) return false
-    const current = minutes[index].active
-    return current === minutes[index - 1].active || current === minutes[index + 1].active
-  }
-
   const onGridMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     const grid = gridRef.current
     if (!grid) return
@@ -92,13 +86,11 @@ export function TimelineGrid({ minutes }: { minutes: MinuteData[] }) {
               ]
                 .filter(Boolean)
                 .join(' ')
-              const radius =
-                minute.active !== null && isAdjacentSame(index) ? '0.0625rem' : undefined
               return (
                 <div
                   key={index}
                   className={className}
-                  style={{ backgroundColor: colorOf(minute), borderRadius: radius }}
+                  style={{ backgroundColor: colorOf(minute) }}
                   onClick={() =>
                     setSelectedIndex((previous) => (previous === index ? null : index))
                   }

@@ -58,10 +58,12 @@
 
 .ct-timeline .cell {
   aspect-ratio: 1;
+  /* .cell 只有这一种形状：状态（hover / 选中 / 当前分钟）只改投影和层级，
+     不再改圆角，避免同一张网格里出现两种圆角。 */
   border-radius: 0.1875rem;
   min-width: 0.25rem;
   min-height: 0.25rem;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-radius 0.1s;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   position: relative;
 }
 
@@ -70,18 +72,15 @@
   transform: scale(1.5);
   box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.12);
   z-index: 2;
-  border-radius: 0.25rem;
 }
 
 .ct-timeline .cell.is-selected {
   box-shadow: 0 0 0 0.125rem var(--ct-warning);
   z-index: 3;
-  border-radius: 0.25rem;
 }
 
 .ct-timeline .cell.is-now {
   box-shadow: 0 0 0 0.125rem var(--ct-error);
-  border-radius: 0.25rem;
   z-index: 1;
   animation: ct-pulse-ring 2s infinite;
 }
