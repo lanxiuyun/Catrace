@@ -72,30 +72,33 @@
   color: #fff;
 }
 
-/* ---------- macOS 风格分段控件（灰轨道 + 白色滑块） ---------- */
+/* ---------- macOS 风格分段控件（灰轨道 + 白色滑块，无描边） ----------
+   Radix 的滑动指示器（.rt-SegmentedControlIndicator）自带 1px 灰描边，
+   并且它的宽度按「轨道总宽」算、比单个 item 宽 2px，右侧会漏一条灰边；
+   轨道外层 2px padding 又把 item 顶到上下边缘，看起来像卡片描边。
+   这里：轨道不留 padding，滑块靠 ::before inset 内缩 2px；白底和阴影都交给
+   指示器，切换就是滑动动画（时长从 Radix 的 100ms 放到 180ms，更接近原生手感）。 */
 .ct-segmented {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  padding: 0.125rem;
-  border-radius: 0.625rem;
-  background: rgba(0, 0, 0, 0.05);
+  --segmented-control-transition-duration: 180ms;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.14);
   border: 0;
   box-shadow: none;
 }
 
 [data-theme='dark'] .ct-segmented {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(120, 120, 128, 0.26);
 }
 
 .ct-segmented .rt-SegmentedControlItem {
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: 999px;
   background: transparent;
   box-shadow: none;
-  padding: 0.125rem 0.625rem;
-  min-height: 1.5rem;
+  padding: 0;
   color: var(--ct-text-muted);
+  transition: color 0.15s ease;
 }
 
 .ct-segmented .rt-SegmentedControlItemSeparator {
@@ -103,17 +106,28 @@
 }
 
 .ct-segmented .rt-SegmentedControlItem[data-state='on'] {
+  color: var(--ct-text);
+}
+
+/* 滑块本体：内缩 2px 的白色胶囊，只有柔和投影，没有 1px 描边 */
+.ct-segmented .rt-SegmentedControlIndicator::before {
+  inset: 0.125rem;
+  border-radius: 999px;
   background: var(--ct-surface);
-  color: var(--ct-text);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 1px 5px rgba(0, 0, 0, 0.06);
 }
 
-.ct-segmented .rt-SegmentedControlItemLabelActive {
-  color: var(--ct-text);
+[data-theme='dark'] .ct-segmented .rt-SegmentedControlIndicator::before {
+  background: #636366;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* 两套叠加的 label 都跟随 item 的当前色，避免切换瞬间出现一深一浅 */
+.ct-segmented .rt-SegmentedControlItemLabelActive,
 .ct-segmented .rt-SegmentedControlItemLabelInactive {
-  color: var(--ct-text-muted);
+  color: inherit;
 }
 
 /* ---------- 工作区 ---------- */
