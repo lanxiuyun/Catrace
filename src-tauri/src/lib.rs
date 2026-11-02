@@ -1315,6 +1315,7 @@ pub fn run() {
             notification_listener::open_notification_permission_settings,
             notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
+            plugins::list_plugin_catalog,
             plugins::install_external_plugin,
             plugins::set_external_plugin_enabled,
             plugins::get_plugin_ui_url,

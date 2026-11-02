@@ -27,6 +27,8 @@
   --ct-surface: #ffffff;
   --ct-surface-2: #f2f2f4;
   --ct-border: rgba(0, 0, 0, 0.08);
+  /* macOS inset grouped 内容底（右侧详情区） */
+  --ct-content-bg: #f2f2f7;
 
   /* 文本（macOS label / secondary / tertiary） */
   --ct-text: #1c1c1e;
@@ -73,6 +75,7 @@
   --ct-surface: #2c2c2e;
   --ct-surface-2: #3a3a3c;
   --ct-border: rgba(255, 255, 255, 0.1);
+  --ct-content-bg: #18181a;
 
   /* 文本 */
   --ct-text: #f2f2f7;

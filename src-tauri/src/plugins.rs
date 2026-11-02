@@ -96,6 +96,17 @@ pub struct ExternalPluginInfo {
     pub error: Option<String>,
 }
 
+/// 「插件中心」列表条目：清单 + 图标 data URL。
+///
+/// 迁移期用它**只读**地展示已安装插件：不写运行时缓存，因此不会加载 UI、
+/// 不会起后台 WebView / sidecar，也不会放行插件事件。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginCatalogEntry {
+    pub info: ExternalPluginInfo,
+    pub icon_data_url: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 struct CachedPlugin {
     info: ExternalPluginInfo,
@@ -153,6 +164,113 @@ impl Clone for PluginManager {
     }
 }
 
+/// 读磁盘上的插件目录，返回缓存结构但**不写入** `PluginManager`。
+fn scan_disk(app: &AppHandle) -> Result<Vec<CachedPlugin>, String> {
+    let root = plugins_root(app)?;
+    fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
+
+    let mut found: Vec<CachedPlugin> = Vec::new();
+    let entries = fs::read_dir(&root).map_err(|e| format!("read plugins dir: {e}"))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        match load_one(app, &path) {
+            Ok(p) => found.push(p),
+            Err(e) => {
+                log_warn!("plugins", "skip {}: {}", path.display(), e);
+                let id = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown".into());
+                found.push(CachedPlugin {
+                    info: ExternalPluginInfo {
+                        id: id.clone(),
+                        name: id,
+                        version: String::new(),
+                        description: String::new(),
+                        main: None,
+                        background: None,
+                        settings: None,
+                        icon: None,
+                        sidecar: None,
+                        events: vec![],
+                        enabled: false,
+                        enabled_by_default: false,
+                        dir: path.to_string_lossy().to_string(),
+                        has_ui: false,
+                        has_background: false,
+                        has_settings: false,
+                        content_mtime_ms: 0,
+                        anomalous: false,
+                        error: Some(e),
+                    },
+                    dir: path.to_path_buf(),
+                    main_abs: None,
+                    background_abs: None,
+                    settings_abs: None,
+                    icon_abs: None,
+                    sidecar: None,
+                    content_hash: String::new(),
+                });
+            }
+        }
+    }
+    found.sort_by(|a, b| a.info.id.cmp(&b.info.id));
+    // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
+    // 启动时的汇总见 log_loaded_plugins 的一行版
+    log_debug!(
+        "plugins",
+        "scanned {} plugin(s) in {}",
+        found.len(),
+        root.display()
+    );
+    Ok(found)
+}
+
+/// 迁移期「插件中心」的只读目录：清单 + 图标，不进入运行时。
+pub fn scan_catalog(app: &AppHandle) -> Result<Vec<PluginCatalogEntry>, String> {
+    let found = scan_disk(app)?;
+    Ok(found
+        .into_iter()
+        .map(|p| {
+            let icon_data_url = p
+                .icon_abs
+                .as_ref()
+                .and_then(|path| icon_data_url_from_path(path).ok());
+            PluginCatalogEntry {
+                info: p.info,
+                icon_data_url,
+            }
+        })
+        .collect())
+}
+
+fn icon_data_url_from_path(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read icon: {e}"))?;
+    if bytes.len() > 256 * 1024 {
+        return Err("plugin icon too large (>256KiB)".into());
+    }
+    use base64::Engine;
+    let mime = match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        _ => "application/octet-stream",
+    };
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime};base64,{b64}"))
+}
+
 impl PluginManager {
     pub fn new() -> Self {
         Self {
@@ -169,58 +287,7 @@ impl PluginManager {
             return Ok(Vec::new());
         }
 
-        let root = plugins_root(app)?;
-        fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
-
-        let mut found: Vec<CachedPlugin> = Vec::new();
-        let entries = fs::read_dir(&root).map_err(|e| format!("read plugins dir: {e}"))?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            match load_one(app, &path) {
-                Ok(p) => found.push(p),
-                Err(e) => {
-                    log_warn!("plugins", "skip {}: {}", path.display(), e);
-                    let id = path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "unknown".into());
-                    found.push(CachedPlugin {
-                        info: ExternalPluginInfo {
-                            id: id.clone(),
-                            name: id,
-                            version: String::new(),
-                            description: String::new(),
-                            main: None,
-                            background: None,
-                            settings: None,
-                            icon: None,
-                            sidecar: None,
-                            events: vec![],
-                            enabled: false,
-                            enabled_by_default: false,
-                            dir: path.to_string_lossy().to_string(),
-                            has_ui: false,
-                            has_background: false,
-                            has_settings: false,
-                            content_mtime_ms: 0,
-                            anomalous: false,
-                            error: Some(e),
-                        },
-                        dir: path.to_path_buf(),
-                        main_abs: None,
-                        background_abs: None,
-                        settings_abs: None,
-                        icon_abs: None,
-                        sidecar: None,
-                        content_hash: String::new(),
-                    });
-                }
-            }
-        }
-        found.sort_by(|a, b| a.info.id.cmp(&b.info.id));
+        let mut found = scan_disk(app)?;
 
         let previous_anomalies: std::collections::HashSet<String> = self
             .inner
@@ -236,14 +303,6 @@ impl PluginManager {
         }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
-        // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
-        // 启动时的汇总见 log_loaded_plugins 的一行版
-        log_debug!(
-            "plugins",
-            "scanned {} plugin(s) in {}",
-            list.len(),
-            root.display()
-        );
         Ok(list)
     }
 
@@ -444,27 +503,7 @@ impl PluginManager {
             .icon_abs
             .as_ref()
             .ok_or_else(|| format!("plugin has no icon: {id}"))?;
-        let bytes = fs::read(path).map_err(|e| format!("read icon: {e}"))?;
-        if bytes.len() > 256 * 1024 {
-            return Err("plugin icon too large (>256KiB)".into());
-        }
-        use base64::Engine;
-        let mime = match path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase()
-            .as_str()
-        {
-            "png" => "image/png",
-            "jpg" | "jpeg" => "image/jpeg",
-            "svg" => "image/svg+xml",
-            "webp" => "image/webp",
-            "ico" => "image/x-icon",
-            _ => "application/octet-stream",
-        };
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-        Ok(format!("data:{mime};base64,{b64}"))
+        icon_data_url_from_path(path)
     }
 
     /// Return the plugin's install directory.
@@ -960,6 +999,12 @@ pub fn list_external_plugins(
         sidecars.schedule_sync(app.clone(), mgr.inner().clone());
     }
     Ok(list)
+}
+
+/// 迁移期「插件中心」只读目录：列出已安装插件，不加载、不运行、不写缓存。
+#[tauri::command]
+pub fn list_plugin_catalog(app: AppHandle) -> Result<Vec<PluginCatalogEntry>, String> {
+    scan_catalog(&app)
 }
 
 #[tauri::command]

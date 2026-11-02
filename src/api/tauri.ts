@@ -468,6 +468,17 @@ export async function listExternalPlugins(opts?: {
   })
 }
 
+/** 迁移期「插件中心」只读目录条目：清单 + 图标 data URL。 */
+export interface PluginCatalogEntry {
+  info: ExternalPluginInfo
+  iconDataUrl?: string | null
+}
+
+/** 只读扫描插件目录：返回已安装插件，不加载、不运行、不写运行时缓存。 */
+export async function listPluginCatalog(): Promise<PluginCatalogEntry[]> {
+  return invoke('list_plugin_catalog')
+}
+
 export interface PluginInstallResult {
   id: string
   name: string

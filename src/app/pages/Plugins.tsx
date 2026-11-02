@@ -1,20 +1,24 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
   Badge,
   Button,
-  SegmentedControl,
+  DropdownMenu,
   Select,
   Slider,
   Switch,
   TextArea,
   TextField,
 } from '@radix-ui/themes'
-import { Armchair, Bell, Play, Search, ShieldCheck, Timer } from 'lucide-react'
+import { Armchair, Plus, RefreshCw, Search, Send } from 'lucide-react'
 import {
   getConfig,
   getFullscreenSettings,
   getReminderMode,
   getReminderText,
+  installExternalPlugin,
+  listPluginCatalog,
+  pickPluginFolder,
+  pickPluginZip,
   setConfig,
   setFullscreenSettings,
   setReminderMode,
@@ -22,6 +26,7 @@ import {
   setRestPluginEnabled,
   testNotification,
   type AppConfig,
+  type PluginCatalogEntry,
 } from '../../api/tauri'
 import { useT } from '../i18n'
 import { PageScroll } from '../components/PageScroll'
@@ -36,25 +41,14 @@ interface FullscreenState {
   fitMode: string
 }
 
-interface PluginEntry {
+interface SidebarPlugin {
   id: string
-  /** i18n key：插件名 */
   name: string
-  /** i18n key：列表里的一行说明 */
-  subtitle: string
-  icon: typeof Armchair
+  description: string
+  iconDataUrl: string | null
+  enabled: boolean
 }
 
-/**
- * 迁移期只放行内置「久坐提醒」（见 config/pluginScope.ts）。
- * 列表按数据渲染，外部插件在 M7 迁回时只需往这里加条目；
- * 条目 ≥3 才显示搜索框——单选列表配搜索是纯噪音。
- */
-const PLUGINS: readonly PluginEntry[] = [
-  { id: 'rest', name: 'plugins.rest.name', subtitle: 'plugins.rest.listSubtitle', icon: Armchair },
-]
-
-const SHOW_SEARCH_MIN_PLUGINS = 3
 const SAVE_DEBOUNCE_MS = 500
 const FLASH_MS = 1600
 
@@ -73,9 +67,9 @@ interface Hint {
 }
 
 /**
- * 插件中心（React 版）：左侧插件列表 + 右侧详情。
- * 详情是「久坐提醒」的单页设置：提醒节奏 / 提醒方式与内容，改完即存，
- * 不再有页签、统计、关于页与固定底栏。
+ * 插件中心（React 版）：左侧插件列表 + 右侧单页设置。
+ * 右侧按「提醒偏好 / 提醒方式 / 提醒内容」三组排布：组标题在卡片外，
+ * 设置行是「左标签 + 右控件」；改完即存，没有底栏、页签、统计与关于页。
  */
 export function Plugins() {
   const t = useT()
@@ -87,6 +81,8 @@ export function Plugins() {
   const [testing, setTesting] = useState(false)
   const [hint, setHint] = useState<Hint | null>(null)
   const [query, setQuery] = useState('')
+  const [catalog, setCatalog] = useState<PluginCatalogEntry[]>([])
+  const [selectedId, setSelectedId] = useState('rest')
 
   const timers = useRef<{
     config?: ReturnType<typeof setTimeout>
@@ -102,6 +98,18 @@ export function Plugins() {
     if (timers.current.hint) clearTimeout(timers.current.hint)
     timers.current.hint = setTimeout(() => setHint(null), FLASH_MS)
   }, [])
+
+  const loadCatalog = useCallback(async () => {
+    try {
+      setCatalog(await listPluginCatalog())
+    } catch (error) {
+      console.error('Failed to scan plugin folder', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadCatalog()
+  }, [loadCatalog])
 
   useEffect(() => {
     let alive = true
@@ -244,80 +252,134 @@ export function Plugins() {
     event.target.value = ''
   }
 
-  const showSearch = PLUGINS.length >= SHOW_SEARCH_MIN_PLUGINS
+  const installPlugin = async (source: 'folder' | 'zip') => {
+    try {
+      const path = source === 'folder' ? await pickPluginFolder() : await pickPluginZip()
+      if (!path) return
+      const result = await installExternalPlugin(path, false)
+      flash(t('pluginsCenter.installOk', { name: result.name }))
+      await loadCatalog()
+    } catch (error) {
+      flash(t('pluginsCenter.installFailed', { error: String(error) }), true)
+    }
+  }
+
+  const sidebarPlugins: SidebarPlugin[] = [
+    {
+      id: 'rest',
+      name: t('plugins.rest.name'),
+      description: t('plugins.rest.listSubtitle'),
+      iconDataUrl: null,
+      enabled,
+    },
+    ...catalog.map((entry) => ({
+      id: entry.info.id,
+      name: entry.info.name,
+      description: entry.info.description,
+      iconDataUrl: entry.iconDataUrl ?? null,
+      enabled: entry.info.enabled,
+    })),
+  ]
+
   const normalizedQuery = query.trim().toLowerCase()
-  const visiblePlugins = showSearch
-    ? PLUGINS.filter((plugin) =>
-        `${t(plugin.name)} ${t(plugin.subtitle)}`.toLowerCase().includes(normalizedQuery),
+  const visiblePlugins = normalizedQuery
+    ? sidebarPlugins.filter((plugin) =>
+        `${plugin.name} ${plugin.description} ${plugin.id}`.toLowerCase().includes(normalizedQuery),
       )
-    : PLUGINS
+    : sidebarPlugins
+  const selectedPlugin = sidebarPlugins.find((plugin) => plugin.id === selectedId)
 
   return (
     <PageScroll>
       <RadixPage className="ct-plugins-page">
         <div className="ct-plugins">
           <aside className="ct-plugin-list" aria-label={t('plugins.listHeading')}>
-            <h1 className="ct-plugin-list-title">{t('plugins.centerTitle')}</h1>
-
-            {showSearch && (
-              <TextField.Root
-                size="2"
-                placeholder={t('pluginsCenter.searchPlaceholder')}
-                aria-label={t('pluginsCenter.searchPlaceholder')}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+            <div className="ct-plugin-search">
+              <div className="ct-plugin-search-field">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t('pluginsCenter.searchPlaceholder')}
+                  aria-label={t('pluginsCenter.searchPlaceholder')}
+                />
+              </div>
+              <button
+                type="button"
+                className="ct-plugin-icon-btn"
+                aria-label={t('pluginsCenter.refresh')}
+                title={t('pluginsCenter.refresh')}
+                onClick={() => void loadCatalog()}
               >
-                <TextField.Slot>
-                  <Search size={15} aria-hidden="true" />
-                </TextField.Slot>
-              </TextField.Root>
-            )}
-
-            <span className="ct-plugin-filter">{t('pluginsCenter.all')}</span>
+                <RefreshCw size={15} aria-hidden="true" />
+              </button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <button
+                    type="button"
+                    className="ct-plugin-icon-btn is-accent"
+                    aria-label={t('pluginsCenter.install')}
+                    title={t('pluginsCenter.install')}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item onSelect={() => void installPlugin('folder')}>
+                    {t('pluginsCenter.installFolder')}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item onSelect={() => void installPlugin('zip')}>
+                    {t('pluginsCenter.installZip')}
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </div>
 
             <div className="ct-plugin-rows">
-              {visiblePlugins.map((plugin) => {
-                const Icon = plugin.icon
-                return (
-                  <div key={plugin.id} className="ct-plugin-row is-selected">
-                    <span className="ct-plugin-icon">
-                      <Icon size={18} aria-hidden="true" />
-                    </span>
-                    <div className="ct-plugin-row-copy">
-                      <strong>{t(plugin.name)}</strong>
-                      <span>{t(plugin.subtitle)}</span>
-                    </div>
-                    <Switch
-                      size="2"
-                      checked={enabled}
-                      aria-label={t('plugins.rest.switchAria')}
-                      onCheckedChange={(value) => void toggleEnabled(value)}
-                    />
-                  </div>
-                )
-              })}
+              {visiblePlugins.map((plugin) => (
+                <button
+                  key={plugin.id}
+                  type="button"
+                  className={
+                    plugin.id === selectedId ? 'ct-plugin-row is-selected' : 'ct-plugin-row'
+                  }
+                  aria-current={plugin.id === selectedId ? 'true' : undefined}
+                  onClick={() => setSelectedId(plugin.id)}
+                >
+                  <span
+                    className={plugin.iconDataUrl ? 'ct-plugin-icon has-image' : 'ct-plugin-icon'}
+                  >
+                    {plugin.iconDataUrl ? (
+                      <img src={plugin.iconDataUrl} alt="" />
+                    ) : (
+                      <Armchair size={16} aria-hidden="true" />
+                    )}
+                  </span>
+                  <span className="ct-plugin-row-copy">
+                    <strong>{plugin.name}</strong>
+                    <span className="ct-plugin-row-desc">{plugin.description}</span>
+                  </span>
+                  {plugin.enabled && <span className="ct-plugin-dot" aria-hidden="true" />}
+                </button>
+              ))}
               {!visiblePlugins.length && (
                 <p className="ct-plugin-empty">{t('plugins.searchEmpty')}</p>
               )}
             </div>
-
-            <div className="ct-plugin-list-foot">
-              <ShieldCheck size={14} aria-hidden="true" />
-              <span>{t('pluginsCenter.localData')}</span>
-            </div>
           </aside>
 
           <section className="ct-plugin-detail" aria-label={t('plugins.rest.name')}>
-            <div className="ct-plugin-content">
+              {selectedId === 'rest' ? (
+                <>
               <header className="ct-plugin-identity">
                 <span className="ct-plugin-hero">
-                  <Armchair size={24} aria-hidden="true" />
+                  <Armchair size={28} aria-hidden="true" />
                 </span>
                 <div className="ct-plugin-identity-copy">
                   <div className="ct-plugin-title-line">
                     <h2>{t('plugins.rest.name')}</h2>
-                    <Badge color="iris" size="1">
-                      {t('pluginsCenter.categoryHealth')}
+                    <Badge color="green" size="1">
+                      {t('pluginsCenter.builtinCore')}
                     </Badge>
                   </div>
                   <p>{t('plugins.rest.subtitle')}</p>
@@ -332,258 +394,295 @@ export function Plugins() {
                   >
                     {hint?.text ?? ''}
                   </span>
-                  <Button
-                    variant="outline"
-                    color="gray"
-                    disabled={!enabled || testing}
-                    onClick={() => void sendTest()}
-                  >
-                    <Play size={14} aria-hidden="true" />
-                    {t('plugins.rest.testBtn')}
-                  </Button>
-                  <label className="ct-plugin-enable">
-                    <span>{t('pluginsCenter.enableLabel')}</span>
-                    <Switch
-                      size="2"
-                      checked={enabled}
-                      aria-label={t('pluginsCenter.enableLabel')}
-                      onCheckedChange={(value) => void toggleEnabled(value)}
-                    />
-                  </label>
+                  <span className="ct-plugin-state">
+                    {enabled ? t('pluginsCenter.statusOn') : t('pluginsCenter.statusOff')}
+                  </span>
+                  <Switch
+                    size="2"
+                    checked={enabled}
+                    aria-label={t('pluginsCenter.enableLabel')}
+                    onCheckedChange={(value) => void toggleEnabled(value)}
+                  />
                 </div>
               </header>
 
+              <div className="ct-plugin-body">
+                <div className="ct-plugin-content">
               <section className="ct-plugin-card">
-                <div className="ct-plugin-card-head">
-                  <Timer size={16} aria-hidden="true" />
-                  <h3>{t('plugins.rest.timingSection')}</h3>
-                </div>
-
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.windowTitle')}</strong>
-                      <span>{t('plugins.rest.windowDesc')}</span>
-                    </div>
-                    <span className="ct-plugin-value">
-                      {config.window_minutes} {t('common.minutes')}
-                    </span>
-                  </div>
-                  <div className="ct-plugin-field-body">
-                    <Slider
-                      className="ct-plugin-slider"
-                      size="2"
-                      min={10}
-                      max={120}
-                      step={5}
-                      value={[config.window_minutes]}
-                      onValueChange={(value) => updateConfig({ window_minutes: value[0] })}
-                    />
-                  </div>
-                </div>
-
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.breakTitle')}</strong>
-                      <span>{t('plugins.rest.breakDesc')}</span>
-                    </div>
-                    <span className="ct-plugin-value">
-                      {config.break_minutes} {t('common.minutes')}
-                    </span>
-                  </div>
-                  <div className="ct-plugin-field-body">
-                    <Slider
-                      className="ct-plugin-slider"
-                      size="2"
-                      min={1}
-                      max={30}
-                      step={1}
-                      value={[config.break_minutes]}
-                      onValueChange={(value) => updateConfig({ break_minutes: value[0] })}
-                    />
-                  </div>
-                </div>
-
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.snoozeTitle')}</strong>
-                      <span>{t('plugins.rest.snoozeDesc')}</span>
-                    </div>
-                    <span className="ct-plugin-value">
-                      {config.snooze_interval_minutes} {t('common.minutes')}
-                    </span>
-                  </div>
-                  <div className="ct-plugin-field-body">
-                    <Slider
-                      className="ct-plugin-slider"
-                      size="2"
-                      min={1}
-                      max={10}
-                      step={1}
-                      value={[config.snooze_interval_minutes]}
-                      onValueChange={(value) =>
-                        updateConfig({ snooze_interval_minutes: value[0] })
-                      }
-                    />
-                  </div>
-                </div>
+                <h3 className="ct-plugin-card-title">{t('plugins.rest.timingSection')}</h3>
+                  <SettingRow
+                    title={t('plugins.rest.windowTitle')}
+                    description={t('plugins.rest.windowDesc')}
+                    controlClassName="is-slider"
+                    control={
+                      <>
+                        <Slider
+                          className="ct-plugin-slider"
+                          size="2"
+                          min={15}
+                          max={120}
+                          step={5}
+                          value={[config.window_minutes]}
+                          onValueChange={(value) => updateConfig({ window_minutes: value[0] })}
+                        />
+                        <span className="ct-plugin-value">
+                          {config.window_minutes} {t('common.minutes')}
+                        </span>
+                      </>
+                    }
+                  />
+                  <SettingRow
+                    title={t('plugins.rest.breakTitle')}
+                    description={t('plugins.rest.breakDesc')}
+                    controlClassName="is-slider"
+                    control={
+                      <>
+                        <Slider
+                          className="ct-plugin-slider"
+                          size="2"
+                          min={1}
+                          max={20}
+                          step={1}
+                          value={[config.break_minutes]}
+                          onValueChange={(value) => updateConfig({ break_minutes: value[0] })}
+                        />
+                        <span className="ct-plugin-value">
+                          {config.break_minutes} {t('common.minutes')}
+                        </span>
+                      </>
+                    }
+                  />
+                  <SettingRow
+                    title={t('plugins.rest.snoozeTitle')}
+                    description={t('plugins.rest.snoozeDesc')}
+                    controlClassName="is-slider"
+                    control={
+                      <>
+                        <Slider
+                          className="ct-plugin-slider"
+                          size="2"
+                          min={1}
+                          max={10}
+                          step={1}
+                          value={[config.snooze_interval_minutes]}
+                          onValueChange={(value) =>
+                            updateConfig({ snooze_interval_minutes: value[0] })
+                          }
+                        />
+                        <span className="ct-plugin-value">
+                          {config.snooze_interval_minutes} {t('common.minutes')}
+                        </span>
+                      </>
+                    }
+                  />
               </section>
 
               <section className="ct-plugin-card">
-                <div className="ct-plugin-card-head">
-                  <Bell size={16} aria-hidden="true" />
-                  <h3>{t('plugins.rest.methodSection')}</h3>
-                </div>
+                <h3 className="ct-plugin-card-title">{t('plugins.rest.methodSection')}</h3>
+                  <SettingRow
+                    title={t('plugins.rest.modeTitle')}
+                    description={t('plugins.rest.modeDesc')}
+                    controlClassName="is-select"
+                    control={
+                      <Select.Root value={mode} onValueChange={(value) => void changeMode(value)}>
+                        <Select.Trigger aria-label={t('plugins.rest.modeTitle')} />
+                        <Select.Content>
+                          <Select.Item value="toast">{t('plugins.rest.modeToast')}</Select.Item>
+                          <Select.Item value="fullscreen">
+                            {t('plugins.rest.modeFullscreen')}
+                          </Select.Item>
+                        </Select.Content>
+                      </Select.Root>
+                    }
+                  />
 
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.modeTitle')}</strong>
-                      <span>{t('plugins.rest.modeDesc')}</span>
-                    </div>
-                    <SegmentedControl.Root
-                      className="ct-segmented"
-                      value={mode}
-                      size="1"
-                      onValueChange={(value) => void changeMode(value)}
-                    >
-                      <SegmentedControl.Item value="toast">
-                        {t('plugins.rest.modeToast')}
-                      </SegmentedControl.Item>
-                      <SegmentedControl.Item value="fullscreen">
-                        {t('plugins.rest.modeFullscreen')}
-                      </SegmentedControl.Item>
-                    </SegmentedControl.Root>
-                  </div>
-                </div>
-
-                {mode === 'fullscreen' && (
-                  <>
-                    <div className="ct-plugin-field">
-                      <div className="ct-plugin-field-head">
-                        <div className="ct-plugin-field-copy">
-                          <strong>{t('plugins.rest.fullscreenBgTitle')}</strong>
-                          <span>{t('plugins.rest.fullscreenBgDesc')}</span>
-                        </div>
-                      </div>
-                      <div className="ct-plugin-field-body">
-                        {fullscreen.bg ? (
-                          <div className="ct-fs-bg-preview">
-                            <img src={fullscreen.bg} alt="" />
-                            <label className="ct-fs-btn">
-                              {t('plugins.rest.changeBg')}
+                  {mode === 'fullscreen' && (
+                    <>
+                      <SettingRow
+                        title={t('plugins.rest.fullscreenBgTitle')}
+                        description={t('plugins.rest.fullscreenBgDesc')}
+                        controlClassName="is-media"
+                        top
+                        control={
+                          fullscreen.bg ? (
+                            <div className="ct-fs-bg-preview">
+                              <img src={fullscreen.bg} alt="" />
+                              <label className="ct-fs-btn">
+                                {t('plugins.rest.changeBg')}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  hidden
+                                  onChange={handleBgFile}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                className="ct-fs-btn is-danger"
+                                onClick={() => updateFullscreen({ bg: '' })}
+                              >
+                                {t('plugins.rest.clearBg')}
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="ct-fs-bg-empty">
                               <input
                                 type="file"
                                 accept="image/*"
                                 hidden
                                 onChange={handleBgFile}
                               />
+                              <span>{t('plugins.rest.fullscreenBgDesc')}</span>
                             </label>
-                            <button
-                              type="button"
-                              className="ct-fs-btn is-danger"
-                              onClick={() => updateFullscreen({ bg: '' })}
-                            >
-                              {t('plugins.rest.clearBg')}
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="ct-fs-bg-empty">
-                            <input type="file" accept="image/*" hidden onChange={handleBgFile} />
-                            <span>{t('plugins.rest.fullscreenBgDesc')}</span>
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="ct-plugin-field">
-                      <div className="ct-plugin-field-head">
-                        <div className="ct-plugin-field-copy">
-                          <strong>{t('plugins.rest.fullscreenOpacityTitle')}</strong>
-                          <span>{t('plugins.rest.fullscreenOpacityDesc')}</span>
-                        </div>
-                        <span className="ct-plugin-value">{fullscreen.opacity}%</span>
-                      </div>
-                      <div className="ct-plugin-field-body">
-                        <Slider
-                          className="ct-plugin-slider"
-                          size="2"
-                          min={0}
-                          max={100}
-                          step={5}
-                          value={[fullscreen.opacity]}
-                          onValueChange={(value) => updateFullscreen({ opacity: value[0] })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="ct-plugin-field">
-                      <div className="ct-plugin-field-head">
-                        <div className="ct-plugin-field-copy">
-                          <strong>{t('plugins.rest.fullscreenFitModeTitle')}</strong>
-                          <span>{t('plugins.rest.fullscreenFitModeDesc')}</span>
-                        </div>
-                        <Select.Root
-                          value={fullscreen.fitMode}
-                          onValueChange={(value) => updateFullscreen({ fitMode: value })}
-                        >
-                          <Select.Trigger
-                            aria-label={t('plugins.rest.fullscreenFitModeTitle')}
-                          />
-                          <Select.Content>
-                            <Select.Item value="contain">{t('plugins.rest.fitContain')}</Select.Item>
-                            <Select.Item value="cover">{t('plugins.rest.fitCover')}</Select.Item>
-                            <Select.Item value="fill">{t('plugins.rest.fitFill')}</Select.Item>
-                          </Select.Content>
-                        </Select.Root>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.customTitle')}</strong>
-                      <span>{t('plugins.rest.customTitleDesc')}</span>
-                    </div>
-                  </div>
-                  <div className="ct-plugin-field-body">
-                    <TextField.Root
-                      size="2"
-                      value={text.title}
-                      placeholder={t('plugins.rest.previewDefaultTitle')}
-                      aria-label={t('plugins.rest.customTitle')}
-                      onChange={(event) => updateText({ title: event.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="ct-plugin-field">
-                  <div className="ct-plugin-field-head">
-                    <div className="ct-plugin-field-copy">
-                      <strong>{t('plugins.rest.customBody')}</strong>
-                      <span>{t('plugins.rest.customBodyDesc')}</span>
-                    </div>
-                  </div>
-                  <div className="ct-plugin-field-body">
-                    <TextArea
-                      size="2"
-                      rows={3}
-                      value={text.body}
-                      placeholder={t('plugins.rest.previewDefaultBody')}
-                      aria-label={t('plugins.rest.customBody')}
-                      onChange={(event) => updateText({ body: event.target.value })}
-                    />
-                  </div>
-                </div>
+                          )
+                        }
+                      />
+                      <SettingRow
+                        title={t('plugins.rest.fullscreenOpacityTitle')}
+                        description={t('plugins.rest.fullscreenOpacityDesc')}
+                        controlClassName="is-slider"
+                        control={
+                          <>
+                            <Slider
+                              className="ct-plugin-slider"
+                              size="2"
+                              min={0}
+                              max={100}
+                              step={5}
+                              value={[fullscreen.opacity]}
+                              onValueChange={(value) => updateFullscreen({ opacity: value[0] })}
+                            />
+                            <span className="ct-plugin-value">{fullscreen.opacity}%</span>
+                          </>
+                        }
+                      />
+                      <SettingRow
+                        title={t('plugins.rest.fullscreenFitModeTitle')}
+                        description={t('plugins.rest.fullscreenFitModeDesc')}
+                        controlClassName="is-select"
+                        control={
+                          <Select.Root
+                            value={fullscreen.fitMode}
+                            onValueChange={(value) => updateFullscreen({ fitMode: value })}
+                          >
+                            <Select.Trigger
+                              aria-label={t('plugins.rest.fullscreenFitModeTitle')}
+                            />
+                            <Select.Content>
+                              <Select.Item value="contain">
+                                {t('plugins.rest.fitContain')}
+                              </Select.Item>
+                              <Select.Item value="cover">
+                                {t('plugins.rest.fitCover')}
+                              </Select.Item>
+                              <Select.Item value="fill">{t('plugins.rest.fitFill')}</Select.Item>
+                            </Select.Content>
+                          </Select.Root>
+                        }
+                      />
+                    </>
+                  )}
               </section>
-            </div>
+
+              <section className="ct-plugin-card">
+                <h3 className="ct-plugin-card-title">{t('plugins.rest.contentSection')}</h3>
+                  <SettingRow
+                    title={t('plugins.rest.customTitle')}
+                    description={t('plugins.rest.customTitleDesc')}
+                    controlClassName="is-field"
+                    stack
+                    control={
+                      <TextField.Root
+                        size="2"
+                        value={text.title}
+                        placeholder={t('plugins.rest.previewDefaultTitle')}
+                        aria-label={t('plugins.rest.customTitle')}
+                        onChange={(event) => updateText({ title: event.target.value })}
+                      />
+                    }
+                  />
+                  <SettingRow
+                    title={t('plugins.rest.customBody')}
+                    description={t('plugins.rest.customBodyDesc')}
+                    controlClassName="is-field"
+                    stack
+                    control={
+                      <TextArea
+                        size="2"
+                        rows={3}
+                        value={text.body}
+                        placeholder={t('plugins.rest.previewDefaultBody')}
+                        aria-label={t('plugins.rest.customBody')}
+                        onChange={(event) => updateText({ body: event.target.value })}
+                      />
+                    }
+                  />
+              </section>
+                </div>
+                <div className="ct-plugin-footer">
+                  <Button disabled={!enabled || testing} onClick={() => void sendTest()}>
+                    <Send size={14} aria-hidden="true" />
+                    {t('plugins.rest.testBtn')}
+                  </Button>
+                </div>
+                </div>
+                </>
+              ) : (
+                <div className="ct-plugin-body">
+                  <div className="ct-plugin-content">
+                    <div className="ct-plugin-card ct-plugin-unmigrated">
+                      <h2>{selectedPlugin?.name ?? ''}</h2>
+                      <p>{t('pluginsCenter.notMigratedBody')}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
           </section>
         </div>
       </RadixPage>
     </PageScroll>
+  )
+}
+
+function SettingRow({
+  title,
+  description,
+  control,
+  controlClassName,
+  top = false,
+  stack = false,
+}: {
+  title: string
+  description?: string
+  control: ReactNode
+  controlClassName?: string
+  top?: boolean
+  /** 标签在上、控件在下、占满卡片宽度（输入框/文本域用）。 */
+  stack?: boolean
+}) {
+  return (
+    <div
+      className={
+        stack
+          ? 'ct-plugin-setting is-stack'
+          : top
+            ? 'ct-plugin-setting is-top'
+            : 'ct-plugin-setting'
+      }
+    >
+      <div className="ct-plugin-setting-copy">
+        <strong>{title}</strong>
+        {description && <span>{description}</span>}
+      </div>
+      <div
+        className={
+          controlClassName
+            ? `ct-plugin-setting-control ${controlClassName}`
+            : 'ct-plugin-setting-control'
+        }
+      >
+        {control}
+      </div>
+    </div>
   )
 }
