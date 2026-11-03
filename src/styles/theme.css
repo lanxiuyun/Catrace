@@ -146,3 +146,16 @@ html.catrace-shell body,
 html.catrace-shell #app {
   background: var(--ct-bg);
 }
+
+/* 只给读屏的页级标题：侧栏已经高亮当前位置，页面里不再重复显示标题文字 */
+.ct-visually-hidden {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

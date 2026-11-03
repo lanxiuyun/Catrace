@@ -274,6 +274,7 @@ export default {
   },
   debug: {
     title: '媒体检测调试',
+    subtitle: '媒体检测、行为采集与通知的实时状态',
     refresh: '手动刷新',
     toastDebugMode: 'Toast 调试背景',
     notificationTest: {

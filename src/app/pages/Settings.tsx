@@ -103,8 +103,8 @@ export function Settings() {
     <PageScroll>
       <RadixPage className="ct-settings-page">
         <div className="ct-settings">
-          <h1 className="ct-settings-title">{t('settings.title')}</h1>
-          <p className="ct-settings-subtitle">{t('settings.subtitle')}</p>
+          {/* 页名只在读屏里保留：视觉上不重复侧栏已经高亮的「系统设置」 */}
+          <h1 className="ct-visually-hidden">{t('settings.title')}</h1>
 
           <div className="ct-settings-grid" ref={gridRef}>
             {order.map((key) => (

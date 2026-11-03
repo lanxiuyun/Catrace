@@ -1,7 +1,9 @@
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { Link2 } from 'lucide-react'
 import { openLogsDir } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
+import { SettingsCard } from './SettingsCard'
 
 interface LinkItem {
   url?: string
@@ -58,8 +60,7 @@ export function LinksSettingsCard() {
   }
 
   return (
-    <div className="ct-settings-card">
-      <div className="ct-settings-card-label">{t('settings.groups.links')}</div>
+    <SettingsCard icon={Link2} label={t('settings.groups.links')}>
       <div className="ct-link-list">
         {links.map((link) => (
           <button
@@ -94,6 +95,6 @@ export function LinksSettingsCard() {
           </button>
         ))}
       </div>
-    </div>
+    </SettingsCard>
   )
 }

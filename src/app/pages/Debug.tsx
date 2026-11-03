@@ -166,32 +166,32 @@ export function Debug() {
     <PageScroll>
       <RadixPage className="ct-debug-page">
         <div className="ct-debug">
-          <header className="ct-debug-header">
-            <h1 className="ct-debug-title">{t('debug.title')}</h1>
-            <div className="ct-debug-actions">
-              <label className="ct-debug-switch">
-                <Text size="1" color="gray">
-                  {t('debug.toastDebugMode')}
-                </Text>
-                <Switch
-                  size="1"
-                  checked={toastDebug}
-                  aria-label={t('debug.toastDebugMode')}
-                  onCheckedChange={(value) => void toggleToastDebug(value)}
-                />
-              </label>
-              <Button
+          {/* 页名只在读屏里保留：视觉上不重复侧栏已经高亮的「调试」 */}
+          <h1 className="ct-visually-hidden">{t('debug.title')}</h1>
+
+          <div className="ct-debug-actions">
+            <label className="ct-debug-switch">
+              <Text size="1" color="gray">
+                {t('debug.toastDebugMode')}
+              </Text>
+              <Switch
                 size="1"
-                variant="soft"
-                color="gray"
-                disabled={loading}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw size={13} aria-hidden="true" />
-                {t('debug.refresh')}
-              </Button>
-            </div>
-          </header>
+                checked={toastDebug}
+                aria-label={t('debug.toastDebugMode')}
+                onCheckedChange={(value) => void toggleToastDebug(value)}
+              />
+            </label>
+            <Button
+              size="1"
+              variant="soft"
+              color="gray"
+              disabled={loading}
+              onClick={() => void refresh()}
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              {t('debug.refresh')}
+            </Button>
+          </div>
 
           {errorMsg && (
             <Callout.Root color="red" size="1">

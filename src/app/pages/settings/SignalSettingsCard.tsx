@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Select, Switch } from '@radix-ui/themes'
+import { Activity } from 'lucide-react'
 import {
   getSignalRuntimeConfig,
   purgeKeySequences,
@@ -10,6 +11,7 @@ import { useT } from '../../i18n'
 import { getSettingsStore } from '../../lib/settingsStore'
 import { showToast } from '../../ui/toast'
 import { SettingRow } from './SettingRow'
+import { SettingsCard } from './SettingsCard'
 
 const RETENTION_OPTIONS = [
   { label: '1h', value: '1' },
@@ -108,9 +110,7 @@ export function SignalSettingsCard() {
   }
 
   return (
-    <div className="ct-settings-card">
-      <div className="ct-settings-card-label">{t('settings.groups.signal')}</div>
-
+    <SettingsCard icon={Activity} label={t('settings.groups.signal')}>
       <SettingRow title={t('settings.signal.keySeqTitle')} desc={t('settings.signal.keySeqDesc')}>
         <Switch
           checked={enabled}
@@ -145,6 +145,6 @@ export function SignalSettingsCard() {
           {t('settings.signal.purgeBtn')}
         </Button>
       </SettingRow>
-    </div>
+    </SettingsCard>
   )
 }

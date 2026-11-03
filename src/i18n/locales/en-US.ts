@@ -274,6 +274,7 @@ export default {
   },
   debug: {
     title: 'Media Detection Debug',
+    subtitle: 'Live state of media detection, activity signals, and notifications',
     refresh: 'Refresh',
     toastDebugMode: 'Toast debug background',
     notificationTest: {

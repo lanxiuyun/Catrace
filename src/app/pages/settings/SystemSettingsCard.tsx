@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Progress, Select, Switch } from '@radix-ui/themes'
+import { SlidersHorizontal } from 'lucide-react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -23,6 +24,7 @@ import { useTheme } from '../../../composables/useTheme'
 import i18n from '../../../i18n'
 import { detectDefaultLocale, type SupportedLocale } from '../../../utils/locale'
 import { SettingRow } from './SettingRow'
+import { SettingsCard } from './SettingsCard'
 
 const UPDATE_SOURCE_IDS: UpdateSourceId[] = ['auto', 'ghfast', 'ghddlc', 'ghproxy', 'github']
 
@@ -251,9 +253,7 @@ export function SystemSettingsCard() {
   ]
 
   return (
-    <div className="ct-settings-card">
-      <div className="ct-settings-card-label">{t('settings.groups.system')}</div>
-
+    <SettingsCard icon={SlidersHorizontal} label={t('settings.groups.system')}>
       <SettingRow title={t('settings.language.title')} desc={t('settings.language.desc')}>
         <Select.Root
           value={locale}
@@ -342,8 +342,7 @@ export function SystemSettingsCard() {
 
       {updateInfo?.available && (
         <>
-          <div className="ct-settings-divider" />
-          <div className="ct-settings-update">
+          <div className="ct-settings-divider" />          <div className="ct-settings-update">
             <div className="ct-settings-update-head">
               <div className="ct-settings-update-title">
                 {t('settings.update.newVersion', { version: updateInfo.version ?? '' })}
@@ -384,6 +383,6 @@ export function SystemSettingsCard() {
           </div>
         </>
       )}
-    </div>
+    </SettingsCard>
   )
 }

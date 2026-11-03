@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, Switch } from '@radix-ui/themes'
+import { Bell } from 'lucide-react'
 import {
   getNotificationForwardStatus,
   openNotificationPermissionSettings,
@@ -10,6 +11,7 @@ import {
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
 import { SettingRow } from './SettingRow'
+import { SettingsCard } from './SettingsCard'
 
 /** 系统通知：转发开关、接管开关、权限状态与授权提示。 */
 export function SysNotifySettingsCard() {
@@ -104,9 +106,7 @@ export function SysNotifySettingsCard() {
   })()
 
   return (
-    <div className="ct-settings-card">
-      <div className="ct-settings-card-label">{t('settings.groups.sysNotify')}</div>
-
+    <SettingsCard icon={Bell} label={t('settings.groups.sysNotify')}>
       <SettingRow title={t('settings.sysNotify.forwardTitle')} desc={t('settings.sysNotify.forwardDesc')}>
         <div className="ct-settings-side">
           <Badge color={accessView.color} size="1" variant="soft">
@@ -149,6 +149,6 @@ export function SysNotifySettingsCard() {
           </div>
         </>
       )}
-    </div>
+    </SettingsCard>
   )
 }

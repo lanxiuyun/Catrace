@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Switch, TextArea } from '@radix-ui/themes'
+import { MonitorPlay } from 'lucide-react'
 import {
   getMediaActiveEnabled,
   getMediaWhitelistText,
@@ -10,6 +11,7 @@ import {
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
 import { SettingRow } from './SettingRow'
+import { SettingsCard } from './SettingsCard'
 import { useAutoSaveSetting } from './useAutoSaveSetting'
 
 /** Media playback counts as active + Windows process whitelist. */
@@ -62,9 +64,7 @@ export function MediaSettingsCard() {
   }
 
   return (
-    <div className="ct-settings-card">
-      <div className="ct-settings-card-label">{t('settings.groups.media')}</div>
-
+    <SettingsCard icon={MonitorPlay} label={t('settings.groups.media')}>
       <SettingRow title={t('settings.media.enabledTitle')} desc={t('settings.media.enabledDesc')}>
         <Switch
           checked={enabled.value}
@@ -106,6 +106,6 @@ export function MediaSettingsCard() {
           <div className="ct-settings-hint">{t('media.unsupportedPlatformHint')}</div>
         </>
       )}
-    </div>
+    </SettingsCard>
   )
 }

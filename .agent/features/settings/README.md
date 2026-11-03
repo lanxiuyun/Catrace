@@ -5,6 +5,7 @@
 ## 涉及文件
 
 - `src/app/pages/Settings.tsx` — 页面容器（React，网格 + Sortable 拖拽排序）
+- `src/app/pages/settings/SettingsCard.tsx` — 卡片外壳（图标块 + 组名 + 内容）
 - `src/app/pages/settings/SettingRow.tsx` — 通用设置行
 - `src/app/pages/settings/MediaSettingsCard.tsx` — 视频与音乐
 - `src/app/pages/settings/SignalSettingsCard.tsx` — 行为采集
@@ -23,6 +24,15 @@
 - 拖拽排序持久化（Tauri Store 的 `settings_group_order`）
 - 间距统一 rem 单位
 - MediaSettingsCard：排除列表 500ms 防抖自动保存，「重置为默认」按钮在标题右侧
+
+## 视觉约定（与概览页同一套语言）
+
+- **页面**：标题 1.75rem/700（`letter-spacing: -0.025em`）+ 0.9375rem 副标题；内容区 `max-width: 76rem` 居中，padding `1.5rem 1.75rem 2.5rem`
+- **卡片**：白色表面 + `--ct-border-card` 细边 + `--ct-shadow-card` 双层阴影，圆角 1.125rem，内边距 `1.125rem 1.25rem 1rem`；多列网格 `repeat(auto-fit, minmax(22rem, 1fr))`，宽度够就并排。**同一行卡片等高**（`height: 100%`）——内容少的卡底部留白是刻意取舍，不要再改成 `align-items: start`（会高低错位），也别改回单列（宽窗口浪费宽度）
+- **卡片头**：24px 圆角图标块（`accent-soft` 底 + 系统蓝图标）+ 12px 组名（次级色），统一由 `SettingsCard` 渲染；右侧留 2rem 给拖拽把手
+- **设置行**：`padding: 0.75rem 0`，组内分隔线用 `--ct-border` hairline（不要再用 accent 浅色，会变成蓝线）
+- **链接行**：hover 抬升 1px + 切到白底 + 卡片阴影；`:focus-visible` 是 2px 系统蓝 outline
+- 颜色只给状态与图标（`ct-link-icon.is-info/is-warning/is-accent`），卡片本身保持中性
 
 ## 系统设置 vs 功能插件
 

@@ -1,4 +1,6 @@
-/* 调试页：媒体检测 / Signal 分钟桶 / 通知测试 / Event SDK（React 版）。 */
+/* 调试页：媒体检测 / Signal 分钟桶 / 通知测试 / Event SDK。
+ * 与概览页同一套语言：轻描边 + 双层阴影面板、右上角一行操作、dt/dd 小事实表。
+ * 不显示页名——侧栏已经高亮「调试」，读屏用 .ct-visually-hidden 保留标题。 */
 
 .ct-debug-page {
   height: 100%;
@@ -7,49 +9,55 @@
 .ct-debug {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  max-width: 60rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 2.5rem;
 }
 
 /* ---------- 页头 ---------- */
 
-.ct-debug-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-.ct-debug-title {
-  margin: 0;
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ct-text);
-}
-
+/* 不放大标题：页名已经在侧栏里高亮，这里只留右上角一行操作 */
 .ct-debug-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  margin-bottom: 0.25rem;
 }
 
+/* 「Toast 调试背景」开关：和概览页的隐藏统计同一颗胶囊 */
 .ct-debug-switch {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.1);
+  transition: background-color 0.18s ease;
+}
+
+.ct-debug-switch:hover {
+  background: rgba(120, 120, 128, 0.14);
+}
+
+[data-theme='dark'] .ct-debug-switch {
+  background: rgba(120, 120, 128, 0.2);
+}
+
+[data-theme='dark'] .ct-debug-switch:hover {
+  background: rgba(120, 120, 128, 0.26);
 }
 
 /* ---------- 面板 ---------- */
 
 .ct-debug .ct-debug-panel {
   margin: 0;
-  border: 0.0625rem solid var(--ct-border);
-  border-radius: 1.25rem;
+  padding: 1.25rem 1.375rem;
   background: var(--ct-surface);
-  padding: 1.125rem 1.25rem;
+  border: 0.0625rem solid var(--ct-border-card);
+  border-radius: 1.125rem;
   box-shadow: var(--ct-shadow-card);
 }
 
@@ -58,13 +66,14 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.875rem;
 }
 
 .ct-debug-panel-head h2 {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 650;
+  letter-spacing: -0.012em;
   color: var(--ct-text);
 }
 
@@ -73,32 +82,34 @@
 .ct-debug-facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem 1rem;
-  margin: 0 0 0.75rem;
+  gap: 1rem 1.25rem;
+  margin: 0 0 1rem;
 }
 
 .ct-debug-facts.is-column {
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .ct-debug-facts > div {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3125rem;
   min-width: 0;
 }
 
 .ct-debug-facts dt {
   font-size: 0.6875rem;
+  font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--ct-text-muted);
 }
 
 .ct-debug-facts dd {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: var(--ct-text);
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
@@ -119,11 +130,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.625rem 0;
+  padding: 0.75rem 0;
 }
 
 .ct-debug-setting + .ct-debug-setting {
-  border-top: 0.0625rem solid var(--ct-accent-softer);
+  border-top: 0.0625rem solid var(--ct-border);
 }
 
 .ct-debug-setting.is-top {
@@ -133,19 +144,19 @@
 .ct-debug-setting-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.1875rem;
   min-width: 0;
 }
 
 .ct-debug-setting-copy strong {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ct-text);
 }
 
 .ct-debug-setting-copy span {
   font-size: 0.75rem;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--ct-text-muted);
 }
 
@@ -166,6 +177,7 @@
 
 .ct-debug-table {
   width: 100%;
+  font-variant-numeric: tabular-nums;
 }
 
 .ct-debug-mono {
@@ -189,8 +201,8 @@
 
 .ct-debug-hint {
   display: block;
-  margin-top: 0.5rem;
-  line-height: 1.45;
+  margin-top: 0.625rem;
+  line-height: 1.5;
 }
 
 .ct-debug-error {
@@ -226,12 +238,11 @@
 }
 
 @media (max-width: 48rem) {
-  .ct-debug-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .ct-debug {
+    padding: 1.25rem 1.125rem 2rem;
   }
 
-  .ct-debug-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .ct-debug-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
