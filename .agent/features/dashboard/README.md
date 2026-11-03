@@ -57,7 +57,7 @@
 本页重设计同时换了壳层，`src/styles/theme.css` 新增 `--ct-bg-glow` / `--ct-sidebar-bg` / `--ct-sidebar-border` / `--ct-nav-hover` / `--ct-nav-active`：
 
 - 窗口背景 = `--ct-bg` + 顶部左上一团极淡的系统蓝柔光（`.ct-workspace` 的 radial-gradient），白色卡片才有「受光」的层次，而不是贴在平灰上；
-- 侧边栏是透光材质（`blur(30px) saturate(180%)`）；选中项是白色胶囊 + 系统蓝图标，悬停是浅灰胶囊；暗色下换成半透明白胶囊 + 内描边；
+- 侧边栏：宽窗口是带文字的 10rem（透光材质 `blur(30px) saturate(180%)`，选中项白色胶囊 + 系统蓝图标）；视口窄于 62rem 时收成 **3.75rem 图标栏**，命中区 2.25rem 见方、图标放大到 1.125rem，标签文字隐藏但保留 `aria-label`，鼠标悬停显示 `data-label` 做的深色小浮层（`::after`，和分钟条 tooltip 同一套材质）。
 - 这些 token 全应用共用，所以其它页面会跟着变（配色一致是好事）。逐页重设计时不要再各自写死背景/侧栏颜色。
 
 ## 空态

@@ -8,13 +8,14 @@ import './shell.css'
 const NAV_ITEMS = [
   { to: '/dashboard', labelKey: 'nav.overview', Icon: ChartPie },
   { to: '/plugins', labelKey: 'nav.plugins', Icon: Plug },
-  { to: '/debug', labelKey: 'nav.debug', Icon: Bug },
   { to: '/settings', labelKey: 'nav.systemSettings', Icon: Settings },
+  { to: '/debug', labelKey: 'nav.debug', Icon: Bug },
 ] as const
 
 /**
  * 主窗外壳：macOS 风格透光侧边栏 + 工作区。
- * 侧边栏只剩导航（Profile、分组标题、底部外观入口都已去掉；主题改在「系统设置 → 外观主题」里）。
+ * 宽窗口侧栏带文字（10rem）；窄于 62rem 收成 3.75rem 图标栏，
+ * 名称由 aria-label 提供给读屏，鼠标悬停显示 data-label 做的浮层。
  */
 export function MainShell({ children }: { children: ReactNode }) {
   const t = useT()
@@ -27,9 +28,11 @@ export function MainShell({ children }: { children: ReactNode }) {
             <NavLink
               key={to}
               to={to}
+              aria-label={t(labelKey)}
+              data-label={t(labelKey)}
               className={({ isActive }) => `ct-sidebar-item${isActive ? ' is-active' : ''}`}
             >
-              <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
+              <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
               <span>{t(labelKey)}</span>
             </NavLink>
           ))}

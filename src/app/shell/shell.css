@@ -12,8 +12,12 @@
   background: var(--ct-bg);
 }
 
-/* ---------- 侧边栏（macOS 透光材质） ---------- */
+/* ---------- 侧边栏（macOS 透光材质） ----------
+   宽窗口是带文字的 10rem；窗口窄于 62rem 时收成 3.75rem 图标栏，
+   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。 */
 .ct-sidebar {
+  position: relative;
+  z-index: 2;
   width: 10rem;
   flex-shrink: 0;
   display: flex;
@@ -24,7 +28,8 @@
   -webkit-backdrop-filter: blur(30px) saturate(180%);
   backdrop-filter: blur(30px) saturate(180%);
   border-right: 0.0625rem solid var(--ct-sidebar-border);
-  overflow: hidden;
+  /* 图标栏的悬停浮层要能飞出侧栏，所以不能用 hidden */
+  overflow: visible;
 }
 
 .ct-sidebar-nav {
@@ -34,6 +39,7 @@
 }
 
 .ct-sidebar-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -50,6 +56,12 @@
     background-color 0.16s ease,
     color 0.16s ease,
     box-shadow 0.16s ease;
+}
+
+/* 图标尺寸按栏宽切换：带文字时 1rem，图标栏时 1.125rem（CSS 覆盖 svg 的 width 属性） */
+.ct-sidebar-item svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .ct-sidebar-item:hover {
@@ -80,6 +92,71 @@
 /* 暗色下白胶囊不存在，用内描边补一层轮廓 */
 [data-theme='dark'] .ct-sidebar-item.is-active {
   box-shadow: inset 0 0 0 0.0625rem rgba(255, 255, 255, 0.06);
+}
+
+/* 窄窗口：收成 3.75rem 图标栏 */
+@media (max-width: 62rem) {
+  .ct-sidebar {
+    width: 3.75rem;
+    padding: 0.75rem 0.5rem;
+    align-items: center;
+  }
+
+  .ct-sidebar-nav {
+    align-items: center;
+    gap: 0.3125rem;
+    width: 100%;
+  }
+
+  .ct-sidebar-item {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: 0.625rem;
+  }
+
+  .ct-sidebar-item svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  /* 图标栏里文字不占位；名称仍由 aria-label 提供给读屏 */
+  .ct-sidebar-item span {
+    display: none;
+  }
+
+  /* 图标栏的悬停浮层：深色小胶囊，和分钟条的 tooltip 同一套材质 */
+  .ct-sidebar-item::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 0.875rem);
+    top: 50%;
+    transform: translate(-0.25rem, -50%);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    background: rgba(28, 28, 30, 0.86);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .ct-sidebar-item:hover::after,
+  .ct-sidebar-item:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
 }
 
 /* ---------- macOS 风格分段控件（灰轨道 + 白色滑块，无描边） ----------
@@ -152,28 +229,7 @@
     var(--ct-bg);
 }
 
-/* 窄窗口收成图标栏（对齐 macOS 侧栏在大屏才展开文字的行为）。 */
-@media (max-width: 62rem) {
-  .ct-sidebar {
-    width: 4.25rem;
-    padding: 0.75rem 0.5rem;
-    align-items: center;
-  }
-
-  .ct-sidebar-item span {
-    display: none;
-  }
-
-  .ct-sidebar-item {
-    justify-content: center;
-    padding: 0.5rem;
-  }
-
-  .ct-sidebar-nav {
-    width: 100%;
-    align-items: center;
-  }
-}
+/* 侧栏是固定图标栏，不再随窗口宽度在「文字栏 / 图标栏」之间切换。 */
 
 /* Toast 提示（替代 naive-ui message） */
 .ct-toasts {
