@@ -1,5 +1,11 @@
-import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
+import { ChevronDown } from 'lucide-react'
 import type { MinuteData } from '../../../types/minute'
 import { computeTimeBlocks, mergeRestBlocks, type TimeBlock } from '../../../utils/timeBlocks'
 import { useT } from '../../i18n'
@@ -60,7 +66,7 @@ function getLabel(
 }
 
 function getColor(active: boolean | null): string {
-  if (active === null) return 'var(--ct-border)'
+  if (active === null) return 'var(--ct-border-strong)'
   if (active) return 'var(--ct-accent)'
   return 'var(--ct-success)'
 }
@@ -155,7 +161,14 @@ function countActiveInBlock(block: WindowBlock): number {
   return block.minutes.filter((minute) => minute.active === true).length
 }
 
-/** 概览视图：block 卡片网格 + 点击整行展开分钟色块（原 components/TimelineWindows.vue 的 React 版）。 */
+/**
+ * 概览视图：block 卡片网格 + 点击整行展开分钟色块。
+ *
+ * 信息顺序：状态胶囊 → 时间范围 → 时长（休息 block 再补「活跃 Xm」）。
+ *
+ * 可访问性：卡片外壳是普通 div，真正可聚焦的是盖住摘要区的 <button>；
+ * 展开的明细是按钮的兄弟节点，不会因为「button 后代一律 presentational」而被读屏吞掉。
+ */
 export function TimelineWindows({
   minutes,
   windowMinutes = 45,
@@ -166,7 +179,10 @@ export function TimelineWindows({
   breakMinutes?: number
 }) {
   const t = useT()
+  // 展开态用 block.startTs 做 key：block 列表每天会在头部插入新段，用数组下标会让展开状态串到别的卡。
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
+  // 展开过的卡片保留明细节点：否则收起时内容先被卸载，高度过渡没有可收回的东西。
+  const [mounted, setMounted] = useState<Set<number>>(() => new Set())
   const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
 
@@ -201,18 +217,29 @@ export function TimelineWindows({
 
   const toggleBlock = (index: number) => {
     const grid = gridRef.current
-    const columns = grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 1
+    // 计算列数时只认 px 值：computed 在极端情况下可能是 "none"
+    const columns = grid
+      ? Math.max(1, (getComputedStyle(grid).gridTemplateColumns.match(/\d+(?:\.\d+)?px/g) ?? []).length)
+      : 1
     const row = Math.floor(index / columns)
     const start = row * columns
     const end = Math.min(start + columns, blocks.length)
-    const rowIndices = Array.from({ length: end - start }, (_, offset) => start + offset)
+    const rowKeys = Array.from(
+      { length: end - start },
+      (_, offset) => blocks[start + offset].startTs,
+    )
     setExpanded((previous) => {
-      const anyExpanded = rowIndices.some((idx) => previous.has(idx))
+      const anyExpanded = rowKeys.some((key) => previous.has(key))
       const next = new Set(previous)
-      for (const idx of rowIndices) {
-        if (anyExpanded) next.delete(idx)
-        else next.add(idx)
+      for (const key of rowKeys) {
+        if (anyExpanded) next.delete(key)
+        else next.add(key)
       }
+      return next
+    })
+    setMounted((previous) => {
+      const next = new Set(previous)
+      for (const key of rowKeys) next.add(key)
       return next
     })
   }
@@ -221,115 +248,141 @@ export function TimelineWindows({
     <div className="ct-timeline-windows">
       <div ref={gridRef} className="grid">
         {blocks.map((block, index) => {
+          const key = block.startTs
+          const isOpen = expanded.has(key)
+          const detailId = `ct-block-detail-${key}`
           const nestedActive = block.active === false ? countActiveInBlock(block) : 0
-          const badgeClass = block.isCurrent
-            ? 'badge-current'
-            : block.active === true
-              ? 'badge-active'
-              : block.active === false
-                ? 'badge-rest'
-                : 'badge-null'
+          // 当前段的胶囊跟状态走：休息中的「进行中」是绿胶囊，不能显示成蓝色活跃。
+          const badgeClass =
+            block.active === false
+              ? 'badge-rest'
+              : block.isCurrent
+                ? 'badge-current'
+                : block.active === true
+                  ? 'badge-active'
+                  : 'badge-null'
           return (
             <div
-              key={index}
-              className={block.isCurrent ? 'card is-current' : 'card'}
-              onClick={() => toggleBlock(index)}
+              key={key}
+              className={`card${block.isCurrent ? ' is-current' : ''}${isOpen ? ' is-open' : ''}`}
             >
-              <div className="card-top">
-                <div
-                  className={block.isCurrent ? 'dot pulse' : 'dot'}
-                  style={{ backgroundColor: getColor(block.active) }}
-                />
-                <span className={`badge ${badgeClass}`}>
-                  {getLabel(t, block.active, block.isCurrent)}
+              <button
+                type="button"
+                className="card-summary"
+                aria-expanded={isOpen}
+                aria-controls={detailId}
+                onClick={() => toggleBlock(index)}
+              >
+                <span className="card-top">
+                  <span className={`badge ${badgeClass}`}>
+                    <span
+                      className={block.isCurrent ? 'badge-dot is-pulse' : 'badge-dot'}
+                      style={{ backgroundColor: getColor(block.active) }}
+                    />
+                    {getLabel(t, block.active, block.isCurrent)}
+                  </span>
+                  <ChevronDown
+                    className="card-chevron"
+                    size={14}
+                    strokeWidth={2.2}
+                    aria-hidden="true"
+                  />
                 </span>
-              </div>
 
-              <div className="card-time">
-                {formatTime(block.startTs)}
-                <span className="time-sep">→</span>
-                {formatTime(block.isCurrent ? nowTs : block.endTs + 60)}
-              </div>
+                <span className="card-time">
+                  {formatTime(block.startTs)}
+                  <span className="time-sep">→</span>
+                  {formatTime(block.isCurrent ? nowTs : block.endTs + 60)}
+                </span>
 
-              <div className="card-meta">
-                <span className="card-duration">
-                  {formatDuration(
-                    block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx,
+                <span className="card-meta">
+                  <span className="card-duration">
+                    {formatDuration(
+                      block.isCurrent ? nowIdx - block.startIdx : block.endIdx - block.startIdx,
+                    )}
+                  </span>
+                  {block.active === false && nestedActive > 0 && (
+                    <span className="card-nested-active">
+                      {t('timelineWindows.activeShort')} {formatDuration(nestedActive)}
+                    </span>
                   )}
                 </span>
-                {block.active === false && nestedActive > 0 && (
-                  <span className="card-nested-active">
-                    {t('timelineWindows.activeShort')} {formatDuration(nestedActive)}
-                  </span>
-                )}
-              </div>
+              </button>
 
-              {expanded.has(index) && (
-                <div className="detail" onClick={(event) => event.stopPropagation()}>
-                  <div className="minute-rows">
-                    {chunkRows(block, nowIdx).map((row, rowIndex) => (
-                      <div key={rowIndex} className="minute-row">
-                        <div className="minute-row-bar">
-                          {buildDisplayItems(row.minutes).map((item, itemIndex) =>
-                            item.type === 'segment' ? (
-                              <div
-                                key={itemIndex}
-                                className={`m-seg ${
-                                  item.active === true
-                                    ? 'm-seg-active'
-                                    : item.active === false
-                                      ? 'm-seg-rest'
-                                      : 'm-seg-null'
-                                }`}
-                                style={{ flex: item.count }}
-                                onMouseEnter={(event) =>
-                                  showTip(
-                                    event,
-                                    `${formatTime(item.startTs)}–${formatTime(item.startTs + item.count * 60)} · ${formatDuration(item.count)}`,
-                                  )
-                                }
-                                onMouseLeave={() => setTip(null)}
-                              />
-                            ) : (
-                              <div key={itemIndex} className="m-cells" style={{ flex: item.count }}>
-                                {item.minutes.map((minute, minuteIndex) => (
+              <div
+                id={detailId}
+                className={isOpen ? 'detail-wrap is-open' : 'detail-wrap'}
+                aria-hidden={!isOpen}
+              >
+                <div className="detail">
+                  {mounted.has(key) && (
+                    <div className="detail-body">
+                      <div className="minute-rows">
+                        {chunkRows(block, nowIdx).map((row, rowIndex) => (
+                          <div key={rowIndex} className="minute-row">
+                            <div className="minute-row-bar">
+                              {buildDisplayItems(row.minutes).map((item, itemIndex) =>
+                                item.type === 'segment' ? (
                                   <div
-                                    key={minuteIndex}
-                                    className={`m-cell ${
-                                      minute.active === true
-                                        ? 'm-cell-active'
-                                        : minute.active === false
-                                          ? 'm-cell-rest'
-                                          : 'm-cell-null'
+                                    key={itemIndex}
+                                    className={`m-seg ${
+                                      item.active === true
+                                        ? 'm-seg-active'
+                                        : item.active === false
+                                          ? 'm-seg-rest'
+                                          : 'm-seg-null'
                                     }`}
+                                    style={{ flex: item.count }}
                                     onMouseEnter={(event) =>
                                       showTip(
                                         event,
-                                        `${formatTime(minute.ts)} · ${getLabel(t, minute.active, false)}`,
+                                        `${formatTime(item.startTs)}–${formatTime(item.startTs + item.count * 60)} · ${formatDuration(item.count)}`,
                                       )
                                     }
                                     onMouseLeave={() => setTip(null)}
                                   />
-                                ))}
-                              </div>
-                            ),
-                          )}
-                          {row.isLast && row.minutes.length < CHUNK_MINUTES && (
-                            <div
-                              className="m-placeholder"
-                              style={{ flex: CHUNK_MINUTES - row.minutes.length }}
-                            />
-                          )}
-                        </div>
-                        <span className="minute-row-time">
-                          {formatTime(row.minutes[0].ts)}–
-                          {formatTime(row.minutes[row.minutes.length - 1].ts + 60)}
-                        </span>
+                                ) : (
+                                  <div key={itemIndex} className="m-cells" style={{ flex: item.count }}>
+                                    {item.minutes.map((minute, minuteIndex) => (
+                                      <div
+                                        key={minuteIndex}
+                                        className={`m-cell ${
+                                          minute.active === true
+                                            ? 'm-cell-active'
+                                            : minute.active === false
+                                              ? 'm-cell-rest'
+                                              : 'm-cell-null'
+                                        }`}
+                                        onMouseEnter={(event) =>
+                                          showTip(
+                                            event,
+                                            `${formatTime(minute.ts)} · ${getLabel(t, minute.active, false)}`,
+                                          )
+                                        }
+                                        onMouseLeave={() => setTip(null)}
+                                      />
+                                    ))}
+                                  </div>
+                                ),
+                              )}
+                              {row.isLast && row.minutes.length < CHUNK_MINUTES && (
+                                <div
+                                  className="m-placeholder"
+                                  style={{ flex: CHUNK_MINUTES - row.minutes.length }}
+                                />
+                              )}
+                            </div>
+                            <span className="minute-row-time">
+                              {formatTime(row.minutes[0].ts)}–
+                              {formatTime(row.minutes[row.minutes.length - 1].ts + 60)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           )
         })}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, Coffee, Gauge, Layers, Moon } from 'lucide-react'
 import { SegmentedControl, Switch } from '@radix-ui/themes'
 import { getConfig, getHideStats, getTodayRecords, setHideStats } from '../../api/tauri'
 import { computeTimeBlocks } from '../../utils/timeBlocks'
@@ -109,6 +110,29 @@ export function Dashboard() {
 
   const dayStart = startOfDayTs()
 
+  // 日期标题：把「月日」和「星期」拆开渲染，星期用次级色。
+  // 走 formatToParts 是为了兼容 en-US（星期在前）和 zh-CN（星期在后）。
+  const dateLabel = useMemo(() => {
+    const parts = new Intl.DateTimeFormat(locale, {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    }).formatToParts(new Date())
+    let date = ''
+    let weekday = ''
+    let weekdayFirst = false
+    for (const part of parts) {
+      if (part.type === 'weekday') {
+        weekday = part.value
+        weekdayFirst = date.length === 0
+      } else {
+        date += part.value
+      }
+    }
+    // en-US 的格式化结果里星期后面跟一个 ", "，拼进来会变成「Tuesday , November 3」
+    return { date: date.replace(/^[\s,，、]+/, '').trim(), weekday, weekdayFirst }
+  }, [locale, dayStart])
+
   const allMinutes = useMemo<MinuteData[]>(() => {
     const result: MinuteData[] = []
     for (let i = 0; i < MINUTES_PER_DAY; i++) {
@@ -119,9 +143,12 @@ export function Dashboard() {
   }, [dayStart, records])
 
   const blocks = useMemo(() => {
+    // 一条记录都没有时不要切成「00:00→现在的休息 block」：
+    // 否则计数、统计卡会报出一个并不存在的休息时段，和空态说明打架。
+    if (records.size === 0) return []
     const nowIdx = currentMinuteIndex(dayStart)
     return computeTimeBlocks(allMinutes, config.window_minutes, config.break_minutes, nowIdx)
-  }, [allMinutes, config, dayStart])
+  }, [allMinutes, config, dayStart, records])
 
   // 与 Vue 版一致：活跃 block 全部时长算活跃；休息 block 里逐分钟拆活跃/休息。
   const blockStats = useMemo(() => {
@@ -151,11 +178,9 @@ export function Dashboard() {
     [blocks],
   )
 
-  const dateLabel = new Date().toLocaleDateString(locale, {
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  })
+  // 一条记录都没有时，既不画网格也不显示「概览/详细」切换器，只留空态说明。
+  const hasRecords = records.size > 0
+  const blocksUnit = t('dashboard.stats.blocksUnit')
 
   return (
     <PageScroll>
@@ -171,12 +196,25 @@ export function Dashboard() {
           </div>
 
           <header className="header">
-            <p className="subtitle">{dateLabel}</p>
+            <h1 className="date-title">
+              {dateLabel.weekdayFirst && (
+                <span className="date-weekday is-lead">{dateLabel.weekday}</span>
+              )}
+              {dateLabel.date}
+              {!dateLabel.weekdayFirst && (
+                <span className="date-weekday">{dateLabel.weekday}</span>
+              )}
+            </h1>
             <div className="header-actions">
-              <span className="hide-stats-label">{t('dashboard.hideStats.label')}</span>
+              {/* label + for 让「隐藏统计」这行文字也能点，点完开关会跟着切 */}
+              <label className="hide-stats-label" htmlFor="ct-hide-stats">
+                {t('dashboard.hideStats.label')}
+              </label>
               <Switch
+                id="ct-hide-stats"
                 checked={hideStats}
                 size="1"
+                aria-label={t('dashboard.hideStats.label')}
                 onCheckedChange={(value) => {
                   void toggleHideStats(value)
                 }}
@@ -188,21 +226,27 @@ export function Dashboard() {
             <section className="stats">
               <div className="stat stat-active">
                 <div className="stat-head">
-                  <span className="dot dot-active" />
+                  <span className="stat-icon" aria-hidden="true">
+                    <Activity size={15} strokeWidth={2.1} />
+                  </span>
                   <span className="stat-label">{t('dashboard.stats.active')}</span>
                 </div>
                 <p className="stat-value">{formatDuration(blockStats.activeMinutes)}</p>
               </div>
               <div className="stat stat-rest">
                 <div className="stat-head">
-                  <span className="dot dot-rest" />
+                  <span className="stat-icon" aria-hidden="true">
+                    <Coffee size={15} strokeWidth={2.1} />
+                  </span>
                   <span className="stat-label">{t('dashboard.stats.rest')}</span>
                 </div>
                 <p className="stat-value">{formatDuration(blockStats.restMinutes)}</p>
               </div>
               <div className="stat stat-ratio">
                 <div className="stat-head">
-                  <span className="dot dot-ratio" />
+                  <span className="stat-icon" aria-hidden="true">
+                    <Gauge size={15} strokeWidth={2.1} />
+                  </span>
                   <span className="stat-label">{t('dashboard.stats.ratio')}</span>
                 </div>
                 <p className="stat-value">
@@ -212,14 +256,14 @@ export function Dashboard() {
               </div>
               <div className="stat stat-blocks">
                 <div className="stat-head">
-                  <span className="dot dot-muted" />
+                  <span className="stat-icon" aria-hidden="true">
+                    <Layers size={15} strokeWidth={2.1} />
+                  </span>
                   <span className="stat-label">{t('dashboard.stats.blocks')}</span>
                 </div>
                 <p className="stat-value">
                   {activeBlockCount}
-                  {t('dashboard.stats.blocksUnit') && (
-                    <span className="stat-unit">{t('dashboard.stats.blocksUnit')}</span>
-                  )}
+                  {blocksUnit && <span className="stat-unit">{blocksUnit}</span>}
                 </p>
               </div>
             </section>
@@ -233,22 +277,33 @@ export function Dashboard() {
                   {t('dashboard.activity.count', { n: blocks.length })}
                 </span>
               </div>
-              <SegmentedControl.Root
-                className="ct-segmented"
-                value={timelineMode}
-                size="1"
-                onValueChange={(value) => setTimelineMode(value === 'grid' ? 'grid' : 'segments')}
-              >
-                <SegmentedControl.Item value="segments">
-                  {t('dashboard.activity.overview')}
-                </SegmentedControl.Item>
-                <SegmentedControl.Item value="grid">
-                  {t('dashboard.activity.detailed')}
-                </SegmentedControl.Item>
-              </SegmentedControl.Root>
+              {hasRecords && (
+                <SegmentedControl.Root
+                  className="ct-segmented"
+                  value={timelineMode}
+                  size="1"
+                  onValueChange={(value) =>
+                    setTimelineMode(value === 'grid' ? 'grid' : 'segments')
+                  }
+                >
+                  <SegmentedControl.Item value="segments">
+                    {t('dashboard.activity.overview')}
+                  </SegmentedControl.Item>
+                  <SegmentedControl.Item value="grid">
+                    {t('dashboard.activity.detailed')}
+                  </SegmentedControl.Item>
+                </SegmentedControl.Root>
+              )}
             </div>
 
-            {timelineMode === 'grid' ? (
+            {!hasRecords ? (
+              <div className="empty" role="status">
+                <span className="empty-icon">
+                  <Moon size={18} strokeWidth={1.9} aria-hidden="true" />
+                </span>
+                <p>{t('dashboard.activity.empty')}</p>
+              </div>
+            ) : timelineMode === 'grid' ? (
               <div className="activity-panel">
                 <TimelineGrid minutes={allMinutes} />
               </div>
@@ -259,8 +314,6 @@ export function Dashboard() {
                 breakMinutes={config.break_minutes}
               />
             )}
-
-            {records.size === 0 && <p className="empty">{t('dashboard.activity.empty')}</p>}
           </section>
         </div>
       </RadixPage>
