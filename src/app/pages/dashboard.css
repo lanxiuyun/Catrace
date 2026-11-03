@@ -1,17 +1,18 @@
-/* 概览页：日期主标题 + 今日统计 + 活动记录。
+/* 概览页：日期标题 → 「今日活跃」主视觉（大数字 + 活跃/休息占比条）→ 今日活动卡。
  *
  * 视觉约定（改样式前先看一眼）：
- * - 层级靠字号/字重拉开，不靠重描边：卡片用「轻描边 + 分层阴影」和背景分离；
- * - 数值统一中性色 + tabular-nums，颜色只出现在统计卡的图标底色上；
+ * - 一张主视觉卡承载分层：大数字（今日活跃）+ 三个次级指标 + 占比条，取代四张等权小卡；
+ * - 颜色只给状态语义（蓝=活跃、绿=休息），数字本身保持中性色；
+ * - 卡片用「轻描边 + 双层阴影」从背景浮起来，不再靠重描边；
  * - 交互区域要有按压/悬停反馈，键盘焦点有明确描边（见 timeline-windows.css）。
  */
 
 .ct-dashboard {
   position: relative;
   width: 100%;
-  max-width: 78rem;
+  max-width: 76rem;
   margin: 0 auto;
-  padding: 1.375rem 1.5rem 2rem;
+  padding: 1.5rem 1.75rem 2.5rem;
 }
 
 /* toast：居中停在内容顶部，hit 区域就是文字本体，hover 到字上才淡入，移出后延迟淡出 */
@@ -45,7 +46,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.375rem;
+  margin-bottom: 1.5rem;
 }
 
 .ct-dashboard .date-title {
@@ -53,10 +54,10 @@
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  font-size: 1.625rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.022em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
   color: var(--ct-text);
   font-optical-sizing: auto;
 }
@@ -64,7 +65,7 @@
 /* 星期跟在日期后面（en-US 会跑到前面），用次级色让主标题只有一个重音。 */
 .ct-dashboard .date-weekday {
   margin-left: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   letter-spacing: 0;
   color: var(--ct-text-muted);
@@ -83,20 +84,20 @@
   flex-shrink: 0;
   padding: 0.25rem 0.25rem 0.25rem 0.625rem;
   border-radius: 999px;
-  background: rgba(120, 120, 128, 0.09);
+  background: rgba(120, 120, 128, 0.1);
   transition: background-color 0.18s ease;
 }
 
 .ct-dashboard .header-actions:hover {
-  background: rgba(120, 120, 128, 0.13);
+  background: rgba(120, 120, 128, 0.14);
 }
 
 [data-theme='dark'] .ct-dashboard .header-actions {
-  background: rgba(120, 120, 128, 0.18);
+  background: rgba(120, 120, 128, 0.2);
 }
 
 [data-theme='dark'] .ct-dashboard .header-actions:hover {
-  background: rgba(120, 120, 128, 0.24);
+  background: rgba(120, 120, 128, 0.26);
 }
 
 .ct-dashboard .hide-stats-label {
@@ -141,109 +142,156 @@
   background-color: var(--ct-accent);
 }
 
-/* ---------- 统计卡 ---------- */
-.ct-dashboard .stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.25rem, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-/* 主窗最小 800px，这条只兜底：4 列需要 ≈564px 内容宽，换算成视口是 42.5rem；
-   再窄就固定 2×2，避免出现 3+1 那种别扭的孤行。 */
-@media (max-width: 42.5rem) {
-  .ct-dashboard .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.ct-dashboard .stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  min-width: 0;
-  padding: 0.75rem 0.875rem 0.9375rem;
+/* ---------- 主视觉：今日活跃 + 占比条 ---------- */
+.ct-dashboard .summary {
+  position: relative;
+  padding: 1.375rem 1.5rem 1.125rem;
+  margin-bottom: 1.75rem;
   background: var(--ct-surface);
+  background-image: radial-gradient(38rem 13rem at 0% 0%, var(--ct-accent-softer), transparent 62%);
   border: 0.0625rem solid var(--ct-border-card);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   box-shadow: var(--ct-shadow-card);
 }
 
-.ct-dashboard .stat-head {
+.ct-dashboard .summary-head {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.ct-dashboard .summary-main {
   min-width: 0;
 }
 
-/* 图标块承担颜色语义：只有「活跃 / 休息」是真状态，用系统蓝绿；
-   占比是活跃的派生值，用更淡的同色系；时段只是计数，保持中性。 */
-.ct-dashboard .stat-icon {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5625rem;
+.ct-dashboard .summary-eyebrow {
+  margin: 0 0 0.4375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ct-text-muted);
+}
+
+.ct-dashboard .summary-value {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--ct-text);
+  font-variant-numeric: tabular-nums;
+  font-optical-sizing: auto;
+}
+
+.ct-dashboard .summary-stats {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.75rem;
   flex-shrink: 0;
 }
 
-.ct-dashboard .stat-icon svg {
-  display: block;
+.ct-dashboard .summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
 }
 
-.ct-dashboard .stat-active .stat-icon {
-  background: var(--ct-accent-soft);
-  color: var(--ct-accent-hover);
-}
-
-.ct-dashboard .stat-rest .stat-icon {
-  background: var(--ct-success-soft);
-  color: var(--ct-success-strong);
-}
-
-.ct-dashboard .stat-ratio .stat-icon {
-  background: var(--ct-accent-softer);
-  color: var(--ct-accent);
-}
-
-.ct-dashboard .stat-blocks .stat-icon {
-  background: var(--ct-surface-2);
-  color: var(--ct-text-muted);
-}
-
-.ct-dashboard .stat-label {
+.ct-dashboard .summary-stat-label {
   font-size: 0.75rem;
   font-weight: 500;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
   color: var(--ct-text-muted);
-}
-
-.ct-dashboard .stat-value {
-  margin: auto 0 0;
-  font-family: var(--ct-font-sans);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.625rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--ct-text);
   white-space: nowrap;
 }
 
-.ct-dashboard .stat-unit {
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--ct-text-muted);
+.ct-dashboard .summary-stat-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ct-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ct-dashboard .summary-stat-unit {
   margin-left: 0.125rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ct-text-muted);
+}
+
+/* 占比条：整条 = 已记录时长。两段按精确比例分，取整只用于旁边的文字。 */
+.ct-dashboard .summary-bar {
+  display: flex;
+  gap: 0.125rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--ct-surface-2);
+  overflow: hidden;
+}
+
+.ct-dashboard .summary-bar-seg {
+  flex: 0 1 0;
+  border-radius: 999px;
+  transition: flex-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ct-dashboard .summary-bar-seg.is-active {
+  background: var(--ct-accent);
+}
+
+.ct-dashboard .summary-bar-seg.is-rest {
+  background: var(--ct-success);
+}
+
+.ct-dashboard .summary-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.875rem;
+  margin-top: 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--ct-text-muted);
+}
+
+.ct-dashboard .summary-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  white-space: nowrap;
+}
+
+.ct-dashboard .summary-legend-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+}
+
+.ct-dashboard .summary-legend-dot.is-active {
+  background: var(--ct-accent);
+}
+
+.ct-dashboard .summary-legend-dot.is-rest {
+  background: var(--ct-success);
+}
+
+.ct-dashboard .summary-legend-recorded {
+  margin-left: auto;
+  color: var(--ct-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ---------- 今日活动记录 ---------- */
 .ct-dashboard .activity-section {
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
+  gap: 1rem;
 }
 
 .ct-dashboard .activity-head {
@@ -263,9 +311,9 @@
 
 .ct-dashboard .activity-title {
   margin: 0;
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--ct-text);
 }
 
@@ -282,10 +330,10 @@
 }
 
 .ct-dashboard .activity-panel {
-  padding: 1rem;
+  padding: 1.25rem;
   background: var(--ct-surface);
   border: 0.0625rem solid var(--ct-border-card);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   box-shadow: var(--ct-shadow-card);
 }
 
@@ -317,13 +365,30 @@
   text-align: center;
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 44rem) {
   .ct-dashboard {
-    padding: 1.25rem 1rem 1.75rem;
+    padding: 1.25rem 1.125rem 2rem;
   }
 
   .ct-dashboard .date-title {
     font-size: 1.5rem;
+  }
+
+  .ct-dashboard .summary {
+    padding: 1.125rem 1.125rem 1rem;
+    border-radius: 1.125rem;
+  }
+
+  .ct-dashboard .summary-head {
+    align-items: flex-start;
+  }
+
+  .ct-dashboard .summary-value {
+    font-size: 2.125rem;
+  }
+
+  .ct-dashboard .summary-stats {
+    gap: 1.25rem;
   }
 }
 
@@ -335,5 +400,9 @@
   /* 分段控件的滑动指示器由 Radix 变量控制时长，缩到近乎瞬切 */
   .ct-dashboard .ct-segmented {
     --segmented-control-transition-duration: 0.01ms;
+  }
+
+  .ct-dashboard .summary-bar-seg {
+    transition: none;
   }
 }

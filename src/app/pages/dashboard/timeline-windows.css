@@ -9,7 +9,7 @@
 .ct-timeline-windows .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15.625rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.875rem;
 }
 
 .ct-timeline-windows .card {
@@ -17,7 +17,7 @@
   flex-direction: column;
   background: var(--ct-surface);
   border: 0.0625rem solid var(--ct-border-card);
-  border-radius: 1rem;
+  border-radius: 1.125rem;
   box-shadow: var(--ct-shadow-card);
   user-select: none;
   transition:
@@ -52,9 +52,9 @@
   min-block-size: 0;
   max-inline-size: none;
   margin: 0;
-  padding: 0.875rem 1rem 0.9375rem;
+  padding: 1rem 1.125rem 1.0625rem;
   border: 0;
-  border-radius: 1rem;
+  border-radius: 1.125rem;
   background: none;
   font: inherit;
   color: inherit;
@@ -68,7 +68,7 @@
 .ct-timeline-windows .card-summary:focus-visible {
   outline: 0.125rem solid var(--ct-accent);
   outline-offset: 0.125rem;
-  border-radius: 1rem;
+  border-radius: 1.125rem;
 }
 
 /* 进行中：一层极淡的蓝色由顶部渗下来，配合脉冲圆点表示「还在长」 */
@@ -162,12 +162,12 @@
   display: block;
   font-family: var(--ct-font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   line-height: 1.2;
   color: var(--ct-text);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5625rem;
 }
 
 .ct-timeline-windows .time-sep {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, Coffee, Gauge, Layers, Moon } from 'lucide-react'
+import { Moon } from 'lucide-react'
 import { SegmentedControl, Switch } from '@radix-ui/themes'
 import { getConfig, getHideStats, getTodayRecords, setHideStats } from '../../api/tauri'
 import { computeTimeBlocks } from '../../utils/timeBlocks'
@@ -182,6 +182,11 @@ export function Dashboard() {
   const hasRecords = records.size > 0
   const blocksUnit = t('dashboard.stats.blocksUnit')
 
+  // 主视觉用的占比：宽度按未取整的比例算，避免两段加起来不等于 100% 时露缝。
+  const recordedMinutes = blockStats.activeMinutes + blockStats.restMinutes
+  const activeShare = recordedMinutes > 0 ? (blockStats.activeMinutes / recordedMinutes) * 100 : 0
+  const restShare = recordedMinutes > 0 ? 100 - activeShare : 0
+
   return (
     <PageScroll>
       <RadixPage className="ct-dashboard-page">
@@ -223,48 +228,58 @@ export function Dashboard() {
           </header>
 
           {!hideStats && (
-            <section className="stats">
-              <div className="stat stat-active">
-                <div className="stat-head">
-                  <span className="stat-icon" aria-hidden="true">
-                    <Activity size={15} strokeWidth={2.1} />
-                  </span>
-                  <span className="stat-label">{t('dashboard.stats.active')}</span>
+            <section className="summary" aria-label={t('dashboard.summary.activeToday')}>
+              <div className="summary-head">
+                <div className="summary-main">
+                  <p className="summary-eyebrow">{t('dashboard.summary.activeToday')}</p>
+                  <p className="summary-value">{formatDuration(blockStats.activeMinutes)}</p>
                 </div>
-                <p className="stat-value">{formatDuration(blockStats.activeMinutes)}</p>
+                <div className="summary-stats">
+                  <div className="summary-stat">
+                    <span className="summary-stat-label">{t('dashboard.stats.ratio')}</span>
+                    <span className="summary-stat-value">{activityPercent}%</span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-stat-label">{t('dashboard.stats.rest')}</span>
+                    <span className="summary-stat-value">
+                      {formatDuration(blockStats.restMinutes)}
+                    </span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-stat-label">{t('dashboard.stats.blocks')}</span>
+                    <span className="summary-stat-value">
+                      {activeBlockCount}
+                      {blocksUnit && <span className="summary-stat-unit">{blocksUnit}</span>}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="stat stat-rest">
-                <div className="stat-head">
-                  <span className="stat-icon" aria-hidden="true">
-                    <Coffee size={15} strokeWidth={2.1} />
-                  </span>
-                  <span className="stat-label">{t('dashboard.stats.rest')}</span>
-                </div>
-                <p className="stat-value">{formatDuration(blockStats.restMinutes)}</p>
+
+              {/* 活跃 / 休息 的占比条：整条 = 已记录的时长，两段按精确比例分 */}
+              <div className="summary-bar" aria-hidden="true">
+                <span
+                  className="summary-bar-seg is-active"
+                  style={{ flexGrow: recordedMinutes > 0 ? activeShare : 0 }}
+                />
+                <span
+                  className="summary-bar-seg is-rest"
+                  style={{ flexGrow: recordedMinutes > 0 ? restShare : 0 }}
+                />
               </div>
-              <div className="stat stat-ratio">
-                <div className="stat-head">
-                  <span className="stat-icon" aria-hidden="true">
-                    <Gauge size={15} strokeWidth={2.1} />
-                  </span>
-                  <span className="stat-label">{t('dashboard.stats.ratio')}</span>
-                </div>
-                <p className="stat-value">
-                  {activityPercent}
-                  <span className="stat-unit">%</span>
-                </p>
-              </div>
-              <div className="stat stat-blocks">
-                <div className="stat-head">
-                  <span className="stat-icon" aria-hidden="true">
-                    <Layers size={15} strokeWidth={2.1} />
-                  </span>
-                  <span className="stat-label">{t('dashboard.stats.blocks')}</span>
-                </div>
-                <p className="stat-value">
-                  {activeBlockCount}
-                  {blocksUnit && <span className="stat-unit">{blocksUnit}</span>}
-                </p>
+              <div className="summary-legend">
+                <span className="summary-legend-item">
+                  <span className="summary-legend-dot is-active" aria-hidden="true" />
+                  {t('dashboard.stats.active')}
+                </span>
+                <span className="summary-legend-recorded">
+                  {t('dashboard.summary.recorded', {
+                    duration: formatDuration(recordedMinutes),
+                  })}
+                </span>
+                <span className="summary-legend-item">
+                  <span className="summary-legend-dot is-rest" aria-hidden="true" />
+                  {t('dashboard.stats.rest')}
+                </span>
               </div>
             </section>
           )}

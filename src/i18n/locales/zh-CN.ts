@@ -17,6 +17,10 @@ export default {
     hideStats: {
       label: '隐藏统计',
     },
+    summary: {
+      activeToday: '今日活跃',
+      recorded: '已记录 {duration}',
+    },
     stats: {
       active: '活跃',
       rest: '休息',
@@ -332,7 +336,7 @@ export default {
     rest: '休息',
     null: '无记录',
     current: '当前时间',
-    hoverHint: '在色块上悬停查看详情 · 点击色块标记',
+    hoverHint: '在色块上悬停查看详情',
   },
   timelineWindows: {
     inProgress: '进行中',

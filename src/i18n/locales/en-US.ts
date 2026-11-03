@@ -17,6 +17,10 @@ export default {
     hideStats: {
       label: 'Hide stats',
     },
+    summary: {
+      activeToday: 'Active today',
+      recorded: 'Recorded {duration}',
+    },
     stats: {
       active: 'Active',
       rest: 'Rest',
@@ -332,7 +336,7 @@ export default {
     rest: 'Rest',
     null: 'No Record',
     current: 'Current Time',
-    hoverHint: 'Hover over blocks for details · Click to mark',
+    hoverHint: 'Hover over blocks for details',
   },
   timelineWindows: {
     inProgress: 'In Progress',

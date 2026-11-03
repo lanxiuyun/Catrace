@@ -23,16 +23,23 @@
   --ct-purple: #5e5ce6;
 
   /* 表面 / 背景 / 边框（苹果微边框） */
-  --ct-bg: #f6f6f6;
+  --ct-bg: #f5f5f7;
   --ct-surface: #ffffff;
-  --ct-surface-2: #f2f2f4;
-  --ct-border: rgba(0, 0, 0, 0.08);
+  --ct-surface-2: #f0f0f5;
+  --ct-border: rgba(0, 0, 0, 0.07);
   /* 需要和背景明确区分的卡片边（今日活动卡） */
-  --ct-border-strong: rgba(0, 0, 0, 0.16);
+  --ct-border-strong: rgba(0, 0, 0, 0.14);
   /* 卡片静止态描边：比 --ct-border 稍实，靠阴影承担分离感，避免整页重描边 */
-  --ct-border-card: rgba(0, 0, 0, 0.12);
+  --ct-border-card: rgba(0, 0, 0, 0.06);
   /* macOS inset grouped 内容底（右侧详情区） */
-  --ct-content-bg: #f2f2f7;
+  --ct-content-bg: #f0f0f5;
+
+  /* 壳层材质：窗口背景的柔光 + 透光侧边栏 + 导航选中态 */
+  --ct-bg-glow: rgba(0, 122, 255, 0.07);
+  --ct-sidebar-bg: rgba(237, 237, 243, 0.78);
+  --ct-sidebar-border: rgba(0, 0, 0, 0.06);
+  --ct-nav-hover: rgba(0, 0, 0, 0.05);
+  --ct-nav-active: #ffffff;
 
   /* 文本（macOS label / secondary / tertiary） */
   --ct-text: #1c1c1e;
@@ -59,9 +66,9 @@
   /* 强调/深色底上的前景白 */
   --ct-on-accent: #ffffff;
 
-  /* 苹果卡片阴影 */
-  --ct-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  --ct-shadow-card-hover: 0 0.375rem 1.25rem rgba(0, 0, 0, 0.1), 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.05);
+  /* 苹果卡片阴影：一层贴边、一层远处散开，靠光影而不是描边分层次 */
+  --ct-shadow-card: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04), 0 0.5rem 1.5rem -0.5rem rgba(0, 0, 0, 0.1);
+  --ct-shadow-card-hover: 0 0.125rem 0.3125rem rgba(0, 0, 0, 0.05), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.16);
   --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -76,13 +83,20 @@
   --ct-purple: #7d7aff;
 
   /* 表面 / 背景 / 边框 */
-  --ct-bg: #1e1e1e;
-  --ct-surface: #2c2c2e;
-  --ct-surface-2: #3a3a3c;
-  --ct-border: rgba(255, 255, 255, 0.1);
-  --ct-border-strong: rgba(255, 255, 255, 0.18);
-  --ct-border-card: rgba(255, 255, 255, 0.14);
-  --ct-content-bg: #18181a;
+  --ct-bg: #131316;
+  --ct-surface: #1f1f23;
+  --ct-surface-2: #2a2a30;
+  --ct-border: rgba(255, 255, 255, 0.08);
+  --ct-border-strong: rgba(255, 255, 255, 0.16);
+  --ct-border-card: rgba(255, 255, 255, 0.07);
+  --ct-content-bg: #17171b;
+
+  /* 壳层材质 */
+  --ct-bg-glow: rgba(10, 132, 255, 0.12);
+  --ct-sidebar-bg: rgba(30, 30, 36, 0.7);
+  --ct-sidebar-border: rgba(255, 255, 255, 0.06);
+  --ct-nav-hover: rgba(255, 255, 255, 0.06);
+  --ct-nav-active: rgba(255, 255, 255, 0.12);
 
   /* 文本 */
   --ct-text: #f2f2f7;
@@ -110,8 +124,8 @@
   --ct-on-accent: #ffffff;
 
   /* 苹果卡片阴影（深色） */
-  --ct-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --ct-shadow-card-hover: 0 0.375rem 1.25rem rgba(0, 0, 0, 0.45), 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.3);
+  --ct-shadow-card: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.5), 0 0.5rem 1.5rem -0.5rem rgba(0, 0, 0, 0.6);
+  --ct-shadow-card-hover: 0 0.125rem 0.3125rem rgba(0, 0, 0, 0.5), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.7);
   --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
