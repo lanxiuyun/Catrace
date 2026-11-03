@@ -62,32 +62,10 @@
     box-shadow 0.15s ease;
 }
 
-/* 卡片头部：图标块 + 组名。五张卡共用一套结构，避免各写一遍 label。 */
-.ct-settings-card-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-right: 2rem;
-  margin-bottom: 0.375rem;
-}
-
-.ct-settings-card-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 0.5rem;
-  background: var(--ct-accent-soft);
-  color: var(--ct-accent);
-}
-
-.ct-settings-card-icon svg {
-  display: block;
-}
-
+/* 卡片头：只有组名（h2）。设置页要安静，别再加图标块；右侧留 2rem 给拖拽把手。 */
 .ct-settings-card-label {
-  margin: 0;
+  margin: 0 0 0.375rem;
+  padding-right: 2rem;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -109,10 +87,12 @@
   padding: 0.75rem 0;
 }
 
+/* 文案列吃掉剩余宽度；控件列按内容定宽、不参与伸缩。
+   之前控件列写的是 flex: 1，会被压得比下拉框还窄，
+   下拉框于是从左边溢出、盖在描述文字上（见「序列保留时长」那行）。 */
 .ct-setting-copy {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100% - 4rem);
 }
 
 .ct-setting-title {
@@ -135,7 +115,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 1rem;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
 }
 

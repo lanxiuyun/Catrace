@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Button, Progress, Select, Switch } from '@radix-ui/themes'
-import { SlidersHorizontal } from 'lucide-react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -253,7 +252,7 @@ export function SystemSettingsCard() {
   ]
 
   return (
-    <SettingsCard icon={SlidersHorizontal} label={t('settings.groups.system')}>
+    <SettingsCard label={t('settings.groups.system')}>
       <SettingRow title={t('settings.language.title')} desc={t('settings.language.desc')}>
         <Select.Root
           value={locale}

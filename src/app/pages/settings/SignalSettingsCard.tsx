@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Button, Select, Switch } from '@radix-ui/themes'
-import { Activity } from 'lucide-react'
 import {
   getSignalRuntimeConfig,
   purgeKeySequences,
@@ -110,7 +109,7 @@ export function SignalSettingsCard() {
   }
 
   return (
-    <SettingsCard icon={Activity} label={t('settings.groups.signal')}>
+    <SettingsCard label={t('settings.groups.signal')}>
       <SettingRow title={t('settings.signal.keySeqTitle')} desc={t('settings.signal.keySeqDesc')}>
         <Switch
           checked={enabled}

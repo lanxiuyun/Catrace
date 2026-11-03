@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Button, Switch, TextArea } from '@radix-ui/themes'
-import { MonitorPlay } from 'lucide-react'
 import {
   getMediaActiveEnabled,
   getMediaWhitelistText,
@@ -64,7 +63,7 @@ export function MediaSettingsCard() {
   }
 
   return (
-    <SettingsCard icon={MonitorPlay} label={t('settings.groups.media')}>
+    <SettingsCard label={t('settings.groups.media')}>
       <SettingRow title={t('settings.media.enabledTitle')} desc={t('settings.media.enabledDesc')}>
         <Switch
           checked={enabled.value}

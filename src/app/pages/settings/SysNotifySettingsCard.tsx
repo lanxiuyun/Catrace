@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, Switch } from '@radix-ui/themes'
-import { Bell } from 'lucide-react'
 import {
   getNotificationForwardStatus,
   openNotificationPermissionSettings,
@@ -106,7 +105,7 @@ export function SysNotifySettingsCard() {
   })()
 
   return (
-    <SettingsCard icon={Bell} label={t('settings.groups.sysNotify')}>
+    <SettingsCard label={t('settings.groups.sysNotify')}>
       <SettingRow title={t('settings.sysNotify.forwardTitle')} desc={t('settings.sysNotify.forwardDesc')}>
         <div className="ct-settings-side">
           <Badge color={accessView.color} size="1" variant="soft">
