@@ -1218,27 +1218,6 @@ const MAX_INSTALL_ZIP_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_INSTALL_UNPACKED_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_INSTALL_FILE_COUNT: usize = 5_000;
 
-/// Install a plugin from a local folder or `.zip` into `<app_data>/plugins/<id>/`.
-/// Does not enable the plugin. Same id requires `overwrite: true`.
-#[tauri::command]
-pub async fn install_external_plugin(
-    app: AppHandle,
-    window: tauri::WebviewWindow,
-    source_path: String,
-    overwrite: bool,
-) -> Result<PluginInstallResult, String> {
-    ensure_management_window(&window)?;
-    let source = PathBuf::from(source_path.trim());
-    tauri::async_runtime::spawn_blocking(move || {
-        let mgr = app.state::<PluginManager>();
-        let windows = app.state::<crate::plugin_window::PluginWindowManager>();
-        let sidecars = app.state::<crate::plugin_sidecar::PluginSidecarManager>();
-        install_from_source(&app, &mgr, &windows, &sidecars, &source, overwrite, None)
-    })
-    .await
-    .map_err(|e| format!("plugin install task failed: {e}"))?
-}
-
 pub(crate) fn install_from_source(
     app: &AppHandle,
     mgr: &PluginManager,

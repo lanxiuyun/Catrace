@@ -10,7 +10,7 @@
 - `src/app/pages/plugins/ExternalPluginSettings.tsx` — 复用 VueIsland，在启用后挂载现有插件设置，不要求插件立刻迁移 React
 - `src/app/pages/plugins/RestSettings.tsx` / `PluginSettingRow.tsx` — 内置提醒设置
 - `src/app/pages/plugins.css` — 页面、详情弹层、响应式与无障碍样式
-- `src/api/tauri.ts` — `listRepositoryPlugins` / `installRepositoryPlugin` / `uninstallExternalPlugin`，以及本地安装与启停接口
+- `src/api/tauri.ts` — `listRepositoryPlugins` / `installRepositoryPlugin` / `uninstallExternalPlugin`，以及本地目录与启停接口
 - `src-tauri/src/plugins.rs` — 本机目录扫描与启停；`plugin_repository.rs` — 固定仓库目录与快照下载
 - `src-tauri/src/plugin_sidecar.rs` — 单插件 sidecar 启停；目录刷新不等于重启所有插件
 - `src/plugins/loadExternalPlugins.ts` / `src/app/bootstrap.ts` — 已启用模块加载、后端状态事件同步与缓存释放
@@ -19,10 +19,10 @@
 
 ## 视觉与交互约定（2026-11 重构）
 
-- **页面**：`max-width: 76rem` 居中，系统字体、紧凑标题、平铺圆角卡片；上部本机概览，中部「发现插件 / 已安装」分段控件与搜索，底部实际 AppData 插件路径。
+- **页面**：`max-width: 76rem` 居中，顶部直接呈现「发现插件 / 已安装」和搜索；搜索右侧为「打开插件目录」与刷新。不显示宣传页头、统计卡、仓库外链和重复的目录页脚。
 - **发现插件**：只列固定仓库提供的插件，显示名称、版本、说明与安装状态；点击安装下载完整插件目录，不要求用户安装 Git。
 - **已安装**：内置久坐提醒与本机外部插件；离线时仍可管理，不被远程目录失败挡住。
-- **详情**：用 Radix Dialog 打开独立任务弹层，关闭后保留列表搜索和滚动位置；内置 React 设置与现有外部 Vue 设置共存。
+- **详情**：页内独立详情，关闭后保留列表搜索和滚动位置；内置 React 设置与现有外部 Vue 设置共存，插件浮层不受模态焦点限制。
 - **安装 / 启用分离**：安装默认停用。启用前使用信任确认，说明本地代码、文件、网络和进程能力；未启用不导入 UI / settings 源码。
 - **启停**：等待后端持久化与生命周期操作完成后重读目录，不用乐观状态冒充成功；后端事件也同步主窗与 Toast 注册表。
 - **卸载**：确认后先停后台与 sidecar，再移除本地安装；配置保留以便重装，禁止卸载内置提醒。
@@ -35,7 +35,7 @@
 1. 打开「发现插件」，选择插件并点「安装」。
 2. 点「管理」或插件卡片，打开详情，使用开关并确认信任后启用。
 3. 关闭开关只停用，文件和配置仍保留；「卸载」移除安装但保留配置。
-4. 「更多」仍可从本地文件夹 / zip 导入；底部「打开目录」定位到本机安装位置。
+4. 搜索右侧的「打开插件目录」定位到本机安装位置；旁边刷新按钮重新读取本机和仓库目录。前端已移除文件夹 / ZIP 安装，仅保留仓库安装。
 
 ## Sub-documents
 

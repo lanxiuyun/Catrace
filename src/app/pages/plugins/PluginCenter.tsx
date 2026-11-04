@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AlertDialog, Button, DropdownMenu, Switch } from '@radix-ui/themes'
+import { AlertDialog, Button, Switch } from '@radix-ui/themes'
 import {
-  Armchair, ArrowDownToLine, ArrowUpRight, Check, ChevronRight, CircleAlert,
-  FolderOpen, Github, LoaderCircle, MoreHorizontal, Package, Plug, RefreshCw,
-  Search, ShieldCheck, Trash2, X,
+  Armchair, ArrowDownToLine, Check, ChevronRight, CircleAlert,
+  FolderOpen, Github, LoaderCircle, Plug, RefreshCw, Search, ShieldCheck, Trash2, X,
 } from 'lucide-react'
-import { openUrl } from '@tauri-apps/plugin-opener'
 import { openPluginsDir, type PluginCatalogEntry, type RepositoryPluginInfo } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { PageScroll } from '../../components/PageScroll'
@@ -13,8 +11,6 @@ import { RadixPage } from '../../components/RadixPage'
 import { showToast } from '../../ui/toast'
 import { ExternalPluginSettings } from './ExternalPluginSettings'
 import { usePluginCatalog } from './usePluginCatalog'
-
-const REPOSITORY_URL = 'https://github.com/lanxiuyun/catrace-plugin'
 
 type PluginItem = {
   id: string
@@ -88,7 +84,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const visibleItems = (tab === 'installed' ? installedItems : discoverItems).filter((item) =>
     `${item.id} ${item.name} ${item.description}`.toLowerCase().includes(normalized),
   )
-  const countEnabled = data.installed.filter((entry) => entry.info.enabled && !entry.info.error).length + Number(restEnabled)
 
   useEffect(() => {
     if (selectedId && !allItems.has(selectedId) && !data.loadingLocal && !data.loadingRemote) {
@@ -98,7 +93,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
 
   const reportError = (error: unknown) => showToast(t('pluginMarket.operationFailed', { error: String(error) }), 'error')
   const openDirectory = () => void openPluginsDir().catch(reportError)
-  const openRepository = () => void openUrl(REPOSITORY_URL).catch(reportError)
   const isInstalled = (item: PluginItem) => item.builtin || !!item.installed
   const isEnabled = (item: PluginItem) => item.builtin ? restEnabled : !!item.installed?.info.enabled
   const icon = (item: PluginItem) => item.builtin ? <Armchair aria-hidden="true" /> : item.installed?.iconDataUrl
@@ -113,53 +107,26 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   return (
     <PageScroll>
       <RadixPage className="ct-plugins-page">
-        <main className="ct-market" hidden={!!selected}>
-          <header className="ct-market-header">
-            <div>
-              <span className="ct-market-eyebrow">CATRACE EXTENSIONS</span>
-              <h1>{t('pluginMarket.title')}</h1>
-              <p>{t('pluginMarket.subtitle')}</p>
-            </div>
-            <div className="ct-market-header-actions">
-              <button type="button" className="ct-market-source" onClick={openRepository}>
-                <Github size={15} aria-hidden="true" /> <span>catrace-plugin</span><ArrowUpRight size={13} aria-hidden="true" />
-              </button>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.moreActions')} disabled={busy}>
-                    <MoreHorizontal size={18} aria-hidden="true" />
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end">
-                  <DropdownMenu.Item onSelect={() => void data.importLocal('folder')}>{t('pluginsCenter.installFolder')}</DropdownMenu.Item>
-                  <DropdownMenu.Item onSelect={() => void data.importLocal('zip')}>{t('pluginsCenter.installZip')}</DropdownMenu.Item>
-                  <DropdownMenu.Separator />
-                  <DropdownMenu.Item onSelect={openDirectory}>{t('plugins.external.openDir')}</DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-            </div>
-          </header>
-
-          <section className="ct-market-summary" aria-label={t('pluginMarket.overview')}>
-            <span className="ct-market-summary-icon"><Package size={24} aria-hidden="true" /></span>
-            <div className="ct-market-summary-copy"><strong>{t('pluginMarket.yourSpace')}</strong><p>{t('pluginMarket.installHint')}</p></div>
-            <div className="ct-market-stat"><strong>{data.loadingLocal ? '—' : installedItems.length}</strong><span>{t('pluginMarket.installed')}</span></div>
-            <div className="ct-market-stat"><strong>{data.loadingLocal ? '—' : countEnabled}</strong><span>{t('pluginMarket.enabled')}</span></div>
-          </section>
-
+        <main className="ct-market" hidden={!!selected} aria-label={t('pluginMarket.title')}>
           <div className="ct-market-toolbar">
             <div className="ct-market-tabs" role="group" aria-label={t('pluginMarket.filter')}>
               <button type="button" aria-pressed={tab === 'discover'} className={tab === 'discover' ? 'is-active' : ''} onClick={() => setTab('discover')}>{t('pluginMarket.discover')}</button>
               <button type="button" aria-pressed={tab === 'installed'} className={tab === 'installed' ? 'is-active' : ''} onClick={() => setTab('installed')}>{t('pluginMarket.myPlugins')}<span>{data.loadingLocal ? '—' : installedItems.length}</span></button>
             </div>
-            <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
-            <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} title={t('pluginMarket.refresh')} disabled={busy || data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+            <div className="ct-market-tools">
+              <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
+              <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" onClick={openDirectory}>
+                <FolderOpen size={15} aria-hidden="true" />
+                <span>{t('plugins.external.openDir')}</span>
+              </button>
+              <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} title={t('pluginMarket.refresh')} disabled={busy || data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+            </div>
           </div>
 
           {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshLocal()} disabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
           {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
 
-          <div className="ct-market-section-head"><h2>{t(tab === 'discover' ? 'pluginMarket.fromRepository' : 'pluginMarket.onThisDevice')}</h2><span>{tab === 'discover' ? t('pluginMarket.repositoryNote') : t('pluginMarket.builtinNote')}</span></div>
+          <div className="ct-market-section-head"><h2>{t(tab === 'discover' ? 'pluginMarket.fromRepository' : 'pluginMarket.onThisDevice')}</h2></div>
           <section className="ct-market-grid" aria-label={t(tab === 'discover' ? 'pluginMarket.discover' : 'pluginMarket.myPlugins')} aria-busy={tab === 'discover' ? data.loadingRemote : data.loadingLocal}>
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
@@ -182,7 +149,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="soft" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
           </section>
 
-          <footer className="ct-market-storage"><FolderOpen size={17} aria-hidden="true" /><div><strong>{t('pluginMarket.localStorage')}</strong><code>{data.pluginsDir || t('pluginMarket.resolvingPath')}</code></div><button type="button" onClick={openDirectory}>{t('pluginMarket.openFolder')}<ArrowUpRight size={13} aria-hidden="true" /></button></footer>
         </main>
 
         <section className="ct-market ct-market-detail-dialog" hidden={!selected} aria-labelledby="ct-plugin-detail-title">

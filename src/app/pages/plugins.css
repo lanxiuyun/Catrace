@@ -1,22 +1,10 @@
 /* Plugin center: quiet App Store-style discovery, local management, and settings sheets. */
 .ct-plugins-page { min-height: 100%; }
-.ct-market { width: 100%; max-width: 76rem; margin: 0 auto; padding: 2.5rem 2.25rem 2rem; box-sizing: border-box; }
-.ct-market-header { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+.ct-market { width: 100%; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1.75rem 2.5rem; box-sizing: border-box; }
 .ct-market-eyebrow { color: var(--ct-text-subtle); font-size: 0.625rem; font-weight: 650; letter-spacing: 0.12em; }
-.ct-market-header h1 { margin: 0.375rem 0 0.625rem; color: var(--ct-text); font-size: 2rem; font-weight: 730; letter-spacing: -0.04em; line-height: 1.15; }
-.ct-market-header p { margin: 0; color: var(--ct-text-muted); font-size: 0.875rem; line-height: 1.6; }
-.ct-market-header-actions { display: flex; align-items: center; gap: 0.75rem; }
-.ct-market-source { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0; border: 0; background: transparent; color: var(--ct-text-muted); font: inherit; font-size: 0.75rem; cursor: pointer; }
-.ct-market-source:hover { color: var(--ct-accent); }
-.ct-market-summary { display: flex; align-items: center; gap: 1.125rem; padding: 1.375rem 1.5rem; border: 1px solid var(--ct-border-card); border-radius: 1.25rem; background: var(--ct-surface); }
-.ct-market-summary-icon { display: flex; align-items: center; justify-content: center; width: 3.25rem; height: 3.25rem; border-radius: 1rem; color: var(--ct-accent); background: var(--ct-accent-soft); flex-shrink: 0; }
-.ct-market-summary-copy { flex: 1; }
-.ct-market-summary-copy strong { color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; letter-spacing: -0.01em; }
-.ct-market-summary-copy p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
-.ct-market-stat { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 4.5rem; padding-left: 1.25rem; border-left: 1px solid var(--ct-border); }
-.ct-market-stat strong { color: var(--ct-text); font-size: 1.625rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; line-height: 1.2; }
-.ct-market-stat span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
-.ct-market-toolbar { display: flex; align-items: center; gap: 0.625rem; margin: 1.75rem 0; }
+.ct-market-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1.5rem; }
+.ct-market-tools { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; white-space: nowrap; }
 .ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
 .ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
 .ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }
@@ -27,7 +15,7 @@
 .ct-plugin-search input { box-sizing: border-box; width: 100%; height: 2.375rem; padding: 0 0.75rem 0 2rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text); font: inherit; font-size: 0.8125rem; }
 .ct-plugin-search input::placeholder { color: var(--ct-text-subtle); }
 .ct-plugin-search input:focus { outline: none; border-color: var(--ct-accent); box-shadow: 0 0 0 0.1875rem var(--ct-accent-soft); }
-.ct-market-search { width: 15rem; margin-left: auto; }
+.ct-market-search { width: clamp(10rem, 22vw, 15rem); flex: 1 1 auto; min-width: 0; }
 .ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text-muted); cursor: pointer; }
 .ct-plugin-icon-btn:hover:not(:disabled) { background: var(--ct-surface-2); color: var(--ct-text); }
 .ct-plugin-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -54,11 +42,6 @@
 .ct-market-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; grid-column: 1 / -1; min-height: 15rem; gap: 0.625rem; padding: 2rem 1rem; color: var(--ct-text-subtle); text-align: center; }
 .ct-market-empty h3 { margin: 0.25rem 0 0; color: var(--ct-text-muted); font-size: 0.9375rem; font-weight: 600; }
 .ct-market-empty p { margin: 0; font-size: 0.8125rem; line-height: 1.6; }
-.ct-market-storage { display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 0.125rem 0; margin-top: 1.75rem; border-top: 1px solid var(--ct-border); color: var(--ct-text-subtle); }
-.ct-market-storage > div { flex: 1; min-width: 0; }
-.ct-market-storage strong { display: block; margin-bottom: 0.3125rem; color: var(--ct-text-muted); font-size: 0.6875rem; font-weight: 550; }
-.ct-market-storage code { display: block; font-size: 0.625rem; line-height: 1.6; overflow-wrap: anywhere; user-select: text; }
-.ct-market-storage > button { display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0; padding: 0.5rem 0; border: 0; background: transparent; color: var(--ct-accent); font: inherit; font-size: 0.6875rem; cursor: pointer; }
 .ct-market-error { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; margin: 0 0 1rem; border: 1px solid var(--ct-border); border-radius: 0.75rem; background: var(--ct-surface); color: var(--ct-error); font-size: 0.8125rem; }
 .ct-market-error > svg { flex-shrink: 0; margin-top: 0.125rem; }
 .ct-market-error > div { flex: 1; min-width: 0; }
@@ -66,7 +49,7 @@
 .ct-market-error p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
 
 /* Page-local details let legacy Vue menus teleport without a modal focus trap. */
-.ct-market-detail-dialog { max-width: 52rem; padding: 2rem 1.5rem !important; }
+.ct-market-detail-dialog { max-width: 52rem; }
 .ct-market-dialog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .ct-market-dialog-top .ct-plugin-icon-btn { border: 0; background: var(--ct-surface-2); border-radius: 50%; width: 1.875rem; height: 1.875rem; }
 .ct-market-detail-identity { display: flex; align-items: center; gap: 1rem; }
@@ -137,27 +120,16 @@
 .ct-plugin-bg-btn.is-danger:hover { color: var(--ct-error-strong); }
 .ct-plugin-note { max-width: 32rem; margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--ct-text-muted); }
 
-@media (max-width: 62rem) {
-  .ct-market { padding: 1.75rem 1.5rem; }
-  .ct-market-summary-copy { max-width: 25rem; }
-  .ct-market-stat { min-width: 3rem; padding-left: 1rem; }
+@media (max-width: 44rem) {
+  .ct-market { padding: 1.25rem 1.125rem 2rem; }
 }
 @media (max-width: 48rem) {
-  .ct-market { padding: 1.5rem 1.25rem; }
-  .ct-market-header { align-items: flex-start; gap: 1rem; }
-  .ct-market-header-actions { gap: 0.375rem; }
-  .ct-market-source span { display: none; }
-  .ct-market-header h1 { font-size: 1.75rem; }
-  .ct-market-summary { flex-wrap: wrap; padding: 1.125rem; gap: 0.875rem; }
-  .ct-market-summary-copy { flex-basis: calc(100% - 4.5rem); }
-  .ct-market-stat { align-items: flex-start; flex: 1; padding: 0.5rem 0 0; border: 0; }
-  .ct-market-stat strong { font-size: 1.375rem; }
-  .ct-market-toolbar { flex-wrap: wrap; margin: 1.25rem 0; }
+  .ct-market-toolbar { flex-wrap: wrap; }
   .ct-market-tabs { flex: 1; }
   .ct-market-tabs button { flex: 1; }
-  .ct-market-search { order: 3; width: 100%; }
+  .ct-market-tools { width: 100%; }
+  .ct-market-search { width: auto; }
   .ct-market-section-head { flex-direction: column; gap: 0.375rem; }
-  .ct-market-detail-dialog { padding: 1.125rem !important; }
   .ct-plugin-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
   .ct-plugin-row-control.is-slider { flex: 1 1 auto; width: 100%; }
   .ct-market-installation dl > div { flex-direction: column; gap: 0.25rem; }
@@ -170,6 +142,6 @@
   .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
-  .ct-market-card, .ct-market-summary, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
+  .ct-market-card, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
   .ct-market-card-status, .ct-market-eyebrow, .ct-market-section-head > span { color: var(--ct-text-muted); }
 }

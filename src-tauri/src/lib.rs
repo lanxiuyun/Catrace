@@ -1317,7 +1317,6 @@ pub fn run() {
             notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
             plugins::list_plugin_catalog,
-            plugins::install_external_plugin,
             plugin_repository::list_repository_plugins,
             plugin_repository::install_repository_plugin,
             plugins::uninstall_external_plugin,

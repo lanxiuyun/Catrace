@@ -524,7 +524,7 @@ export default {
     loading: 'Loading plugins…',
     retry: 'Retry',
     noPlugins: 'No plugins available yet',
-    retryHint: 'Refresh the repository or import a local package from the more menu.',
+    retryHint: 'Refresh the repository and try again.',
     searchHint: 'Try another name, description, or plugin ID.',
     clearSearch: 'Clear search',
     localFailed: 'Cannot read installed plugins',

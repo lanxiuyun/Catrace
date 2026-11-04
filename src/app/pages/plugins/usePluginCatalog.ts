@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import {
-  getPluginsDir, installExternalPlugin, installRepositoryPlugin, listPluginCatalog,
-  listRepositoryPlugins, pickPluginFolder, pickPluginZip, setExternalPluginEnabled,
+  installRepositoryPlugin, listPluginCatalog, listRepositoryPlugins, setExternalPluginEnabled,
   uninstallExternalPlugin, type PluginCatalogEntry, type RepositoryPluginCatalog,
 } from '../../../api/tauri'
 import { useT } from '../../i18n'
@@ -12,7 +11,6 @@ export function usePluginCatalog() {
   const t = useT()
   const [installed, setInstalled] = useState<PluginCatalogEntry[]>([])
   const [repository, setRepository] = useState<RepositoryPluginCatalog | null>(null)
-  const [pluginsDir, setPluginsDir] = useState('')
   const [loadingLocal, setLoadingLocal] = useState(true)
   const [loadingRemote, setLoadingRemote] = useState(true)
   const [localError, setLocalError] = useState('')
@@ -27,10 +25,9 @@ export function usePluginCatalog() {
     setLoadingLocal(true)
     setLocalError('')
     try {
-      const [entries, dir] = await Promise.all([listPluginCatalog(), getPluginsDir()])
+      const entries = await listPluginCatalog()
       if (!mounted.current || request !== localRequest.current) return
       setInstalled(entries)
-      setPluginsDir(dir)
     } catch (error) {
       if (mounted.current && request === localRequest.current) setLocalError(String(error))
     } finally {
@@ -93,13 +90,6 @@ export function usePluginCatalog() {
     showToast(t('pluginMarket.installedMessage', { name: result.name }))
   })
 
-  const importLocal = (kind: 'folder' | 'zip') => run('local-import', async () => {
-    const path = kind === 'folder' ? await pickPluginFolder() : await pickPluginZip()
-    if (!path) return
-    const result = await installExternalPlugin(path, false)
-    showToast(t('pluginMarket.installedMessage', { name: result.name }))
-  })
-
   const toggle = (id: string, value: boolean) => run(id, async () => {
     await setExternalPluginEnabled(id, value)
     showToast(t(value ? 'pluginMarket.enabledMessage' : 'pluginMarket.disabledMessage'))
@@ -111,7 +101,7 @@ export function usePluginCatalog() {
   })
 
   return {
-    installed, repository, pluginsDir, loadingLocal, loadingRemote, localError, remoteError,
-    busyId, refreshLocal, refreshRemote, install, importLocal, toggle, uninstall,
+    installed, repository, loadingLocal, loadingRemote, localError, remoteError,
+    busyId, refreshLocal, refreshRemote, install, toggle, uninstall,
   }
 }

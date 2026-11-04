@@ -523,7 +523,7 @@ export default {
     loading: '正在读取插件…',
     retry: '重试',
     noPlugins: '暂时没有可用插件',
-    retryHint: '刷新仓库，或从更多菜单安装本地插件包。',
+    retryHint: '请刷新仓库后重试。',
     searchHint: '试试其他名称、描述或插件 ID。',
     clearSearch: '清除搜索',
     localFailed: '无法读取已安装插件',

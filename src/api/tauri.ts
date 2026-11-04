@@ -1,5 +1,4 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 import { Update, type DownloadEvent } from '@tauri-apps/plugin-updater'
 
 export interface AppConfig {
@@ -541,31 +540,6 @@ export function sidecarNeedsNode(sidecar: unknown): boolean {
   const cmd =
     (sidecar as { command?: string } | null | undefined)?.command ?? ''
   return /^node(\.exe)?$/i.test(String(cmd).trim())
-}
-
-/** Install a local plugin folder or zip into app plugins dir. Does not enable. */
-export async function installExternalPlugin(
-  sourcePath: string,
-  overwrite = false,
-): Promise<PluginInstallResult> {
-  return invoke('install_external_plugin', { sourcePath, overwrite })
-}
-
-export async function pickPluginZip(): Promise<string | null> {
-  const selected = await open({
-    multiple: false,
-    directory: false,
-    filters: [{ name: 'Plugin zip', extensions: ['zip'] }],
-  })
-  return typeof selected === 'string' && selected ? selected : null
-}
-
-export async function pickPluginFolder(): Promise<string | null> {
-  const selected = await open({
-    multiple: false,
-    directory: true,
-  })
-  return typeof selected === 'string' && selected ? selected : null
 }
 
 export async function setExternalPluginEnabled(
