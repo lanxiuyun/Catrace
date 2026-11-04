@@ -1,5 +1,5 @@
 /**
- * 调试页的展示格式化：分钟、时钟、鼠标位移、鼠标槽。
+ * 调试页的展示格式化：分钟、鼠标位移、鼠标槽。
  * 只做「把后端字段变成人能读的一行字」，不参与业务判断。
  */
 
@@ -8,12 +8,6 @@ export function formatMinute(ts: number): string {
   const date = new Date(ts * 1000)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-/** 工具条上的「更新于 HH:MM:SS」 */
-export function formatClock(date: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 /** 鼠标总位移：>=1000px 折成 k，保留 1 位小数；NaN 显示占位符 */

@@ -6,7 +6,7 @@
  * 宽面板一旦加上卡片投影，软影会填满 1rem 的卡间距，看上去像底下又垫了一层。
  *
  * 页面不显示页名（侧栏已高亮「调试」），h1 只给读屏。
- * 顶部工具条是粘性半透明材质，页面滚动时内容从它下面穿过。 */
+ * 不设页头：唯一的页面级开关「Toast 调试背景」挂在实时状态面板标题右侧。 */
 
 /* ---------- 页面骨架 ---------- */
 
@@ -21,73 +21,25 @@
   width: 100%;
   max-width: 76rem;
   margin: 0 auto;
-  padding: 1.25rem 1.75rem 3rem;
+  padding: 1.5rem 1.75rem 3rem;
 }
 
-/* ---------- 顶部工具条（粘性） ---------- */
+/* ---------- 「Toast 调试背景」胶囊（实时状态面板标题右侧） ---------- */
 
-.ct-debug-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: color-mix(in srgb, var(--ct-bg) 82%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 0.0625rem solid var(--ct-border);
-}
-
-.ct-debug-toolbar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: 0.6875rem 1.75rem;
-}
-
-.ct-debug-live {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  min-width: 0;
-  font-size: 0.75rem;
-  color: var(--ct-text-muted);
-}
-
-.ct-debug-live-time {
-  color: var(--ct-text);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.ct-debug-live-error {
-  color: var(--ct-error-strong);
-  font-weight: 600;
-}
-
-.ct-debug-live-cadence::before {
-  content: '·';
-  margin-right: 0.5rem;
-  color: var(--ct-text-subtle);
-}
-
-.ct-debug-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-/* 「Toast 调试背景」胶囊：和概览页的隐藏统计同一颗 */
+/* 挂在实时状态面板标题右侧：页面里唯一的开关，不单独占一条页头 */
 .ct-debug-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+  gap: 0.4375rem;
+  padding: 0.1875rem 0.1875rem 0.1875rem 0.5625rem;
   border-radius: 999px;
   background: rgba(120, 120, 128, 0.1);
   transition: background-color 0.16s ease;
+}
+
+/* 面板头是 baseline 对齐，胶囊按垂直居中放，别跟着 18px 标题的基线跑 */
+.ct-debug-panel-meta .ct-debug-toggle {
+  align-self: center;
 }
 
 .ct-debug-toggle:hover {
@@ -106,17 +58,6 @@
   font-size: 0.75rem;
   color: var(--ct-text-muted);
   white-space: nowrap;
-}
-
-/* 只有手动刷新才转图标；自动轮询每 2 秒转一次会变成干扰 */
-.ct-debug-spin {
-  animation: ct-debug-spin 0.9s linear infinite;
-}
-
-@keyframes ct-debug-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ---------- 面板 ---------- */
@@ -476,10 +417,6 @@
     padding: 1rem 1.125rem 2.5rem;
   }
 
-  .ct-debug-toolbar-inner {
-    padding: 0.625rem 1.125rem;
-  }
-
   .ct-debug-status {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -498,23 +435,7 @@
 /* ---------- 无障碍降级 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .ct-debug-spin {
-    animation: none;
-  }
-
   .ct-debug-toggle {
     transition: none;
-  }
-
-  .ct-debug-toggle:hover {
-    background: rgba(120, 120, 128, 0.1);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .ct-debug-toolbar {
-    background: var(--ct-bg);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }

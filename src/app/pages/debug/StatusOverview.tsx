@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { MediaDebugInfo, SignalRuntimeConfig } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { DebugPanel } from './DebugPanel'
@@ -8,13 +9,16 @@ import { formatDistance, formatMinute, toNumber } from './format'
  *
  * 判定口径与后端一致：本分钟键鼠 ≥ 3 次或媒体在播放 → 预计活跃。
  * 状态色沿用概览页：蓝=活跃、绿=休息（不要在调试页另起一套配色）。
+ * action 是面板标题右侧的控件位：页面级开关（Toast 调试背景）挂在这里。
  */
 export function StatusOverview({
   data,
   runtime,
+  action,
 }: {
   data: MediaDebugInfo | null
   runtime: SignalRuntimeConfig | null
+  action?: ReactNode
 }) {
   const t = useT()
 
@@ -32,7 +36,7 @@ export function StatusOverview({
     : '—'
 
   return (
-    <DebugPanel title={t('debug.status.title')}>
+    <DebugPanel title={t('debug.status.title')} meta={action}>
       <div className="ct-debug-status">
         <div className="ct-debug-stat is-emphasis">
           <span className="ct-debug-stat-label">{t('debug.status.current')}</span>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Callout, Switch } from '@radix-ui/themes'
-import { RefreshCw, TriangleAlert } from 'lucide-react'
+import { Callout, Switch } from '@radix-ui/themes'
+import { TriangleAlert } from 'lucide-react'
 import {
   getMediaDebugInfo,
   getRecentSignalMinutes,
@@ -18,7 +18,6 @@ import { AudioPanel } from './debug/AudioPanel'
 import { EventSdkCard } from './debug/EventSdkCard'
 import { SignalPanel } from './debug/SignalPanel'
 import { StatusOverview } from './debug/StatusOverview'
-import { formatClock } from './debug/format'
 import './debug.css'
 
 const POLL_INTERVAL_MS = 2000
@@ -27,9 +26,10 @@ const SIGNAL_MINUTE_LIMIT = 12
 /**
  * 调试页（React 版）。
  *
- * 阅读顺序：实时状态（一行四格）→ Signal 分钟桶（主数据表）→ 音频会话 + Event SDK。
+ * 阅读顺序：实时状态（一行四格）→ Signal 分钟桶（主数据表）→ 音频会话 → Event SDK。
  *
- * 顶部工具条是粘性的半透明材质：滚到表格中间也能刷新、也能开关 Toast 调试背景。
+ * 不设页头：调试图里没有值得占一条工具条的操作。唯一的页面级开关「Toast 调试背景」
+ * 挂在实时状态面板的标题右侧；刷新信息（每 2 秒自动）写在 Signal 面板的说明里。
  * 页面不显示页名（侧栏已高亮「调试」），h1 只留给读屏。
  */
 export function Debug() {
@@ -38,9 +38,7 @@ export function Debug() {
   const [data, setData] = useState<MediaDebugInfo | null>(null)
   const [signalMinutes, setSignalMinutes] = useState<SignalMinuteRecord[]>([])
   const [signalRuntime, setSignalRuntime] = useState<SignalRuntimeConfig | null>(null)
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [manualLoading, setManualLoading] = useState(false)
   const [toastDebug, setToastDebug] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -53,7 +51,6 @@ export function Debug() {
       setData(media)
       setSignalMinutes(minutes)
       setSignalRuntime(runtime)
-      setUpdatedAt(formatClock())
       setErrorMsg(null)
     } catch (error) {
       console.error(error)
@@ -88,15 +85,6 @@ export function Debug() {
     }
   }, [loadData])
 
-  const refresh = async () => {
-    setManualLoading(true)
-    try {
-      await loadData()
-    } finally {
-      setManualLoading(false)
-    }
-  }
-
   const toggleToastDebug = async (value: boolean) => {
     try {
       await setToastDebugMode(value)
@@ -106,51 +94,22 @@ export function Debug() {
     }
   }
 
+  // 页面级唯一的开关：挂在实时状态面板标题右侧，不再单独占一条页头
+  const toastDebugToggle = (
+    <div className="ct-debug-toggle">
+      <span className="ct-debug-toggle-label">{t('debug.toastDebugMode')}</span>
+      <Switch
+        size="1"
+        checked={toastDebug}
+        aria-label={t('debug.toastDebugMode')}
+        onCheckedChange={(value) => void toggleToastDebug(value)}
+      />
+    </div>
+  )
+
   return (
     <PageScroll>
       <RadixPage className="ct-debug-page">
-        <div className="ct-debug-toolbar">
-          <div className="ct-debug-toolbar-inner">
-            <div className="ct-debug-live">
-              {errorMsg ? (
-                <span className="ct-debug-live-error">{t('debug.fetchFailed')}</span>
-              ) : (
-                <span className="ct-debug-live-time">
-                  {updatedAt ? t('debug.updatedAt', { time: updatedAt }) : '—'}
-                </span>
-              )}
-              <span className="ct-debug-live-cadence">{t('debug.autoRefresh')}</span>
-            </div>
-
-            <div className="ct-debug-actions">
-              <div className="ct-debug-toggle">
-                <span className="ct-debug-toggle-label">{t('debug.toastDebugMode')}</span>
-                <Switch
-                  size="1"
-                  checked={toastDebug}
-                  aria-label={t('debug.toastDebugMode')}
-                  onCheckedChange={(value) => void toggleToastDebug(value)}
-                />
-              </div>
-              <Button
-                size="1"
-                variant="soft"
-                color="gray"
-                disabled={manualLoading}
-                aria-busy={manualLoading}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw
-                  size={13}
-                  className={manualLoading ? 'ct-debug-spin' : undefined}
-                  aria-hidden="true"
-                />
-                {t('debug.refresh')}
-              </Button>
-            </div>
-          </div>
-        </div>
-
         <div className="ct-debug">
           <h1 className="ct-visually-hidden">{t('debug.title')}</h1>
 
@@ -163,7 +122,7 @@ export function Debug() {
             </Callout.Root>
           )}
 
-          <StatusOverview data={data} runtime={signalRuntime} />
+          <StatusOverview data={data} runtime={signalRuntime} action={toastDebugToggle} />
 
           <SignalPanel minutes={signalMinutes} runtime={signalRuntime} />
 

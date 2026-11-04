@@ -274,11 +274,7 @@ export default {
   },
   debug: {
     title: '媒体检测调试',
-    refresh: '刷新',
     toastDebugMode: 'Toast 调试背景',
-    autoRefresh: '每 2 秒自动刷新',
-    updatedAt: '更新于 {time}',
-    fetchFailed: '读取失败',
     openLogsDir: '日志目录',
     status: {
       title: '实时状态',
@@ -309,7 +305,7 @@ export default {
       seqOn: '有',
       seqOff: '无',
       empty: '运行满 1 分钟后，每分钟落一条分钟桶',
-      hint: 'timestamp 为分钟结束时间；键序列原始内容不在此展示。',
+      hint: '每 2 秒自动刷新；timestamp 为分钟结束时间，键序列原始内容不在此展示。',
     },
     audio: {
       title: '音频会话',

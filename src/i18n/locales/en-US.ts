@@ -274,11 +274,7 @@ export default {
   },
   debug: {
     title: 'Media Detection Debug',
-    refresh: 'Refresh',
     toastDebugMode: 'Toast debug background',
-    autoRefresh: 'Refreshes every 2 s',
-    updatedAt: 'Updated {time}',
-    fetchFailed: 'Refresh failed',
     openLogsDir: 'Logs Folder',
     status: {
       title: 'Live Status',
@@ -309,7 +305,7 @@ export default {
       seqOn: 'yes',
       seqOff: 'no',
       empty: 'One bucket per active minute, after the first full minute',
-      hint: 'timestamp is minute end; raw key sequences are not shown.',
+      hint: 'Refreshes every 2s; timestamp is minute end, raw key sequences are not shown.',
     },
     audio: {
       title: 'Audio Sessions',
