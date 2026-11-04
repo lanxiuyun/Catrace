@@ -67,6 +67,9 @@ pub struct ExternalPluginInfo {
     pub name: String,
     pub version: String,
     pub description: String,
+    /// Host-recorded origin, never supplied by the plugin manifest.
+    pub source_repository: Option<String>,
+    pub source_commit: Option<String>,
     pub main: Option<String>,
     pub background: Option<String>,
     pub settings: Option<String>,
@@ -179,6 +182,8 @@ fn scan_disk(app: &AppHandle) -> Result<Vec<CachedPlugin>, String> {
                         name: id,
                         version: String::new(),
                         description: String::new(),
+                        source_repository: None,
+                        source_commit: None,
                         main: None,
                         background: None,
                         settings: None,
@@ -627,6 +632,7 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
     let content_mtime_ms =
         file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
     let content_hash = plugin_content_hash(dir);
+    let source_origin = crate::plugin_repository::read_installed_source(dir);
 
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
@@ -634,6 +640,8 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             name: m.name,
             version: m.version,
             description: m.description,
+            source_repository: source_origin.as_ref().map(|s| s.repository.clone()),
+            source_commit: source_origin.map(|s| s.commit),
             main: m.main,
             background: m.background,
             settings: m.settings,
@@ -1226,6 +1234,7 @@ pub(crate) fn install_from_source(
     source: &Path,
     overwrite: bool,
     expected_id: Option<&str>,
+    source_origin: &crate::plugin_repository::InstalledPluginSource,
 ) -> Result<PluginInstallResult, String> {
     let _mutation = PLUGIN_MUTATION.lock().map_err(|e| e.to_string())?;
     if source.as_os_str().is_empty() {
@@ -1275,6 +1284,7 @@ pub(crate) fn install_from_source(
         fs::create_dir_all(validation_dir.parent().unwrap()).map_err(|e| e.to_string())?;
         fs::rename(&package_root, &validation_dir)
             .map_err(|e| format!("stage package validation: {e}"))?;
+        crate::plugin_repository::write_installed_source(&validation_dir, source_origin)?;
         load_one(app, &validation_dir)?;
         let package_root = validation_dir;
 
@@ -1743,6 +1753,8 @@ mod install_safety_tests {
                 name: "Demo".into(),
                 version: "1".into(),
                 description: String::new(),
+                source_repository: None,
+                source_commit: None,
                 main: Some("ui.mjs".into()),
                 background: Some("background.mjs".into()),
                 settings: Some("settings.mjs".into()),

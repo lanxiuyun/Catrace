@@ -11,6 +11,7 @@ import { RadixPage } from '../../components/RadixPage'
 import { showToast } from '../../ui/toast'
 import { ExternalPluginSettings } from './ExternalPluginSettings'
 import { usePluginCatalog } from './usePluginCatalog'
+import { PluginSourceSettings } from './PluginSourceSettings'
 
 type PluginItem = {
   id: string
@@ -63,7 +64,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   useEffect(() => {
     if (selectedId) detailHeading.current?.focus()
   }, [selectedId])
-  const busy = data.busyId !== null || restBusy
+  const busy = data.busyId !== null || restBusy || data.sourceBusy
   const installedById = new Map(data.installed.map((entry) => [entry.info.id, entry]))
   const availableById = new Map(data.repository?.plugins.map((entry) => [entry.id, entry]) ?? [])
   const builtin: PluginItem = {
@@ -95,6 +96,8 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const openDirectory = () => void openPluginsDir().catch(reportError)
   const isInstalled = (item: PluginItem) => item.builtin || !!item.installed
   const isEnabled = (item: PluginItem) => item.builtin ? restEnabled : !!item.installed?.info.enabled
+  const hasOtherSource = (item: PluginItem) => !!item.available && !!item.installed?.info.sourceRepository
+    && item.installed.info.sourceRepository !== data.source
   const icon = (item: PluginItem) => item.builtin ? <Armchair aria-hidden="true" /> : item.installed?.iconDataUrl
     ? <img src={item.installed.iconDataUrl} alt="" /> : <Plug aria-hidden="true" />
   const installButton = (item: PluginItem) => (
@@ -115,6 +118,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </div>
             <div className="ct-market-tools">
               <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
+              <PluginSourceSettings source={data.source} saving={data.sourceBusy} disabled={busy} onChange={data.changeSource} />
               <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" onClick={openDirectory}>
                 <FolderOpen size={15} aria-hidden="true" />
                 <span>{t('plugins.external.openDir')}</span>
@@ -126,7 +130,10 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
           {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshLocal()} disabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
           {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
 
-          <div className="ct-market-section-head"><h2>{t(tab === 'discover' ? 'pluginMarket.fromRepository' : 'pluginMarket.onThisDevice')}</h2></div>
+          <div className="ct-market-section-head">
+            <h2>{t(tab === 'discover' ? 'pluginMarket.fromRepository' : 'pluginMarket.onThisDevice')}</h2>
+            {tab === 'discover' && <span dir="ltr">{data.source}</span>}
+          </div>
           <section className="ct-market-grid" aria-label={t(tab === 'discover' ? 'pluginMarket.discover' : 'pluginMarket.myPlugins')} aria-busy={tab === 'discover' ? data.loadingRemote : data.loadingLocal}>
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
@@ -139,9 +146,9 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   <p>{item.description || t('plugins.external.noDescription')}</p>
                 </button>
                 <div className="ct-market-card-footer">
-                  <span className={`ct-market-card-status${isEnabled(item) ? ' is-enabled' : ''}${item.installed?.info.error ? ' is-error' : ''}`}>
+                  <span className={`ct-market-card-status${isEnabled(item) && !hasOtherSource(item) ? ' is-enabled' : ''}${item.installed?.info.error ? ' is-error' : ''}`}>
                     {item.installed?.info.error ? <CircleAlert size={12} aria-hidden="true" /> : isInstalled(item) ? <Check size={12} aria-hidden="true" /> : <Github size={12} aria-hidden="true" />}
-                    {item.installed?.info.error ? t('pluginMarket.needsAttention') : t(isEnabled(item) ? 'pluginMarket.enabled' : isInstalled(item) ? 'pluginMarket.notEnabled' : 'pluginMarket.repositoryPlugin')}
+                    {item.installed?.info.error ? t('pluginMarket.needsAttention') : hasOtherSource(item) ? t('pluginMarket.sourceOtherInstalled') : t(isEnabled(item) ? 'pluginMarket.enabled' : isInstalled(item) ? 'pluginMarket.notEnabled' : 'pluginMarket.repositoryPlugin')}
                   </span>
                   {isInstalled(item) ? <Button size="2" variant="soft" color="gray" onClick={(event) => openDetails(item.id, event.currentTarget)}>{t('pluginMarket.manage')}</Button> : installButton(item)}
                 </div>
@@ -162,7 +169,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                 {selected.builtin ? children : selected.installed ? <>
                   <div className="ct-market-trust-note"><ShieldCheck size={17} aria-hidden="true" /><p>{t('pluginMarket.trustNote')}</p></div>
                   {selectedEnabled && !selectedError && <ExternalPluginSettings id={selected.id} hasSettings={selected.installed.info.hasSettings} contentMtimeMs={selected.installed.info.contentMtimeMs} />}
-                  <section className="ct-plugin-group ct-market-installation"><h3 className="ct-plugin-group-title">{t('pluginMarket.installation')}</h3><dl><div><dt>{t('pluginMarket.identifier')}</dt><dd>{selected.id}</dd></div><div><dt>{t('plugins.external.dir')}</dt><dd><code>{selected.installed.info.dir}</code></dd></div></dl><div className="ct-market-remove-row"><p>{t('pluginMarket.uninstallHint')}</p><Button variant="soft" color="red" disabled={busy} onClick={(event) => { alertOpener.current = event.currentTarget; setRemoveId(selected.id) }}><Trash2 size={14} aria-hidden="true" />{t('pluginMarket.uninstall')}</Button></div></section>
+                  <section className="ct-plugin-group ct-market-installation"><h3 className="ct-plugin-group-title">{t('pluginMarket.installation')}</h3><dl><div><dt>{t('pluginMarket.identifier')}</dt><dd>{selected.id}</dd></div><div><dt>{t('pluginMarket.source')}</dt><dd>{selected.installed.info.sourceRepository ?? t('pluginMarket.sourceUnknown')}</dd></div>{selected.installed.info.sourceCommit && <div><dt>{t('pluginMarket.sourceCommit')}</dt><dd><code>{selected.installed.info.sourceCommit}</code></dd></div>}<div><dt>{t('plugins.external.dir')}</dt><dd><code>{selected.installed.info.dir}</code></dd></div></dl><div className="ct-market-remove-row"><p>{t('pluginMarket.uninstallHint')}</p><Button variant="soft" color="red" disabled={busy} onClick={(event) => { alertOpener.current = event.currentTarget; setRemoveId(selected.id) }}><Trash2 size={14} aria-hidden="true" />{t('pluginMarket.uninstall')}</Button></div></section>
                 </> : <div className="ct-market-trust-note"><ShieldCheck size={18} aria-hidden="true" /><p>{t('pluginMarket.trustNote')}</p></div>}
               </div>
             </>}

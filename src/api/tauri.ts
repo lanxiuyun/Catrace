@@ -450,6 +450,8 @@ export interface ExternalPluginInfo {
   enabled: boolean
   enabledByDefault: boolean
   dir: string
+  sourceRepository?: string | null
+  sourceCommit?: string | null
   hasUi: boolean
   hasBackground: boolean
   hasSettings: boolean
@@ -497,19 +499,24 @@ export interface RepositoryPluginInfo {
   hasSidecar: boolean
 }
 
+export const DEFAULT_PLUGIN_REPOSITORY = 'lanxiuyun/catrace-plugin'
+
 export interface RepositoryPluginCatalog {
+  repository: string
   commit: string
   plugins: RepositoryPluginInfo[]
 }
 
-/** Read available plugins from the fixed official repository. */
-export async function listRepositoryPlugins(): Promise<RepositoryPluginCatalog> {
-  return invoke('list_repository_plugins')
+/** Validate a public GitHub repository and read plugins at its default-branch HEAD. */
+export async function listRepositoryPlugins(repository = DEFAULT_PLUGIN_REPOSITORY): Promise<RepositoryPluginCatalog> {
+  return invoke('list_repository_plugins', { repository })
 }
 
-/** Download the selected repository snapshot into AppData; never auto-enable. */
-export async function installRepositoryPlugin(id: string, commit: string): Promise<PluginInstallResult> {
-  return invoke('install_repository_plugin', { id, commit })
+/** Pin both source and commit, even if the selected source changes later. */
+export async function installRepositoryPlugin(
+  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY,
+): Promise<PluginInstallResult> {
+  return invoke('install_repository_plugin', { id, commit, repository })
 }
 
 /** Stop the plugin, remove its installation, and retain its saved configuration. */
