@@ -10,17 +10,17 @@
 
 | 路径 | 角色 |
 |------|------|
-| `tools/plugin-demo/timer/manifest.json` | id=`timer`，settings/background/ui |
-| `tools/plugin-demo/timer/settings.mjs` | 规则列表 UI；经注入 `plugin` facade 调 config/events/setEnabled |
-| `tools/plugin-demo/timer/background.mjs` | 调度、休息重置、action 副作用；经 `plugin` facade |
-| `tools/plugin-demo/timer/ui.mjs` | Toast 卡（纯 Vue render；颜色来自 payload） |
-| `tools/plugin-demo/timer/assets/notify.wav` | 默认提示音 |
+| `catrace-plugin/timer/manifest.json` | id=`timer`，settings/background/ui |
+| `catrace-plugin/timer/settings.mjs` | 规则列表 UI；经注入 `plugin` facade 调 config/events/setEnabled |
+| `catrace-plugin/timer/background.mjs` | 调度、休息重置、action 副作用；经 `plugin` facade |
+| `catrace-plugin/timer/ui.mjs` | Toast 卡（纯 Vue render；颜色来自 payload） |
+| `catrace-plugin/timer/assets/notify.wav` | 默认提示音 |
 | `src/plugins/pluginApi.ts` | Rubick 风格 `plugin` facade + `wrapPluginSource` |
 | `src/plugins/pluginRuntime.ts` | 宿主注入 Vue/naive/UI + `__CATRACE_CREATE_PLUGIN_API__` |
 | `src/plugins/loadExternalPlugins.ts` | Blob 加载 settings/ui，注入 `plugin` |
 | `src-tauri/src/plugin_api/` | 通用宿主 API（event / activity / audio / getPluginDir） |
 
-Debug 构建 junction：`tools/plugin-demo/timer` → `app_data/plugins/timer`。
+安装：插件中心从仓库装到 `app_data/plugins/timer`（不再自动 junction）。
 
 ## 子文档
 

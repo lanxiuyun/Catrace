@@ -48,7 +48,7 @@ Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe' OR Name='catrac
 
 **（1）插件后台窗还在 = 加载的是旧版插件（dev 环境最常见）**
 
-debug 构建把插件 junction 进 `app_data/plugins/`，源路径是**编译期**的 `CARGO_MANIFEST_DIR`。如果 junction 是别的工位建的、而那个工位的 `tools/plugin-demo` 停在旧提交，加载到的就是还带 `background` 字段的旧 manifest → 宿主照旧给每个插件建后台 WebView。
+（历史记录，该自动链接机制已于 2026-11 移除）debug 构建把插件 junction 进 `app_data/plugins/`，源路径是**编译期**的 `CARGO_MANIFEST_DIR`。如果 junction 是别的工位建的、而那个工位的 `tools/plugin-demo` 停在旧提交，加载到的就是还带 `background` 字段的旧 manifest → 宿主照旧给每个插件建后台 WebView。
 
 证据看日志：`loaded github-notify v0.1.1` + `started background window for github-notify`（新版是 0.2.0 且无 background）。2026-09-29 已修（是链接就重指向当前工位），但**修复要重编该工位的 exe 才生效**；老 junction 也可以手动删掉让它重建。
 

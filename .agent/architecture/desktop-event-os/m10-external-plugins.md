@@ -171,30 +171,12 @@ M10.2 可选：iframe sandbox、invoke ACL。
 
 ## Demo
 
-见 [`tools/plugin-demo/README.md`](../../../tools/plugin-demo/README.md)。
+示例插件源码在独立仓库 `catrace-plugin`（github.com/lanxiuyun/catrace-plugin），插件中心可直接安装。
 
 
-## Dev 自动 link（debug only）
+## 安装来源（取代旧 Dev 自动 link，2026-11）
 
-开发时不必每次拷贝 demo 插件。`initial_scan` 在 **debug 构建**下会先跑 `ensure_dev_plugin_links`：
-
-| 项 | 说明 |
-|----|------|
-| 源 | 仓库 `tools/plugin-demo/<id>/`（须含 `manifest.json`） |
-| 目标 | `app_data/plugins/<id>` |
-| Windows | `mklink /J` junction（无管理员）；失败再尝试 symlink |
-| Unix | symlink |
-| 已正确指向源 | 跳过 |
-| 目标已是实目录/其他链接 | **不覆盖** |
-| release | 整段编译剔除 |
-
-实现：`src-tauri/src/plugins.rs`。
-
-手测可改为：debug 启动 → Plugins 刷新 → 见 demo-timer → 启用。仍可用手动 junction：
-
-```bat
-mklink /J "%APPDATA%\com.lanxiuyun.catrace\plugins\demo-timer" "C:\work_sapce\Catrace\tools\plugin-demo\demo-timer"
-```
+旧机制「debug 构建把 `tools/plugin-demo/<id>` junction/symlink 到 `app_data/plugins/<id>`」已移除，宿主也不再挂插件 submodule。现在安装统一走插件中心：从仓库固定 commit 下载到 AppData，安装后默认停用，由用户确认信任再启用。本机若还留有旧 junction，卸载只断开链接，不删源码。
 
 ## 相关
 

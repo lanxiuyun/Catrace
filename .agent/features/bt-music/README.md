@@ -10,13 +10,13 @@
 
 | 路径 | 角色 |
 |------|------|
-| `tools/plugin-demo/bt-music/manifest.json` | id=`bt-music`，sidecar `node runtime/main.mjs` |
-| `tools/plugin-demo/bt-music/runtime/main.mjs` | 事件监听、动作、启动/暂停/关闭、图标提取、JSONL |
-| `tools/plugin-demo/bt-music/settings.mjs` | 听歌程序 + 连接/断开动作（驻留内嵌） |
-| `tools/plugin-demo/bt-music/ui.mjs` | 紧凑 Toast：图标 +「设备名 已连接」+ 启动/关闭 + 进度条 |
-| `tools/plugin-demo/README.md` | demo 索引与手测 |
+| `catrace-plugin/bt-music/manifest.json` | id=`bt-music`，sidecar `node runtime/main.mjs` |
+| `catrace-plugin/bt-music/runtime/main.mjs` | 事件监听、动作、启动/暂停/关闭、图标提取、JSONL |
+| `catrace-plugin/bt-music/settings.mjs` | 听歌程序 + 连接/断开动作（驻留内嵌） |
+| `catrace-plugin/bt-music/ui.mjs` | 紧凑 Toast：图标 +「设备名 已连接」+ 启动/关闭 + 进度条 |
+| `catrace-plugin/README.md` | demo 索引与手测 |
 
-Debug junction：`tools/plugin-demo/bt-music` → `app_data/plugins/bt-music`。
+安装：插件中心从仓库装到 `app_data/plugins/bt-music`（不再自动 junction）。
 
 ## 子文档
 

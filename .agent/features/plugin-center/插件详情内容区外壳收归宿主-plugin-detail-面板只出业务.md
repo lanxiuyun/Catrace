@@ -48,7 +48,7 @@ padding: 1.5rem 2rem 2rem;
 | 卡片/列表**内部**间距 | 在 settings 根上再写与宿主同值的 `@media` padding（窄屏双倍缩进） |
 | 暴露 `headerEnabled` / `toggleEnabled` 给顶栏（内置） | 在面板内再画总开关顶栏 |
 
-外部示例：`tools/plugin-demo/timer/settings.mjs` 根节点只保留业务样式，注释标明边距归宿主。开发约定全文见 [[desktop-event-os]] [m10-external-plugins.md](../../architecture/desktop-event-os/m10-external-plugins.md)「settings.mjs 布局合同」。
+外部示例：`catrace-plugin/timer/settings.mjs` 根节点只保留业务样式，注释标明边距归宿主。开发约定全文见 [[desktop-event-os]] [m10-external-plugins.md](../../architecture/desktop-event-os/m10-external-plugins.md)「settings.mjs 布局合同」。
 
 ### 反例（已修）
 

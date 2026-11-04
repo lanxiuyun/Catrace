@@ -11,15 +11,15 @@
 
 | 路径 | 角色 |
 |------|------|
-| `tools/plugin-demo/timer/manifest.json` | 外部插件 id=`timer` |
-| `tools/plugin-demo/timer/background.mjs` | 分钟对齐调度；`reset_on_rest` + `plugin_get_last_real_rest` |
-| `tools/plugin-demo/timer/settings.mjs` | 规则 CRUD；护眼预设；卡片停留/常驻 |
-| `tools/plugin-demo/timer/ui.mjs` | Toast 卡 |
+| `catrace-plugin/timer/manifest.json` | 外部插件 id=`timer` |
+| `catrace-plugin/timer/background.mjs` | 分钟对齐调度；`reset_on_rest` + `plugin_get_last_real_rest` |
+| `catrace-plugin/timer/settings.mjs` | 规则 CRUD；护眼预设；卡片停留/常驻 |
+| `catrace-plugin/timer/ui.mjs` | Toast 卡 |
 | `src-tauri/src/plugin_commands.rs` | `plugin_get_last_real_rest`（阈值读久坐 `break_minutes`） |
 | `src-tauri/src/db.rs` | `get_last_real_rest_ts` |
 | `src/views/toastWindows/ReminderToast.vue` | 读 `payload.auto_hide_ms` / `event.sticky` 控制停留 |
 
-Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/timer`。详见 [[m10-external-plugins]] 与 `tools/plugin-demo/README.md`。
+安装：插件中心从仓库装到 `app_data/plugins/timer`（不再自动 junction）。详见 [[m10-external-plugins]] 与插件仓库 `README.md`。
 
 ## 规则配置（护眼预设）
 
@@ -84,4 +84,4 @@ Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/time
 - [[reminder]] — 久坐插件；提供 `break_minutes` 给真休息判定
 - [[water-reminder]] — 同类「间隔提醒」产品叙事（实现路径可能仍独立或收敛到 timer）
 - [[m10-external-plugins]] — 外部插件加载与 Card 合同
-- `tools/plugin-demo/README.md` — timer 插件总说明
+- `catrace-plugin/README.md` — timer 插件总说明

@@ -63,5 +63,5 @@ agent-notify 的状态卡和权限卡在 sidecar 发布时传 `toastStyle: 'stan
 ## 涉及文件
 
 - `src/views/toastWindows/ReminderToast.vue` — 解析 `payload.toastStyle`，给当前 Toast card 添加 standalone class 或 inline style。
-- `tools/plugin-demo/agent-notify/runtime/main.mjs` — agent-notify 发布状态/权限卡时传 `toastStyle: 'standalone'`。
-- `tools/plugin-demo/agent-notify/ui.mjs` — standalone 模式下绘制插件自己的卡片外壳。
+- `catrace-plugin/agent-notify/runtime/main.mjs` — agent-notify 发布状态/权限卡时传 `toastStyle: 'standalone'`。
+- `catrace-plugin/agent-notify/ui.mjs` — standalone 模式下绘制插件自己的卡片外壳。

@@ -59,4 +59,4 @@
 - Debug 不再自动把源码 junction 到 AppData；Release 不再捆绑 / 自动灌入仓库插件，防止卸载后下次启动又出现。
 - 已有单插件 junction 可以安全卸载，只移除链接，不递归删除源码目标。若插件根目录本身是 junction，安装 / 卸载会明确拒绝，要求先由用户处理根链接。
 - 未保存过启用状态的旧目录也默认停用，不再信任 `enabledByDefault` 自动执行；显式保存过的用户选择继续保留。
-- 插件开发仍在 `tools/plugin-demo` 子仓库维护；插件中心正常使用不依赖此 submodule、Git 或宿主源码。
+- 插件开发在独立仓库 `catrace-plugin` 维护（宿主不再挂 submodule，需要时单独 clone）；插件中心正常使用不依赖 Git 命令或宿主源码目录。
