@@ -54,6 +54,41 @@ impl PluginWindowManager {
         Ok(())
     }
 
+    /// Targeted lifecycle updates do not restart unrelated plugin windows.
+    pub fn sync_plugin(
+        &self,
+        app: &tauri::AppHandle,
+        plugins: &PluginManager,
+        id: &str,
+    ) -> Result<(), String> {
+        let _guard = self.sync_lock.lock().map_err(|e| e.to_string())?;
+        let desired = plugins
+            .background_plugins()?
+            .into_iter()
+            .find(|spec| spec.id == id);
+        match desired {
+            Some(spec) => {
+                let current = self
+                    .running
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .get(id)
+                    .cloned();
+                if current.as_ref() != Some(&spec.fingerprint) {
+                    self.stop(app, id)?;
+                    self.start(app, &spec)?;
+                }
+                Ok(())
+            }
+            None => self.stop(app, id),
+        }
+    }
+
+    pub fn stop_plugin(&self, app: &tauri::AppHandle, id: &str) -> Result<(), String> {
+        let _guard = self.sync_lock.lock().map_err(|e| e.to_string())?;
+        self.stop(app, id)
+    }
+
     fn start(
         &self,
         app: &tauri::AppHandle,

@@ -1,592 +1,175 @@
-/* 插件中心（React）：左插件列表 + 右详情。
- * 视觉基准：D:\Users\che\Downloads\catrace.html（macOS 风格 Tailwind 稿）。
- * 列表栏 16rem / 详情内容 48rem / 卡片 1rem 内边距；整页滚动。 */
+/* Plugin center: quiet App Store-style discovery, local management, and settings sheets. */
+.ct-plugins-page { min-height: 100%; }
+.ct-market { width: 100%; max-width: 76rem; margin: 0 auto; padding: 2.5rem 2.25rem 2rem; box-sizing: border-box; }
+.ct-market-header { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+.ct-market-eyebrow { color: var(--ct-text-subtle); font-size: 0.625rem; font-weight: 650; letter-spacing: 0.12em; }
+.ct-market-header h1 { margin: 0.375rem 0 0.625rem; color: var(--ct-text); font-size: 2rem; font-weight: 730; letter-spacing: -0.04em; line-height: 1.15; }
+.ct-market-header p { margin: 0; color: var(--ct-text-muted); font-size: 0.875rem; line-height: 1.6; }
+.ct-market-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+.ct-market-source { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0; border: 0; background: transparent; color: var(--ct-text-muted); font: inherit; font-size: 0.75rem; cursor: pointer; }
+.ct-market-source:hover { color: var(--ct-accent); }
+.ct-market-summary { display: flex; align-items: center; gap: 1.125rem; padding: 1.375rem 1.5rem; border: 1px solid var(--ct-border-card); border-radius: 1.25rem; background: var(--ct-surface); }
+.ct-market-summary-icon { display: flex; align-items: center; justify-content: center; width: 3.25rem; height: 3.25rem; border-radius: 1rem; color: var(--ct-accent); background: var(--ct-accent-soft); flex-shrink: 0; }
+.ct-market-summary-copy { flex: 1; }
+.ct-market-summary-copy strong { color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; letter-spacing: -0.01em; }
+.ct-market-summary-copy p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
+.ct-market-stat { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 4.5rem; padding-left: 1.25rem; border-left: 1px solid var(--ct-border); }
+.ct-market-stat strong { color: var(--ct-text); font-size: 1.625rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; line-height: 1.2; }
+.ct-market-stat span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-toolbar { display: flex; align-items: center; gap: 0.625rem; margin: 1.75rem 0; }
+.ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
+.ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
+.ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }
+.ct-market-tabs button span { padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: var(--ct-surface-2); font-size: 0.625rem; font-variant-numeric: tabular-nums; }
+.ct-plugin-search { position: relative; display: flex; align-items: center; }
+.ct-plugin-search svg { position: absolute; left: 0.6875rem; color: var(--ct-text-subtle); pointer-events: none; }
+.ct-plugin-search:focus-within svg { color: var(--ct-accent); }
+.ct-plugin-search input { box-sizing: border-box; width: 100%; height: 2.375rem; padding: 0 0.75rem 0 2rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text); font: inherit; font-size: 0.8125rem; }
+.ct-plugin-search input::placeholder { color: var(--ct-text-subtle); }
+.ct-plugin-search input:focus { outline: none; border-color: var(--ct-accent); box-shadow: 0 0 0 0.1875rem var(--ct-accent-soft); }
+.ct-market-search { width: 15rem; margin-left: auto; }
+.ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text-muted); cursor: pointer; }
+.ct-plugin-icon-btn:hover:not(:disabled) { background: var(--ct-surface-2); color: var(--ct-text); }
+.ct-plugin-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ct-market-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 0 0 0.875rem; }
+.ct-market-section-head h2 { margin: 0; color: var(--ct-text); font-size: 1rem; font-weight: 650; letter-spacing: -0.015em; }
+.ct-market-section-head > span { color: var(--ct-text-subtle); font-size: 0.6875rem; text-align: right; }
+.ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
+.ct-market-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; }
+.ct-market-card:hover { border-color: var(--ct-border-strong); }
+.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ct-market-plugin-icon { display: flex; align-items: center; justify-content: center; width: 2.875rem; height: 2.875rem; flex-shrink: 0; border: 1px solid var(--ct-border); border-radius: 0.8125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); }
+.ct-market-plugin-icon > svg { width: 1.375rem; height: 1.375rem; }
+.ct-market-plugin-icon > img { width: 1.875rem; height: 1.875rem; object-fit: contain; }
+.ct-market-plugin-icon.is-builtin { border-color: transparent; background: var(--ct-accent-soft); color: var(--ct-accent); }
+.ct-market-card-copy h3 { margin: 0 0 0.3125rem; color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.ct-market-card-copy > span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-card-arrow { color: var(--ct-text-subtle); }
+.ct-market-card-main > p { display: -webkit-box; grid-column: 1 / -1; align-self: start; min-height: 2.8em; margin: 0.125rem 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; }
+.ct-market-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.875rem 1.25rem 1.125rem; }
+.ct-market-card-status { display: inline-flex; align-items: center; gap: 0.3125rem; color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-card-status.is-enabled { color: var(--ct-success); }
+.ct-market-card-status.is-error { color: var(--ct-error); }
+.ct-market-card-footer .rt-Button { min-width: 4.25rem; border-radius: 999rem; font-size: 0.75rem; }
+.ct-market-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; grid-column: 1 / -1; min-height: 15rem; gap: 0.625rem; padding: 2rem 1rem; color: var(--ct-text-subtle); text-align: center; }
+.ct-market-empty h3 { margin: 0.25rem 0 0; color: var(--ct-text-muted); font-size: 0.9375rem; font-weight: 600; }
+.ct-market-empty p { margin: 0; font-size: 0.8125rem; line-height: 1.6; }
+.ct-market-storage { display: flex; align-items: center; gap: 0.75rem; padding: 1.25rem 0.125rem 0; margin-top: 1.75rem; border-top: 1px solid var(--ct-border); color: var(--ct-text-subtle); }
+.ct-market-storage > div { flex: 1; min-width: 0; }
+.ct-market-storage strong { display: block; margin-bottom: 0.3125rem; color: var(--ct-text-muted); font-size: 0.6875rem; font-weight: 550; }
+.ct-market-storage code { display: block; font-size: 0.625rem; line-height: 1.6; overflow-wrap: anywhere; user-select: text; }
+.ct-market-storage > button { display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0; padding: 0.5rem 0; border: 0; background: transparent; color: var(--ct-accent); font: inherit; font-size: 0.6875rem; cursor: pointer; }
+.ct-market-error { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; margin: 0 0 1rem; border: 1px solid var(--ct-border); border-radius: 0.75rem; background: var(--ct-surface); color: var(--ct-error); font-size: 0.8125rem; }
+.ct-market-error > svg { flex-shrink: 0; margin-top: 0.125rem; }
+.ct-market-error > div { flex: 1; min-width: 0; }
+.ct-market-error strong { font-size: 0.8125rem; font-weight: 600; }
+.ct-market-error p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+
+/* Page-local details let legacy Vue menus teleport without a modal focus trap. */
+.ct-market-detail-dialog { max-width: 52rem; padding: 2rem 1.5rem !important; }
+.ct-market-dialog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.ct-market-dialog-top .ct-plugin-icon-btn { border: 0; background: var(--ct-surface-2); border-radius: 50%; width: 1.875rem; height: 1.875rem; }
+.ct-market-detail-identity { display: flex; align-items: center; gap: 1rem; }
+.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; }
+.ct-market-plugin-icon.is-large > svg { width: 1.75rem; height: 1.75rem; }
+.ct-market-plugin-icon.is-large > img { width: 2.5rem; height: 2.5rem; }
+.ct-market-detail-identity h2 { margin: 0 0 0.4375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; }
+.ct-market-detail-identity h2:focus { outline: none; }
+.ct-plugin-tag { display: inline-block; padding: 0.125rem 0.4375rem; border-radius: 0.3125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
+.ct-market-detail-description { margin: 1rem 0 1.25rem !important; font-size: 0.8125rem !important; line-height: 1.7 !important; color: var(--ct-text-muted); }
+.ct-market-enable-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1rem 1.125rem; margin-bottom: 1.25rem; border: 1px solid var(--ct-border-card); border-radius: 0.875rem; background: var(--ct-surface-2); }
+.ct-market-enable-row strong { font-size: 0.8125rem; font-weight: 600; color: var(--ct-text); }
+.ct-market-enable-row p { margin: 0.3125rem 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--ct-text-muted); }
+.ct-market-enable-row .rt-Button { flex-shrink: 0; }
+.ct-market-detail-body { display: flex; flex-direction: column; gap: 1rem; }
+.ct-market-trust-note { display: flex; align-items: flex-start; gap: 0.625rem; color: var(--ct-text-subtle); }
+.ct-market-trust-note > svg { flex-shrink: 0; margin-top: 0.125rem; }
+.ct-market-trust-note p { margin: 0; color: var(--ct-text-muted); font-size: 0.6875rem; line-height: 1.7; }
+.ct-market-installation { margin-top: 0.25rem; }
+.ct-market-installation dl { margin: 0.75rem 0 0; }
+.ct-market-installation dl > div { display: flex; gap: 1.25rem; padding: 0.5rem 0; font-size: 0.75rem; line-height: 1.6; }
+.ct-market-installation dt { flex: 0 0 5rem; color: var(--ct-text-muted); }
+.ct-market-installation dd { margin: 0; color: var(--ct-text); min-width: 0; overflow-wrap: anywhere; user-select: text; }
+.ct-market-installation code { font-size: 0.6875rem; }
+.ct-market-remove-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--ct-border); }
+.ct-market-remove-row p { margin: 0; color: var(--ct-text-muted); font-size: 0.6875rem; line-height: 1.6; }
+.ct-market-remove-row .rt-Button { flex-shrink: 0; }
+.ct-market-confirm-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.ct-market-settings-status { display: flex; align-items: center; gap: 0.625rem; padding: 1rem; color: var(--ct-text-muted); font-size: 0.8125rem; }
+.ct-market-settings-status p { flex: 1; margin: 0; }
+.ct-market-external-settings { min-width: 0; width: 100%; }
+.ct-market-spin { animation: ct-market-spin 1s linear infinite; }
+@keyframes ct-market-spin { to { transform: rotate(360deg); } }
+.ct-market button:focus-visible, .ct-market-detail-dialog button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
+.ct-market button:active:not(:disabled), .ct-market-detail-dialog button:active:not(:disabled) { filter: brightness(0.96); }
+
+/* Native React reminder settings, shared with the detail sheet. */
+.ct-plugin-groups { display: flex; flex-direction: column; gap: 1rem; }
+.ct-plugin-group { padding: 1.125rem 1.25rem 1rem; background: var(--ct-surface); border: 1px solid var(--ct-border-card); border-radius: 1.125rem; }
+.ct-plugin-group-title { margin: 0 0 0.375rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ct-text-muted); }
+.ct-plugin-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; padding: 0.75rem 0; }
+.ct-plugin-row:first-of-type { padding-top: 0; }
+.ct-plugin-row + .ct-plugin-row { border-top: 1px solid var(--ct-border); }
+.ct-plugin-row.is-stack { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+.ct-plugin-row-copy { display: flex; flex-direction: column; gap: 0.1875rem; flex: 1 1 auto; min-width: 0; }
+.ct-plugin-row-title { font-size: 0.875rem; font-weight: 600; color: var(--ct-text); }
+.ct-plugin-row-desc { font-size: 0.75rem; line-height: 1.5; color: var(--ct-text-muted); }
+.ct-plugin-row-control { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex: 0 0 auto; min-width: 0; }
+.ct-plugin-row.is-stack .ct-plugin-row-control { width: 100%; justify-content: flex-start; }
+.ct-plugin-row-control.is-slider { flex: 0 1 20rem; }
+.ct-plugin-row-control.is-slider .rt-SliderRoot { flex: 1 1 auto; min-width: 0; }
+.ct-plugin-row-control .rt-TextFieldRoot, .ct-plugin-row-control .rt-TextArea { width: 100%; }
+.ct-plugin-select { min-width: 8rem; }
+.ct-plugin-value { flex-shrink: 0; min-width: 4rem; padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--ct-surface-2); text-align: right; font-family: var(--ct-font-mono); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ct-text); white-space: nowrap; }
+.ct-plugins-page .rt-SliderRoot, .ct-market-detail-dialog .rt-SliderRoot { --slider-track-size: 0.25rem; --slider-thumb-size: 0.9375rem; }
+.ct-plugins-page .rt-SliderTrack, .ct-plugins-page .rt-SliderRange, .ct-market-detail-dialog .rt-SliderTrack, .ct-market-detail-dialog .rt-SliderRange { background-color: var(--ct-surface-2); }
+.ct-plugins-page .rt-SliderThumb, .ct-market-detail-dialog .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
+[data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-market-detail-dialog .rt-SliderThumb { background-color: #e5e5ea; }
+.ct-plugin-bg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; width: 100%; min-height: 5rem; padding: 0.75rem; border: 1px dashed var(--ct-border-strong); border-radius: 0.75rem; background: var(--ct-bg); color: var(--ct-text-muted); font-size: 0.75rem; text-align: center; cursor: pointer; }
+.ct-plugin-bg-empty:hover { border-color: var(--ct-accent-border); color: var(--ct-text); }
+.ct-plugin-bg-empty:focus-within { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.125rem; }
+.ct-plugin-bg-preview { position: relative; width: 100%; height: 5rem; border: 1px solid var(--ct-border); border-radius: 0.75rem; overflow: hidden; }
+.ct-plugin-bg-preview img { width: 100%; height: 100%; object-fit: cover; }
+.ct-plugin-bg-actions { position: absolute; right: 0.5rem; bottom: 0.5rem; display: flex; gap: 0.375rem; }
+.ct-plugin-bg-btn { padding: 0.1875rem 0.5rem; border: none; border-radius: 0.5rem; background: color-mix(in srgb, var(--ct-surface) 88%, transparent); backdrop-filter: blur(8px); color: var(--ct-text-muted); font-size: 0.6875rem; cursor: pointer; }
+.ct-plugin-bg-btn:hover { color: var(--ct-text); }
+.ct-plugin-bg-btn.is-danger { color: var(--ct-error); }
+.ct-plugin-bg-btn.is-danger:hover { color: var(--ct-error-strong); }
+.ct-plugin-note { max-width: 32rem; margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--ct-text-muted); }
 
-/* 用 .radix-themes 前缀提高优先级：Radix 的主题变量定义在 .radix-themes 上，
- * 单靠 .ct-plugins-page 会和它平级、取决于打包顺序。
- * Radix 默认控件 14px，会把 13px 的标签压过去，这里压到 13/12px。 */
-.radix-themes.ct-plugins-page {
-  --default-font-size: 0.875rem;
-  --font-size-1: 0.75rem;
-  --font-size-2: 0.8125rem;
-  --font-size-3: 0.875rem;
-}
-
-.ct-plugins {
-  display: flex;
-  align-items: flex-start;
-  min-height: 100%;
-  background: var(--ct-bg);
-}
-
-/* ---------- 左侧插件列表 ---------- */
-/* 应用没有顶栏（见 shell/shell.css），滚动容器高度等于视口，所以 100vh 恰好
- * 让列表栏铺满；sticky 后整列跟着页面滚动不会露出空白。 */
-.ct-plugin-list {
-  position: sticky;
-  top: 0;
-  width: 16rem;
-  flex-shrink: 0;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--ct-surface);
-  border-right: 0.0625rem solid var(--ct-border);
-}
-
-/* 搜索栏 + 图标按钮（重新扫描 / 安装） */
-.ct-plugin-search {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.625rem;
-  border-bottom: 0.0625rem solid var(--ct-border);
-}
-
-.ct-plugin-search-field {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.ct-plugin-search-field svg {
-  position: absolute;
-  left: 0.625rem;
-  color: var(--ct-text-subtle);
-  pointer-events: none;
-}
-
-.ct-plugin-search-field input {
-  width: 100%;
-  height: 1.75rem;
-  padding: 0 0.625rem 0 1.875rem;
-  border: 0.0625rem solid var(--ct-border);
-  border-radius: 0.375rem;
-  background: var(--ct-bg);
-  color: var(--ct-text);
-  font: inherit;
-  font-size: 0.75rem;
-}
-
-.ct-plugin-search-field input::placeholder {
-  color: var(--ct-text-subtle);
-}
-
-.ct-plugin-search-field input:focus {
-  outline: none;
-  border-color: var(--ct-accent);
-}
-
-.ct-plugin-icon-btn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: none;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--ct-text-muted);
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.ct-plugin-icon-btn:hover {
-  background: var(--ct-bg);
-  color: var(--ct-text);
-}
-
-.ct-plugin-icon-btn.is-accent {
-  color: var(--ct-accent);
-}
-
-.ct-plugin-icon-btn.is-accent:hover {
-  background: var(--ct-accent-soft);
-}
-
-.ct-plugin-rows {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0.375rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.ct-plugin-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  width: 100%;
-  padding: 0.625rem;
-  border: 0.0625rem solid transparent;
-  border-radius: 0.5rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.ct-plugin-row:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-[data-theme='dark'] .ct-plugin-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.ct-plugin-row.is-selected {
-  background: var(--ct-accent-soft);
-  border-color: var(--ct-accent-border);
-}
-
-/* 选中行左侧的强调色竖条 */
-.ct-plugin-row.is-selected::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.5rem;
-  bottom: 0.5rem;
-  width: 0.25rem;
-  border-radius: 0 999px 999px 0;
-  background: var(--ct-accent);
-}
-
-.ct-plugin-icon {
-  width: 1.75rem;
-  height: 1.75rem;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  background: var(--ct-surface-2);
-  color: var(--ct-accent);
-}
-
-/* 选中行的图标块用实心蓝底（有自定义图标的插件保留原图，不刷底色）。 */
-.ct-plugin-row.is-selected .ct-plugin-icon:not(.has-image) {
-  background: var(--ct-accent);
-  color: var(--ct-on-accent);
-}
-
-.ct-plugin-icon img {
-  width: 1rem;
-  height: 1rem;
-  object-fit: contain;
-}
-
-.ct-plugin-row-copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.ct-plugin-row-copy strong {
-  overflow: hidden;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ct-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ct-plugin-row.is-selected .ct-plugin-row-copy strong {
-  color: var(--ct-accent);
-}
-
-.ct-plugin-row-desc {
-  overflow: hidden;
-  font-size: 0.625rem;
-  line-height: 1.3;
-  color: var(--ct-text-subtle);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ct-plugin-dot {
-  flex-shrink: 0;
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 50%;
-  background: var(--ct-success);
-}
-
-.ct-plugin-empty {
-  margin: 0.5rem 0.25rem;
-  font-size: 0.75rem;
-  color: var(--ct-text-subtle);
-}
-
-/* ---------- 右侧详情 ---------- */
-.ct-plugin-detail {
-  flex: 1;
-  min-width: 0;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 插件页头：半透明横条，整页滚动时吸顶。 */
-.ct-plugin-identity {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.875rem;
-  padding: 1rem 1.5rem;
-  background: color-mix(in srgb, var(--ct-surface) 82%, transparent);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-bottom: 0.0625rem solid var(--ct-border);
-}
-
-.ct-plugin-hero {
-  width: 2.5rem;
-  height: 2.5rem;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.75rem;
-  background: var(--ct-accent);
-  color: var(--ct-on-accent);
-  box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.12);
-}
-
-.ct-plugin-identity-copy {
-  flex: 1;
-  min-width: 12rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.ct-plugin-title-line {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ct-plugin-identity-copy h2 {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--ct-text);
-}
-
-.ct-plugin-identity-copy p {
-  margin: 0;
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: var(--ct-text-subtle);
-}
-
-.ct-plugin-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.ct-plugin-hint {
-  min-width: 5.5rem;
-  text-align: right;
-  font-size: 0.75rem;
-  color: var(--ct-text-subtle);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.ct-plugin-hint.is-visible {
-  opacity: 1;
-}
-
-.ct-plugin-hint.is-error {
-  color: var(--ct-error);
-}
-
-.ct-plugin-state {
-  font-size: 0.75rem;
-  color: var(--ct-text-subtle);
-  white-space: nowrap;
-}
-
-/* 内容区：macOS inset grouped 的浅灰底。 */
-.ct-plugin-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--ct-content-bg);
-}
-
-.ct-plugin-content {
-  width: 100%;
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* ---------- 卡片 ---------- */
-.ct-plugin-card {
-  padding: 1rem;
-  border: 0.0625rem solid var(--ct-border);
-  border-radius: 0.75rem;
-  background: var(--ct-surface);
-  box-shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.04);
-}
-
-.ct-plugin-card-title {
-  margin: 0 0 1rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ct-text-subtle);
-}
-
-/* ---------- 设置行：左标签 + 右控件 ---------- */
-.ct-plugin-setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.ct-plugin-setting + .ct-plugin-setting {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 0.0625rem solid var(--ct-border);
-}
-
-.ct-plugin-setting.is-top {
-  align-items: flex-start;
-}
-
-/* 输入框/文本域：标签在上、控件在下、占满卡片宽度。 */
-.ct-plugin-setting.is-stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.375rem;
-}
-
-.ct-plugin-setting-copy {
-  width: 40%;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.ct-plugin-setting.is-stack .ct-plugin-setting-copy {
-  width: auto;
-}
-
-.ct-plugin-setting-copy strong {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ct-text);
-}
-
-.ct-plugin-setting-copy span {
-  font-size: 0.625rem;
-  line-height: 1.4;
-  color: var(--ct-text-subtle);
-}
-
-.ct-plugin-setting-control {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.ct-plugin-setting.is-stack .ct-plugin-setting-control {
-  width: 100%;
-}
-
-.ct-plugin-setting-control.is-select {
-  flex: 0 1 auto;
-}
-
-.ct-plugin-setting-control.is-field .rt-TextFieldRoot,
-.ct-plugin-setting-control.is-field .rt-TextArea {
-  width: 100%;
-}
-
-.ct-plugin-setting-control.is-media {
-  flex: 0 0 12rem;
-}
-
-.ct-plugin-slider {
-  flex: 1;
-  min-width: 0;
-}
-
-/* macOS 原生滑杆：灰轨道 + 白色圆钮，不做蓝色填充。 */
-.ct-plugins-page .rt-SliderRoot {
-  --slider-track-size: 0.25rem;
-  --slider-thumb-size: 0.9375rem;
-}
-
-.ct-plugins-page .rt-SliderTrack,
-.ct-plugins-page .rt-SliderRange {
-  background-color: #e5e5ea;
-}
-
-[data-theme='dark'] .ct-plugins-page .rt-SliderTrack,
-[data-theme='dark'] .ct-plugins-page .rt-SliderRange {
-  background-color: #3a3a3c;
-}
-
-.ct-plugins-page .rt-SliderThumb {
-  background-color: #fff;
-  box-shadow:
-    0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.2),
-    0 0.03125rem 0.0625rem rgba(0, 0, 0, 0.1);
-}
-
-[data-theme='dark'] .ct-plugins-page .rt-SliderThumb {
-  background-color: #e5e5ea;
-}
-
-.ct-plugin-value {
-  flex-shrink: 0;
-  min-width: 4rem;
-  padding: 0.125rem 0.5rem;
-  border: 0.0625rem solid var(--ct-border);
-  border-radius: 0.25rem;
-  background: rgba(0, 0, 0, 0.04);
-  text-align: right;
-  font-family: var(--ct-font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ct-text);
-  white-space: nowrap;
-}
-
-[data-theme='dark'] .ct-plugin-value {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-/* ---------- 底栏 ---------- */
-.ct-plugin-footer {
-  margin-top: auto;
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  background: color-mix(in srgb, var(--ct-surface) 72%, transparent);
-  border-top: 0.0625rem solid var(--ct-border);
-}
-
-/* ---------- 未迁移插件的占位 ---------- */
-.ct-plugin-unmigrated {
-  padding: 1.25rem;
-}
-
-.ct-plugin-unmigrated h2 {
-  margin: 0 0 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 650;
-  color: var(--ct-text);
-}
-
-.ct-plugin-unmigrated p {
-  max-width: 32rem;
-  margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.6;
-  color: var(--ct-text-subtle);
-}
-
-/* ---------- 全屏背景上传 ---------- */
-.ct-fs-bg-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 4.5rem;
-  padding: 0.5rem;
-  border: 0.125rem dashed var(--ct-border);
-  border-radius: 0.5rem;
-  background: var(--ct-bg);
-  font-size: 0.6875rem;
-  color: var(--ct-text-subtle);
-  text-align: center;
-  cursor: pointer;
-}
-
-.ct-fs-bg-preview {
-  position: relative;
-  width: 100%;
-  height: 4.5rem;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 0.0625rem solid var(--ct-border);
-}
-
-.ct-fs-bg-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.ct-fs-btn {
-  position: absolute;
-  bottom: 0.375rem;
-  right: 0.375rem;
-  padding: 0.125rem 0.375rem;
-  border: none;
-  border-radius: 0.375rem;
-  background: color-mix(in srgb, var(--ct-surface) 92%, transparent);
-  color: var(--ct-text-muted);
-  font-size: 0.6875rem;
-  cursor: pointer;
-}
-
-.ct-fs-btn.is-danger {
-  right: auto;
-  left: 0.375rem;
-  color: var(--ct-error);
-}
-
-/* ---------- 窄窗口 ---------- */
 @media (max-width: 62rem) {
-  .ct-plugin-list {
-    width: 13rem;
-  }
-
-  .ct-plugin-content {
-    padding: 1.25rem 1.25rem 0;
-  }
+  .ct-market { padding: 1.75rem 1.5rem; }
+  .ct-market-summary-copy { max-width: 25rem; }
+  .ct-market-stat { min-width: 3rem; padding-left: 1rem; }
 }
-
 @media (max-width: 48rem) {
-  .ct-plugin-setting {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  .ct-plugin-setting-copy {
-    width: auto;
-  }
+  .ct-market { padding: 1.5rem 1.25rem; }
+  .ct-market-header { align-items: flex-start; gap: 1rem; }
+  .ct-market-header-actions { gap: 0.375rem; }
+  .ct-market-source span { display: none; }
+  .ct-market-header h1 { font-size: 1.75rem; }
+  .ct-market-summary { flex-wrap: wrap; padding: 1.125rem; gap: 0.875rem; }
+  .ct-market-summary-copy { flex-basis: calc(100% - 4.5rem); }
+  .ct-market-stat { align-items: flex-start; flex: 1; padding: 0.5rem 0 0; border: 0; }
+  .ct-market-stat strong { font-size: 1.375rem; }
+  .ct-market-toolbar { flex-wrap: wrap; margin: 1.25rem 0; }
+  .ct-market-tabs { flex: 1; }
+  .ct-market-tabs button { flex: 1; }
+  .ct-market-search { order: 3; width: 100%; }
+  .ct-market-section-head { flex-direction: column; gap: 0.375rem; }
+  .ct-market-detail-dialog { padding: 1.125rem !important; }
+  .ct-plugin-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .ct-plugin-row-control.is-slider { flex: 1 1 auto; width: 100%; }
+  .ct-market-installation dl > div { flex-direction: column; gap: 0.25rem; }
+  .ct-market-installation dt { flex: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-market-spin { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .ct-market-card, .ct-market-summary, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
+  .ct-market-card-status, .ct-market-eyebrow, .ct-market-section-head > span { color: var(--ct-text-muted); }
 }

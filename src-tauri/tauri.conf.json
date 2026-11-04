@@ -6,12 +6,12 @@
   "build": {
     "beforeDevCommand": {
       "cwd": "..",
-      "script": "node scripts/sync-plugins.mjs && pnpm dev"
+      "script": "pnpm dev"
     },
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": {
       "cwd": "..",
-      "script": "node scripts/sync-plugins.mjs && pnpm build"
+      "script": "pnpm build"
     },
     "frontendDist": "../dist"
   },
@@ -38,9 +38,6 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": ["nsis", "dmg", "app", "deb", "appimage"],
-    "resources": {
-      ".bundled-plugins/": "plugins"
-    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

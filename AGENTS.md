@@ -9,7 +9,7 @@ Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、
 已演进为 **Desktop Event OS**（事件协议 + Bus + Signal 行为感知 + 插件生态），**Step 2–4 已全部关账**。架构与里程碑：  
 [.agent/architecture/desktop-event-os/README.md](.agent/architecture/desktop-event-os/README.md)
 
-**插件生态**：外部插件已抽离到独立仓库 `catrace-plugin`（github.com/lanxiuyun/catrace-plugin），以 git submodule 挂在 `tools/plugin-demo/`（debug 自动 junction 到 `app_data/plugins/`，release 由 `tauri.conf.json` 打包）。开发插件见该仓库根 `README.md` / `SKILL.md`。
+**插件生态**：外部插件已抽离到独立仓库 `catrace-plugin`（github.com/lanxiuyun/catrace-plugin），插件中心按固定 commit 下载安装到 `app_data/plugins/`（不再 debug junction、不再随 release 打包源码）。开发插件仍以 git submodule 挂在 `tools/plugin-demo/`，见该仓库根 `README.md` / `SKILL.md`。
 
 ## 关键规则
 

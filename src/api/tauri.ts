@@ -468,7 +468,7 @@ export async function listExternalPlugins(opts?: {
   })
 }
 
-/** 迁移期「插件中心」只读目录条目：清单 + 图标 data URL。 */
+/** 已安装插件目录条目：清单 + 本地图标 data URL。 */
 export interface PluginCatalogEntry {
   info: ExternalPluginInfo
   iconDataUrl?: string | null
@@ -485,6 +485,37 @@ export interface PluginInstallResult {
   version: string
   overwritten: boolean
   path: string
+}
+
+export interface RepositoryPluginInfo {
+  id: string
+  name: string
+  version: string
+  description: string
+  hasUi: boolean
+  hasBackground: boolean
+  hasSettings: boolean
+  hasSidecar: boolean
+}
+
+export interface RepositoryPluginCatalog {
+  commit: string
+  plugins: RepositoryPluginInfo[]
+}
+
+/** Read available plugins from the fixed official repository. */
+export async function listRepositoryPlugins(): Promise<RepositoryPluginCatalog> {
+  return invoke('list_repository_plugins')
+}
+
+/** Download the selected repository snapshot into AppData; never auto-enable. */
+export async function installRepositoryPlugin(id: string, commit: string): Promise<PluginInstallResult> {
+  return invoke('install_repository_plugin', { id, commit })
+}
+
+/** Stop the plugin, remove its installation, and retain its saved configuration. */
+export async function uninstallExternalPlugin(id: string): Promise<void> {
+  return invoke('uninstall_external_plugin', { id })
 }
 
 // ---------- Node runtime (plugin sidecars) ----------

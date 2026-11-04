@@ -1,14 +1,10 @@
 /**
- * React 迁移期的插件收口开关。
- *
- * 迁移策略见 .agent/architecture/react-migration/README.md：
- * 逐个把插件改写成 React，期间宿主只保留内置「久坐提醒」（rest），
- * 其余插件（外部插件、演示插件、sidecar、后台 WebView）全部停用。
- *
- * 恢复某个插件时，把它同时从本文件与 Rust `src-tauri/src/plugins.rs`
- * 的 `REST_ONLY_MIGRATION` 放出来；整轮迁移结束后删除这两处开关。
+ * React 迁移期的外部插件开关。
+ * 外部 legacy Vue 组件通过 VueIsland 兼容，不要求插件先迁移到 React。
+ * 此开关与 Rust `src-tauri/src/plugins.rs` 保持一致；启用仍由用户显式授权。
+ * 只恢复外部插件，内置插件仍由 registerBuiltins 单独限制为 rest。
  */
-export const REST_ONLY_MIGRATION = true
+export const REST_ONLY_MIGRATION = false
 
 /** 迁移期允许出现/运行的插件 id（宿主内置）。 */
 export const MIGRATION_ENABLED_PLUGIN_IDS = ['rest'] as const

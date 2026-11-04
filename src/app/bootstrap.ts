@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { watch } from 'vue'
 import { getLocale, logFrontend, setLocale } from '../api/tauri'
@@ -9,6 +10,7 @@ import { registerBuiltinPlugins } from '../plugins/registerBuiltins'
 import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
 import { ensurePluginLogConsole, installPluginConsoleForwarding } from '../plugins/pluginApi'
 import { useEventHub } from '../stores/eventHub'
+import { clearPluginHostCardCache } from '../components/pluginHostCardCache'
 import { REST_ONLY_MIGRATION } from '../config/pluginScope'
 import { pinia } from './legacy/vueRuntime'
 import { useShellStore } from './store'
@@ -98,6 +100,9 @@ export async function bootstrap(): Promise<void> {
     // 插件后台宿主窗：console 转发到宿主日志（带插件 id 前缀）。
     const pluginId = getCurrentWindow().label.replace(/^plugin-bg-/, '')
     installPluginConsoleForwarding(pluginId)
+    // Background plugins use scoped plugin APIs, not the host's settings store.
+    // PluginHost.vue initializes the module runtime when its island mounts.
+    return
   } else {
     patchConsole()
     ensurePluginLogConsole(nativeConsole)
@@ -109,14 +114,25 @@ export async function bootstrap(): Promise<void> {
     registerBuiltinPlugins()
   }
 
-  if (windowMode !== 'plugin-host') {
-    if (REST_ONLY_MIGRATION) {
-      console.info('[plugins] 迁移期收口：外部插件已全部停用，仅保留久坐提醒')
-    } else {
-      void loadExternalPlugins().catch((error) => {
-        console.warn('[plugins] loadExternalPlugins failed', error)
-      })
+  if (REST_ONLY_MIGRATION) {
+    console.info('[plugins] 迁移期收口：外部插件已全部停用，仅保留久坐提醒')
+  } else {
+    // Backend events follow persistence; only refresh frontend modules here.
+    const reload = () => {
+      void loadExternalPlugins({ force: true })
+        .then(() => clearPluginHostCardCache())
+        .catch((error) => console.warn('[plugins] reload failed', error))
     }
+    await Promise.all(
+      ['plugins-reloaded', 'plugin-enabled-changed'].map((eventName) =>
+        listen(eventName, reload).catch((error) => {
+          console.warn(`[plugins] listen ${eventName} failed`, error)
+        }),
+      ),
+    )
+    void loadExternalPlugins().catch((error) => {
+      console.warn('[plugins] loadExternalPlugins failed', error)
+    })
   }
 
   await initLocale()
