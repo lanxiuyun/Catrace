@@ -1,5 +1,5 @@
-//! GitHub plugin sources. User input only selects validated owner/repo path segments;
-//! every request still uses fixed HTTPS hosts and immutable commits.
+//! GitHub / Gitee plugin sources. User input only selects validated owner/repo path
+//! segments; every request still uses fixed HTTPS hosts and immutable commits.
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,66 +9,204 @@ use tauri::{AppHandle, Manager};
 use crate::plugins::{self, PluginInstallResult, PluginManager, PluginManifestFile};
 
 const DEFAULT_REPOSITORY: &str = "lanxiuyun/catrace-plugin";
+/// Third-party GitHub file proxy. Applied only to raw file and archive downloads,
+/// because the proxy forwards API requests with a shared, rate-limited GitHub token.
+const GITHUB_MIRROR_PREFIX: &str = "https://ghfast.top/";
 const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
+/// Per-file and total budget when a package is assembled from raw file downloads.
+const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_PACKAGE_FILES: usize = 5_000;
 const MAX_PLUGINS: usize = 128;
 const SOURCE_FILE: &str = ".catrace-source.json";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct GithubRepository {
-    slug: String,
-    name: String,
+/// A public repository host whose endpoints, file layout and archive naming are known.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Provider {
+    GitHub,
+    Gitee,
 }
 
-impl GithubRepository {
+impl Provider {
+    fn label(self) -> &'static str {
+        match self {
+            Self::GitHub => "GitHub",
+            Self::Gitee => "Gitee",
+        }
+    }
+
+    fn host(self) -> &'static str {
+        match self {
+            Self::GitHub => "github.com",
+            Self::Gitee => "gitee.com",
+        }
+    }
+}
+
+/// A validated public repository. The canonical form is `owner/repo` for GitHub and
+/// `https://gitee.com/owner/repo` for Gitee, so both round-trip through settings and
+/// `.catrace-source.json`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RepositorySource {
+    provider: Provider,
+    slug: String,
+    name: String,
+    /// Route GitHub file downloads through `GITHUB_MIRROR_PREFIX`. API calls stay direct.
+    mirror: bool,
+}
+
+impl RepositorySource {
     fn parse(input: Option<&str>) -> Result<Self, String> {
         let input = input.unwrap_or(DEFAULT_REPOSITORY).trim();
+        if input.len() > 512 {
+            return Err(Self::format_error());
+        }
         let lower = input.to_ascii_lowercase();
-        let path = lower.strip_prefix("https://github.com/").unwrap_or(&lower);
+        let (provider, path) = if let Some(path) = lower.strip_prefix("https://github.com/") {
+            (Provider::GitHub, path)
+        } else if let Some(path) = lower.strip_prefix("https://gitee.com/") {
+            (Provider::Gitee, path)
+        } else if let Some(path) = lower.strip_prefix("gitee.com/") {
+            // A Gitee host without the scheme is accepted as a hand-typed source.
+            (Provider::Gitee, path)
+        } else {
+            (Provider::GitHub, lower.as_str())
+        };
         // Do not URL-normalize: reject escaped slashes, dot segments, credentials,
         // query strings and alternate hosts rather than accepting a rewritten URL.
         let path = path.strip_suffix('/').unwrap_or(path);
         let path = path.strip_suffix(".git").unwrap_or(path);
         let parts: Vec<_> = path.split('/').collect();
-        if input.len() > 512 || parts.len() != 2 {
-            return Err("请输入 GitHub 公开仓库地址（https://github.com/owner/repo）或 owner/repo，不支持分支、子目录或其他主机。".into());
+        if parts.len() != 2 {
+            return Err(Self::format_error());
         }
         let (owner, name) = (parts[0], parts[1]);
-        let owner_valid = !owner.is_empty()
-            && owner.len() <= 39
-            && owner
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
-            && !owner.starts_with('-')
-            && !owner.ends_with('-')
-            && !owner.contains("--");
-        let name_valid = !name.is_empty()
-            && name.len() <= 100
-            && name != "."
-            && name != ".."
-            && name
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'));
-        if !owner_valid || !name_valid {
-            return Err(
-                "GitHub 仓库格式无效；仅支持 owner/repo 或 https://github.com/owner/repo。".into(),
-            );
+        let owner_valid = match provider {
+            Provider::GitHub => github_owner_valid(owner),
+            Provider::Gitee => gitee_owner_valid(owner),
+        };
+        if !owner_valid || !repository_name_valid(name) {
+            return Err(format!(
+                "{} 仓库格式无效；仅支持 owner/repo 或 https://{}/owner/repo。",
+                provider.label(),
+                provider.host()
+            ));
         }
         Ok(Self {
+            provider,
             slug: format!("{owner}/{name}"),
             name: name.to_string(),
+            mirror: false,
         })
     }
 
+    /// Enable the GitHub file mirror for GitHub sources; Gitee never needs it.
+    fn with_mirror(mut self, mirror: bool) -> Self {
+        self.mirror = mirror && self.provider == Provider::GitHub;
+        self
+    }
+
+    fn format_error() -> String {
+        "请输入公开仓库地址（https://github.com/owner/repo 或 https://gitee.com/owner/repo，也可只填 owner/repo 表示 GitHub），不支持分支、子目录或其他主机。".into()
+    }
+
+    fn canonical(&self) -> String {
+        match self.provider {
+            Provider::GitHub => self.slug.clone(),
+            Provider::Gitee => format!("https://gitee.com/{}", self.slug),
+        }
+    }
+
     fn api(&self) -> String {
-        format!("https://api.github.com/repos/{}", self.slug)
+        match self.provider {
+            Provider::GitHub => format!("https://api.github.com/repos/{}", self.slug),
+            Provider::Gitee => format!("https://gitee.com/api/v5/repos/{}", self.slug),
+        }
     }
+
+    fn commits_head(&self) -> String {
+        match self.provider {
+            Provider::GitHub => format!("{}/commits/HEAD", self.api()),
+            Provider::Gitee => format!("{}/commits?per_page=1", self.api()),
+        }
+    }
+
+    /// Raw file endpoint without the trailing `/{commit}` segment.
     fn raw(&self) -> String {
-        format!("https://raw.githubusercontent.com/{}", self.slug)
+        match self.provider {
+            Provider::GitHub if self.mirror => format!(
+                "{GITHUB_MIRROR_PREFIX}https://raw.githubusercontent.com/{}",
+                self.slug
+            ),
+            Provider::GitHub => format!("https://raw.githubusercontent.com/{}", self.slug),
+            Provider::Gitee => format!("https://gitee.com/{}/raw", self.slug),
+        }
     }
+
     fn archive(&self, commit: &str) -> String {
-        format!("https://codeload.github.com/{}/zip/{commit}", self.slug)
+        match self.provider {
+            Provider::GitHub if self.mirror => format!(
+                "{GITHUB_MIRROR_PREFIX}https://github.com/{}/archive/{commit}.zip",
+                self.slug
+            ),
+            Provider::GitHub => format!("https://codeload.github.com/{}/zip/{commit}", self.slug),
+            Provider::Gitee => {
+                format!(
+                    "https://gitee.com/{}/repository/archive/{commit}.zip",
+                    self.slug
+                )
+            }
+        }
     }
+}
+
+fn github_owner_valid(owner: &str) -> bool {
+    !owner.is_empty()
+        && owner.len() <= 39
+        && owner
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        && !owner.starts_with('-')
+        && !owner.ends_with('-')
+        && !owner.contains("--")
+}
+
+fn gitee_owner_valid(owner: &str) -> bool {
+    !owner.is_empty()
+        && owner.len() <= 39
+        && !owner.starts_with('-')
+        && !owner.ends_with('-')
+        && !owner.starts_with('_')
+        && !owner.ends_with('_')
+        && !owner.contains("--")
+        && owner
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
+fn repository_name_valid(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 100
+        && name != "."
+        && name != ".."
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
+/// Percent-encode repository paths for raw downloads. Segments stay readable but `#`,
+/// `?`, spaces and non-ASCII bytes cannot be mistaken for URL syntax.
+fn encode_path(path: &str) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                encoded.push(byte as char)
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -78,10 +216,10 @@ pub(crate) struct InstalledPluginSource {
 }
 
 impl InstalledPluginSource {
-    fn new(repository: &GithubRepository, commit: &str) -> Result<Self, String> {
+    fn new(repository: &RepositorySource, commit: &str) -> Result<Self, String> {
         validate_commit(commit)?;
         Ok(Self {
-            repository: repository.slug.clone(),
+            repository: repository.canonical(),
             commit: commit.to_ascii_lowercase(),
         })
     }
@@ -93,7 +231,7 @@ pub(crate) fn write_installed_source(
     dir: &Path,
     source: &InstalledPluginSource,
 ) -> Result<(), String> {
-    let repository = GithubRepository::parse(Some(&source.repository))?;
+    let repository = RepositorySource::parse(Some(&source.repository))?;
     let source = InstalledPluginSource::new(&repository, &source.commit)?;
     let path = dir.join(SOURCE_FILE);
     plugins::remove_path_all(&path)?;
@@ -110,7 +248,7 @@ pub(crate) fn read_installed_source(dir: &Path) -> Option<InstalledPluginSource>
         return None;
     }
     let source: InstalledPluginSource = serde_json::from_slice(&fs::read(path).ok()?).ok()?;
-    let repository = GithubRepository::parse(Some(&source.repository)).ok()?;
+    let repository = RepositorySource::parse(Some(&source.repository)).ok()?;
     InstalledPluginSource::new(&repository, &source.commit).ok()
 }
 
@@ -164,11 +302,35 @@ fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent("Catrace-Plugin-Center")
         .https_only(true)
-        .redirect(reqwest::redirect::Policy::none())
+        // GitHub serves files directly. Gitee answers raw/archive requests with a
+        // redirect to its signed CDN (raw.giteeusercontent.com) or blazearchive URL,
+        // so follow only fixed repository hosts instead of arbitrary redirect targets.
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() > 3 {
+                attempt.error("too many repository redirects")
+            } else if repository_redirect_allowed(attempt.url().host_str().unwrap_or_default()) {
+                attempt.follow()
+            } else {
+                attempt.error("repository redirect to a disallowed host")
+            }
+        }))
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| format!("create repository client: {e}"))
+}
+
+fn repository_redirect_allowed(host: &str) -> bool {
+    matches!(
+        host,
+        "github.com"
+            | "api.github.com"
+            | "raw.githubusercontent.com"
+            | "codeload.github.com"
+            | "gitee.com"
+            | "raw.giteeusercontent.com"
+            | "ghfast.top"
+    )
 }
 
 async fn fetch_bytes(client: &reqwest::Client, url: &str, limit: usize) -> Result<Vec<u8>, String> {
@@ -179,7 +341,7 @@ async fn fetch_bytes(client: &reqwest::Client, url: &str, limit: usize) -> Resul
         .map_err(|e| format!("repository request failed: {e}"))?;
     if !response.status().is_success() {
         return Err(format!(
-            "repository request returned HTTP {} (GitHub may be unavailable or rate-limited)",
+            "repository request returned HTTP {} (the source host may be unavailable or rate-limited)",
             response.status()
         ));
     }
@@ -232,9 +394,17 @@ fn manifest_ids(tree: Tree) -> Result<Vec<String>, String> {
 
 async fn repository_tree(
     client: &reqwest::Client,
-    repository: &GithubRepository,
+    repository: &RepositorySource,
     commit: &str,
 ) -> Result<Vec<String>, String> {
+    manifest_ids(fetch_repository_tree(client, repository, commit).await?)
+}
+
+async fn fetch_repository_tree(
+    client: &reqwest::Client,
+    repository: &RepositorySource,
+    commit: &str,
+) -> Result<Tree, String> {
     validate_commit(commit)?;
     let bytes = fetch_bytes(
         client,
@@ -242,14 +412,12 @@ async fn repository_tree(
         MAX_JSON_BYTES,
     )
     .await?;
-    let tree: Tree =
-        serde_json::from_slice(&bytes).map_err(|e| format!("invalid repository tree: {e}"))?;
-    manifest_ids(tree)
+    serde_json::from_slice(&bytes).map_err(|e| format!("invalid repository tree: {e}"))
 }
 
 async fn catalog_at(
     client: &reqwest::Client,
-    repository: &GithubRepository,
+    repository: &RepositorySource,
     commit: String,
 ) -> Result<RepositoryCatalog, String> {
     let ids = repository_tree(client, repository, &commit).await?;
@@ -281,7 +449,7 @@ async fn catalog_at(
     }
     entries.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(RepositoryCatalog {
-        repository: repository.slug.clone(),
+        repository: repository.canonical(),
         commit,
         plugins: entries,
     })
@@ -289,7 +457,7 @@ async fn catalog_at(
 
 async fn fetch_manifest(
     client: &reqwest::Client,
-    repository: &GithubRepository,
+    repository: &RepositorySource,
     commit: &str,
     id: &str,
 ) -> Result<PluginManifestFile, String> {
@@ -312,24 +480,45 @@ async fn fetch_manifest(
 pub async fn list_repository_plugins(
     window: tauri::WebviewWindow,
     repository: Option<String>,
+    mirror: Option<bool>,
 ) -> Result<RepositoryCatalog, String> {
     plugins::ensure_management_window(&window)?;
-    let repository = GithubRepository::parse(repository.as_deref())?;
+    let repository =
+        RepositorySource::parse(repository.as_deref())?.with_mirror(mirror.unwrap_or(false));
     current_catalog(&repository).await
 }
 
-async fn current_catalog(repository: &GithubRepository) -> Result<RepositoryCatalog, String> {
+async fn current_catalog(repository: &RepositorySource) -> Result<RepositoryCatalog, String> {
     let client = client()?;
-    let head: Commit = serde_json::from_slice(
-        &fetch_bytes(
-            &client,
-            &format!("{}/commits/HEAD", repository.api()),
-            MAX_JSON_BYTES,
-        )
-        .await?,
-    )
-    .map_err(|e| format!("invalid repository HEAD: {e}"))?;
-    catalog_at(&client, repository, head.sha.to_ascii_lowercase()).await
+    let commit = fetch_head_commit(&client, repository).await?;
+    catalog_at(&client, repository, commit).await
+}
+
+/// GitHub returns the HEAD commit as an object; Gitee returns the default branch's
+/// commits as an array. Both are pinned to a full 40-character SHA before any file
+/// is read, so catalogs and installs share the same immutable snapshot.
+async fn fetch_head_commit(
+    client: &reqwest::Client,
+    repository: &RepositorySource,
+) -> Result<String, String> {
+    let bytes = fetch_bytes(client, &repository.commits_head(), MAX_JSON_BYTES).await?;
+    let sha = match repository.provider {
+        Provider::GitHub => {
+            serde_json::from_slice::<Commit>(&bytes)
+                .map_err(|e| format!("invalid repository HEAD: {e}"))?
+                .sha
+        }
+        Provider::Gitee => {
+            serde_json::from_slice::<Vec<Commit>>(&bytes)
+                .map_err(|e| format!("invalid repository HEAD: {e}"))?
+                .into_iter()
+                .next()
+                .ok_or("repository has no commits")?
+                .sha
+        }
+    };
+    validate_commit(&sha)?;
+    Ok(sha.to_ascii_lowercase())
 }
 
 #[tauri::command]
@@ -339,9 +528,11 @@ pub async fn install_repository_plugin(
     id: String,
     commit: String,
     repository: Option<String>,
+    mirror: Option<bool>,
 ) -> Result<PluginInstallResult, String> {
     plugins::ensure_management_window(&window)?;
-    let repository = GithubRepository::parse(repository.as_deref())?;
+    let repository =
+        RepositorySource::parse(repository.as_deref())?.with_mirror(mirror.unwrap_or(false));
     plugins::validate_id(&id)?;
     let source = InstalledPluginSource::new(&repository, &commit)?;
     let commit = source.commit.clone();
@@ -357,46 +548,152 @@ pub async fn install_repository_plugin(
         return Err(format!("plugin not present in repository commit: {id}"));
     }
     fetch_manifest(&client, &repository, &commit, &id).await?;
-    let bytes = fetch_bytes(&client, &repository.archive(&commit), MAX_ARCHIVE_BYTES).await?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let root = plugins::mutation_root(&app)?;
-        let work = root.join(format!(".repository-{}", uuid::Uuid::new_v4()));
-        fs::create_dir(&work).map_err(|e| format!("create repository staging: {e}"))?;
-        let result = (|| {
-            let archive = work.join("repository.zip");
-            fs::write(&archive, bytes).map_err(|e| format!("save repository archive: {e}"))?;
-            let unpacked = work.join("unpacked");
-            fs::create_dir(&unpacked).map_err(|e| format!("create extraction staging: {e}"))?;
-            plugins::unpack_plugin_zip(&archive, &unpacked)?;
-            let package = repository_package(&unpacked, &repository, &commit, &id)?;
-            let mgr = app.state::<PluginManager>();
-            let windows = app.state::<crate::plugin_window::PluginWindowManager>();
-            let sidecars = app.state::<crate::plugin_sidecar::PluginSidecarManager>();
-            plugins::install_from_source(
-                &app,
-                &mgr,
-                &windows,
-                &sidecars,
-                &package,
-                false,
-                Some(&id),
-                &source,
-            )
-        })();
-        let cleanup = plugins::remove_path_all(&work);
-        match (result, cleanup) {
-            (Ok(value), Ok(())) => Ok(value),
-            (Err(error), Ok(())) => Err(error),
-            (Err(error), Err(cleanup)) => Err(format!(
-                "{error}; repository staging cleanup also failed: {cleanup}"
-            )),
-            (Ok(_), Err(error)) => Err(format!(
-                "plugin installed, but staging cleanup failed: {error}"
-            )),
+
+    // GitHub archives download as one zip. Gitee's archive endpoint can answer with an
+    // interactive "preparing download" page instead of the zip, so assemble the plugin
+    // from the validated tree through Gitee's raw CDN and reuse the same installer.
+    let work = root.join(format!(".repository-{}", uuid::Uuid::new_v4()));
+    let task_work = work.clone();
+    let result: Result<PluginInstallResult, String> = async move {
+        fs::create_dir(&task_work).map_err(|e| format!("create repository staging: {e}"))?;
+        match repository.provider {
+            Provider::GitHub => {
+                let bytes =
+                    fetch_bytes(&client, &repository.archive(&commit), MAX_ARCHIVE_BYTES).await?;
+                tauri::async_runtime::spawn_blocking(move || {
+                    let archive = task_work.join("repository.zip");
+                    fs::write(&archive, bytes)
+                        .map_err(|e| format!("save repository archive: {e}"))?;
+                    let unpacked = task_work.join("unpacked");
+                    fs::create_dir(&unpacked)
+                        .map_err(|e| format!("create extraction staging: {e}"))?;
+                    plugins::unpack_plugin_zip(&archive, &unpacked)?;
+                    let package = repository_package(&unpacked, &repository, &commit, &id)?;
+                    install_package(&app, &package, &id, &source)
+                })
+                .await
+                .map_err(|e| format!("repository install task failed: {e}"))?
+            }
+            Provider::Gitee => {
+                let package = task_work.join("package");
+                fs::create_dir(&package).map_err(|e| format!("create package staging: {e}"))?;
+                download_raw_package(&client, &repository, &commit, &id, &package).await?;
+                tauri::async_runtime::spawn_blocking(move || {
+                    install_package(&app, &package, &id, &source)
+                })
+                .await
+                .map_err(|e| format!("repository install task failed: {e}"))?
+            }
         }
-    })
-    .await
-    .map_err(|e| format!("repository install task failed: {e}"))?
+    }
+    .await;
+    let cleanup = plugins::remove_path_all(&work);
+    match (result, cleanup) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Err(error), Ok(())) => Err(error),
+        (Err(error), Err(cleanup)) => Err(format!(
+            "{error}; repository staging cleanup also failed: {cleanup}"
+        )),
+        (Ok(_), Err(error)) => Err(format!(
+            "plugin installed, but staging cleanup failed: {error}"
+        )),
+    }
+}
+
+fn install_package(
+    app: &AppHandle,
+    package: &Path,
+    id: &str,
+    source: &InstalledPluginSource,
+) -> Result<PluginInstallResult, String> {
+    let mgr = app.state::<PluginManager>();
+    let windows = app.state::<crate::plugin_window::PluginWindowManager>();
+    let sidecars = app.state::<crate::plugin_sidecar::PluginSidecarManager>();
+    plugins::install_from_source(
+        app,
+        &mgr,
+        &windows,
+        &sidecars,
+        package,
+        false,
+        Some(id),
+        source,
+    )
+}
+
+/// Materialize one plugin directory from the repository tree. Gitee serves individual
+/// files from its raw CDN reliably, while its generated archive may require an
+/// interactive download page; every path is still validated before writing.
+async fn download_raw_package(
+    client: &reqwest::Client,
+    repository: &RepositorySource,
+    commit: &str,
+    id: &str,
+    dest: &Path,
+) -> Result<(), String> {
+    if repository.provider != Provider::Gitee {
+        return Err("raw package download is only used for Gitee sources".into());
+    }
+    let tree = fetch_repository_tree(client, repository, commit).await?;
+    if tree.truncated {
+        return Err("repository tree is truncated; cannot safely download the plugin".into());
+    }
+    let prefix = format!("{id}/");
+    let mut files = 0usize;
+    let mut total = 0usize;
+    let mut seen = std::collections::HashSet::new();
+    for entry in tree.tree {
+        let Some(relative) = entry.path.strip_prefix(&prefix) else {
+            continue;
+        };
+        if entry.kind == "tree" {
+            continue;
+        }
+        if entry.kind != "blob" || !matches!(entry.mode.as_str(), "100644" | "100755") {
+            return Err(format!(
+                "unsupported repository entry: {} (links and submodules are not allowed)",
+                entry.path
+            ));
+        }
+        if !seen.insert(entry.path.to_ascii_lowercase()) {
+            return Err(format!("duplicate repository path: {}", entry.path));
+        }
+        let relative_path = plugins::safe_archive_path(relative)?;
+        let out = dest.join(&relative_path);
+        if !out.starts_with(dest) {
+            return Err(format!("repository path escaped package: {}", entry.path));
+        }
+        if let Some(parent) = out.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
+        }
+        let bytes = fetch_bytes(
+            client,
+            &format!("{}/{commit}/{}", repository.raw(), encode_path(&entry.path)),
+            MAX_PACKAGE_BYTES,
+        )
+        .await?;
+        total = total.saturating_add(bytes.len());
+        if total > MAX_PACKAGE_BYTES {
+            return Err("plugin package is too large (max 64 MiB)".into());
+        }
+        files += 1;
+        if files > MAX_PACKAGE_FILES {
+            return Err(format!(
+                "plugin package has too many files (max {MAX_PACKAGE_FILES})"
+            ));
+        }
+        fs::write(&out, &bytes).map_err(|e| format!("write {}: {e}", out.display()))?;
+        #[cfg(unix)]
+        if entry.mode == "100755" {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&out, fs::Permissions::from_mode(0o700))
+                .map_err(|e| format!("set permissions on {}: {e}", out.display()))?;
+        }
+    }
+    if files == 0 || !dest.join("manifest.json").is_file() {
+        return Err(format!("repository package is missing manifest.json: {id}"));
+    }
+    Ok(())
 }
 
 fn ensure_not_installed(root: &Path, id: &str) -> Result<(), String> {
@@ -411,7 +708,7 @@ fn ensure_not_installed(root: &Path, id: &str) -> Result<(), String> {
 
 fn repository_package(
     unpacked: &Path,
-    repository: &GithubRepository,
+    repository: &RepositorySource,
     commit: &str,
     id: &str,
 ) -> Result<PathBuf, String> {
@@ -471,11 +768,17 @@ mod tests {
             "https://github.com/Owner/My_Plugins.git/",
             " owner/my_plugins/ ",
         ] {
-            let source = GithubRepository::parse(Some(input)).unwrap();
+            let source = RepositorySource::parse(Some(input)).unwrap();
+            assert_eq!(source.provider, Provider::GitHub);
             assert_eq!(source.slug, "owner/my_plugins");
+            assert_eq!(source.canonical(), "owner/my_plugins");
             assert_eq!(
-                source.api(),
-                "https://api.github.com/repos/owner/my_plugins"
+                source.commits_head(),
+                "https://api.github.com/repos/owner/my_plugins/commits/HEAD"
+            );
+            assert_eq!(
+                source.raw(),
+                "https://raw.githubusercontent.com/owner/my_plugins"
             );
             assert_eq!(
                 source.archive(COMMIT),
@@ -483,23 +786,67 @@ mod tests {
             );
         }
         assert_eq!(
-            GithubRepository::parse(None).unwrap().slug,
+            RepositorySource::parse(None).unwrap().slug,
             DEFAULT_REPOSITORY
         );
     }
 
     #[test]
-    fn github_source_rejects_other_hosts_credentials_refs_and_escaped_paths() {
+    fn gitee_source_accepts_public_urls_and_round_trips_canonical_form() {
+        for input in [
+            "https://gitee.com/Owner/My_Plugins",
+            "https://gitee.com/Owner/My_Plugins.git/",
+            "https://gitee.com/owner/my_plugins",
+            "gitee.com/owner/my_plugins",
+            " https://gitee.com/owner/my_plugins/ ",
+        ] {
+            let source = RepositorySource::parse(Some(input)).unwrap();
+            assert_eq!(source.provider, Provider::Gitee);
+            assert_eq!(source.slug, "owner/my_plugins");
+            assert_eq!(source.canonical(), "https://gitee.com/owner/my_plugins");
+            assert_eq!(
+                source.commits_head(),
+                "https://gitee.com/api/v5/repos/owner/my_plugins/commits?per_page=1"
+            );
+            assert_eq!(
+                source.api(),
+                "https://gitee.com/api/v5/repos/owner/my_plugins"
+            );
+            assert_eq!(source.raw(), "https://gitee.com/owner/my_plugins/raw");
+            assert_eq!(
+                source.archive(COMMIT),
+                format!("https://gitee.com/owner/my_plugins/repository/archive/{COMMIT}.zip")
+            );
+        }
+        let parsed = RepositorySource::parse(Some("https://gitee.com/owner/my_plugins")).unwrap();
+        let canonical = parsed.canonical();
+        assert_eq!(
+            RepositorySource::parse(Some(canonical.as_str())).unwrap(),
+            parsed
+        );
+        let underscore_owner =
+            RepositorySource::parse(Some("https://gitee.com/my_owner/my.repo")).unwrap();
+        assert_eq!(underscore_owner.slug, "my_owner/my.repo");
+    }
+
+    #[test]
+    fn repository_source_rejects_other_hosts_credentials_refs_and_escaped_paths() {
         for input in [
             "",
             "https://example.com/owner/repo",
             "http://github.com/owner/repo",
+            "http://gitee.com/owner/repo",
             "https://github.com.evil/owner/repo",
+            "https://gitee.com.evil/owner/repo",
             "https://github.com:443/owner/repo",
+            "https://gitee.com:443/owner/repo",
             "https://me@github.com/owner/repo",
             "https://github.com/owner/repo?x=1",
+            "https://gitee.com/owner/repo?x=1",
             "https://github.com/owner/repo#x",
+            "https://gitee.com/owner/repo#x",
             "https://github.com/owner/repo/tree/main",
+            "https://gitee.com/owner/repo/tree/main",
             "owner/repo/subdir",
             "owner/repo//",
             "owner/../repo",
@@ -516,10 +863,70 @@ mod tests {
             "owner/repo\nother",
         ] {
             assert!(
-                GithubRepository::parse(Some(input)).is_err(),
+                RepositorySource::parse(Some(input)).is_err(),
                 "accepted {input}"
             );
         }
+    }
+
+    #[test]
+    fn repository_redirects_only_follow_fixed_hosts() {
+        for host in [
+            "github.com",
+            "api.github.com",
+            "raw.githubusercontent.com",
+            "codeload.github.com",
+            "gitee.com",
+            "raw.giteeusercontent.com",
+            "ghfast.top",
+        ] {
+            assert!(repository_redirect_allowed(host), "blocked {host}");
+        }
+        for host in ["", "example.com", "gitee.com.evil", "github.io"] {
+            assert!(!repository_redirect_allowed(host), "allowed {host}");
+        }
+    }
+
+    #[test]
+    fn github_mirror_rewrites_file_downloads_but_not_api_calls() {
+        let source = RepositorySource::parse(Some("owner/my_plugins"))
+            .unwrap()
+            .with_mirror(true);
+        assert_eq!(
+            source.api(),
+            "https://api.github.com/repos/owner/my_plugins"
+        );
+        assert_eq!(
+            source.commits_head(),
+            "https://api.github.com/repos/owner/my_plugins/commits/HEAD"
+        );
+        assert_eq!(
+            source.raw(),
+            "https://ghfast.top/https://raw.githubusercontent.com/owner/my_plugins"
+        );
+        assert_eq!(
+            source.archive(COMMIT),
+            format!("https://ghfast.top/https://github.com/owner/my_plugins/archive/{COMMIT}.zip")
+        );
+
+        let gitee = RepositorySource::parse(Some("https://gitee.com/owner/my_plugins"))
+            .unwrap()
+            .with_mirror(true);
+        assert_eq!(gitee.raw(), "https://gitee.com/owner/my_plugins/raw");
+        assert_eq!(
+            gitee.archive(COMMIT),
+            format!("https://gitee.com/owner/my_plugins/repository/archive/{COMMIT}.zip")
+        );
+    }
+
+    #[test]
+    fn repository_paths_are_percent_encoded_for_raw_downloads() {
+        assert_eq!(encode_path("timer/ui.mjs"), "timer/ui.mjs");
+        assert_eq!(encode_path("a/b%c"), "a/b%25c");
+        assert_eq!(
+            encode_path("runtime/中文 文件#1?.mjs"),
+            "runtime/%E4%B8%AD%E6%96%87%20%E6%96%87%E4%BB%B6%231%3F.mjs"
+        );
     }
 
     #[test]
@@ -569,7 +976,7 @@ mod tests {
             r#"{"repository":"impostor/package","commit":"fake"}"#,
         )
         .unwrap();
-        let repository = GithubRepository::parse(Some("owner/real-source")).unwrap();
+        let repository = RepositorySource::parse(Some("owner/real-source")).unwrap();
         let source = InstalledPluginSource::new(&repository, COMMIT).unwrap();
         write_installed_source(&staged, &source).unwrap();
         let installed = work.0.join("installed");
@@ -579,6 +986,17 @@ mod tests {
         fs::create_dir(installed.join(SOURCE_FILE)).unwrap();
         write_installed_source(&installed, &source).unwrap();
         assert_eq!(read_installed_source(&installed), Some(source));
+    }
+
+    #[test]
+    fn gitee_installed_source_round_trips_through_metadata() {
+        let repository =
+            RepositorySource::parse(Some("https://gitee.com/owner/my_plugins")).unwrap();
+        let source = InstalledPluginSource::new(&repository, COMMIT).unwrap();
+        assert_eq!(source.repository, "https://gitee.com/owner/my_plugins");
+        let work = TempDir::new();
+        write_installed_source(&work.0, &source).unwrap();
+        assert_eq!(read_installed_source(&work.0), Some(source));
     }
 
     #[test]
@@ -604,7 +1022,7 @@ mod tests {
     #[test]
     fn custom_archive_root_is_case_insensitive_but_commit_and_single_root_are_required() {
         let work = TempDir::new();
-        let repository = GithubRepository::parse(Some("owner/custom-plugins")).unwrap();
+        let repository = RepositorySource::parse(Some("owner/custom-plugins")).unwrap();
         let package = work
             .0
             .join(format!("Custom-Plugins-{COMMIT}"))
@@ -638,7 +1056,22 @@ mod tests {
     #[tokio::test]
     #[ignore = "uses the real public GitHub repository"]
     async fn official_repository_catalog_and_archive_smoke() {
-        let repository = GithubRepository::parse(None).unwrap();
+        smoke_official_repository(RepositorySource::parse(None).unwrap()).await;
+    }
+
+    /// Same catalog and archive flow through the GitHub file mirror (`ghfast.top`).
+    #[tokio::test]
+    #[ignore = "uses ghfast.top and the real public GitHub repository"]
+    async fn mirrored_github_repository_catalog_and_archive_smoke() {
+        smoke_official_repository(RepositorySource::parse(None).unwrap().with_mirror(true)).await;
+    }
+
+    async fn smoke_official_repository(repository: RepositorySource) {
+        let label = if repository.mirror {
+            "Mirrored GitHub"
+        } else {
+            "GitHub"
+        };
         let catalog = current_catalog(&repository).await.unwrap();
         assert_eq!(catalog.repository, DEFAULT_REPOSITORY);
         let timer = catalog.plugins.iter().find(|p| p.id == "timer").unwrap();
@@ -663,7 +1096,41 @@ mod tests {
         assert_eq!(manifest.id, timer.id);
         assert_eq!(manifest.version, timer.version);
         println!(
-            "GitHub catalog: {} plugins at {}/{}; timer v{} validated",
+            "{label} catalog: {} plugins at {}/{}; timer v{} validated",
+            catalog.plugins.len(),
+            catalog.repository,
+            catalog.commit,
+            timer.version
+        );
+    }
+
+    /// Explicit opt-in smoke test for the Gitee mirror. Uses the same raw-file package
+    /// download as a real install and writes only to an isolated temporary directory.
+    #[tokio::test]
+    #[ignore = "uses the real public Gitee mirror"]
+    async fn gitee_mirror_catalog_and_raw_package_smoke() {
+        let repository =
+            RepositorySource::parse(Some("https://gitee.com/lanxiuyun/catrace-plugin")).unwrap();
+        let catalog = current_catalog(&repository).await.unwrap();
+        assert_eq!(
+            catalog.repository,
+            "https://gitee.com/lanxiuyun/catrace-plugin"
+        );
+        let timer = catalog.plugins.iter().find(|p| p.id == "timer").unwrap();
+        let client = client().unwrap();
+        let work = TempDir::new();
+        let package = work.0.join("package");
+        fs::create_dir(&package).unwrap();
+        download_raw_package(&client, &repository, &catalog.commit, "timer", &package)
+            .await
+            .unwrap();
+        let manifest: PluginManifestFile =
+            serde_json::from_slice(&fs::read(package.join("manifest.json")).unwrap()).unwrap();
+        assert_eq!(manifest.id, timer.id);
+        assert_eq!(manifest.version, timer.version);
+        assert!(package.join("ui.mjs").is_file());
+        println!(
+            "Gitee catalog: {} plugins at {}/{}; timer v{} downloaded as raw files",
             catalog.plugins.len(),
             catalog.repository,
             catalog.commit,

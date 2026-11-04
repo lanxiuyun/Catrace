@@ -1,14 +1,16 @@
 import { useId, useState, type FormEvent } from 'react'
-import { Button, Popover, TextField } from '@radix-ui/themes'
+import { Button, Popover, Switch, TextField } from '@radix-ui/themes'
 import { GitBranch, LoaderCircle } from 'lucide-react'
 import { DEFAULT_PLUGIN_REPOSITORY } from '../../../api/tauri'
 import { useT } from '../../i18n'
 
-export function PluginSourceSettings({ source, saving, disabled, onChange }: {
+export function PluginSourceSettings({ source, mirror, saving, disabled, onChange, onMirrorChange }: {
   source: string
+  mirror: boolean
   saving: boolean
   disabled: boolean
   onChange: (repository: string) => Promise<void>
+  onMirrorChange: (value: boolean) => Promise<void>
 }) {
   const t = useT()
   const id = useId()
@@ -52,6 +54,14 @@ export function PluginSourceSettings({ source, saving, disabled, onChange }: {
             spellCheck={false} autoCapitalize="none" autoCorrect="off" disabled={saving}
             aria-invalid={!!error} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} />
           <p id={`${id}-help`}>{t('pluginMarket.sourceStructure')}</p>
+          <div className="ct-market-source-mirror">
+            <div>
+              <strong>{t('pluginMarket.mirror')}</strong>
+              <p>{t('pluginMarket.mirrorHint')}</p>
+            </div>
+            <Switch checked={mirror} disabled={saving || disabled} aria-label={t('pluginMarket.mirror')}
+              onCheckedChange={(value) => { void onMirrorChange(value).catch(() => {}) }} />
+          </div>
           {error && <p id={`${id}-error`} className="ct-market-source-error" role="alert">{error}</p>}
           <div className="ct-market-source-actions">
             <Button type="button" variant="ghost" color="gray" disabled={saving || source === DEFAULT_PLUGIN_REPOSITORY}

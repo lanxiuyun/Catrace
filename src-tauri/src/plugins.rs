@@ -1389,7 +1389,7 @@ fn find_plugin_package_root(staging: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn safe_archive_path(name: &str) -> Result<PathBuf, String> {
+pub(crate) fn safe_archive_path(name: &str) -> Result<PathBuf, String> {
     if name.is_empty()
         || name.len() > 1024
         || name.contains(['\\', ':', '\0'])

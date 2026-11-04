@@ -1,6 +1,6 @@
 # 插件中心
 
-插件中心（React）：**发现插件 / 已安装 + 页内详情**。一次浏览一个 GitHub 公开仓库，默认 `lanxiuyun/catrace-plugin`，可在搜索右侧「插件源」验证并切换仓库。插件下载到本机 AppData，默认停用；切换源不影响已安装插件。安装、启用与卸载是独立动作。
+插件中心（React）：**发现插件 / 已安装 + 页内详情**。一次浏览一个 GitHub 或 Gitee 公开仓库，默认 `lanxiuyun/catrace-plugin`（GitHub），可在搜索右侧「插件源」验证并切换仓库；同一弹层可开启 GitHub 镜像加速（文件走 `ghfast.top`）或切换到 Gitee 源。插件下载到本机 AppData，默认停用；切换源不影响已安装插件。安装、启用与卸载是独立动作。
 
 ## 当前实现（React）
 
@@ -39,13 +39,16 @@
 
 ## 单仓库插件源
 
-- 支持 `owner/repo` 或 `https://github.com/owner/repo`（可带 `.git`），仅 GitHub 公开仓库、默认分支；不支持任意主机、私有 token、分支或子目录链接。
+- 支持 `owner/repo`（GitHub）、`https://github.com/owner/repo`、`https://gitee.com/owner/repo`（可带 `.git`），仅公开仓库、默认分支；不支持任意主机、私有 token、分支或子目录链接。Gitee 源保存为 `https://gitee.com/owner/repo`，GitHub 源仍是 `owner/repo`（兼容旧设置与旧安装来源）。
 - 源仓库必须按 `<插件ID>/manifest.json` 组织。输入验证、目录读取成功后，才保存至 `settings.json` 的 `plugin_repository`；保存失败保持原来的源和列表。
 - 「恢复官方源」同样先验证。切换只影响发现列表，已安装插件继续独立管理、启停和卸载。
 - 安装显式传递目录返回的 `repository + commit`，切换/刷新时的旧响应不能覆盖当前列表。
 - 安装时宿主在发布前写入 `.catrace-source.json`，详情显示来源仓库和快照。旧安装来源未知，不能猜测为官方。
 - 当前源出现与已有安装相同的 ID 时不覆盖；不同来源会显示「同 ID 已从其他源安装」，管理按钮打开真实已安装插件。
-- HTTP 端点仍只允许构造出的 GitHub API/raw/codeload HTTPS 地址、不跟重定向；原有解压、默认停用和信任确认规则不变。
+- HTTP 端点按 provider 构造固定主机：GitHub 用 `api.github.com` / `raw.githubusercontent.com` / `codeload.github.com`；Gitee 用 `gitee.com/api/v5` 与 `gitee.com/<repo>/raw`。Gitee 的 raw 会 302 到签名 CDN，因此只对 `gitee.com`、`raw.giteeusercontent.com` 等固定仓库主机跟随重定向（最多 3 跳），其他主机一律拒绝。
+- GitHub 源支持「镜像加速」开关（Store key `plugin_github_mirror`）：开启后 raw 文件与整包归档改走 `https://ghfast.top/` 前缀（归档用 `github.com/<repo>/archive/<sha>.zip` 形式），API（commit/tree）仍直连 `api.github.com` —— 代理转发 API 会共用限流 token 且实测 403，不能依赖。镜像只是传输层，`repository` 与 commit 不变；插件内容会经过第三方代理，因此在开关文案里明确提示，且只对 GitHub 源生效。
+- GitHub 安装走「整包 zip → 解压 → 校验包根目录」；Gitee 的 `repository/archive/<sha>.zip` 可能返回「正在准备下载」的交互页而不是 zip，因此 Gitee 安装改为按 pinned commit 从 raw 逐个下载插件目录文件再交给同一个安装器：路径用宿主的压缩包安全规则校验、拒绝符号链接/子模块、限制 64 MiB 与 5000 个文件；原有解压限制、默认停用和信任确认规则不变。
+- 国内网络访问 GitHub 的 raw 与归档不稳定时可开启镜像加速，或改用 Gitee 源；Gitee 源需要仓库维护者把官方仓库同步到 Gitee（当前 Gitee 镜像由 `lanxiuyun/catrace-plugin` 维护，必须保持与 GitHub 同步后再作为国内默认源）。
 
 ## Sub-documents
 

@@ -2,11 +2,36 @@ import { DEFAULT_PLUGIN_REPOSITORY } from '../../../api/tauri'
 import { getSettingsStore } from '../../lib/settingsStore'
 
 const SOURCE_KEY = 'plugin_repository'
+const MIRROR_KEY = 'plugin_github_mirror'
 
 export async function readPluginRepository(): Promise<string> {
   const store = await getSettingsStore()
   const value = await store.get<unknown>(SOURCE_KEY)
   return typeof value === 'string' && value.trim() ? value : DEFAULT_PLUGIN_REPOSITORY
+}
+
+/** True when GitHub file downloads should be routed through the built-in file mirror. */
+export async function readGithubMirror(): Promise<boolean> {
+  const store = await getSettingsStore()
+  return (await store.get<unknown>(MIRROR_KEY)) === true
+}
+
+export async function saveGithubMirror(value: boolean): Promise<void> {
+  const store = await getSettingsStore()
+  const previous = await store.get<unknown>(MIRROR_KEY)
+  try {
+    await store.set(MIRROR_KEY, value)
+    await store.save()
+  } catch (error) {
+    try {
+      if (previous === undefined) await store.delete(MIRROR_KEY)
+      else await store.set(MIRROR_KEY, previous)
+      await store.save()
+    } catch (restoreError) {
+      console.error('Failed to restore GitHub mirror setting', restoreError)
+    }
+    throw error
+  }
 }
 
 /** Call only after the backend has validated the repository and returned its canonical name. */

@@ -11,6 +11,10 @@
 .ct-market-source-form > label { color: var(--ct-text); font-size: 0.75rem; font-weight: 550; }
 .ct-market-source-form > .ct-market-source-error { color: var(--ct-error); overflow-wrap: anywhere; user-select: text; }
 .ct-market-source-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.25rem; }
+.ct-market-source-mirror { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--ct-border); }
+.ct-market-source-mirror strong { color: var(--ct-text); font-size: 0.75rem; font-weight: 600; }
+.ct-market-source-mirror p { margin: 0.25rem 0 0; color: var(--ct-text-muted); font-size: 0.6875rem; line-height: 1.6; }
+.ct-market-source-mirror .rt-SwitchRoot { flex-shrink: 0; }
 .ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
 .ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
 .ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }

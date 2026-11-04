@@ -7,13 +7,14 @@ import {
 } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
-import { readPluginRepository, savePluginRepository } from './pluginRepositorySource'
+import { readGithubMirror, readPluginRepository, saveGithubMirror, savePluginRepository } from './pluginRepositorySource'
 
 export function usePluginCatalog() {
   const t = useT()
   const [installed, setInstalled] = useState<PluginCatalogEntry[]>([])
   const [repository, setRepository] = useState<RepositoryPluginCatalog | null>(null)
   const [source, setSource] = useState(DEFAULT_PLUGIN_REPOSITORY)
+  const [mirror, setMirrorState] = useState(false)
   const [sourceBusy, setSourceBusy] = useState(false)
   const [loadingLocal, setLoadingLocal] = useState(true)
   const [loadingRemote, setLoadingRemote] = useState(true)
@@ -21,6 +22,7 @@ export function usePluginCatalog() {
   const [remoteError, setRemoteError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const sourceRef = useRef<string | null>(null)
+  const mirrorRef = useRef(false)
   const operation = useRef(false)
   const mounted = useRef(true)
   const localRequest = useRef(0)
@@ -50,7 +52,7 @@ export function usePluginCatalog() {
       if (!mounted.current || request !== remoteRequest.current) return
       sourceRef.current = currentSource
       setSource(currentSource)
-      const result = await listRepositoryPlugins(currentSource)
+      const result = await listRepositoryPlugins(currentSource, mirrorRef.current)
       if (!mounted.current || request !== remoteRequest.current) return
       sourceRef.current = result.repository
       setSource(result.repository)
@@ -69,7 +71,13 @@ export function usePluginCatalog() {
   useEffect(() => {
     mounted.current = true
     void refreshLocal()
-    void refreshRemote()
+    void (async () => {
+      const savedMirror = await readGithubMirror().catch(() => false)
+      if (!mounted.current) return
+      mirrorRef.current = savedMirror
+      setMirrorState(savedMirror)
+      await refreshRemote()
+    })()
     const unlisteners: UnlistenFn[] = []
     let disposed = false
     for (const name of ['plugins-reloaded', 'plugin-enabled-changed']) {
@@ -95,7 +103,7 @@ export function usePluginCatalog() {
     ++remoteRequest.current
     setLoadingRemote(false)
     try {
-      const result = await listRepositoryPlugins(input.trim())
+      const result = await listRepositoryPlugins(input.trim(), mirrorRef.current)
       if (!mounted.current) return
       await savePluginRepository(result.repository)
       sourceRef.current = result.repository
@@ -104,6 +112,24 @@ export function usePluginCatalog() {
       setRepository(result)
       setRemoteError('')
       showToast(t('pluginMarket.sourceSaved'))
+    } finally {
+      operation.current = false
+      if (mounted.current) setSourceBusy(false)
+    }
+  }
+
+  const changeMirror = async (value: boolean) => {
+    if (operation.current) throw new Error(t('pluginMarket.sourceWait'))
+    operation.current = true
+    setSourceBusy(true)
+    try {
+      await saveGithubMirror(value)
+      mirrorRef.current = value
+      if (mounted.current) setMirrorState(value)
+      await refreshRemote()
+    } catch (error) {
+      showToast(t('settings.messages.saveFailed'), 'error')
+      throw error
     } finally {
       operation.current = false
       if (mounted.current) setSourceBusy(false)
@@ -132,7 +158,7 @@ export function usePluginCatalog() {
     if (!snapshot || snapshot.repository !== sourceRef.current) {
       throw new Error(t('pluginMarket.catalogUnavailable'))
     }
-    const result = await installRepositoryPlugin(id, snapshot.commit, snapshot.repository)
+    const result = await installRepositoryPlugin(id, snapshot.commit, snapshot.repository, mirrorRef.current)
     showToast(t('pluginMarket.installedMessage', { name: result.name }))
   })
 
@@ -147,7 +173,7 @@ export function usePluginCatalog() {
   })
 
   return {
-    installed, repository, source, sourceBusy, changeSource,
+    installed, repository, source, mirror, sourceBusy, changeSource, changeMirror,
     loadingLocal, loadingRemote, localError, remoteError,
     busyId, refreshLocal, refreshRemote, install, toggle, uninstall,
   }

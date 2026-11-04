@@ -118,7 +118,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </div>
             <div className="ct-market-tools">
               <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
-              <PluginSourceSettings source={data.source} saving={data.sourceBusy} disabled={busy} onChange={data.changeSource} />
+              <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={busy} onChange={data.changeSource} onMirrorChange={data.changeMirror} />
               <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" onClick={openDirectory}>
                 <FolderOpen size={15} aria-hidden="true" />
                 <span>{t('plugins.external.openDir')}</span>
@@ -128,7 +128,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
           </div>
 
           {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshLocal()} disabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
-          {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
+          {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p>{!data.mirror && !data.source.startsWith('https://gitee.com/') && <p>{t('pluginMarket.mirrorSuggestion')}</p>}</div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
 
           <section className="ct-market-grid" aria-label={t(tab === 'discover' ? 'pluginMarket.discover' : 'pluginMarket.myPlugins')} aria-busy={tab === 'discover' ? data.loadingRemote : data.loadingLocal}>
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (

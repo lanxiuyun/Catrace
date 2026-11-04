@@ -507,16 +507,18 @@ export interface RepositoryPluginCatalog {
   plugins: RepositoryPluginInfo[]
 }
 
-/** Validate a public GitHub repository and read plugins at its default-branch HEAD. */
-export async function listRepositoryPlugins(repository = DEFAULT_PLUGIN_REPOSITORY): Promise<RepositoryPluginCatalog> {
-  return invoke('list_repository_plugins', { repository })
+/** Validate a public GitHub or Gitee repository and read plugins at its default-branch HEAD. */
+export async function listRepositoryPlugins(
+  repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
+): Promise<RepositoryPluginCatalog> {
+  return invoke('list_repository_plugins', { repository, mirror })
 }
 
 /** Pin both source and commit, even if the selected source changes later. */
 export async function installRepositoryPlugin(
-  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY,
+  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
 ): Promise<PluginInstallResult> {
-  return invoke('install_repository_plugin', { id, commit, repository })
+  return invoke('install_repository_plugin', { id, commit, repository, mirror })
 }
 
 /** Stop the plugin, remove its installation, and retain its saved configuration. */
