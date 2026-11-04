@@ -286,8 +286,6 @@ export function SystemSettingsCard() {
         </Select.Root>
       </SettingRow>
 
-      <div className="ct-settings-divider" />
-
       <SettingRow
         title={t('settings.startup.autostartTitle')}
         desc={t('settings.startup.autostartDesc')}
@@ -299,8 +297,6 @@ export function SystemSettingsCard() {
           onCheckedChange={(value) => void toggleAutostart(value)}
         />
       </SettingRow>
-
-      <div className="ct-settings-divider" />
 
       <SettingRow
         title={t('settings.startup.silentStartTitle')}
@@ -314,8 +310,6 @@ export function SystemSettingsCard() {
         />
       </SettingRow>
 
-      <div className="ct-settings-divider" />
-
       <SettingRow title={t('settings.lightweight.title')} desc={t('settings.lightweight.desc')}>
         <Switch
           checked={lightweightMode}
@@ -324,8 +318,6 @@ export function SystemSettingsCard() {
           onCheckedChange={(value) => void toggleLightweight(value)}
         />
       </SettingRow>
-
-      <div className="ct-settings-divider" />
 
       <SettingRow title={t('settings.update.softwareVersion')} desc={appVersion || '...'}>
         <Button
@@ -341,7 +333,7 @@ export function SystemSettingsCard() {
 
       {updateInfo?.available && (
         <>
-          <div className="ct-settings-divider" />          <div className="ct-settings-update">
+          <div className="ct-settings-update ct-settings-block">
             <div className="ct-settings-update-head">
               <div className="ct-settings-update-title">
                 {t('settings.update.newVersion', { version: updateInfo.version ?? '' })}

@@ -121,7 +121,6 @@ export function SysNotifySettingsCard() {
 
       {enabled && (
         <>
-          <div className="ct-settings-divider" />
           <SettingRow
             title={t('settings.sysNotify.takeoverTitle')}
             desc={t('settings.sysNotify.takeoverDesc')}
@@ -133,7 +132,6 @@ export function SysNotifySettingsCard() {
 
       {showAccessHint && (
         <>
-          <div className="ct-settings-divider" />
           <div className="ct-settings-denied">
             <span>{t('settings.sysNotify.deniedHint')}</span>
             <Button

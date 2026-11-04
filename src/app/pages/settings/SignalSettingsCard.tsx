@@ -119,8 +119,6 @@ export function SignalSettingsCard() {
         />
       </SettingRow>
 
-      <div className="ct-settings-divider" />
-
       <SettingRow
         title={t('settings.signal.retentionTitle')}
         desc={t('settings.signal.retentionDesc')}
@@ -136,8 +134,6 @@ export function SignalSettingsCard() {
           </Select.Content>
         </Select.Root>
       </SettingRow>
-
-      <div className="ct-settings-divider" />
 
       <SettingRow title={t('settings.signal.purgeTitle')} desc={t('settings.signal.purgeDesc')}>
         <Button variant="soft" color="orange" onClick={onPurge}>

@@ -72,10 +72,12 @@
   color: var(--ct-text-muted);
 }
 
-.ct-settings-divider {
-  height: 0.0625rem;
-  margin: 0;
-  background: var(--ct-border);
+/* 卡内分组线：相邻两行之间自动画一条 hairline；从行切到内容块（白名单、更新详情）时给块加
+   .ct-settings-block，由块自己带上边线。不要再手插 <div class="ct-settings-divider" />——
+   手摆的线多一行就漏一条（语言/主题之间就漏过一条）。 */
+.ct-setting-row + .ct-setting-row,
+.ct-settings-block {
+  border-top: 0.0625rem solid var(--ct-border);
 }
 
 /* ---------- 设置行 ---------- */
@@ -151,12 +153,14 @@
 }
 
 /* ---------- 媒体排除列表 ---------- */
+/* 白名单块：上边线由 .ct-settings-block 提供，间距放 padding-top，线的位置才贴着上一行 */
 .ct-whitelist-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin: 0.875rem 0 0.5rem;
+  margin: 0 0 0.5rem;
+  padding-top: 0.875rem;
 }
 
 .ct-whitelist-title {

@@ -74,8 +74,7 @@ export function MediaSettingsCard() {
 
       {isWindows && enabled.value && (
         <>
-          <div className="ct-settings-divider" />
-          <div className="ct-whitelist-head">
+          <div className="ct-whitelist-head ct-settings-block">
             <div>
               <div className="ct-whitelist-title">{t('mediaWhitelist.title')}</div>
               <div className="ct-whitelist-desc">{t('mediaWhitelist.desc')}</div>
@@ -101,7 +100,6 @@ export function MediaSettingsCard() {
 
       {!isWindows && (
         <>
-          <div className="ct-settings-divider" />
           <div className="ct-settings-hint">{t('media.unsupportedPlatformHint')}</div>
         </>
       )}
