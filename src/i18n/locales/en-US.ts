@@ -519,8 +519,6 @@ export default {
     sourceOtherInstalled: 'ID already installed from another source',
     sourceUnknown: 'Not recorded (older installation)',
     sourceCommit: 'Installed commit',
-    fromRepository: 'From the repository',
-    onThisDevice: 'On this device',
     repositoryNote: 'lanxiuyun / catrace-plugin',
     builtinNote: 'Built-in and locally installed plugins',
     repositoryPlugin: 'Repository plugin',

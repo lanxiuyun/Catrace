@@ -2,7 +2,7 @@
 .ct-plugins-page { min-height: 100%; }
 .ct-market { width: 100%; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1.75rem 2.5rem; box-sizing: border-box; }
 .ct-market-eyebrow { color: var(--ct-text-subtle); font-size: 0.625rem; font-weight: 650; letter-spacing: 0.12em; }
-.ct-market-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1.5rem; }
+.ct-market-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; }
 .ct-market-tools { display: flex; align-items: center; gap: 0.625rem; min-width: 0; flex: 0 1 auto; }
 .ct-market-source-popover { max-width: calc(100vw - 2rem); }
 .ct-market-source-form { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -11,7 +11,6 @@
 .ct-market-source-form > label { color: var(--ct-text); font-size: 0.75rem; font-weight: 550; }
 .ct-market-source-form > .ct-market-source-error { color: var(--ct-error); overflow-wrap: anywhere; user-select: text; }
 .ct-market-source-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.25rem; }
-.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; white-space: nowrap; }
 .ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
 .ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
 .ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }
@@ -26,9 +25,8 @@
 .ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text-muted); cursor: pointer; }
 .ct-plugin-icon-btn:hover:not(:disabled) { background: var(--ct-surface-2); color: var(--ct-text); }
 .ct-plugin-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.ct-market-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 0 0 0.875rem; }
-.ct-market-section-head h2 { margin: 0; color: var(--ct-text); font-size: 1rem; font-weight: 650; letter-spacing: -0.015em; }
-.ct-market-section-head > span { color: var(--ct-text-subtle); font-size: 0.6875rem; text-align: right; }
+/* Label variant of the icon button: keeps the 2.375rem-tall shell but sizes to its text. */
+.ct-plugin-icon-btn.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
 .ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
 .ct-market-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; }
 .ct-market-card:hover { border-color: var(--ct-border-strong); }
@@ -136,7 +134,6 @@
   .ct-market-tabs button { flex: 1; }
   .ct-market-tools { width: 100%; }
   .ct-market-search { width: auto; }
-  .ct-market-section-head { flex-direction: column; gap: 0.375rem; }
   .ct-plugin-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
   .ct-plugin-row-control.is-slider { flex: 1 1 auto; width: 100%; }
   .ct-market-installation dl > div { flex-direction: column; gap: 0.25rem; }
@@ -150,5 +147,5 @@
 }
 @media (prefers-contrast: more) {
   .ct-market-card, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
-  .ct-market-card-status, .ct-market-eyebrow, .ct-market-section-head > span { color: var(--ct-text-muted); }
+  .ct-market-card-status, .ct-market-eyebrow { color: var(--ct-text-muted); }
 }

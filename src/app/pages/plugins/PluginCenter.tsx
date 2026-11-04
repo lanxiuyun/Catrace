@@ -130,10 +130,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
           {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshLocal()} disabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
           {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
 
-          <div className="ct-market-section-head">
-            <h2>{t(tab === 'discover' ? 'pluginMarket.fromRepository' : 'pluginMarket.onThisDevice')}</h2>
-            {tab === 'discover' && <span dir="ltr">{data.source}</span>}
-          </div>
           <section className="ct-market-grid" aria-label={t(tab === 'discover' ? 'pluginMarket.discover' : 'pluginMarket.myPlugins')} aria-busy={tab === 'discover' ? data.loadingRemote : data.loadingLocal}>
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>

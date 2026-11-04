@@ -518,8 +518,6 @@ export default {
     sourceOtherInstalled: '同 ID 已从其他源安装',
     sourceUnknown: '来源未记录（旧安装）',
     sourceCommit: '安装快照',
-    fromRepository: '来自插件仓库',
-    onThisDevice: '本机插件',
     repositoryNote: 'lanxiuyun / catrace-plugin',
     builtinNote: '包含内置插件与本地安装',
     repositoryPlugin: '仓库插件',
