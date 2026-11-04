@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Code, Switch, TextField } from '@radix-ui/themes'
+import { Button, Switch, TextField } from '@radix-ui/themes'
 import {
   getEventSdkStatus,
   rotateEventSdkToken,
@@ -7,10 +7,13 @@ import {
 } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
+import { DebugPanel } from './DebugPanel'
 
 /**
- * Event SDK（本机 HTTP 事件接口）卡片，原 components/settings/EventSdkSettingsCard.vue 的 React 版。
- * 现在只挂在调试页里，所以样式跟随调试面板走。
+ * Event SDK（本机 HTTP 事件接口）面板。
+ *
+ * 结构就是一张设置卡：启用开关、地址、令牌。挂在调试页里，所以外壳跟调试面板一致，
+ * 行则沿用设置页的行语言（左文案右控件、相邻行 hairline），两边的行看起来是同一套东西。
  */
 export function EventSdkCard() {
   const t = useT()
@@ -85,38 +88,38 @@ export function EventSdkCard() {
   const maskedToken = '\u2022'.repeat(Math.min(28, token.length || 28))
 
   return (
-    <Card className="ct-debug-panel">
-      <div className="ct-debug-panel-head">
-        <h2>{t('settings.groups.eventSdk')}</h2>
+    <DebugPanel title={t('settings.groups.eventSdk')}>
+      <div className="ct-debug-row">
+        <div className="ct-debug-row-copy">
+          <span className="ct-debug-row-title">{t('settings.eventSdk.enableTitle')}</span>
+          <span className="ct-debug-row-desc">{t('settings.eventSdk.enableDesc')}</span>
+        </div>
+        <div className="ct-debug-row-control">
+          <Switch
+            checked={enabled}
+            disabled={loading || !ready}
+            aria-label={t('settings.eventSdk.enableTitle')}
+            onCheckedChange={(value) => void toggleEnabled(value)}
+          />
+        </div>
       </div>
 
-      <div className="ct-debug-setting">
-        <div className="ct-debug-setting-copy">
-          <strong>{t('settings.eventSdk.enableTitle')}</strong>
-          <span>{t('settings.eventSdk.enableDesc')}</span>
+      <div className="ct-debug-row">
+        <div className="ct-debug-row-copy">
+          <span className="ct-debug-row-title">{t('settings.eventSdk.endpointTitle')}</span>
+          <span className="ct-debug-row-desc">{t('settings.eventSdk.endpointDesc')}</span>
         </div>
-        <Switch
-          checked={enabled}
-          disabled={loading || !ready}
-          aria-label={t('settings.eventSdk.enableTitle')}
-          onCheckedChange={(value) => void toggleEnabled(value)}
-        />
+        <div className="ct-debug-row-control">
+          <code className="ct-debug-code">{baseUrl}/v1</code>
+        </div>
       </div>
 
-      <div className="ct-debug-setting">
-        <div className="ct-debug-setting-copy">
-          <strong>{t('settings.eventSdk.endpointTitle')}</strong>
-          <span>{t('settings.eventSdk.endpointDesc')}</span>
+      <div className="ct-debug-row is-stack">
+        <div className="ct-debug-row-copy">
+          <span className="ct-debug-row-title">{t('settings.eventSdk.tokenTitle')}</span>
+          <span className="ct-debug-row-desc">{t('settings.eventSdk.tokenDesc')}</span>
         </div>
-        <Code className="ct-debug-code">{baseUrl}/v1</Code>
-      </div>
-
-      <div className="ct-debug-setting is-top">
-        <div className="ct-debug-setting-copy">
-          <strong>{t('settings.eventSdk.tokenTitle')}</strong>
-          <span>{t('settings.eventSdk.tokenDesc')}</span>
-        </div>
-        <div className="ct-debug-token">
+        <div className="ct-debug-row-control">
           <TextField.Root
             className="ct-debug-token-input"
             size="1"
@@ -140,6 +143,6 @@ export function EventSdkCard() {
           </Button>
         </div>
       </div>
-    </Card>
+    </DebugPanel>
   )
 }

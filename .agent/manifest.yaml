@@ -184,6 +184,15 @@ features:
       - i18n
       - desktop-event-os
 
+  debug:
+    docs:
+      - .agent/features/debug/README.md
+    related:
+      - event-sdk
+      - input-monitoring
+      - media-audio
+      - settings
+
   event-sdk:
     docs:
       - .agent/features/event-sdk/README.md
