@@ -13,9 +13,39 @@
   --color-surface: var(--ct-surface);
   --color-panel-translucent: var(--ct-surface);
 
+  /* 强调色 = macOS 系统蓝。Radix 的强调色是 iris（偏紫），之前只改了 9/10/11 三档实心色，
+     其余档位还是紫的：聚焦环（--focus-8 → accent-8）、soft 底（accent-a3/a4/a5）、
+     透明描边（a7/a8）、开关/滑块的轨道（--accent-track → iris-9，之前是靠 9 档才变蓝），
+     所以设置页输入框聚焦时会看到紫圈。
+     这里把 iris 色阶整组接到系统蓝：1–7、12 和 a1–a12 借 Radix 自带的 blue 色阶
+     （深浅自动跟随明暗主题），8（聚焦环 / 强描边）和 9/10/11（实心填充）用 Catrace 的系统蓝 token。 */
+  --iris-1: var(--blue-1);
+  --iris-2: var(--blue-2);
+  --iris-3: var(--blue-3);
+  --iris-4: var(--blue-4);
+  --iris-5: var(--blue-5);
+  --iris-6: var(--blue-6);
+  --iris-7: var(--blue-7);
+  --iris-8: var(--ct-accent);
   --iris-9: var(--ct-accent);
   --iris-10: var(--ct-accent-hover);
   --iris-11: var(--ct-accent);
+  --iris-12: var(--blue-12);
+  --iris-a1: var(--blue-a1);
+  --iris-a2: var(--blue-a2);
+  --iris-a3: var(--blue-a3);
+  --iris-a4: var(--blue-a4);
+  --iris-a5: var(--blue-a5);
+  --iris-a6: var(--blue-a6);
+  --iris-a7: var(--blue-a7);
+  --iris-a8: var(--blue-a8);
+  --iris-a9: var(--blue-a9);
+  --iris-a10: var(--blue-a10);
+  --iris-a11: var(--blue-a11);
+  --iris-a12: var(--blue-a12);
+  /* surface 变体（白底强调色按钮）的底色单独一档，不跟 iris-2 */
+  --iris-surface: var(--blue-surface);
+
   --accent-9: var(--ct-accent);
   --accent-10: var(--ct-accent-hover);
   --accent-11: var(--ct-accent);
@@ -34,4 +64,101 @@
   --gray-12: var(--ct-text);
 
   color: var(--ct-text);
+}
+
+/* 只读输入框（Event SDK 的令牌）聚焦时，Radix 会把聚焦环压成灰色（--gray-8），
+   语义是「只读 = 不可编辑」。但这个字段仍然要能点进去选中、复制，灰圈读起来像禁用，
+   所以焦点反馈统一回系统蓝，和普通输入框一致。 */
+.radix-themes .rt-TextFieldRoot:where(:has(.rt-TextFieldInput:where(:read-only))) {
+  --text-field-focus-color: var(--ct-accent);
+}
+
+/* ---------- Radix 控件的悬停与光标 ----------
+   Radix Themes 自带的 hover 只有一档很淡的透明黑：soft 按钮 --accent-a3 → --accent-a4
+   （白底上约 6% → 9%，肉眼几乎看不出），Select 触发器只把 1px 内描边从 gray-a7 提到 a8；
+   TextField / TextArea / Switch 干脆没有 hover 状态。光标也是 macOS 约定（--cursor-button:
+   default），鼠标移上去不变手指。设置页几乎全是这些原生控件、页面自己只给链接卡和拖拽把手
+   写了 hover，所以整页看起来「没有悬停反馈」。
+   这里补一层和 Catrace 自家组件（侧栏导航项、插件工具栏按钮、链接卡）一致的悬停语言：
+   只加深底色/描边、给一点投影，不位移。门控用 any-hover 而不是 hover——触屏笔记本上
+   hover: hover 可能不成立，但鼠标移上去照样会触发 :hover。 */
+
+.radix-themes {
+  --cursor-button: pointer;
+  --cursor-checkbox: pointer;
+  --cursor-radio: pointer;
+  --cursor-switch: pointer;
+  --cursor-menu-item: pointer;
+}
+
+/* hover 变化给个短过渡，避免开关/按钮在鼠标划过时硬跳（Radix 自己没写 transition）。 */
+.radix-themes .rt-BaseButton,
+.radix-themes .rt-SelectTrigger,
+.radix-themes .rt-TextFieldRoot,
+.radix-themes .rt-TextAreaRoot {
+  transition:
+    background-color 0.14s ease,
+    box-shadow 0.14s ease,
+    color 0.14s ease;
+}
+
+.radix-themes .rt-SwitchRoot::before {
+  transition:
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+@media (any-hover: hover) {
+  /* 软色按钮：再深一档（gray / orange 都适用），按下更深一档，保留按压手感。 */
+  .radix-themes .rt-BaseButton:where(.rt-variant-soft):where(:not([data-disabled])):hover {
+    background-color: var(--accent-a5);
+  }
+
+  /* 实心按钮：Radix 的 hover 在 hover: hover 不成立的环境里不会生效，这里补一份。 */
+  .radix-themes .rt-BaseButton:where(.rt-variant-solid):where(:not([data-disabled])):hover {
+    background-color: var(--accent-10);
+  }
+
+  /* 白底带描边的按钮：描边提一档 + 一点投影，和插件工具栏按钮同一套路。 */
+  .radix-themes .rt-BaseButton:where(.rt-variant-surface):where(:not([data-disabled])):hover {
+    box-shadow:
+      inset 0 0 0 1px var(--accent-a8),
+      0 0.0625rem 0.125rem rgba(0, 0, 0, 0.05);
+  }
+
+  /* 下拉触发器：描边加一档并带一点投影。 */
+  .radix-themes .rt-SelectTrigger:where(.rt-variant-surface):where(:not(:disabled)):hover {
+    box-shadow:
+      inset 0 0 0 1px var(--gray-a8),
+      0 0.0625rem 0.125rem rgba(0, 0, 0, 0.05);
+  }
+
+  /* 输入框 / 多行输入：Radix 只有聚焦态，鼠标悬停时把描边加一档。 */
+  .radix-themes .rt-TextFieldRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):hover,
+  .radix-themes .rt-TextAreaRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):hover {
+    box-shadow: inset 0 0 0 1px var(--gray-a8);
+  }
+
+  /* 开关没有 hover 态：轨道外圈补一层很淡的光晕。 */
+  .radix-themes .rt-SwitchRoot:where(.rt-variant-surface):where(:not([data-disabled])):hover::before {
+    box-shadow:
+      inset 0 0 0 1px var(--gray-a7),
+      0 0 0 0.125rem var(--gray-a4);
+  }
+}
+
+/* 按压：软色按钮再深一档。不放在 any-hover 里——触屏点按也要有反馈。 */
+.radix-themes .rt-BaseButton:where(.rt-variant-soft):where(:not([data-disabled])):active {
+  background-color: var(--accent-a6);
+}
+
+/* 减少动态效果：悬停只留颜色变化，不做过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  .radix-themes .rt-BaseButton,
+  .radix-themes .rt-SelectTrigger,
+  .radix-themes .rt-TextFieldRoot,
+  .radix-themes .rt-TextAreaRoot,
+  .radix-themes .rt-SwitchRoot::before {
+    transition: none;
+  }
 }

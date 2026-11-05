@@ -13,6 +13,7 @@
 - `src/app/pages/settings/SysNotifySettingsCard.tsx` — 系统通知转发
 - `src/app/pages/settings/LinksSettingsCard.tsx` — 相关链接
 - `src/app/pages/settings.css` — 卡片网格、设置行、拖拽把手样式
+- `src/app/radix-theme.css` — Radix token 映射 + **控件悬停/光标补充**（全 React 页共用，见下）
 - `src/app/pages/Plugins.tsx` — 功能插件页（久坐提醒面板）
 - `src/components/settings/SettingRow.vue`、`SliderControl.vue` — 仅剩给外部插件 UI 契约用（迁移期插件已停用）
 - `src/components/AccessibilityBanner.vue` — 已无引用（macOS 不催授权，行与横幅都藏掉），待 M6 清理
@@ -34,6 +35,7 @@
 - **和概览 / 调试页的分工**：概览、调试是**全宽报告面板**——卡头是面板标题 1.125rem/650/`-0.015em`、圆角 1.25rem、内边距 1.25rem、内容列宽 76rem（`dashboard.css` / `debug.css`），**平铺不投阴影**（阴影表达高度，只留给浮起的表面；宽面板投影会在 1rem 卡间距里连成一条灰带，像第二层卡）；设置是**网格瓦片**——12px 次级色组名、圆角 1.125rem、内边距 `1.125rem 1.25rem 1rem`，保留卡片阴影（瓦片小，阴影被相邻卡打断，不会连成灰带）。两种角色别互相抄：瓦片不要放大标题去抢拖拽把手的位置，报告面板也别缩成 12px 组名（调试页曾写成 1rem 的中间值，两边都不属于）
 - **设置行**：`padding: 0.75rem 0`；相邻行之间的 `--ct-border` hairline 由 CSS 自动画（`.ct-setting-row + .ct-setting-row`），从行切到内容块（白名单、更新详情）时给块加 `.ct-settings-block` 让块自带上边线——**不要再手插 `<div class="ct-settings-divider" />`**，手摆的线多一行就漏一条（语言/主题之间就漏过一条）。文案列 `flex: 1 1 auto`、控件列 `flex: 0 0 auto`——控件列一旦参与伸缩，会被压得比下拉框还窄，下拉框从左边溢出盖住描述文字
 - **链接行**：hover 抬升 1px + 切到白底 + 卡片阴影；`:focus-visible` 是 2px 系统蓝 outline
+- **控件悬停**：设置行里的按钮 / 下拉 / 开关 / 输入框是 Radix 原生控件，Radix 自带的 hover 只有约 3% 的透明黑变化，TextField / TextArea / Switch 根本没有 hover 状态，而且全部包在 `@media (hover: hover)` 里、光标沿用 macOS 的默认箭头——所以看起来「没有悬停反馈」。悬停补充统一写在 `src/app/radix-theme.css`（soft 按钮加深底色、描边控件加深内描边、开关加淡光晕、光标改 `pointer`，门控用 `any-hover`），属于设计系统级规则；**不要在页面 CSS 里逐个控件重写 hover**，也不要给单个页面单独加
 - 颜色只给状态与图标（`ct-link-icon.is-info/is-warning/is-accent`），卡片本身保持中性
 
 ## 系统设置 vs 功能插件
