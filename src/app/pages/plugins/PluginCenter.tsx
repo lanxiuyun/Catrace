@@ -136,12 +136,12 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </div>
             <div className="ct-market-tools">
               <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
-              <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={busy} onChange={data.changeSource} />
+              <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={data.sourceBusy} onChange={data.changeSource} />
               <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" onClick={openDirectory}>
                 <FolderOpen size={15} aria-hidden="true" />
                 <span>{t('plugins.external.openDir')}</span>
               </button>
-              <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} title={t('pluginMarket.refresh')} disabled={busy || data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+              <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} title={t('pluginMarket.refresh')} disabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
             </div>
           </div>
 
