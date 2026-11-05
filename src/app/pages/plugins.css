@@ -39,22 +39,32 @@
 /* Label variant of the icon button: keeps the 2.375rem-tall shell but sizes to its text. */
 .ct-plugin-icon-btn.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
 .ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
-.ct-market-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; }
+.ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; }
 .ct-market-card:hover { border-color: var(--ct-border-strong); }
-.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; text-align: left; }
+/* Whole-card hit area; content stays visible underneath, controls paint above it. */
+.ct-market-card-open { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.ct-market .ct-market-card-open:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: -0.1875rem; border-radius: 1rem; }
+/* Pressing the card dims its content, since the hit button itself is transparent. */
+.ct-market-card-open:active:not(:disabled) ~ .ct-market-card-main { filter: brightness(0.98); }
+/* The installed tab's switch lives in the title row; keep it out of the text flow. */
+.ct-market-card.has-toggle .ct-market-card-main { grid-template-columns: 2.875rem minmax(0, 1fr); }
+.ct-market-card-toggle { position: absolute; top: 1.25rem; right: 1.25rem; z-index: 2; display: flex; align-items: center; height: 2.875rem; }
 .ct-market-plugin-icon { display: flex; align-items: center; justify-content: center; width: 2.875rem; height: 2.875rem; flex-shrink: 0; border: 1px solid var(--ct-border); border-radius: 0.8125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); }
 .ct-market-plugin-icon > svg { width: 1.375rem; height: 1.375rem; }
 .ct-market-plugin-icon > img { width: 1.875rem; height: 1.875rem; object-fit: contain; }
 .ct-market-plugin-icon.is-builtin { border-color: transparent; background: var(--ct-accent-soft); color: var(--ct-accent); }
 .ct-market-card-copy h3 { margin: 0 0 0.3125rem; color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
 .ct-market-card-copy > span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4375rem; }
+.ct-market-card.has-toggle .ct-market-card-copy { padding-right: 3.25rem; }
+.ct-market-card-flag { display: inline-flex; align-items: center; gap: 0.1875rem; padding: 0 0.375rem; border-radius: 999rem; background: var(--ct-success-soft); color: var(--ct-success-strong); font-size: 0.6875rem; font-weight: 600; line-height: 1.7; }
 .ct-market-card-arrow { color: var(--ct-text-subtle); }
-.ct-market-card-main > p { display: -webkit-box; grid-column: 1 / -1; align-self: start; min-height: 2.8em; margin: 0.125rem 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; }
-.ct-market-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.875rem 1.25rem 1.125rem; }
-.ct-market-card-status { display: inline-flex; align-items: center; gap: 0.3125rem; color: var(--ct-text-subtle); font-size: 0.6875rem; }
-.ct-market-card-status.is-enabled { color: var(--ct-success); }
+.ct-market-card-main > p { display: -webkit-box; grid-column: 1 / -1; align-self: start; margin: 0.125rem 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; }
+.ct-market-card-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.875rem 1.25rem 1.125rem; }
+.ct-market-card-status { display: inline-flex; align-items: center; gap: 0.3125rem; margin-right: auto; color: var(--ct-text-subtle); font-size: 0.6875rem; }
 .ct-market-card-status.is-error { color: var(--ct-error); }
-.ct-market-card-footer .rt-Button { min-width: 4.25rem; border-radius: 999rem; font-size: 0.75rem; }
+.ct-market-card-footer .rt-Button { position: relative; z-index: 2; min-width: 4.25rem; border-radius: 999rem; font-size: 0.75rem; }
 .ct-market-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; grid-column: 1 / -1; min-height: 15rem; gap: 0.625rem; padding: 2rem 1rem; color: var(--ct-text-subtle); text-align: center; }
 .ct-market-empty h3 { margin: 0.25rem 0 0; color: var(--ct-text-muted); font-size: 0.9375rem; font-weight: 600; }
 .ct-market-empty p { margin: 0; font-size: 0.8125rem; line-height: 1.6; }
@@ -159,4 +169,5 @@
 @media (prefers-contrast: more) {
   .ct-market-card, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
   .ct-market-card-status, .ct-market-eyebrow { color: var(--ct-text-muted); }
+  .ct-market-card-flag { border: 1px solid currentColor; }
 }

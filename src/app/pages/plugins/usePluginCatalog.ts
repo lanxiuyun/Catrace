@@ -28,9 +28,11 @@ export function usePluginCatalog() {
   const localRequest = useRef(0)
   const remoteRequest = useRef(0)
 
-  const refreshLocal = useCallback(async () => {
+  // `silent` keeps the list on screen unchanged while a background reload runs (after an
+  // enable/disable or a backend event), so switches do not flash through a loading state.
+  const refreshLocal = useCallback(async (silent = false) => {
     const request = ++localRequest.current
-    setLoadingLocal(true)
+    if (!silent) setLoadingLocal(true)
     setLocalError('')
     try {
       const entries = await listPluginCatalog()
@@ -39,7 +41,7 @@ export function usePluginCatalog() {
     } catch (error) {
       if (mounted.current && request === localRequest.current) setLocalError(String(error))
     } finally {
-      if (mounted.current && request === localRequest.current) setLoadingLocal(false)
+      if (!silent && mounted.current && request === localRequest.current) setLoadingLocal(false)
     }
   }, [])
 
@@ -85,7 +87,7 @@ export function usePluginCatalog() {
     const unlisteners: UnlistenFn[] = []
     let disposed = false
     for (const name of ['plugins-reloaded', 'plugin-enabled-changed']) {
-      void listen(name, () => { void refreshLocal() }).then((unlisten) => {
+      void listen(name, () => { void refreshLocal(true) }).then((unlisten) => {
         if (disposed) unlisten()
         else unlisteners.push(unlisten)
       }).catch((error) => console.warn('Plugin catalog listener failed', error))
@@ -130,11 +132,11 @@ export function usePluginCatalog() {
     setBusyId(id)
     try {
       await action()
-      await refreshLocal()
+      await refreshLocal(true)
     } catch (error) {
       showToast(t('pluginMarket.operationFailed', { error: String(error) }), 'error')
       // An enable/stop may have persisted before a runtime error: show disk truth.
-      await refreshLocal()
+      await refreshLocal(true)
     } finally {
       operation.current = false
       if (mounted.current) setBusyId(null)
@@ -150,9 +152,9 @@ export function usePluginCatalog() {
     showToast(t('pluginMarket.installedMessage', { name: result.name }))
   })
 
+  // The switch is its own confirmation: no toast here, only the state change.
   const toggle = (id: string, value: boolean) => run(id, async () => {
     await setExternalPluginEnabled(id, value)
-    showToast(t(value ? 'pluginMarket.enabledMessage' : 'pluginMarket.disabledMessage'))
   })
 
   const uninstall = (id: string) => run(id, async () => {
