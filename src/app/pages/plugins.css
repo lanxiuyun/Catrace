@@ -33,11 +33,19 @@
 .ct-plugin-search input::placeholder { color: var(--ct-text-subtle); }
 .ct-plugin-search input:focus { outline: none; border-color: var(--ct-accent); box-shadow: 0 0 0 0.1875rem var(--ct-accent-soft); }
 .ct-market-search { width: clamp(10rem, 22vw, 15rem); flex: 1 1 auto; min-width: 0; }
-.ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text-muted); cursor: pointer; }
-.ct-plugin-icon-btn:hover:not(:disabled) { background: var(--ct-surface-2); color: var(--ct-text); }
+.ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; color: var(--ct-text-muted); cursor: pointer; transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
+/* Toolbar buttons stay borderless; the hover pill is the only chrome, like macOS toolbars. */
+.ct-plugin-icon-btn:hover:not(:disabled) { background-color: var(--ct-nav-hover); color: var(--ct-text); }
 .ct-plugin-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 /* Label variant of the icon button: keeps the 2.375rem-tall shell but sizes to its text. */
-.ct-plugin-icon-btn.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
+.ct-plugin-icon-btn.ct-market-label-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
+/* Label text uses the normal label colour; icons stay muted until hover. */
+.ct-plugin-icon-btn.ct-market-label-btn > span { color: var(--ct-text); }
+/* Open-folder and refresh read as one toolbar group. */
+.ct-market-tool-group { display: flex; align-items: center; flex-shrink: 0; gap: 0.25rem; }
+/* The plugin source shows a value, so it keeps the bordered popup-button look. */
+.ct-plugin-icon-btn.ct-market-popup-btn { border-color: var(--ct-border); background: var(--ct-surface); }
+.ct-plugin-icon-btn.ct-market-popup-btn:hover:not(:disabled) { border-color: var(--ct-border-strong); background: var(--ct-surface); }
 .ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
 .ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; box-shadow: var(--ct-shadow-card); transition: box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease, transform 0.22s cubic-bezier(0.2, 0, 0, 1); }
 /* Hover keeps the white surface and answers with depth only: no fill, no movement. */
@@ -54,14 +62,18 @@
 @keyframes ct-market-card-fade { from { opacity: 0; } }
 /* Only cards that appear later carry this class, so reorders and returns never replay it. */
 .ct-market-card.is-entering { animation: ct-market-card-in 160ms ease-out both; }
+/* Off plugins step back a little: colour drains from the icon, the title quiets down one step.
+   The card stays fully usable — this is not a disabled state. */
+.ct-market-card.is-off .ct-market-plugin-icon { opacity: 0.72; filter: saturate(0.4); }
+.ct-market-card.is-off .ct-market-card-copy h3 { color: var(--ct-text-muted); }
 /* The installed tab's switch lives in the title row; keep it out of the text flow. */
 .ct-market-card.has-toggle .ct-market-card-main { grid-template-columns: 2.875rem minmax(0, 1fr); }
 .ct-market-card-toggle { position: absolute; top: 1.25rem; right: 1.25rem; z-index: 2; display: flex; align-items: center; height: 2.875rem; }
-.ct-market-plugin-icon { display: flex; align-items: center; justify-content: center; width: 2.875rem; height: 2.875rem; flex-shrink: 0; border: 1px solid var(--ct-border); border-radius: 0.8125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); }
+.ct-market-plugin-icon { display: flex; align-items: center; justify-content: center; width: 2.875rem; height: 2.875rem; flex-shrink: 0; color: var(--ct-text-muted); transition: opacity 0.2s ease, filter 0.2s ease; }
 .ct-market-plugin-icon > svg { width: 1.375rem; height: 1.375rem; }
 .ct-market-plugin-icon > img { width: 1.875rem; height: 1.875rem; object-fit: contain; }
-.ct-market-plugin-icon.is-builtin { border-color: transparent; background: var(--ct-accent-soft); color: var(--ct-accent); }
-.ct-market-card-copy h3 { margin: 0 0 0.3125rem; color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.ct-market-plugin-icon.is-builtin { color: var(--ct-accent); }
+.ct-market-card-copy h3 { margin: 0 0 0.3125rem; color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; transition: color 0.18s ease; }
 .ct-market-card-copy > span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
 .ct-market-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4375rem; }
 .ct-market-card.has-toggle .ct-market-card-copy { padding-right: 3.25rem; }
@@ -86,7 +98,9 @@
 .ct-market-dialog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .ct-market-dialog-top .ct-plugin-icon-btn { border: 0; background: var(--ct-surface-2); border-radius: 50%; width: 1.875rem; height: 1.875rem; }
 .ct-market-detail-identity { display: flex; align-items: center; gap: 1rem; }
-.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; }
+/* The detail header keeps a plate so the hero icon stays grounded; list cards show icons bare. */
+.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; background: var(--ct-surface-2); }
+.ct-market-plugin-icon.is-large.is-builtin { background: var(--ct-accent-soft); }
 .ct-market-plugin-icon.is-large > svg { width: 1.75rem; height: 1.75rem; }
 .ct-market-plugin-icon.is-large > img { width: 2.5rem; height: 2.5rem; }
 .ct-market-detail-identity h2 { margin: 0 0 0.4375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; }

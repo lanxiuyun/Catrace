@@ -184,11 +184,13 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             <div className="ct-market-tools">
               <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
               <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={data.sourceBusy} onChange={data.changeSource} />
-              <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" onClick={openDirectory}>
-                <FolderOpen size={15} aria-hidden="true" />
-                <span>{t('plugins.external.openDir')}</span>
-              </button>
-              <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} title={t('pluginMarket.refresh')} disabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+              <div className="ct-market-tool-group">
+                <button type="button" className="ct-plugin-icon-btn ct-market-label-btn" onClick={openDirectory}>
+                  <FolderOpen size={15} aria-hidden="true" />
+                  <span>{t('plugins.external.openDir')}</span>
+                </button>
+                <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} disabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+              </div>
             </div>
           </div>
 
@@ -199,7 +201,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
             ) : visibleItems.length ? visibleItems.map((item) => (
-              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
+              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
                 {/* One hit area for the whole card; the switch and install button paint above it. */}
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">

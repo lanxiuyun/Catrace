@@ -58,8 +58,7 @@ export function PluginSourceSettings({ source, mirror, saving, disabled, onChang
       setOpen(value)
     }}>
       <Popover.Trigger>
-        <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" disabled={disabled}
-          title={t('pluginMarket.sourceCurrent', { repository: source })}>
+        <button type="button" className="ct-plugin-icon-btn ct-market-label-btn ct-market-popup-btn" disabled={disabled}>
           {saving ? <LoaderCircle size={15} className="ct-market-spin" aria-hidden="true" /> : <GitBranch size={15} aria-hidden="true" />}
           <span>{t('pluginMarket.source')} · {t(labels[currentOption])}</span>
           <ChevronDown size={12} aria-hidden="true" />
@@ -68,6 +67,7 @@ export function PluginSourceSettings({ source, mirror, saving, disabled, onChang
       <Popover.Content width="25rem" align="end" className="ct-market-source-popover" aria-labelledby={`${id}-title`}>
         <form onSubmit={submit} className="ct-market-source-form" aria-busy={saving}>
           <h3 id={`${id}-title`}>{t('pluginMarket.source')}</h3>
+          <p>{t('pluginMarket.sourceCurrent', { repository: source })}</p>
           {saving && <p className="ct-market-source-busy" role="status">
             <LoaderCircle size={13} className="ct-market-spin" aria-hidden="true" />{t('pluginMarket.sourceChecking')}
           </p>}
