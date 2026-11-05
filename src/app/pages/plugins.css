@@ -93,31 +93,104 @@
 .ct-market-error strong { font-size: 0.8125rem; font-weight: 600; }
 .ct-market-error p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
 
-/* Page-local details let legacy Vue menus teleport without a modal focus trap. */
-.ct-market-detail-dialog { max-width: 52rem; }
-/* The back control stays pinned while the detail scrolls, like a nav bar. */
-.ct-market-dialog-top { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; margin-bottom: 1rem; padding: 0.5rem 0; background: color-mix(in srgb, var(--ct-bg) 86%, transparent); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
-/* iOS-style back control: chevron + previous screen name, pinned at the top-left. */
-.ct-market-back-btn { display: inline-flex; align-items: center; gap: 0.1875rem; height: 2rem; padding: 0 0.625rem 0 0.4375rem; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; color: var(--ct-text); font: inherit; font-size: 0.8125rem; font-weight: 550; cursor: pointer; transition: background-color 0.18s ease; }
-.ct-market-back-btn:hover { background: var(--ct-nav-hover); }
-.ct-market-detail-identity { display: flex; align-items: center; gap: 1rem; }
+/* ---------- 详情页头：整宽吸顶导航条 + 大标题 ----------
+   详情是整页，不是内容栏里的弹层：导航条横跨整个滚动视口（像 macOS 工具栏），内容仍收在
+   52rem 中线。静止时条子完全透明——材质只在内容真的滚到它下面时才出现；以前那条只盖内容栏
+   的半透明带会在页面柔光上切出硬边矩形，下面又没有内容，看起来像没做完的浮层。 */
+.ct-plugin-detail {
+  /* 沿用旧详情的内容栏：52rem 外框 + 两侧 1.75rem 页边距 → 48.5rem 内容列。
+     导航条要整宽，页边距不能写在 section 上，所以由条子和内容列各算一套。 */
+  --ct-detail-col: 48.5rem;
+  --ct-detail-pad: 1.75rem;
+  width: 100%;
+  padding-bottom: 2.5rem;
+}
+/* 导航条是唯一整宽的子元素；其余子元素各自走同一条内容列（见下条规则），
+   这样返回控件的 chevron 和下方图标能落在同一条左边缘上，不会出现两套缩进。 */
+.ct-plugin-detail-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0.5rem max(var(--ct-detail-pad), calc((100% - var(--ct-detail-col)) / 2));
+  border-bottom: 0.0625rem solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ct-plugin-detail-nav.is-scrolled {
+  border-bottom-color: var(--ct-border);
+  background: color-mix(in srgb, var(--ct-bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+/* iOS 式返回控件：chevron 落在内容栏左边缘上（负左边距把可点区域探进页边距，
+   悬停胶囊不会把文字整体推开）。 */
+.ct-plugin-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  height: 2.25rem;
+  margin-left: -0.5rem;
+  padding: 0 0.625rem 0 0.5rem;
+  border: 0;
+  border-radius: 0.5625rem;
+  background: transparent;
+  color: var(--ct-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+.ct-plugin-detail-back > svg { flex-shrink: 0; }
+.ct-plugin-detail-back:hover { background: var(--ct-nav-hover); }
+/* 标题滚出导航条后，插件名接替条子中央的位置：大标题消失不丢上下文。 */
+.ct-plugin-detail-nav-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--ct-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+.ct-plugin-detail-nav.is-titled .ct-plugin-detail-nav-title { opacity: 1; }
+/* 内容列：和导航条同一条左边缘。窄窗口用 100% - 两侧页边距，宽窗口才收成 48.5rem。 */
+.ct-plugin-detail > :not(.ct-plugin-detail-nav) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--ct-detail-col), calc(100% - 2 * var(--ct-detail-pad)));
+  margin-inline: auto;
+}
+/* 返回条、标题组、描述是一个页头单元，下面才是内容卡。 */
+.ct-plugin-detail-header { margin: 0.75rem 0 1.5rem; }
+/* 标题行：图标 + 标题/版本 + 右侧开关（未安装时同一位置放「安装」）。
+   标题列吃满剩余宽度，长名字换行也不会把开关挤走。 */
+.ct-plugin-detail-identity { display: flex; align-items: center; gap: 1rem; }
+.ct-plugin-detail-titles { flex: 1 1 auto; min-width: 0; }
+.ct-plugin-detail-identity > .rt-Button,
+.ct-plugin-detail-identity > .rt-SwitchRoot { flex-shrink: 0; }
 /* The detail header keeps a plate so the hero icon stays grounded; list cards show icons bare. */
 .ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; background: var(--ct-surface-2); }
 .ct-market-plugin-icon.is-large.is-builtin { background: var(--ct-accent-soft); }
 .ct-market-plugin-icon.is-large > svg { width: 1.75rem; height: 1.75rem; }
 .ct-market-plugin-icon.is-large > img { width: 2.5rem; height: 2.5rem; }
-.ct-market-detail-identity h2 { margin: 0 0 0.4375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; }
-.ct-market-detail-identity h2:focus { outline: none; }
+.ct-plugin-detail-identity h2 { margin: 0 0 0.375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; overflow-wrap: anywhere; }
+.ct-plugin-detail-identity h2:focus { outline: none; }
 .ct-plugin-tag { display: inline-block; padding: 0.125rem 0.4375rem; border-radius: 0.3125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
-.ct-market-detail-description { margin: 1rem 0 1.25rem !important; font-size: 0.8125rem !important; line-height: 1.7 !important; color: var(--ct-text-muted); }
-.ct-market-enable-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1rem 1.125rem; margin-bottom: 1.25rem; border: 1px solid var(--ct-border-card); border-radius: 0.875rem; background: var(--ct-surface-2); }
-.ct-market-enable-row strong { font-size: 0.8125rem; font-weight: 600; color: var(--ct-text); }
-.ct-market-enable-row p { margin: 0.3125rem 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--ct-text-muted); }
-.ct-market-enable-row .rt-Button { flex-shrink: 0; }
-.ct-market-detail-body { display: flex; flex-direction: column; gap: 1rem; }
-.ct-market-trust-note { display: flex; align-items: flex-start; gap: 0.625rem; color: var(--ct-text-subtle); }
-.ct-market-trust-note > svg { flex-shrink: 0; margin-top: 0.125rem; }
-.ct-market-trust-note p { margin: 0; color: var(--ct-text-muted); font-size: 0.6875rem; line-height: 1.7; }
+/* 描述收一行长度上限：13px 铺满 48.5rem 内容栏一行要 70+ 字，读起来散。 */
+.ct-plugin-detail-description { margin: 0.75rem 0 0 !important; max-width: 36rem; font-size: 0.8125rem !important; line-height: 1.7 !important; color: var(--ct-text-muted); }
+.ct-plugin-detail-body { display: flex; flex-direction: column; gap: 1rem; }
 .ct-market-installation { margin-top: 0.25rem; }
 .ct-market-installation dl { margin: 0.75rem 0 0; }
 .ct-market-installation dl > div { display: flex; gap: 1.25rem; padding: 0.5rem 0; font-size: 0.75rem; line-height: 1.6; }
@@ -133,8 +206,8 @@
 .ct-market-external-settings { min-width: 0; width: 100%; }
 .ct-market-spin { animation: ct-market-spin 1s linear infinite; }
 @keyframes ct-market-spin { to { transform: rotate(360deg); } }
-.ct-market button:focus-visible, .ct-market-detail-dialog button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
-.ct-market button:active:not(:disabled), .ct-market-detail-dialog button:active:not(:disabled) { filter: brightness(0.96); }
+.ct-market button:focus-visible, .ct-plugin-detail button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
+.ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
 
 /* Native React reminder settings, shared with the detail sheet. */
 .ct-plugin-groups { display: flex; flex-direction: column; gap: 1rem; }
@@ -154,10 +227,10 @@
 .ct-plugin-row-control .rt-TextFieldRoot, .ct-plugin-row-control .rt-TextArea { width: 100%; }
 .ct-plugin-select { min-width: 8rem; }
 .ct-plugin-value { flex-shrink: 0; min-width: 4rem; padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--ct-surface-2); text-align: right; font-family: var(--ct-font-mono); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ct-text); white-space: nowrap; }
-.ct-plugins-page .rt-SliderRoot, .ct-market-detail-dialog .rt-SliderRoot { --slider-track-size: 0.25rem; --slider-thumb-size: 0.9375rem; }
-.ct-plugins-page .rt-SliderTrack, .ct-plugins-page .rt-SliderRange, .ct-market-detail-dialog .rt-SliderTrack, .ct-market-detail-dialog .rt-SliderRange { background-color: var(--ct-surface-2); }
-.ct-plugins-page .rt-SliderThumb, .ct-market-detail-dialog .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
-[data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-market-detail-dialog .rt-SliderThumb { background-color: #e5e5ea; }
+.ct-plugins-page .rt-SliderRoot, .ct-plugin-detail .rt-SliderRoot { --slider-track-size: 0.25rem; --slider-thumb-size: 0.9375rem; }
+.ct-plugins-page .rt-SliderTrack, .ct-plugins-page .rt-SliderRange, .ct-plugin-detail .rt-SliderTrack, .ct-plugin-detail .rt-SliderRange { background-color: var(--ct-surface-2); }
+.ct-plugins-page .rt-SliderThumb, .ct-plugin-detail .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
+[data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-plugin-detail .rt-SliderThumb { background-color: #e5e5ea; }
 .ct-plugin-bg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; width: 100%; min-height: 5rem; padding: 0.75rem; border: 1px dashed var(--ct-border-strong); border-radius: 0.75rem; background: var(--ct-bg); color: var(--ct-text-muted); font-size: 0.75rem; text-align: center; cursor: pointer; }
 .ct-plugin-bg-empty:hover { border-color: var(--ct-accent-border); color: var(--ct-text); }
 .ct-plugin-bg-empty:focus-within { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.125rem; }
@@ -192,6 +265,7 @@
 
 @media (max-width: 44rem) {
   .ct-market { padding: 1.25rem 1.125rem 2rem; }
+  .ct-plugin-detail { --ct-detail-pad: 1.125rem; }
 }
 @media (max-width: 48rem) {
   .ct-market-toolbar { flex-wrap: wrap; }
@@ -210,6 +284,9 @@
   .ct-market-card:has(.ct-market-card-open:active) { transform: none; }
   .ct-market-card.is-entering { animation: ct-market-card-fade 160ms ease-out both; }
   .ct-market-card-main { transition: none; }
+  /* 详情导航条只保留「有/没有」两种状态，不做渐显 */
+  .ct-plugin-detail-nav,
+  .ct-plugin-detail-nav-title { transition: none; }
   /* 降低动态效果：列表 ↔ 详情不做位移，直接切换 */
   ::view-transition-old(ct-plugin-push),
   ::view-transition-new(ct-plugin-push),
@@ -218,10 +295,11 @@
 }
 @media (prefers-reduced-transparency: reduce) {
   .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
-  .ct-market-dialog-top { background: var(--ct-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .ct-plugin-detail-nav.is-scrolled { background: var(--ct-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
-  .ct-market-card, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }
+  .ct-market-card, .ct-plugin-group { border-color: var(--ct-text-muted); }
   .ct-market-card-status, .ct-market-eyebrow { color: var(--ct-text-muted); }
   .ct-market-card-flag { border: 1px solid currentColor; }
+  .ct-plugin-detail-nav.is-scrolled { border-bottom-color: var(--ct-text-muted); }
 }

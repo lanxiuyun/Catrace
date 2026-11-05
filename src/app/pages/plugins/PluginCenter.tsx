@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { AlertDialog, Button, Switch } from '@radix-ui/themes'
 import {
   Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
-  FolderOpen, LoaderCircle, Plug, RefreshCw, Search, ShieldCheck, Trash2,
+  FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
 } from 'lucide-react'
 import { openPluginsDir, type PluginCatalogEntry, type RepositoryPluginInfo } from '../../../api/tauri'
 import { useT } from '../../i18n'
@@ -39,6 +39,8 @@ type ViewTransitionDocument = Document & {
 type PageTransition = 'push' | 'back'
 /** Guards the transient inline style when two transitions overlap (no interruption support). */
 let transitionSequence = 0
+/** How far the detail scrolls before its nav bar takes on the toolbar material. */
+const NAV_MATERIAL_SCROLL = 12
 
 /**
  * List ↔ detail is an iOS-style push/pop: only the page content viewport is snapshotted
@@ -84,11 +86,22 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const detailOpener = useRef<HTMLButtonElement | null>(null)
   const alertOpener = useRef<HTMLElement | null>(null)
   const detailHeading = useRef<HTMLHeadingElement | null>(null)
+  const detailSection = useRef<HTMLElement | null>(null)
   const listScroll = useRef(0)
+  // The detail nav bar is transparent until content scrolls underneath it; the plugin name
+  // takes over the bar once the hero title leaves, so the page never loses its context.
+  const [navScrolled, setNavScrolled] = useState(false)
+  const [navTitled, setNavTitled] = useState(false)
   const openDetails = (id: string, opener: HTMLButtonElement) => {
     detailOpener.current = opener
-    listScroll.current = opener.closest('.ct-page-scroll')?.scrollTop ?? 0
-    runPageTransition('push', () => setSelectedId(id))
+    const scroller = opener.closest<HTMLElement>('.ct-page-scroll')
+    listScroll.current = scroller?.scrollTop ?? 0
+    // A detail always starts at its own top: opening from a scrolled list used to land the
+    // reader in the middle of the page with the header already off-screen.
+    runPageTransition('push', () => {
+      setSelectedId(id)
+      if (scroller) scroller.scrollTop = 0
+    })
   }
   const closeDetails = () => runPageTransition('back', () => setSelectedId(null), () => {
     const opener = detailOpener.current
@@ -102,6 +115,39 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   }
   useEffect(() => {
     if (selectedId) detailHeading.current?.focus()
+  }, [selectedId])
+
+  // Nav bar state for the detail: the toolbar material appears only once content is under the
+  // bar (a translucent band over an empty background is just a smudge), and the plugin name
+  // replaces the hero title in the bar once the title has scrolled out of view.
+  useEffect(() => {
+    if (!selectedId) {
+      setNavScrolled(false)
+      setNavTitled(false)
+      return
+    }
+    const section = detailSection.current
+    const scroller = section?.closest<HTMLElement>('.ct-page-scroll')
+    const nav = section?.querySelector<HTMLElement>('.ct-plugin-detail-nav')
+    if (!scroller || !nav) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const heading = detailHeading.current
+      setNavScrolled(scroller.scrollTop > NAV_MATERIAL_SCROLL)
+      setNavTitled(!!heading && heading.getBoundingClientRect().bottom <= nav.getBoundingClientRect().bottom)
+    }
+    const requestMeasure = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    measure()
+    scroller.addEventListener('scroll', requestMeasure, { passive: true })
+    window.addEventListener('resize', requestMeasure)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      scroller.removeEventListener('scroll', requestMeasure)
+      window.removeEventListener('resize', requestMeasure)
+    }
   }, [selectedId])
   const busy = data.busyId !== null || restBusy || data.sourceBusy
   const installedById = new Map(data.installed.map((entry) => [entry.info.id, entry]))
@@ -236,19 +282,22 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
 
         </main>
 
-        <section className="ct-market ct-market-detail-dialog" hidden={!selected} aria-labelledby="ct-plugin-detail-title">
+        <section ref={detailSection} className="ct-plugin-detail" hidden={!selected} aria-labelledby="ct-plugin-detail-title">
             {selected && <>
-              <div className="ct-market-dialog-top"><button className="ct-market-back-btn" type="button" aria-label={t('pluginMarket.back')} onClick={closeDetails}><ChevronLeft size={17} aria-hidden="true" /><span>{t('pluginMarket.title')}</span></button></div>
-              <div className="ct-market-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div></div>
-              <p className="ct-market-detail-description">{selected.description || t('plugins.external.noDescription')}</p>
-              {isInstalled(selected) ? <div className="ct-market-enable-row"><div><strong>{t(selectedEnabled ? 'pluginMarket.enabled' : 'pluginMarket.notEnabled')}</strong><p>{t(selected.builtin ? 'pluginMarket.builtinEnableHint' : selectedEnabled ? 'pluginMarket.disableHint' : 'pluginMarket.enableHint')}</p></div><Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }} /></div> : <div className="ct-market-enable-row"><div><strong>{t('pluginMarket.readyToInstall')}</strong><p>{t('pluginMarket.installHint')}</p></div>{installButton(selected)}</div>}
+              <div className={`ct-plugin-detail-nav${navScrolled ? ' is-scrolled' : ''}${navTitled ? ' is-titled' : ''}`}>
+                <button className="ct-plugin-detail-back" type="button" aria-label={t('pluginMarket.back')} onClick={closeDetails}><ChevronLeft size={17} aria-hidden="true" /><span>{t('pluginMarket.title')}</span></button>
+                <span className="ct-plugin-detail-nav-title" aria-hidden="true">{selected.name}</span>
+              </div>
+              <header className="ct-plugin-detail-header">
+                <div className="ct-plugin-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div className="ct-plugin-detail-titles"><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div>{isInstalled(selected) ? <Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }} /> : installButton(selected)}</div>
+                <p className="ct-plugin-detail-description">{selected.description || t('plugins.external.noDescription')}</p>
+              </header>
               {selectedError && <div className="ct-market-error" role="alert"><CircleAlert size={17} aria-hidden="true" /><div><strong>{t('pluginMarket.needsAttention')}</strong><p>{selectedError}</p></div></div>}
-              <div className="ct-market-detail-body" key={selected.id}>
+              <div className="ct-plugin-detail-body" key={selected.id}>
                 {selected.builtin ? children : selected.installed ? <>
-                  <div className="ct-market-trust-note"><ShieldCheck size={17} aria-hidden="true" /><p>{t('pluginMarket.trustNote')}</p></div>
                   {selectedEnabled && !selectedError && <ExternalPluginSettings id={selected.id} hasSettings={selected.installed.info.hasSettings} contentMtimeMs={selected.installed.info.contentMtimeMs} />}
                   <section className="ct-plugin-group ct-market-installation"><h3 className="ct-plugin-group-title">{t('pluginMarket.installation')}</h3><dl><div><dt>{t('pluginMarket.identifier')}</dt><dd>{selected.id}</dd></div><div><dt>{t('pluginMarket.source')}</dt><dd>{selected.installed.info.sourceRepository ?? t('pluginMarket.sourceUnknown')}</dd></div>{selected.installed.info.sourceCommit && <div><dt>{t('pluginMarket.sourceCommit')}</dt><dd><code>{selected.installed.info.sourceCommit}</code></dd></div>}<div><dt>{t('plugins.external.dir')}</dt><dd><code>{selected.installed.info.dir}</code></dd></div></dl><div className="ct-market-remove-row"><p>{t('pluginMarket.uninstallHint')}</p><Button variant="soft" color="red" disabled={busy} onClick={(event) => { alertOpener.current = event.currentTarget; setRemoveId(selected.id) }}><Trash2 size={14} aria-hidden="true" />{t('pluginMarket.uninstall')}</Button></div></section>
-                </> : <div className="ct-market-trust-note"><ShieldCheck size={18} aria-hidden="true" /><p>{t('pluginMarket.trustNote')}</p></div>}
+                </> : null}
               </div>
             </>}
         </section>
