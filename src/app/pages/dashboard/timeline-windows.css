@@ -21,20 +21,25 @@
   box-shadow: var(--ct-shadow-card);
   user-select: none;
   transition:
-    transform 0.22s cubic-bezier(0.2, 0, 0, 1),
     box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.18s ease,
-    background-color 0.18s ease;
+    transform 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* 悬停/按压只跟摘要按钮走：明细区不响应按压，避免「点了没反应却动了一下」 */
+/* 悬停/按压只跟摘要按钮走：明细区不响应按压，避免「点了没反应却动了一下」。
+   悬停保留白底，只用阴影和描边给深度 —— 和插件卡片同一套语言。 */
 .ct-timeline-windows .card:has(.card-summary:hover) {
-  transform: translateY(-0.125rem);
+  border-color: var(--ct-border-strong);
   box-shadow: var(--ct-shadow-card-hover);
 }
 
+/* 进行中卡片的蓝色描边是状态信号，悬停时不能被普通描边盖掉 */
+.ct-timeline-windows .card.is-current:has(.card-summary:hover) {
+  border-color: var(--ct-accent-border);
+}
+
 .ct-timeline-windows .card:has(.card-summary:active) {
-  transform: translateY(0) scale(0.994);
+  transform: scale(0.994);
   transition-duration: 0.09s;
 }
 
@@ -359,7 +364,6 @@
     transition: box-shadow 0.18s ease, border-color 0.18s ease;
   }
 
-  .ct-timeline-windows .card:has(.card-summary:hover),
   .ct-timeline-windows .card:has(.card-summary:active) {
     transform: none;
   }

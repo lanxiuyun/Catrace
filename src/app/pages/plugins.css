@@ -39,14 +39,21 @@
 /* Label variant of the icon button: keeps the 2.375rem-tall shell but sizes to its text. */
 .ct-plugin-icon-btn.ct-market-folder-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
 .ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
-.ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; }
-.ct-market-card:hover { border-color: var(--ct-border-strong); }
-.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; text-align: left; }
+.ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; box-shadow: var(--ct-shadow-card); transition: box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease, transform 0.22s cubic-bezier(0.2, 0, 0, 1); }
+/* Hover keeps the white surface and answers with depth only: no fill, no movement. */
+.ct-market-card:hover { border-color: var(--ct-border-strong); box-shadow: var(--ct-shadow-card-hover); }
+/* Press keeps the dashboard's tap response: shrink a hair. */
+.ct-market-card:has(.ct-market-card-open:active) { transform: scale(0.994); transition-duration: 0.09s; }
+.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; text-align: left; transition: filter 120ms ease-out; }
 /* Whole-card hit area; content stays visible underneath, controls paint above it. */
 .ct-market-card-open { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .ct-market .ct-market-card-open:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: -0.1875rem; border-radius: 1rem; }
-/* Pressing the card dims its content, since the hit button itself is transparent. */
-.ct-market-card-open:active:not(:disabled) ~ .ct-market-card-main { filter: brightness(0.98); }
+/* Pressing the card dims its content: instant on press, eased on release. */
+.ct-market-card-open:active:not(:disabled) ~ .ct-market-card-main { filter: brightness(0.98); transition: none; }
+@keyframes ct-market-card-in { from { opacity: 0; transform: translateY(0.25rem); } }
+@keyframes ct-market-card-fade { from { opacity: 0; } }
+/* Only cards that appear later carry this class, so reorders and returns never replay it. */
+.ct-market-card.is-entering { animation: ct-market-card-in 160ms ease-out both; }
 /* The installed tab's switch lives in the title row; keep it out of the text flow. */
 .ct-market-card.has-toggle .ct-market-card-main { grid-template-columns: 2.875rem minmax(0, 1fr); }
 .ct-market-card-toggle { position: absolute; top: 1.25rem; right: 1.25rem; z-index: 2; display: flex; align-items: center; height: 2.875rem; }
@@ -146,6 +153,12 @@
 .ct-plugin-bg-btn.is-danger:hover { color: var(--ct-error-strong); }
 .ct-plugin-note { max-width: 32rem; margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--ct-text-muted); }
 
+/* List ↔ detail swap: cross-fade both snapshots; unchanged window chrome stays visually still. */
+::view-transition-old(root) { animation: ct-view-out 140ms ease-out both; }
+::view-transition-new(root) { animation: ct-view-in 200ms ease-out both; }
+@keyframes ct-view-out { to { opacity: 0; } }
+@keyframes ct-view-in { from { opacity: 0; } }
+
 @media (max-width: 44rem) {
   .ct-market { padding: 1.25rem 1.125rem 2rem; }
 }
@@ -162,6 +175,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ct-market-spin { animation: none; }
+  .ct-market-card { transition: box-shadow 0.22s ease, border-color 0.18s ease; }
+  .ct-market-card:has(.ct-market-card-open:active) { transform: none; }
+  .ct-market-card.is-entering { animation: ct-market-card-fade 160ms ease-out both; }
+  .ct-market-card-main { transition: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }

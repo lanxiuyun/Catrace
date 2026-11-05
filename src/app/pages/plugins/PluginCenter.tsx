@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { AlertDialog, Button, Switch } from '@radix-ui/themes'
 import {
   Armchair, ArrowDownToLine, Check, ChevronRight, CircleAlert,
@@ -31,6 +32,32 @@ type Props = {
   children: ReactNode
 }
 
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (callback: () => void) => unknown
+}
+
+/**
+ * List ↔ detail swap with a cross-fade: the View Transitions API snapshots both states and
+ * fades between them. WebViews without it keep the instant swap, so behaviour never breaks.
+ */
+const runViewTransition = (apply: () => void, afterCommit?: () => void) => {
+  const doc = document as ViewTransitionDocument
+  if (typeof doc.startViewTransition !== 'function') {
+    apply()
+    if (afterCommit) requestAnimationFrame(afterCommit)
+    return
+  }
+  try {
+    doc.startViewTransition(() => {
+      flushSync(apply)
+      afterCommit?.()
+    })
+  } catch {
+    apply()
+    if (afterCommit) requestAnimationFrame(afterCommit)
+  }
+}
+
 export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, children }: Props) {
   const t = useT()
   const data = usePluginCatalog()
@@ -39,6 +66,9 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [removeId, setRemoveId] = useState<string | null>(null)
+  const [entering, setEntering] = useState<Set<string>>(() => new Set())
+  const seenIds = useRef<Record<'discover' | 'installed', Set<string>>>({ discover: new Set(), installed: new Set() })
+  const primedTabs = useRef<Record<'discover' | 'installed', boolean>>({ discover: false, installed: false })
   const detailOpener = useRef<HTMLButtonElement | null>(null)
   const alertOpener = useRef<HTMLElement | null>(null)
   const detailHeading = useRef<HTMLHeadingElement | null>(null)
@@ -46,17 +76,14 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const openDetails = (id: string, opener: HTMLButtonElement) => {
     detailOpener.current = opener
     listScroll.current = opener.closest('.ct-page-scroll')?.scrollTop ?? 0
-    setSelectedId(id)
+    runViewTransition(() => setSelectedId(id))
   }
-  const closeDetails = () => {
-    setSelectedId(null)
-    requestAnimationFrame(() => {
-      const opener = detailOpener.current
-      opener?.focus({ preventScroll: true })
-      const scroll = opener?.closest('.ct-page-scroll')
-      if (scroll) scroll.scrollTop = listScroll.current
-    })
-  }
+  const closeDetails = () => runViewTransition(() => setSelectedId(null), () => {
+    const opener = detailOpener.current
+    opener?.focus({ preventScroll: true })
+    const scroll = opener?.closest('.ct-page-scroll')
+    if (scroll) scroll.scrollTop = listScroll.current
+  })
   const restoreAlertFocus = (event: Event) => {
     event.preventDefault()
     alertOpener.current?.focus()
@@ -90,6 +117,26 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const visibleItems = (tab === 'installed' ? installedItems : discoverItems)
     .filter((item) => `${item.id} ${item.name} ${item.description}`.toLowerCase().includes(normalized))
     .sort(byName)
+
+  // Only cards that genuinely appear later animate in; reordering, toggling and re-showing the
+  // list after closing a detail keep their position and stay still.
+  const visibleIds = visibleItems.map((item) => item.id).join('|')
+  useEffect(() => {
+    const bucket = seenIds.current[tab]
+    const ids = visibleIds ? visibleIds.split('|') : []
+    if (!primedTabs.current[tab]) {
+      if (!ids.length) return
+      for (const id of ids) bucket.add(id)
+      primedTabs.current[tab] = true
+      return
+    }
+    const fresh = ids.filter((id) => !bucket.has(id))
+    for (const id of ids) bucket.add(id)
+    if (!fresh.length) return
+    setEntering(new Set(fresh))
+    const timer = setTimeout(() => setEntering(new Set()), 200)
+    return () => clearTimeout(timer)
+  }, [visibleIds, tab])
 
   useEffect(() => {
     if (selectedId && !allItems.has(selectedId) && !data.loadingLocal && !data.loadingRemote) {
@@ -152,7 +199,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
             ) : visibleItems.length ? visibleItems.map((item) => (
-              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}`}>
+              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
                 {/* One hit area for the whole card; the switch and install button paint above it. */}
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">
