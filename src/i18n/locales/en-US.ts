@@ -517,6 +517,8 @@ export default {
     sourceChecking: 'Verifying…',
     sourceSaved: 'Plugin source changed',
     sourceWait: 'Wait for the current plugin operation to finish.',
+    rateLimited: 'The GitHub API request quota is used up; it resets in about {minutes} minutes. Installed plugins are unaffected.',
+    rateLimitedUnknown: 'The GitHub API request quota is used up. Try again later; installed plugins are unaffected.',
     sourceOtherInstalled: 'ID already installed from another source',
     sourceUnknown: 'Not recorded (older installation)',
     sourceCommit: 'Installed commit',

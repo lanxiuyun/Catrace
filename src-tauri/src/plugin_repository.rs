@@ -1,8 +1,10 @@
 //! GitHub / Gitee plugin sources. User input only selects validated owner/repo path
 //! segments; every request still uses fixed HTTPS hosts and immutable commits.
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
@@ -18,6 +20,8 @@ const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PACKAGE_FILES: usize = 5_000;
 const MAX_PLUGINS: usize = 128;
+/// Keep only the few API documents a catalog read needs; entries are replaced per URL.
+const MAX_CACHED_API_RESPONSES: usize = 8;
 const SOURCE_FILE: &str = ".catrace-source.json";
 
 /// A public repository host whose endpoints, file layout and archive naming are known.
@@ -345,6 +349,10 @@ async fn fetch_bytes(client: &reqwest::Client, url: &str, limit: usize) -> Resul
             response.status()
         ));
     }
+    read_body(&mut response, limit).await
+}
+
+async fn read_body(response: &mut reqwest::Response, limit: usize) -> Result<Vec<u8>, String> {
     if response
         .content_length()
         .is_some_and(|len| len > limit as u64)
@@ -361,6 +369,112 @@ async fn fetch_bytes(client: &reqwest::Client, url: &str, limit: usize) -> Resul
             return Err(format!("repository response exceeds {} bytes", limit));
         }
         bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+struct CachedApiResponse {
+    etag: String,
+    body: Vec<u8>,
+}
+
+/// GitHub's unauthenticated API allows about 60 requests per hour, while conditional
+/// requests answered with 304 do not consume quota. Catalog refreshes therefore send
+/// `If-None-Match` and reuse the stored JSON body while the repository is unchanged.
+fn api_cache() -> &'static Mutex<HashMap<String, CachedApiResponse>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, CachedApiResponse>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn cached_api_response(url: &str) -> Option<(String, Vec<u8>)> {
+    let cache = api_cache().lock().unwrap();
+    cache.get(url).map(|entry| (entry.etag.clone(), entry.body.clone()))
+}
+
+fn store_api_response(url: &str, etag: &str, body: &[u8]) {
+    let mut cache = api_cache().lock().unwrap();
+    if cache.len() >= MAX_CACHED_API_RESPONSES && !cache.contains_key(url) {
+        cache.clear();
+    }
+    cache.insert(
+        url.to_string(),
+        CachedApiResponse {
+            etag: etag.to_string(),
+            body: body.to_vec(),
+        },
+    );
+}
+
+/// Marker understood by the plugin center, which turns it into a localized message.
+fn rate_limited_error(reset_epoch: u64) -> String {
+    format!("rate_limited|{reset_epoch}")
+}
+
+/// GitHub answers 403 (and Gitee 429) once the hourly quota is exhausted. Distinguish
+/// that from other failures so the UI can explain the wait instead of a bare HTTP code.
+fn rate_limit_signal(status: u16, remaining: Option<&str>, reset: Option<&str>) -> Option<String> {
+    if status != 403 && status != 429 {
+        return None;
+    }
+    if remaining?.trim() != "0" {
+        return None;
+    }
+    let reset = reset
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    Some(rate_limited_error(reset))
+}
+
+fn rate_limit_error(response: &reqwest::Response) -> Option<String> {
+    let header = |name: &str| {
+        response
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+    };
+    rate_limit_signal(
+        response.status().as_u16(),
+        header("x-ratelimit-remaining"),
+        header("x-ratelimit-reset"),
+    )
+}
+
+async fn fetch_api_bytes(
+    client: &reqwest::Client,
+    url: &str,
+    limit: usize,
+) -> Result<Vec<u8>, String> {
+    let cached = cached_api_response(url);
+    let mut request = client.get(url);
+    if let Some((etag, _)) = &cached {
+        request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+    }
+    let mut response = request
+        .send()
+        .await
+        .map_err(|e| format!("repository request failed: {e}"))?;
+    if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+        return cached
+            .map(|(_, body)| body)
+            .ok_or_else(|| "repository conditional request has no cached response".to_string());
+    }
+    if !response.status().is_success() {
+        if let Some(error) = rate_limit_error(&response) {
+            return Err(error);
+        }
+        return Err(format!(
+            "repository request returned HTTP {} (the source host may be unavailable or rate-limited)",
+            response.status()
+        ));
+    }
+    let etag = response
+        .headers()
+        .get(reqwest::header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let bytes = read_body(&mut response, limit).await?;
+    if let Some(etag) = etag {
+        store_api_response(url, &etag, &bytes);
     }
     Ok(bytes)
 }
@@ -406,7 +520,7 @@ async fn fetch_repository_tree(
     commit: &str,
 ) -> Result<Tree, String> {
     validate_commit(commit)?;
-    let bytes = fetch_bytes(
+    let bytes = fetch_api_bytes(
         client,
         &format!("{}/git/trees/{commit}?recursive=1", repository.api()),
         MAX_JSON_BYTES,
@@ -501,7 +615,7 @@ async fn fetch_head_commit(
     client: &reqwest::Client,
     repository: &RepositorySource,
 ) -> Result<String, String> {
-    let bytes = fetch_bytes(client, &repository.commits_head(), MAX_JSON_BYTES).await?;
+    let bytes = fetch_api_bytes(client, &repository.commits_head(), MAX_JSON_BYTES).await?;
     let sha = match repository.provider {
         Provider::GitHub => {
             serde_json::from_slice::<Commit>(&bytes)
@@ -1136,5 +1250,44 @@ mod tests {
             catalog.commit,
             timer.version
         );
+    }
+
+    #[test]
+    fn exhausted_rate_limit_is_reported_with_its_reset_time() {
+        assert_eq!(
+            rate_limit_signal(403, Some("0"), Some("1793845864")),
+            Some("rate_limited|1793845864".to_string())
+        );
+        assert_eq!(
+            rate_limit_signal(429, Some(" 0 "), Some("1793845864")),
+            Some("rate_limited|1793845864".to_string())
+        );
+        // Missing or unparsable reset still surfaces the sentinel without a countdown.
+        assert_eq!(
+            rate_limit_signal(403, Some("0"), Some("soon")),
+            Some("rate_limited|0".to_string())
+        );
+        assert_eq!(
+            rate_limit_signal(403, Some("0"), None),
+            Some("rate_limited|0".to_string())
+        );
+        // Only a 403/429 with an exhausted counter is a rate limit; other failures stay generic.
+        assert_eq!(rate_limit_signal(403, Some("12"), Some("1793845864")), None);
+        assert_eq!(rate_limit_signal(403, None, Some("1793845864")), None);
+        assert_eq!(rate_limit_signal(404, Some("0"), Some("1793845864")), None);
+        assert_eq!(rate_limit_signal(500, Some("0"), Some("1793845864")), None);
+    }
+
+    #[test]
+    fn api_cache_round_trips_by_url_and_stays_bounded() {
+        store_api_response("test://cache/body", "etag", b"body");
+        assert_eq!(
+            cached_api_response("test://cache/body"),
+            Some(("etag".to_string(), b"body".to_vec()))
+        );
+        for index in 0..=MAX_CACHED_API_RESPONSES {
+            store_api_response(&format!("test://cache/{index}"), "e", b"b");
+        }
+        assert!(api_cache().lock().unwrap().len() <= MAX_CACHED_API_RESPONSES);
     }
 }

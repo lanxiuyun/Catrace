@@ -516,6 +516,8 @@ export default {
     sourceChecking: '正在验证…',
     sourceSaved: '插件源已切换',
     sourceWait: '请等待当前插件操作完成。',
+    rateLimited: 'GitHub 接口本次请求额度已用完，约 {minutes} 分钟后恢复；已安装插件不受影响。',
+    rateLimitedUnknown: 'GitHub 接口本次请求额度已用完，请稍后再试；已安装插件不受影响。',
     sourceOtherInstalled: '同 ID 已从其他源安装',
     sourceUnknown: '来源未记录（旧安装）',
     sourceCommit: '安装快照',

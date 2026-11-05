@@ -28,6 +28,16 @@ export function usePluginCatalog() {
   const localRequest = useRef(0)
   const remoteRequest = useRef(0)
 
+  // The backend marks an exhausted API quota as `rate_limited|<reset epoch>`.
+  const describeError = (error: unknown) => {
+    const text = String(error)
+    const match = /^rate_limited\|(\d+)$/.exec(text.trim())
+    if (!match) return text
+    const epoch = Number(match[1])
+    const minutes = epoch > 0 ? Math.max(1, Math.ceil((epoch * 1000 - Date.now()) / 60_000)) : 0
+    return minutes > 0 ? t('pluginMarket.rateLimited', { minutes }) : t('pluginMarket.rateLimitedUnknown')
+  }
+
   // `silent` keeps the list on screen unchanged while a background reload runs (after an
   // enable/disable or a backend event), so switches do not flash through a loading state.
   const refreshLocal = useCallback(async (silent = false) => {
@@ -65,7 +75,7 @@ export function usePluginCatalog() {
       setRepository(result)
     } catch (error) {
       if (mounted.current && request === remoteRequest.current) {
-        setRemoteError(String(error))
+        setRemoteError(describeError(error))
         // Never leave an old source's cards installable after a failed source read.
         setRepository(null)
       }
@@ -120,6 +130,8 @@ export function usePluginCatalog() {
       setRepository(result)
       setRemoteError('')
       showToast(t('pluginMarket.sourceSaved'))
+    } catch (error) {
+      throw describeError(error)
     } finally {
       operation.current = false
       if (mounted.current) setSourceBusy(false)
@@ -134,7 +146,7 @@ export function usePluginCatalog() {
       await action()
       await refreshLocal(true)
     } catch (error) {
-      showToast(t('pluginMarket.operationFailed', { error: String(error) }), 'error')
+      showToast(t('pluginMarket.operationFailed', { error: describeError(error) }), 'error')
       // An enable/stop may have persisted before a runtime error: show disk truth.
       await refreshLocal(true)
     } finally {
