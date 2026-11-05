@@ -8,12 +8,14 @@ import './page-scroll.css'
 export function PageScroll({
   children,
   fillContent = false,
+  className,
 }: {
   children: ReactNode
   fillContent?: boolean
+  className?: string
 }) {
   return (
-    <div className="ct-page-scroll">
+    <div className={className ? `ct-page-scroll ${className}` : 'ct-page-scroll'}>
       <div className={fillContent ? 'ct-page-scroll-content is-fill' : 'ct-page-scroll-content'}>
         {children}
       </div>

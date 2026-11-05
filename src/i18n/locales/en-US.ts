@@ -522,6 +522,7 @@ export default {
     enableFor: 'Enable {name}',
     pluginDetails: 'Plugin details',
     close: 'Close details',
+    back: 'Back',
     localStorage: 'Stored on this device · AppData',
     resolvingPath: 'Resolving install location…',
     openFolder: 'Open folder',

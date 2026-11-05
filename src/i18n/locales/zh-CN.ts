@@ -521,6 +521,7 @@ export default {
     enableFor: '启用 {name}',
     pluginDetails: '插件详情',
     close: '关闭详情',
+    back: '返回',
     localStorage: '保存在本机 · AppData',
     resolvingPath: '正在获取安装路径…',
     openFolder: '打开目录',

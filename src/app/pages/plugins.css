@@ -95,8 +95,11 @@
 
 /* Page-local details let legacy Vue menus teleport without a modal focus trap. */
 .ct-market-detail-dialog { max-width: 52rem; }
-.ct-market-dialog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.ct-market-dialog-top .ct-plugin-icon-btn { border: 0; background: var(--ct-surface-2); border-radius: 50%; width: 1.875rem; height: 1.875rem; }
+/* The back control stays pinned while the detail scrolls, like a nav bar. */
+.ct-market-dialog-top { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; margin-bottom: 1rem; padding: 0.5rem 0; background: color-mix(in srgb, var(--ct-bg) 86%, transparent); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
+/* iOS-style back control: chevron + previous screen name, pinned at the top-left. */
+.ct-market-back-btn { display: inline-flex; align-items: center; gap: 0.1875rem; height: 2rem; padding: 0 0.625rem 0 0.4375rem; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; color: var(--ct-text); font: inherit; font-size: 0.8125rem; font-weight: 550; cursor: pointer; transition: background-color 0.18s ease; }
+.ct-market-back-btn:hover { background: var(--ct-nav-hover); }
 .ct-market-detail-identity { display: flex; align-items: center; gap: 1rem; }
 /* The detail header keeps a plate so the hero icon stays grounded; list cards show icons bare. */
 .ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; background: var(--ct-surface-2); }
@@ -169,6 +172,24 @@
 
 /* List ↔ detail swap cross-fades via the app-wide View Transitions rules in shell.css. */
 
+/* 插件列表 ↔ 详情：iOS 式 push / pop，只滑页面内容视口，侧栏不动。
+   ::view-transition-* 规则无法被 html 上的属性作用域限定，所以方向直接作为
+   view-transition-name（ct-plugin-push / ct-plugin-back）传进来，各自有对应关键帧。
+   两个坑：① 视口必须自己画出不透明的页面画布（和工作区同一套渐变），否则滑动快照是透明的，
+   滑入的那页盖不住旧页；② 滑动快照会溢出到侧栏上方，必须用 group 的 clip-path 裁到内容区。 */
+.ct-plugin-scroll { background: radial-gradient(48rem 26rem at 24% -14%, var(--ct-bg-glow), transparent 62%), var(--ct-bg); }
+::view-transition-group(ct-plugin-push),
+::view-transition-group(ct-plugin-back) { clip-path: inset(0); }
+::view-transition-old(ct-plugin-push) { animation: ct-plugin-push-out 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-new(ct-plugin-push) { animation: ct-plugin-push-in 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-old(ct-plugin-back) { animation: ct-plugin-pop-out 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-new(ct-plugin-back) { animation: ct-plugin-pop-in 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+/* 出去的一页让出 25%，进来的一页走满一屏；返回时原路反向。 */
+@keyframes ct-plugin-push-out { to { transform: translateX(-25%); } }
+@keyframes ct-plugin-push-in { from { transform: translateX(100%); } }
+@keyframes ct-plugin-pop-out { to { transform: translateX(100%); } }
+@keyframes ct-plugin-pop-in { from { transform: translateX(-25%); } }
+
 @media (max-width: 44rem) {
   .ct-market { padding: 1.25rem 1.125rem 2rem; }
 }
@@ -189,9 +210,15 @@
   .ct-market-card:has(.ct-market-card-open:active) { transform: none; }
   .ct-market-card.is-entering { animation: ct-market-card-fade 160ms ease-out both; }
   .ct-market-card-main { transition: none; }
+  /* 降低动态效果：列表 ↔ 详情不做位移，直接切换 */
+  ::view-transition-old(ct-plugin-push),
+  ::view-transition-new(ct-plugin-push),
+  ::view-transition-old(ct-plugin-back),
+  ::view-transition-new(ct-plugin-back) { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
+  .ct-market-dialog-top { background: var(--ct-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-contrast: more) {
   .ct-market-card, .ct-plugin-group, .ct-market-enable-row { border-color: var(--ct-text-muted); }

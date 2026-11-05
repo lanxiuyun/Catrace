@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { AlertDialog, Button, Switch } from '@radix-ui/themes'
 import {
-  Armchair, ArrowDownToLine, Check, ChevronRight, CircleAlert,
-  FolderOpen, LoaderCircle, Plug, RefreshCw, Search, ShieldCheck, Trash2, X,
+  Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
+  FolderOpen, LoaderCircle, Plug, RefreshCw, Search, ShieldCheck, Trash2,
 } from 'lucide-react'
 import { openPluginsDir, type PluginCatalogEntry, type RepositoryPluginInfo } from '../../../api/tauri'
 import { useT } from '../../i18n'
@@ -33,26 +33,38 @@ type Props = {
 }
 
 type ViewTransitionDocument = Document & {
-  startViewTransition?: (callback: () => void) => unknown
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> }
 }
 
+type PageTransition = 'push' | 'back'
+/** Guards the transient inline style when two transitions overlap (no interruption support). */
+let transitionSequence = 0
+
 /**
- * List ↔ detail swap with a cross-fade: the View Transitions API snapshots both states and
- * fades between them. WebViews without it keep the instant swap, so behaviour never breaks.
+ * List ↔ detail is an iOS-style push/pop: only the page content viewport is snapshotted
+ * (the sidebar stays put). ::view-transition-* rules cannot be scoped by a document
+ * attribute, so the direction travels as the view-transition-name itself and plugins.css
+ * has matching keyframes for ct-plugin-push / ct-plugin-back.
+ * WebViews without the View Transitions API keep the instant swap.
  */
-const runViewTransition = (apply: () => void, afterCommit?: () => void) => {
+const runPageTransition = (direction: PageTransition, apply: () => void, afterCommit?: () => void) => {
   const doc = document as ViewTransitionDocument
   if (typeof doc.startViewTransition !== 'function') {
     apply()
     if (afterCommit) requestAnimationFrame(afterCommit)
     return
   }
+  const scroller = document.querySelector<HTMLElement>('.ct-plugin-scroll')
+  const id = ++transitionSequence
+  scroller?.style.setProperty('view-transition-name', direction === 'push' ? 'ct-plugin-push' : 'ct-plugin-back')
+  const clear = () => { if (id === transitionSequence) scroller?.style.removeProperty('view-transition-name') }
   try {
     doc.startViewTransition(() => {
       flushSync(apply)
       afterCommit?.()
-    })
+    }).finished.then(clear, clear)
   } catch {
+    clear()
     apply()
     if (afterCommit) requestAnimationFrame(afterCommit)
   }
@@ -76,9 +88,9 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const openDetails = (id: string, opener: HTMLButtonElement) => {
     detailOpener.current = opener
     listScroll.current = opener.closest('.ct-page-scroll')?.scrollTop ?? 0
-    runViewTransition(() => setSelectedId(id))
+    runPageTransition('push', () => setSelectedId(id))
   }
-  const closeDetails = () => runViewTransition(() => setSelectedId(null), () => {
+  const closeDetails = () => runPageTransition('back', () => setSelectedId(null), () => {
     const opener = detailOpener.current
     opener?.focus({ preventScroll: true })
     const scroll = opener?.closest('.ct-page-scroll')
@@ -173,7 +185,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   }
 
   return (
-    <PageScroll>
+    <PageScroll className="ct-plugin-scroll">
       <RadixPage className="ct-plugins-page">
         <main className="ct-market" hidden={!!selected} aria-label={t('pluginMarket.title')}>
           <div className="ct-market-toolbar">
@@ -226,7 +238,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
 
         <section className="ct-market ct-market-detail-dialog" hidden={!selected} aria-labelledby="ct-plugin-detail-title">
             {selected && <>
-              <div className="ct-market-dialog-top"><span className="ct-market-eyebrow">{t('pluginMarket.pluginDetails')}</span><button className="ct-plugin-icon-btn" type="button" aria-label={t('pluginMarket.close')} onClick={closeDetails}><X size={16} aria-hidden="true" /></button></div>
+              <div className="ct-market-dialog-top"><button className="ct-market-back-btn" type="button" aria-label={t('pluginMarket.back')} onClick={closeDetails}><ChevronLeft size={17} aria-hidden="true" /><span>{t('pluginMarket.title')}</span></button></div>
               <div className="ct-market-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div></div>
               <p className="ct-market-detail-description">{selected.description || t('plugins.external.noDescription')}</p>
               {isInstalled(selected) ? <div className="ct-market-enable-row"><div><strong>{t(selectedEnabled ? 'pluginMarket.enabled' : 'pluginMarket.notEnabled')}</strong><p>{t(selected.builtin ? 'pluginMarket.builtinEnableHint' : selectedEnabled ? 'pluginMarket.disableHint' : 'pluginMarket.enableHint')}</p></div><Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }} /></div> : <div className="ct-market-enable-row"><div><strong>{t('pluginMarket.readyToInstall')}</strong><p>{t('pluginMarket.installHint')}</p></div>{installButton(selected)}</div>}
