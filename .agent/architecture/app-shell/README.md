@@ -53,6 +53,7 @@ src/views/
 
 ## Sub-docs
 
+- [主窗切页动画与布局路由约定.md](主窗切页动画与布局路由约定.md) — React 壳现状：MainShell 当布局路由用 `<Outlet />`，一级导航切页走 View Transitions 交叉淡化。
 - [主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md](主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md) — 拆分动机、路由表、加页面要改哪。
 - [插件页左侧插件中心与右侧固定顶栏的布局约定.md](插件页左侧插件中心与右侧固定顶栏的布局约定.md) — 插件页侧栏与详情布局。
 
@@ -65,3 +66,4 @@ src/views/
 5. 加独立窗页面 → `src/views/toastWindows/` + router 的 ToastShell children
 6. 改插件二级栏或详情滚动 → `src/views/mainWindow/Plugins.vue`
 7. 全局 provider / 全局 html 样式 → `src/App.vue`（保持薄）
+8. 切页淡入淡出 / 主窗布局路由 → `src/app/shell/shell.css` 的 `::view-transition-*` 规则与 `src/app/router.tsx`，见 [主窗切页动画与布局路由约定.md](主窗切页动画与布局路由约定.md)

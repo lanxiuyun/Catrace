@@ -229,6 +229,41 @@
     var(--ct-bg);
 }
 
+/* ---------- 切页交叉淡入淡出（View Transitions API） ----------
+   一级导航和插件中心「列表 ↔ 详情」共用这一套：react-router 的 viewTransition
+   （或 PluginCenter 里的 runViewTransition）调用 document.startViewTransition，
+   浏览器给旧/新状态各拍一张快照再交叉淡化。旧页快退、新页稍慢淡入，
+   两处切换时长一致，动效语言不打架。
+   ::view-transition-* 是文档级伪元素，所以规则只写这一处，不写进页面样式；
+   WebView 没有这个 API 时没有过渡、直接瞬切，交互不受影响。 */
+::view-transition-old(root) {
+  animation: ct-view-out 140ms ease-out both;
+}
+
+::view-transition-new(root) {
+  animation: ct-view-in 200ms ease-out both;
+}
+
+@keyframes ct-view-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ct-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 减少动态效果：不做淡入淡出，保持瞬切。 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 /* 侧栏是固定图标栏，不再随窗口宽度在「文字栏 / 图标栏」之间切换。 */
 
 /* Toast 提示（替代 naive-ui message）：顶部居中，像系统横幅；操作栏短暂被盖住也能穿透点击 */

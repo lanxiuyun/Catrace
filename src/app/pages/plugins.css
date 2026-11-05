@@ -153,11 +153,7 @@
 .ct-plugin-bg-btn.is-danger:hover { color: var(--ct-error-strong); }
 .ct-plugin-note { max-width: 32rem; margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--ct-text-muted); }
 
-/* List ↔ detail swap: cross-fade both snapshots; unchanged window chrome stays visually still. */
-::view-transition-old(root) { animation: ct-view-out 140ms ease-out both; }
-::view-transition-new(root) { animation: ct-view-in 200ms ease-out both; }
-@keyframes ct-view-out { to { opacity: 0; } }
-@keyframes ct-view-in { from { opacity: 0; } }
+/* List ↔ detail swap cross-fades via the app-wide View Transitions rules in shell.css. */
 
 @media (max-width: 44rem) {
   .ct-market { padding: 1.25rem 1.125rem 2rem; }
@@ -179,7 +175,6 @@
   .ct-market-card:has(.ct-market-card-open:active) { transform: none; }
   .ct-market-card.is-entering { animation: ct-market-card-fade 160ms ease-out both; }
   .ct-market-card-main { transition: none; }
-  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
