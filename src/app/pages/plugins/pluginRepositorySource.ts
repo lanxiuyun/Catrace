@@ -16,39 +16,25 @@ export async function readGithubMirror(): Promise<boolean> {
   return (await store.get<unknown>(MIRROR_KEY)) === true
 }
 
-export async function saveGithubMirror(value: boolean): Promise<void> {
+/** Validate first, then persist the repository and its download route together. */
+export async function savePluginRepository(repository: string, mirror: boolean): Promise<void> {
   const store = await getSettingsStore()
-  const previous = await store.get<unknown>(MIRROR_KEY)
-  try {
-    await store.set(MIRROR_KEY, value)
-    await store.save()
-  } catch (error) {
-    try {
-      if (previous === undefined) await store.delete(MIRROR_KEY)
-      else await store.set(MIRROR_KEY, previous)
-      await store.save()
-    } catch (restoreError) {
-      console.error('Failed to restore GitHub mirror setting', restoreError)
-    }
-    throw error
-  }
-}
-
-/** Call only after the backend has validated the repository and returned its canonical name. */
-export async function savePluginRepository(repository: string): Promise<void> {
-  const store = await getSettingsStore()
-  const previous = await store.get<unknown>(SOURCE_KEY)
+  const previousSource = await store.get<unknown>(SOURCE_KEY)
+  const previousMirror = await store.get<unknown>(MIRROR_KEY)
   try {
     await store.set(SOURCE_KEY, repository)
+    await store.set(MIRROR_KEY, mirror)
     await store.save()
   } catch (error) {
-    // autoSave shares the same in-memory Store: restore it too if saving failed.
+    // autoSave shares the same in-memory Store: restore both settings if saving failed.
     try {
-      if (previous === undefined) await store.delete(SOURCE_KEY)
-      else await store.set(SOURCE_KEY, previous)
+      if (previousSource === undefined) await store.delete(SOURCE_KEY)
+      else await store.set(SOURCE_KEY, previousSource)
+      if (previousMirror === undefined) await store.delete(MIRROR_KEY)
+      else await store.set(MIRROR_KEY, previousMirror)
       await store.save()
     } catch (restoreError) {
-      console.error('Failed to restore plugin repository setting', restoreError)
+      console.error('Failed to restore plugin source settings', restoreError)
     }
     throw error
   }

@@ -7,7 +7,7 @@ import {
 } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
-import { readGithubMirror, readPluginRepository, saveGithubMirror, savePluginRepository } from './pluginRepositorySource'
+import { readGithubMirror, readPluginRepository, savePluginRepository } from './pluginRepositorySource'
 
 export function usePluginCatalog() {
   const t = useT()
@@ -44,6 +44,7 @@ export function usePluginCatalog() {
   }, [])
 
   const refreshRemote = useCallback(async () => {
+    if (operation.current) return
     const request = ++remoteRequest.current
     setLoadingRemote(true)
     setRemoteError('')
@@ -52,6 +53,9 @@ export function usePluginCatalog() {
       if (!mounted.current || request !== remoteRequest.current) return
       sourceRef.current = currentSource
       setSource(currentSource)
+      // Legacy custom repositories must not silently retain the third-party mirror route.
+      mirrorRef.current = currentSource === DEFAULT_PLUGIN_REPOSITORY && mirrorRef.current
+      setMirrorState(mirrorRef.current)
       const result = await listRepositoryPlugins(currentSource, mirrorRef.current)
       if (!mounted.current || request !== remoteRequest.current) return
       sourceRef.current = result.repository
@@ -95,7 +99,7 @@ export function usePluginCatalog() {
     }
   }, [refreshLocal, refreshRemote])
 
-  const changeSource = async (input: string) => {
+  const changeSource = async (input: string, nextMirror: boolean) => {
     if (operation.current) throw new Error(t('pluginMarket.sourceWait'))
     operation.current = true
     setSourceBusy(true)
@@ -103,33 +107,17 @@ export function usePluginCatalog() {
     ++remoteRequest.current
     setLoadingRemote(false)
     try {
-      const result = await listRepositoryPlugins(input.trim(), mirrorRef.current)
+      const result = await listRepositoryPlugins(input.trim(), nextMirror)
       if (!mounted.current) return
-      await savePluginRepository(result.repository)
+      await savePluginRepository(result.repository, nextMirror)
       sourceRef.current = result.repository
+      mirrorRef.current = nextMirror
       if (!mounted.current) return
       setSource(result.repository)
+      setMirrorState(nextMirror)
       setRepository(result)
       setRemoteError('')
       showToast(t('pluginMarket.sourceSaved'))
-    } finally {
-      operation.current = false
-      if (mounted.current) setSourceBusy(false)
-    }
-  }
-
-  const changeMirror = async (value: boolean) => {
-    if (operation.current) throw new Error(t('pluginMarket.sourceWait'))
-    operation.current = true
-    setSourceBusy(true)
-    try {
-      await saveGithubMirror(value)
-      mirrorRef.current = value
-      if (mounted.current) setMirrorState(value)
-      await refreshRemote()
-    } catch (error) {
-      showToast(t('settings.messages.saveFailed'), 'error')
-      throw error
     } finally {
       operation.current = false
       if (mounted.current) setSourceBusy(false)
@@ -173,7 +161,7 @@ export function usePluginCatalog() {
   })
 
   return {
-    installed, repository, source, mirror, sourceBusy, changeSource, changeMirror,
+    installed, repository, source, mirror, sourceBusy, changeSource,
     loadingLocal, loadingRemote, localError, remoteError,
     busyId, refreshLocal, refreshRemote, install, toggle, uninstall,
   }

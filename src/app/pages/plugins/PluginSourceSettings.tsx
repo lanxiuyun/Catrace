@@ -1,76 +1,98 @@
-import { useId, useState, type FormEvent } from 'react'
-import { Button, Popover, Switch, TextField } from '@radix-ui/themes'
-import { GitBranch, LoaderCircle } from 'lucide-react'
+import { useId, useRef, useState, type FormEvent } from 'react'
+import { Popover, TextField } from '@radix-ui/themes'
+import { ChevronDown, GitBranch, LoaderCircle } from 'lucide-react'
 import { DEFAULT_PLUGIN_REPOSITORY } from '../../../api/tauri'
 import { useT } from '../../i18n'
 
-export function PluginSourceSettings({ source, mirror, saving, disabled, onChange, onMirrorChange }: {
+type SourceOption = 'official' | 'mirror' | 'custom'
+const sourceOption = (repository: string, mirror: boolean): SourceOption => repository === DEFAULT_PLUGIN_REPOSITORY
+  ? mirror ? 'mirror' : 'official' : 'custom'
+
+export function PluginSourceSettings({ source, mirror, saving, disabled, onChange }: {
   source: string
   mirror: boolean
   saving: boolean
   disabled: boolean
-  onChange: (repository: string) => Promise<void>
-  onMirrorChange: (value: boolean) => Promise<void>
+  onChange: (repository: string, mirror: boolean) => Promise<void>
 }) {
   const t = useT()
   const id = useId()
+  const currentOption = sourceOption(source, mirror)
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(source)
+  const [selection, setSelection] = useState<SourceOption>(currentOption)
   const [error, setError] = useState('')
+  const input = useRef<HTMLInputElement | null>(null)
+  const labels = { official: 'pluginMarket.sourceOfficial', mirror: 'pluginMarket.mirror', custom: 'pluginMarket.sourceCustom' } as const
 
-  const apply = async (repository: string) => {
+  const apply = async (repository: string, routeMirror: boolean) => {
+    if (saving || disabled || !repository) return
     setError('')
     try {
-      await onChange(repository)
+      await onChange(repository, routeMirror)
       setOpen(false)
     } catch (failure) {
       setError(String(failure))
     }
   }
+  const choose = (option: SourceOption) => {
+    setSelection(option)
+    setError('')
+    if (option === 'custom') {
+      requestAnimationFrame(() => input.current?.focus())
+      return
+    }
+    if (option !== currentOption) void apply(DEFAULT_PLUGIN_REPOSITORY, option === 'mirror')
+  }
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (!saving && draft.trim()) void apply(draft.trim())
+    if (selection !== 'custom') return
+    const repository = draft.trim()
+    if (!repository) return
+    if (repository !== source) void apply(repository, false)
   }
 
   return (
     <Popover.Root open={open} onOpenChange={(value) => {
-      if (value) { setDraft(source); setError('') }
+      if (value) { setDraft(currentOption === 'custom' ? source : ''); setSelection(currentOption); setError('') }
       setOpen(value)
     }}>
       <Popover.Trigger>
         <button type="button" className="ct-plugin-icon-btn ct-market-folder-btn" disabled={disabled}
           title={t('pluginMarket.sourceCurrent', { repository: source })}>
           {saving ? <LoaderCircle size={15} className="ct-market-spin" aria-hidden="true" /> : <GitBranch size={15} aria-hidden="true" />}
-          <span>{t('pluginMarket.source')}</span>
+          <span>{t('pluginMarket.source')} · {t(labels[currentOption])}</span>
+          <ChevronDown size={12} aria-hidden="true" />
         </button>
       </Popover.Trigger>
       <Popover.Content width="25rem" align="end" className="ct-market-source-popover" aria-labelledby={`${id}-title`}>
         <form onSubmit={submit} className="ct-market-source-form" aria-busy={saving}>
           <h3 id={`${id}-title`}>{t('pluginMarket.source')}</h3>
-          <p>{t('pluginMarket.sourceHint')}</p>
-          <label htmlFor={`${id}-input`}>{t('pluginMarket.sourceAddress')}</label>
-          <TextField.Root id={`${id}-input`} value={draft} onChange={(event) => { setDraft(event.target.value); setError('') }}
-            placeholder="https://github.com/owner/repository" maxLength={256} required
-            spellCheck={false} autoCapitalize="none" autoCorrect="off" disabled={saving}
-            aria-invalid={!!error} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} />
-          <p id={`${id}-help`}>{t('pluginMarket.sourceStructure')}</p>
-          <div className="ct-market-source-mirror">
-            <div>
-              <strong>{t('pluginMarket.mirror')}</strong>
-              <p>{t('pluginMarket.mirrorHint')}</p>
-            </div>
-            <Switch checked={mirror} disabled={saving || disabled} aria-label={t('pluginMarket.mirror')}
-              onCheckedChange={(value) => { void onMirrorChange(value).catch(() => {}) }} />
-          </div>
+          {saving && <p className="ct-market-source-busy" role="status">
+            <LoaderCircle size={13} className="ct-market-spin" aria-hidden="true" />{t('pluginMarket.sourceChecking')}
+          </p>}
+          <fieldset className="ct-market-source-options" disabled={saving || disabled} aria-labelledby={`${id}-title`}>
+            {(['official', 'mirror', 'custom'] as const).map((option) => (
+              <div className="ct-market-source-block" key={option}>
+                <label className="ct-market-source-option">
+                  <input type="radio" name={`${id}-source`} value={option} checked={selection === option}
+                    onChange={() => choose(option)} />
+                  <span>{t(labels[option])}</span>
+                  {option !== 'custom' && <small>{option === 'official' ? 'GitHub' : 'ghfast.top'}</small>}
+                </label>
+                {option === 'mirror' && selection === 'mirror' && <p className="ct-market-source-note">{t('pluginMarket.mirrorHint')}</p>}
+                {option === 'custom' && selection === 'custom' && <div className="ct-market-source-custom">
+                  <TextField.Root ref={input} id={`${id}-input`} value={draft}
+                    onChange={(event) => { setDraft(event.target.value); setError('') }}
+                    placeholder="https://github.com/owner/repository" maxLength={256} required
+                    spellCheck={false} autoCapitalize="none" autoCorrect="off" aria-label={t('pluginMarket.sourceAddress')}
+                    aria-invalid={!!error} aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`} />
+                  <p id={`${id}-help`}>{t('pluginMarket.sourceStructure')}</p>
+                </div>}
+              </div>
+            ))}
+          </fieldset>
           {error && <p id={`${id}-error`} className="ct-market-source-error" role="alert">{error}</p>}
-          <div className="ct-market-source-actions">
-            <Button type="button" variant="ghost" color="gray" disabled={saving || source === DEFAULT_PLUGIN_REPOSITORY}
-              onClick={() => void apply(DEFAULT_PLUGIN_REPOSITORY)}>{t('pluginMarket.sourceRestore')}</Button>
-            <Button type="submit" disabled={saving || !draft.trim()}>
-              {saving && <LoaderCircle size={14} className="ct-market-spin" aria-hidden="true" />}
-              {t(saving ? 'pluginMarket.sourceChecking' : 'pluginMarket.sourceApply')}
-            </Button>
-          </div>
         </form>
       </Popover.Content>
     </Popover.Root>
