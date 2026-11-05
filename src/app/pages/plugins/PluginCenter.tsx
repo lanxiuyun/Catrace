@@ -38,7 +38,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const [tab, setTab] = useState<'discover' | 'installed'>('installed')
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [trustId, setTrustId] = useState<string | null>(null)
   const [removeId, setRemoveId] = useState<string | null>(null)
   const detailOpener = useRef<HTMLButtonElement | null>(null)
   const alertOpener = useRef<HTMLElement | null>(null)
@@ -120,15 +119,10 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
       {t(data.busyId === item.id ? 'pluginMarket.installing' : 'pluginMarket.install')}
     </Button>
   )
-  // Same rules as the detail sheet: enabling first time asks for trust, disabling is direct.
+  // The switch is the whole action: no confirmation sheet, both directions apply directly.
   const toggleCard = (item: PluginItem, value: boolean) => {
     if (item.builtin) { onToggleRest(value); return }
-    if (value) {
-      alertOpener.current = document.activeElement as HTMLElement | null
-      setTrustId(item.id)
-      return
-    }
-    void data.toggle(item.id, false)
+    void data.toggle(item.id, value)
   }
 
   return (
@@ -186,7 +180,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
               <div className="ct-market-dialog-top"><span className="ct-market-eyebrow">{t('pluginMarket.pluginDetails')}</span><button className="ct-plugin-icon-btn" type="button" aria-label={t('pluginMarket.close')} onClick={closeDetails}><X size={16} aria-hidden="true" /></button></div>
               <div className="ct-market-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div></div>
               <p className="ct-market-detail-description">{selected.description || t('plugins.external.noDescription')}</p>
-              {isInstalled(selected) ? <div className="ct-market-enable-row"><div><strong>{t(selectedEnabled ? 'pluginMarket.enabled' : 'pluginMarket.notEnabled')}</strong><p>{t(selected.builtin ? 'pluginMarket.builtinEnableHint' : selectedEnabled ? 'pluginMarket.disableHint' : 'pluginMarket.enableHint')}</p></div><Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else if (value) { alertOpener.current = document.activeElement as HTMLElement | null; setTrustId(selected.id) } else void data.toggle(selected.id, false) }} /></div> : <div className="ct-market-enable-row"><div><strong>{t('pluginMarket.readyToInstall')}</strong><p>{t('pluginMarket.installHint')}</p></div>{installButton(selected)}</div>}
+              {isInstalled(selected) ? <div className="ct-market-enable-row"><div><strong>{t(selectedEnabled ? 'pluginMarket.enabled' : 'pluginMarket.notEnabled')}</strong><p>{t(selected.builtin ? 'pluginMarket.builtinEnableHint' : selectedEnabled ? 'pluginMarket.disableHint' : 'pluginMarket.enableHint')}</p></div><Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }} /></div> : <div className="ct-market-enable-row"><div><strong>{t('pluginMarket.readyToInstall')}</strong><p>{t('pluginMarket.installHint')}</p></div>{installButton(selected)}</div>}
               {selectedError && <div className="ct-market-error" role="alert"><CircleAlert size={17} aria-hidden="true" /><div><strong>{t('pluginMarket.needsAttention')}</strong><p>{selectedError}</p></div></div>}
               <div className="ct-market-detail-body" key={selected.id}>
                 {selected.builtin ? children : selected.installed ? <>
@@ -198,7 +192,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </>}
         </section>
 
-        <AlertDialog.Root open={!!trustId} onOpenChange={(open) => { if (!open) setTrustId(null) }}><AlertDialog.Content maxWidth="28rem" onCloseAutoFocus={restoreAlertFocus}><AlertDialog.Title>{t('pluginMarket.trustTitle', { name: allItems.get(trustId ?? '')?.name ?? trustId ?? '' })}</AlertDialog.Title><AlertDialog.Description>{t('pluginMarket.trustDescription')}</AlertDialog.Description><div className="ct-market-confirm-actions"><AlertDialog.Cancel><Button variant="soft" color="gray">{t('pluginMarket.cancel')}</Button></AlertDialog.Cancel><AlertDialog.Action><Button onClick={() => { if (trustId) void data.toggle(trustId, true); setTrustId(null) }}>{t('pluginMarket.trustAndEnable')}</Button></AlertDialog.Action></div></AlertDialog.Content></AlertDialog.Root>
         <AlertDialog.Root open={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}><AlertDialog.Content maxWidth="28rem" onCloseAutoFocus={restoreAlertFocus}><AlertDialog.Title>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Title><AlertDialog.Description>{t('pluginMarket.uninstallDescription')}</AlertDialog.Description><div className="ct-market-confirm-actions"><AlertDialog.Cancel><Button variant="soft" color="gray">{t('pluginMarket.cancel')}</Button></AlertDialog.Cancel><AlertDialog.Action><Button color="red" onClick={() => { if (removeId) void data.uninstall(removeId); setRemoveId(null) }}>{t('pluginMarket.uninstall')}</Button></AlertDialog.Action></div></AlertDialog.Content></AlertDialog.Root>
       </RadixPage>
     </PageScroll>

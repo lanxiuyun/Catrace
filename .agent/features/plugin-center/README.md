@@ -5,7 +5,7 @@
 ## 当前实现（React）
 
 - `src/app/pages/Plugins.tsx` — 内置久坐提醒配置读写与自动保存
-- `src/app/pages/plugins/PluginCenter.tsx` — 仓库发现、已安装列表、搜索、详情、信任确认与卸载确认
+- `src/app/pages/plugins/PluginCenter.tsx` — 仓库发现、已安装列表、搜索、详情与卸载确认
 - `src/app/pages/plugins/usePluginCatalog.ts` — 远程/本地目录、真实安装启停卸载、操作互斥与错误反馈
 - `src/app/pages/plugins/ExternalPluginSettings.tsx` — 复用 VueIsland，在启用后挂载现有插件设置，不要求插件立刻迁移 React
 - `src/app/pages/plugins/RestSettings.tsx` / `PluginSettingRow.tsx` — 内置提醒设置
@@ -24,7 +24,7 @@
 - **已安装**：内置久坐提醒与本机外部插件；离线时仍可管理，不被远程目录失败挡住。
 - **排序与状态**：发现与已安装两个列表都按卡片的显示名称升序（`localeCompare`，`sensitivity: 'base'`），不再沿用后端按插件 ID 的字节序。卡片版本号旁只在「发现插件」显示绿色「已安装」小徽标；「已安装」把启用开关放在卡片标题行右上角（占据发现页箭头的位置，已安装 tab 因此不显示箭头），开关本身就是状态，不再重复文字或徽标。卡片底部只保留动作与例外状态（发现页未安装卡片的「安装」按钮、「需要处理」「同 ID 已从其他源安装」）。**整张卡片都是打开详情的点击区**：卡片内铺一个透明按钮承接点击（`z-index: 1`），开关和「安装」按钮叠在它上面（`z-index: 2`），所以点卡片任意位置都能进详情，点控件则触发控件本身；没有重复的「管理」按钮。
 - **详情**：页内独立详情，关闭后保留列表搜索和滚动位置；内置 React 设置与现有外部 Vue 设置共存，插件浮层不受模态焦点限制。
-- **安装 / 启用分离**：安装默认停用。启用前使用信任确认，说明本地代码、文件、网络和进程能力；未启用不导入 UI / settings 源码。
+- **安装 / 启用分离**：安装默认停用。启用不弹确认，开关直接生效；本地代码、文件、网络和进程能力说明常驻在详情里；未启用不导入 UI / settings 源码。
 - **启停**：等待后端持久化与生命周期操作完成后**静默**重读目录（不亮 loading、不把 tab 计数变「—」），不用乐观状态冒充成功；开关本身就是反馈，切换不再弹「已保存 / 已启用」toast。后端事件也同步主窗与 Toast 注册表。不要把操作期间的 `busy` 传给所有 `Switch` 的 `disabled`：Radix Switch 的 disabled 会把轨道画成灰色，整列开关会闪一下；只在插件自身异常或内置提醒未就绪时禁用。
 - **卸载**：确认后先停后台与 sidecar，再移除本地安装；配置保留以便重装，禁止卸载内置提醒。
 - **反馈**：显式加载、失败与重试，操作期间按钮显示忙碌；本地与远程错误分离，不静默伪装为空目录。
@@ -48,7 +48,7 @@
 - 当前源出现与已有安装相同的 ID 时不覆盖；不同来源会显示「同 ID 已从其他源安装」，管理按钮打开真实已安装插件。
 - HTTP 端点按 provider 构造固定主机：GitHub 用 `api.github.com` / `raw.githubusercontent.com` / `codeload.github.com`；Gitee 用 `gitee.com/api/v5` 与 `gitee.com/<repo>/raw`。Gitee 的 raw 会 302 到签名 CDN，因此只对 `gitee.com`、`raw.giteeusercontent.com` 等固定仓库主机跟随重定向（最多 3 跳），其他主机一律拒绝。
 - 「GitHub 镜像加速」选项对应 Store key `plugin_github_mirror`：选择后 raw 文件与整包归档改走 `https://ghfast.top/` 前缀（归档用 `github.com/<repo>/archive/<sha>.zip` 形式），API（commit/tree）仍直连 `api.github.com` —— 代理转发 API 会共用限流 token 且实测 403，不能依赖。镜像只是传输层，`repository` 与 commit 不变；选中时明确提示插件内容会经过第三方代理，且不能解决 GitHub API 无法访问的问题。
-- GitHub 安装走「整包 zip → 解压 → 校验包根目录」；Gitee 的 `repository/archive/<sha>.zip` 可能返回「正在准备下载」的交互页而不是 zip，因此 Gitee 安装改为按 pinned commit 从 raw 逐个下载插件目录文件再交给同一个安装器：路径用宿主的压缩包安全规则校验、拒绝符号链接/子模块、限制 64 MiB 与 5000 个文件；原有解压限制、默认停用和信任确认规则不变。
+- GitHub 安装走「整包 zip → 解压 → 校验包根目录」；Gitee 的 `repository/archive/<sha>.zip` 可能返回「正在准备下载」的交互页而不是 zip，因此 Gitee 安装改为按 pinned commit 从 raw 逐个下载插件目录文件再交给同一个安装器：路径用宿主的压缩包安全规则校验、拒绝符号链接/子模块、限制 64 MiB 与 5000 个文件；原有解压限制、默认停用规则不变。
 - 接口配额：GitHub 未认证接口每小时只有 60 次，目录读取要 1 次 HEAD commit + 1 次 tree，刷新几次就可能耗尽并返回 403。`fetch_api_bytes` 对这两个 API 请求保存 ETag，并用 `If-None-Match` 重取：仓库没变时 GitHub 回 304 且**不计入配额**，同一会话刷新不再消耗次数（安装时仍会读 tree，同样走缓存）。配额耗尽时后端返回 `rate_limited|<reset 时间戳>`，前端据此显示「约 N 分钟后恢复」，不再只抛 HTTP 403；已安装插件不受影响。加内存缓存只影响目录读取，安装内容和 commit 校验逻辑不变。
 - 国内网络访问 GitHub 的 raw 与归档不稳定时可选择「GitHub 镜像加速」。界面不再推荐或预置 Gitee 源；底层 Gitee 下载兼容保留，避免破坏旧设置与已安装来源记录。
 
