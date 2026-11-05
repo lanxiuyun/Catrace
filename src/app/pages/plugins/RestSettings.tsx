@@ -246,6 +246,7 @@ export function RestSettings({
             <TextArea
               size="2"
               rows={3}
+              resize="vertical"
               value={text.body}
               placeholder={t('plugins.rest.previewDefaultBody')}
               aria-label={t('plugins.rest.customBody')}
@@ -261,13 +262,13 @@ export function RestSettings({
           description={t('settings.reminder.testNotifyDesc')}
           control={
             <Button
-              size="1"
+              size="2"
               variant="soft"
               color="gray"
               disabled={!enabled || testing}
               onClick={onTest}
             >
-              <Send size={13} aria-hidden="true" />
+              <Send size={14} aria-hidden="true" />
               {t('settings.reminder.testNotifyBtn')}
             </Button>
           }

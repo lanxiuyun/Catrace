@@ -113,8 +113,10 @@
   z-index: 4;
   display: flex;
   align-items: center;
-  min-height: 3.5rem;
-  padding: 0.5rem max(var(--ct-detail-pad), calc((100% - var(--ct-detail-col)) / 2));
+  /* 条子高 3rem = 36px 返回胶囊 + 上下各 6px 呼吸。以前是 3.5rem + 0.5rem padding，
+     条子被撑到 56px：返回控件下沿到大标题之间有 22px 空档，小窗口里整页像浮在半空。 */
+  min-height: 3rem;
+  padding: 0.375rem max(var(--ct-detail-pad), calc((100% - var(--ct-detail-col)) / 2));
   border-bottom: 0.0625rem solid transparent;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
@@ -172,8 +174,9 @@
   max-width: min(var(--ct-detail-col), calc(100% - 2 * var(--ct-detail-pad)));
   margin-inline: auto;
 }
-/* 返回条、标题组、描述是一个页头单元，下面才是内容卡。 */
-.ct-plugin-detail-header { margin: 0.75rem 0 1.5rem; }
+/* 返回条、标题组、描述是一个页头单元，下面才是内容卡。
+   大标题紧跟导航条（0.5rem），页头到卡片 1.25rem：大标题是页面的第一笔，不是第二屏。 */
+.ct-plugin-detail-header { margin: 0.5rem 0 1.25rem; }
 /* 标题行：图标 + 标题/版本 + 右侧开关（未安装时同一位置放「安装」）。
    标题列吃满剩余宽度，长名字换行也不会把开关挤走。 */
 .ct-plugin-detail-identity { display: flex; align-items: center; gap: 1rem; }
@@ -224,11 +227,18 @@
 .ct-plugin-row.is-stack .ct-plugin-row-control { width: 100%; justify-content: flex-start; }
 .ct-plugin-row-control.is-slider { flex: 0 1 20rem; }
 .ct-plugin-row-control.is-slider .rt-SliderRoot { flex: 1 1 auto; min-width: 0; }
-.ct-plugin-row-control .rt-TextFieldRoot, .ct-plugin-row-control .rt-TextArea { width: 100%; }
+/* Radix 多行输入的根是 .rt-TextAreaRoot（.rt-TextArea 是内部 textarea 的类名，选不中它）。
+   写错类名时文本域会缩成控件默认宽度（约 11rem），比同一张卡里的单行输入窄一大截，
+   长文案还会被自己的滚动条截掉。 */
+.ct-plugin-row-control .rt-TextFieldRoot, .ct-plugin-row-control .rt-TextAreaRoot { width: 100%; }
 .ct-plugin-select { min-width: 8rem; }
 .ct-plugin-value { flex-shrink: 0; min-width: 4rem; padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--ct-surface-2); text-align: right; font-family: var(--ct-font-mono); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ct-text); white-space: nowrap; }
 .ct-plugins-page .rt-SliderRoot, .ct-plugin-detail .rt-SliderRoot { --slider-track-size: 0.25rem; --slider-thumb-size: 0.9375rem; }
-.ct-plugins-page .rt-SliderTrack, .ct-plugins-page .rt-SliderRange, .ct-plugin-detail .rt-SliderTrack, .ct-plugin-detail .rt-SliderRange { background-color: var(--ct-surface-2); }
+/* 轨道保持中性灰，已选段用主题色：iOS / macOS 的滑块都靠这段填充读「当前值在区间里的位置」，
+   全灰时三个滑块长得一模一样，只能去右边读数字。填充段去掉 Radix 的内描边，
+   4px 高的轨道上那圈深边会把蓝色切出一道边。 */
+.ct-plugins-page .rt-SliderTrack, .ct-plugin-detail .rt-SliderTrack { background-color: var(--ct-surface-2); }
+.ct-plugins-page .rt-SliderRange, .ct-plugin-detail .rt-SliderRange { background-color: var(--ct-accent); box-shadow: none; }
 .ct-plugins-page .rt-SliderThumb, .ct-plugin-detail .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
 [data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-plugin-detail .rt-SliderThumb { background-color: #e5e5ea; }
 .ct-plugin-bg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; width: 100%; min-height: 5rem; padding: 0.75rem; border: 1px dashed var(--ct-border-strong); border-radius: 0.75rem; background: var(--ct-bg); color: var(--ct-text-muted); font-size: 0.75rem; text-align: center; cursor: pointer; }

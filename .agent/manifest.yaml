@@ -2,6 +2,7 @@ features:
   plugin-center:
     docs:
       - .agent/features/plugin-center/README.md
+      - .agent/features/plugin-center/插件详情页设置面板的行语言与控件尺寸规范.md
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/plugin-activity-getRecords-历史分钟记录.md
@@ -322,9 +323,10 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
-  - .agent/reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md
 
 bugs:
+  - .agent/bugs/2026-11-05-插件设置多行输入框缩成一百多像素因选错-radix-根类名.md
+  - .agent/bugs/2026-11-03-详细热力图hover重渲染1440格导致鼠标事件卡死.md
   - .agent/bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md
   - .agent/bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md
   - .agent/bugs/2026-09-29-轻量模式重建主窗白屏未响应.md
@@ -380,6 +382,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-11-05-插件详情页头部间距与设置面板UI收口.md
   - .agent/devlog/2026-09-29-轻量模式落地与插件后台WebView下线sidecar.md
   - .agent/devlog/2026-09-20-便携Node安装补上macOS与Linux.md
   - .agent/devlog/2026-09-20-mac不催辅助功能授权-横幅和设置项都藏掉.md
@@ -413,6 +416,6 @@ devlog:
   - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
 
 current:
-  plan: .agent/features/lightweight-mode/README.md
-  phase: 轻量模式两期已落地（主窗销毁重建 + 插件后台 WebView 下线 sidecar），PR #83 已开、CI 全绿、待合并
-  next: 合并 PR #83（插件仓库 #8 已先合）；合并后跟进两个缺口——插件页内存看门狗对无后台窗插件失去样本、运行中打开轻量模式时已预创建的 Toast 残留
+  plan: .agent/features/plugin-center/README.md
+  phase: 插件中心详情页视觉收口（2026-11-05）：顶部间距、久坐提醒设置面板控件、滑块主题色已改在工作区，未提交
+  next: 等用户拍板下一档 UI 方向（提醒模式改分段控件 / 通知测试并入提醒方式卡 / 文本卡提示精简）；提交需用户明确要求
