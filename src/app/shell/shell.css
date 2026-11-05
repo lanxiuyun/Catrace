@@ -231,11 +231,11 @@
 
 /* 侧栏是固定图标栏，不再随窗口宽度在「文字栏 / 图标栏」之间切换。 */
 
-/* Toast 提示（替代 naive-ui message） */
+/* Toast 提示（替代 naive-ui message）：顶部居中，像系统横幅；操作栏短暂被盖住也能穿透点击 */
 .ct-toasts {
   position: fixed;
   left: 50%;
-  bottom: 1.5rem;
+  top: 1.25rem;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
