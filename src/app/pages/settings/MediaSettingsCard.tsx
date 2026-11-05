@@ -43,7 +43,6 @@ export function MediaSettingsCard() {
     initialValue: '',
     load: getMediaWhitelistText,
     save: setMediaWhitelistText,
-    onSuccess: () => showToast(t('mediaWhitelist.saveSuccess')),
     onError: () => showToast(t('mediaWhitelist.saveFailed'), 'error'),
   })
 

@@ -24,6 +24,7 @@
 - 拖拽排序持久化（Tauri Store 的 `settings_group_order`）
 - 间距统一 rem 单位
 - MediaSettingsCard：排除列表 500ms 防抖自动保存，「重置为默认」按钮在标题右侧
+- 自动保存与开关切换**不弹成功提示**：控件自身状态就是反馈，只有保存失败才弹错误 toast（`settings.messages.saveFailed` / `setFailed`）。`settings.messages.saved` 文案键已删除，不要再加回来
 
 ## 视觉约定（与概览页同一套语言）
 

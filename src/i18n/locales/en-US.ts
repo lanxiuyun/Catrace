@@ -239,7 +239,6 @@ export default {
       soundVolume: 'Sound volume',
     },
     messages: {
-      saved: 'Saved',
       saveFailed: 'Save failed',
       loadFailed: 'Load failed',
       autostartOn: 'Auto-start enabled',

@@ -58,7 +58,6 @@ export function SignalSettingsCard() {
       await store.set('signal_key_sequence_enabled', next)
       await setSignalKeySequenceEnabled(next)
       setEnabled(next)
-      showToast(t('settings.messages.saved'))
     } catch {
       showToast(t('settings.messages.saveFailed'), 'error')
     } finally {
@@ -85,7 +84,6 @@ export function SignalSettingsCard() {
       await store.set('signal_key_sequence_retention_hours', next)
       await setSignalKeySequenceRetentionHours(next)
       setRetentionHours(next)
-      showToast(t('settings.messages.saved'))
     } catch {
       showToast(t('settings.messages.saveFailed'), 'error')
     } finally {

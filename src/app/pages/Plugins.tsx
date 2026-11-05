@@ -99,7 +99,6 @@ export function Plugins() {
     debounceSave('config', async () => {
       try {
         await setConfig({ window_minutes: next.window_minutes, break_minutes: next.break_minutes, snooze_interval_minutes: next.snooze_interval_minutes })
-        showToast(t('settings.messages.saved'))
       } catch { showToast(t('settings.messages.saveFailed'), 'error') }
     })
   }
@@ -109,7 +108,6 @@ export function Plugins() {
     debounceSave('fullscreen', async () => {
       try {
         await setFullscreenSettings(next.bg, next.opacity, next.fitMode, '')
-        showToast(t('settings.messages.saved'))
       } catch { showToast(t('settings.messages.saveFailed'), 'error') }
     })
   }
@@ -119,7 +117,6 @@ export function Plugins() {
     debounceSave('text', async () => {
       try {
         await setReminderText(next.title, next.body)
-        showToast(t('settings.messages.saved'))
       } catch { showToast(t('settings.messages.saveFailed'), 'error') }
     })
   }
@@ -131,14 +128,13 @@ export function Plugins() {
       await setRestPluginEnabled(value)
       setConfigState((previous) => ({ ...previous, enabled: value }))
       window.dispatchEvent(new CustomEvent('catrace:plugin-enabled-changed', { detail: { id: 'rest', enabled: value } }))
-      showToast(t('settings.messages.saved'))
     } catch { showToast(t('settings.messages.saveFailed'), 'error') }
     finally { restOperation.current = false; setRestBusy(false) }
   }
   const changeMode = async (next: ReminderMode) => {
     const previous = mode
     setModeState(next)
-    try { await setReminderMode(next); showToast(t('settings.messages.saved')) }
+    try { await setReminderMode(next) }
     catch { setModeState(previous); showToast(t('settings.messages.saveFailed'), 'error') }
   }
   const sendTest = async () => {

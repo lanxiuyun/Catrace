@@ -105,7 +105,6 @@ export function SystemSettingsCard() {
     try {
       await setLocale(value)
       i18n.global.locale.value = value as SupportedLocale
-      showToast(t('settings.messages.saved'))
     } catch {
       showToast(t('settings.messages.saveFailed'), 'error')
     } finally {
@@ -151,7 +150,6 @@ export function SystemSettingsCard() {
     try {
       await setLightweightMode(value)
       setLightweightModeEnabled(value)
-      showToast(t('settings.messages.saved'))
     } catch {
       showToast(t('settings.messages.setFailed'), 'error')
     } finally {

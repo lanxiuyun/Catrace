@@ -239,7 +239,6 @@ export default {
       soundVolume: '提示音音量',
     },
     messages: {
-      saved: '已保存',
       saveFailed: '保存失败',
       loadFailed: '加载失败',
       autostartOn: '已开启开机自启',

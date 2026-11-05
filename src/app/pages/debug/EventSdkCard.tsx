@@ -49,7 +49,6 @@ export function EventSdkCard() {
     try {
       await setEventSdkEnabled(value)
       setEnabled(value)
-      showToast(t('settings.messages.saved'))
     } catch {
       showToast(t('settings.messages.saveFailed'), 'error')
     } finally {
