@@ -32,10 +32,6 @@ export function MediaSettingsCard() {
     load: getMediaActiveEnabled,
     save: setMediaActiveEnabled,
     debounce: 0,
-    onSuccess: (value) =>
-      showToast(
-        value ? t('settings.messages.mediaActiveOn') : t('settings.messages.mediaActiveOff'),
-      ),
     onError: () => showToast(t('settings.messages.setFailed'), 'error'),
   })
 
@@ -52,7 +48,6 @@ export function MediaSettingsCard() {
     try {
       await setMediaWhitelistText('')
       whitelist.setValue('')
-      showToast(t('mediaWhitelist.saveSuccess'))
     } catch (error) {
       console.error(error)
       showToast(t('mediaWhitelist.saveFailed'), 'error')

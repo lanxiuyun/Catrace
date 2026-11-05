@@ -122,9 +122,6 @@ export function SystemSettingsCard() {
       if (value) await enable()
       else await disable()
       setAutostart(value)
-      showToast(
-        value ? t('settings.messages.autostartOn') : t('settings.messages.autostartOff'),
-      )
     } catch {
       showToast(t('settings.messages.setFailed'), 'error')
     } finally {
@@ -137,7 +134,6 @@ export function SystemSettingsCard() {
     try {
       await setSilentStart(value)
       setSilentStartEnabled(value)
-      showToast(value ? t('settings.messages.silentOn') : t('settings.messages.silentOff'))
     } catch {
       showToast(t('settings.messages.setFailed'), 'error')
     } finally {
