@@ -320,7 +320,6 @@
 
 .ct-settings-slot.ct-dragging {
   opacity: 0.35;
-  pointer-events: none;
 }
 
 .ct-settings-slot.ct-dragging .ct-settings-card {
