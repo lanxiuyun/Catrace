@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import Sortable from 'sortablejs'
+import { createSettingsCardSorting } from '../lib/settingsCardSorting'
 import { useT } from '../i18n'
 import { PageScroll } from '../components/PageScroll'
 import { RadixPage } from '../components/RadixPage'
@@ -71,30 +71,18 @@ export function Settings() {
   useEffect(() => {
     const grid = gridRef.current
     if (!ready || !grid) return
-    const sortable = Sortable.create(grid, {
-      forceFallback: true,
-      animation: 200,
-      ghostClass: 'ct-dragging',
-      dragClass: 'ct-drag-over',
-      handle: '.ct-drag-handle',
-      filter:
-        'input, textarea, select, button, a, .rt-SliderRoot, .rt-SwitchRoot, .rt-SelectTrigger',
-      preventOnFilter: false,
-      onEnd: () => {
-        const keys = Array.from(grid.children)
-          .map((child) => child.getAttribute('data-group-key'))
-          .filter(isCoreKey)
-        if (keys.length !== CORE_KEYS.length) return
-        setOrder(keys)
-        void (async () => {
-          try {
-            const store = await getSettingsStore()
-            await store.set('settings_group_order', keys)
-          } catch (error) {
-            console.error('Failed to save settings group order', error)
-          }
-        })()
-      },
+    const sortable = createSettingsCardSorting(grid, (values) => {
+      const keys = values.filter(isCoreKey)
+      if (keys.length !== CORE_KEYS.length || new Set(keys).size !== CORE_KEYS.length) return
+      setOrder(keys)
+      void (async () => {
+        try {
+          const store = await getSettingsStore()
+          await store.set('settings_group_order', keys)
+        } catch (error) {
+          console.error('Failed to save settings group order', error)
+        }
+      })()
     })
     return () => sortable.destroy()
   }, [ready])
