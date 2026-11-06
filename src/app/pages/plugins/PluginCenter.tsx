@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AlertDialog, Button, Switch } from '@radix-ui/themes'
 import {
   Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
@@ -35,6 +36,21 @@ type Props = {
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => void) => { finished: Promise<void> }
 }
+
+/**
+ * The detail is an in-page view, but it must answer the system Back button (mouse side button,
+ * Alt+Left). It therefore owns a history entry with the list URL and this state on it, so a POP
+ * can close the detail instead of leaving the plugin page. See `openDetails` / `closeDetails`.
+ */
+type DetailHistoryState = { pluginDetail?: string }
+
+const detailIdFromHistory = (state: unknown): string | null => {
+  const id = (state as DetailHistoryState | null)?.pluginDetail
+  return typeof id === 'string' && id ? id : null
+}
+
+/** React Router keeps its position in `window.history.state.idx`; 0 means there is nothing to pop. */
+const historyIndex = () => (window.history.state as { idx?: number } | null)?.idx ?? 0
 
 type PageTransition = 'push' | 'back'
 /** Guards the transient inline style when two transitions overlap (no interruption support). */
@@ -74,11 +90,16 @@ const runPageTransition = (direction: PageTransition, apply: () => void, afterCo
 
 export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, children }: Props) {
   const t = useT()
+  const location = useLocation()
+  const navigate = useNavigate()
   const data = usePluginCatalog()
   // Installed plugins lead: what this machine already has is the common visit.
   const [tab, setTab] = useState<'discover' | 'installed'>('installed')
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // The history entry wins on mount (coming Back from another page or reloading while a detail
+  // is open), afterwards the two are kept in sync by `openDetails` / `closeDetails` / the POP effect.
+  const historyDetailId = detailIdFromHistory(location.state)
+  const [selectedId, setSelectedId] = useState<string | null>(historyDetailId)
   const [removeId, setRemoveId] = useState<string | null>(null)
   const [entering, setEntering] = useState<Set<string>>(() => new Set())
   const seenIds = useRef<Record<'discover' | 'installed', Set<string>>>({ discover: new Set(), installed: new Set() })
@@ -88,10 +109,36 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const detailHeading = useRef<HTMLHeadingElement | null>(null)
   const detailSection = useRef<HTMLElement | null>(null)
   const listScroll = useRef(0)
+  // Set when the UI itself closes the detail: the history entry is being popped on our behalf,
+  // so the POP must not start a second transition.
+  const closedByUi = useRef(false)
+  // A close is requested but its state commit is still pending (the transition callback runs on
+  // the next frame); repeated requests would stack transitions and pop extra history entries.
+  const closePending = useRef(false)
+  // Uninstall closes the detail from inside an async operation, so `selectedId` and the history
+  // marker are read through refs: the closure that started the request is already stale by then.
+  const selectedIdRef = useRef(selectedId)
+  const historyDetailRef = useRef(historyDetailId)
+  useEffect(() => {
+    selectedIdRef.current = selectedId
+    historyDetailRef.current = historyDetailId
+  }, [selectedId, historyDetailId])
   // The detail nav bar is transparent until content scrolls underneath it; the plugin name
   // takes over the bar once the hero title leaves, so the page never loses its context.
   const [navScrolled, setNavScrolled] = useState(false)
   const [navTitled, setNavTitled] = useState(false)
+  const restoreListPosition = () => {
+    const scroller = document.querySelector<HTMLElement>('.ct-plugin-scroll')
+    if (scroller) scroller.scrollTop = listScroll.current
+    const opener = detailOpener.current
+    if (opener?.isConnected) {
+      opener.focus({ preventScroll: true })
+      return
+    }
+    // After an uninstall the card that opened the detail is gone: keep keyboard focus inside the
+    // page (the active tab) instead of dropping it on <body>.
+    document.querySelector<HTMLElement>('.ct-market-tabs button[aria-pressed="true"]')?.focus({ preventScroll: true })
+  }
   const openDetails = (id: string, opener: HTMLButtonElement) => {
     detailOpener.current = opener
     const scroller = opener.closest<HTMLElement>('.ct-page-scroll')
@@ -101,20 +148,63 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     runPageTransition('push', () => {
       setSelectedId(id)
       if (scroller) scroller.scrollTop = 0
+    }, () => {
+      // One detail = one history entry, so the system Back button pops just the detail. The entry
+      // is added after the list has been committed, so the history-driven effect below sees the
+      // two sides already in sync and does not start a second transition.
+      navigate(location.pathname, { state: { pluginDetail: id } satisfies DetailHistoryState })
     })
   }
-  const closeDetails = () => runPageTransition('back', () => setSelectedId(null), () => {
-    const opener = detailOpener.current
-    opener?.focus({ preventScroll: true })
-    const scroll = opener?.closest('.ct-page-scroll')
-    if (scroll) scroll.scrollTop = listScroll.current
-  })
+  // Idempotent on purpose: uninstall/reload effects can ask to close while the previous close is
+  // still animating, and popping history twice would skip past the plugin list altogether.
+  const closeDetails = () => {
+    if (!selectedIdRef.current || closePending.current) return
+    closePending.current = true
+    const ownsHistoryEntry = !!historyDetailRef.current
+    closedByUi.current = ownsHistoryEntry
+    runPageTransition('back', () => setSelectedId(null), restoreListPosition)
+    if (!ownsHistoryEntry) return
+    // Pop the detail entry instead of stacking a second list page on top of it, so the next
+    // Back still leaves the plugin page. Without anything to pop (deep link / reload) the
+    // marker is dropped in place.
+    if (historyIndex() > 0) navigate(-1)
+    else navigate(location.pathname, { replace: true, state: null })
+  }
+  // System Back / Forward / Alt+Left drive the router history; replay them as the same
+  // push/pop the buttons use. Only the detail's own entry changes this state, so a POP that
+  // drops it closes the detail, and Forward restores it.
+  useEffect(() => {
+    if (closedByUi.current) {
+      closedByUi.current = false
+      return
+    }
+    if (historyDetailId === selectedId) return
+    if (historyDetailId) runPageTransition('push', () => {
+      setSelectedId(historyDetailId)
+      // Forward lands on the detail the same way a card click does: from its own top.
+      const scroller = detailSection.current?.closest<HTMLElement>('.ct-page-scroll')
+      if (scroller) scroller.scrollTop = 0
+    })
+    else runPageTransition('back', () => setSelectedId(null), restoreListPosition)
+    // Deliberately keyed on history movement only: the UI paths update `selectedId` and the entry
+    // in step, so re-running this on `selectedId` would replay its own transition.
+  }, [historyDetailId])
   const restoreAlertFocus = (event: Event) => {
     event.preventDefault()
     alertOpener.current?.focus()
   }
+  // Uninstall removes the very thing the detail is about: leave it the way the back button does
+  // instead of parking the reader on a now-uninstalled plugin. A failed attempt keeps the detail
+  // so the error stays in context; a detail that is already gone is a no-op.
+  const confirmUninstall = async (id: string) => {
+    setRemoveId(null)
+    const removed = await data.uninstall(id)
+    if (removed) closeDetails()
+  }
   useEffect(() => {
     if (selectedId) detailHeading.current?.focus()
+    // The close is only finished once the detail has actually left the DOM again.
+    else closePending.current = false
   }, [selectedId])
 
   // Nav bar state for the detail: the toolbar material appears only once content is under the
@@ -196,9 +286,11 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     return () => clearTimeout(timer)
   }, [visibleIds, tab])
 
+  // Uninstalling (or a failed reload dropping the plugin) removes the detail out from under the
+  // reader: leave it the same way the back button does, history entry included.
   useEffect(() => {
     if (selectedId && !allItems.has(selectedId) && !data.loadingLocal && !data.loadingRemote) {
-      setSelectedId(null)
+      closeDetails()
     }
   }, [selectedId, data.installed, data.repository, data.loadingLocal, data.loadingRemote])
 
@@ -302,7 +394,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </>}
         </section>
 
-        <AlertDialog.Root open={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}><AlertDialog.Content maxWidth="28rem" onCloseAutoFocus={restoreAlertFocus}><AlertDialog.Title>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Title><AlertDialog.Description>{t('pluginMarket.uninstallDescription')}</AlertDialog.Description><div className="ct-market-confirm-actions"><AlertDialog.Cancel><Button variant="soft" color="gray">{t('pluginMarket.cancel')}</Button></AlertDialog.Cancel><AlertDialog.Action><Button color="red" onClick={() => { if (removeId) void data.uninstall(removeId); setRemoveId(null) }}>{t('pluginMarket.uninstall')}</Button></AlertDialog.Action></div></AlertDialog.Content></AlertDialog.Root>
+        <AlertDialog.Root open={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}><AlertDialog.Content maxWidth="28rem" onCloseAutoFocus={restoreAlertFocus}><AlertDialog.Title>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Title><AlertDialog.Description>{t('pluginMarket.uninstallDescription')}</AlertDialog.Description><div className="ct-market-confirm-actions"><AlertDialog.Cancel><Button variant="soft" color="gray">{t('pluginMarket.cancel')}</Button></AlertDialog.Cancel><AlertDialog.Action><Button color="red" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button></AlertDialog.Action></div></AlertDialog.Content></AlertDialog.Root>
       </RadixPage>
     </PageScroll>
   )

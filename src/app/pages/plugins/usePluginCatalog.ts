@@ -138,17 +138,21 @@ export function usePluginCatalog() {
     }
   }
 
-  const run = async (id: string, action: () => Promise<void>) => {
-    if (operation.current) return
+  // Resolves to whether the action really applied: the plugin detail leaves the screen after an
+  // uninstall, so the caller needs to know the file is actually gone before closing it.
+  const run = async (id: string, action: () => Promise<void>): Promise<boolean> => {
+    if (operation.current) return false
     operation.current = true
     setBusyId(id)
     try {
       await action()
       await refreshLocal(true)
+      return true
     } catch (error) {
       showToast(t('pluginMarket.operationFailed', { error: describeError(error) }), 'error')
       // An enable/stop may have persisted before a runtime error: show disk truth.
       await refreshLocal(true)
+      return false
     } finally {
       operation.current = false
       if (mounted.current) setBusyId(null)
