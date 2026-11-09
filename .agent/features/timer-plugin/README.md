@@ -20,7 +20,7 @@
 | `src/plugins/loadExternalPlugins.ts` | Blob 加载 settings/ui，注入 `plugin` |
 | `src-tauri/src/plugin_api/` | 通用宿主 API（event / activity / audio / getPluginDir） |
 
-安装：插件中心从仓库装到 `app_data/plugins/timer`（不再自动 junction）。
+安装：插件中心从仓库装到 `app_data/plugins/timer`。
 
 ## 子文档
 

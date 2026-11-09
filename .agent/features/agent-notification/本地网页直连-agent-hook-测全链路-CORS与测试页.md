@@ -12,7 +12,6 @@ P6 阻塞审批 + session 取消 + sticky 合并，单靠 `curl` / 旧 ps1 难�
 | UI | 单页 `index.html` | 比 Qt 简单；双击即开 |
 | 连 Catrace | **浏览器直连** `127.0.0.1:23456` | 少一层代理；对齐真实跨源场景 |
 | CORS | Catrace `agent_hook` 回 CORS + OPTIONS | 否则 file:// / localhost 页面被拦 |
-| 可选 server | `server.py` 只静态托管 | 标准库；不转发业务 |
 
 **否决**：长期依赖 Python 代理转发——file 协议下相对路径 `/proxy` 非法 URL，已踩过；且多一跳不利于对照真实 hook。
 
@@ -23,8 +22,6 @@ tools/agent-hook-tester/
   index.html          # 测试 UI（唯一入口，双击即开）
   README.md
 ```
-
-> 2026-07-18 精简：已删除根目录 `test-catrace-hook.bat/.ps1` 及旧 `server.py` / `agent_hook_tester.py` / `requirements.txt`，只保留 HTML。
 
 ## 用法
 

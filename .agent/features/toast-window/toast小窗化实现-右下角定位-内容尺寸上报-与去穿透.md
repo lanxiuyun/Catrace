@@ -1,21 +1,6 @@
 # Toast 小窗化实现：右下角定位、内容尺寸上报与去穿透
 
-> 2026-08-27 落地：Toast 从「铺满工作区的全屏透明覆盖层 + 点击穿透」改回「右下角原生小窗」。
-
-## 为什么改回小窗
-
-全屏覆盖层虽然能完全避免遮挡下层应用，但实现复杂、维护成本高：
-
-- 需要前端每 200ms 上报卡片命中矩形
-- 需要 Rust 50ms 轮询光标位置切换 `WS_EX_TRANSPARENT`
-- 需要 `WM_NCHITTEST` subclass 绕过 tao/winit 的命中处理
-- 切屏/DPI 变化时覆盖层尺寸容易失步
-
-改为固定宽度的右下角小窗后：
-
-- 窗口本身只覆盖右下角区域，自然不挡其它应用
-- 不再需要整窗穿透和命中轮询
-- 前端只需上报内容高度，Rust 负责钉右下
+Toast 使用固定宽度的右下角原生小窗。前端上报内容高度，Rust 将窗口定位到工作区右下角。
 
 ## 窗口尺寸与定位
 
@@ -68,17 +53,6 @@ async function reportWindowSize() {
 - update 详情展开/收起
 - agent session 变化
 
-## 去掉的旧机制
-
-| 旧机制 | 移除原因 |
-|--------|---------|
-| `set_toast_hit_regions` / `HIT_RECTS` | 不再需要整窗穿透命中测试 |
-| 50ms 穿透轮询线程 | 小窗本身不遮挡其它区域 |
-| `set_ignore_cursor_events_raw` | 不需要切换 `WS_EX_TRANSPARENT` |
-| `WM_NCHITTEST` subclass | 不需要绕过 tao 返回 `HTTRANSPARENT` |
-| `catrace:toast-hover-exit` 事件 | WebView 现在能正常收到 `mouseleave` |
-| 调试面板的 `debugInfo` | 命中区域调试信息不再需要 |
-
 ## 前端布局调整
 
 - `.toast-root` 从 `100vw × 100vh` 改为 `24.5rem` 宽。高度必须是 **`height: 100vh`（定高）**，不能只写 `min-height: 100vh`：栈的 `max-height: 100%` 要拿父元素高度做基准，父高 auto 时百分比落到 `none`，栈永远等于内容高，窗高被 `work_area` clamp 后既滚不动也没滚动条（[2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
@@ -93,8 +67,4 @@ async function reportWindowSize() {
 - `src-tauri/src/window_manager/windows.rs` — `set_window_rect_physical`
 - `src/views/toastWindows/ReminderToast.vue` — `reportWindowSize`、`ResizeObserver`、样式
 - `src/api/tauri.ts` — `setToastContentSize` 封装
-- `src/views/toastWindows/ToastShell.vue` — 强制透明背景
-
-## 参考
-
-- 旧实现笔记（已废弃）：[full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md)
+- [ToastShell.tsx](../../../src/app/shell/ToastShell.tsx) — 强制透明背景

@@ -34,8 +34,6 @@
 4. 其它 action（含 `dismiss`）以及 dismissed/completed：**正常 `removeNotification`**。
 5. 同 `event.id` / `dedupe_key` 的 plugin 事件走 **原地 upsert**，避免 PluginHostCard 因插件身份变化重载。
 
-sidecar demo：`tools/plugin-demo/sidecar-echo/runtime/main.mjs` 在 `actionId === 'echo'` 时延迟 ~400ms 再 publish roundtrip。
-
 ## 验收
 
 - 回传 Sidecar：卡不消失、序号/来源更新为 `action-roundtrip`，窗不卡死。

@@ -2,7 +2,7 @@
 
 ## 症状
 
-改磁盘上外部插件的 `ui.mjs`（含 symlink 到开发目录）后，插件页点刷新或「测试」仍显示旧卡片 UI，必须重启 `pnpm tauri dev` 才生效。
+改磁盘上外部插件的 `ui.mjs`后，插件页点刷新或「测试」仍显示旧卡片 UI，必须重启 `pnpm tauri dev` 才生效。
 
 ## 根因
 
@@ -18,8 +18,6 @@
 | `pluginHostCardCache.ts` | `clear` 时 `cardCacheGeneration`（Vue `ref`）+1 |
 | `PluginHostCard.vue` | `cardKey = pluginId@g${gen}`；watch 后重新 `resolveCard()`；**不要**把 uiUrl 写进 cache key |
 | Toast `ReminderToast` | 听 `catrace:reload-external-plugins`：**先** `loadExternalPlugins({ force: true })`，**再**把 live 通知的 `uiUrl` 换成 registry 新 blob，**最后** `clearPluginHostCardCache()` |
-| 插件页刷新 | 已有 force load + emit reload（保持） |
-| 插件页测试 | **mtime 感知** `loadExternalPlugins()`（无 force）+ emit reload + publish；仍保留 1s 限流 |
 
 ## 与 2026-07-21 连点卡死修复的关系
 
@@ -29,17 +27,16 @@
 
 ## 手测
 
-1. 宿主已加载本修复后，改 `plugins/<id>/ui.mjs`（或 demo symlink 源）。
-2. 插件页刷新，或点该插件「测试」。
-3. Toast 应出现新 UI，**无需**重启 tauri dev。
-4. 连点测试仍不应卡死（1s 锁 + supersede 原地 upsert）。
+1. 更新已启用插件源码后，触发宿主模块重载。
+2. 重载完成后 registry 与 generation 应更新，Toast 使用新卡片。
+3. 重复事件仍按 supersede / upsert 约定处理。
 
 ## 相关文件
 
 - `src/components/pluginHostCardCache.ts`
 - `src/components/PluginHostCard.vue`
 - `src/views/toastWindows/ReminderToast.vue`
-- `src/views/mainWindow/Plugins.vue`
+- [bootstrap.ts](../../src/app/bootstrap.ts)
 - `src/plugins/loadExternalPlugins.ts`
 
 ## 相关

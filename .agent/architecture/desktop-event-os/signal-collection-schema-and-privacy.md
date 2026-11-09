@@ -54,4 +54,4 @@ collector_version
 - [[input-monitoring]] 文档描述的「2s 去重活跃计数」语义 **保留**，供休息判定
 - 扩展指标一律进 `signal_minutes`，不要塞进 `records` JSON 大杂烩
 
-相关：[step2-roadmap…](step2-roadmap-event-core-and-signal-core.md) · [[database]] · [[input-monitoring]]
+相关：[[database]] · [[input-monitoring]]

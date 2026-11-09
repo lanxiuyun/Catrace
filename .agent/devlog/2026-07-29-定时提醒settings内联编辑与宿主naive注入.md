@@ -28,6 +28,3 @@
 | `src/plugins/loadExternalPlugins.ts` | 改用 `ensurePluginRuntime` |
 | `src/components/PluginHostCard.vue` | 同上 |
 | `src/vite-env.d.ts` | global 类型 |
-| `tools/plugin-demo/timer/settings.mjs` | 内联编辑 + 排序 + 护眼锁定 |
-| `tools/plugin-demo/timer/background.mjs` | 去掉 active legacy |
-| `.agent/architecture/.../m10-external-plugins.md` | naive 注入 + teleport 陷阱 |

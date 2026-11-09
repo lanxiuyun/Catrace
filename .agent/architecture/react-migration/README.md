@@ -1,130 +1,45 @@
-# React 迁移方案（Vue → React）
+# React 前端架构
 
-分支 `design/react-plugin-center-prototype` 的方向：用 React 重写宿主前端，替代现有 Vue 3 壳。`tools/ui-prototype/` 的插件中心原型（React 19 + Radix Themes）已评审通过，本文是把它落成真实前端的方案。设计系统已定为 **Radix Themes + zustand**。
+主窗口使用 React 19、React Router、Radix Themes 与 zustand；提醒窗口、插件后台窗口和外部插件设置使用 Vue 运行时。Vite 同时启用 React/Vue 插件，所有窗口共用 [index.html](../../../index.html) 与 [main.tsx](../../../src/app/main.tsx)。
 
-## 1. 结论
+## 入口与路由
 
-- **终态**：宿主 UI（壳、页面、设置、Toast 窗）与**插件 UI 全部 React**；不再保留 Vue 运行时与 naive-ui 注入。
-- **路线**：先起 React 新壳（路由 / 主题 / i18n / state / Tauri hook），再按页面逐块替换，最后移除 Vue 壳与 vue-router / vue-i18n / pinia。
-- **共存方向**：React 壳 + Vue 岛（未迁移页面以 Vue 实例挂进 React 路由），而不是 Vue 壳 + React 岛 —— 从第一天就把终态边界定在 React。
-- **插件收口**：迁移期只保留内置「久坐提醒」，其余插件（含外部插件）全部停用，再逐个改写成 React 放回（§4）。
-- **设计基准**：主窗壳与插件中心按 `catrace-ui-concept.html` 落地（左侧图标导航、顶栏面包屑、Radix 面板/控件）；尚未迁移的页面暂时保留旧样式，迁一页换一页。
+1. [preflight.ts](../../../src/app/preflight.ts) 归一提醒窗口 hash，并判定窗口类型。
+2. [bootstrap.ts](../../../src/app/bootstrap.ts) 初始化日志、F12、插件、语言、主题和主窗 Event Hub；插件后台窗口单独安装带插件身份的日志转发。
+3. [main.tsx](../../../src/app/main.tsx) 在启动流程结束后渲染 React root；主窗口包在一个 Radix 根主题内，独立窗口直接渲染路由。
+4. [router.tsx](../../../src/app/router.tsx) 用 hash 路由匹配 Tauri 建窗 URL。
 
-## 进度
+| 窗口/路由 | 页面与外壳 |
+|-----------|------------|
+| `/dashboard`、`/plugins`、`/settings`、`/debug` | React 页面，共用 `MainShell` 布局路由与 `<Outlet />` |
+| `/reminder-toast`、`/reminder-popup`、`/reminder-fullscreen` | `ToastShell` → `VueIsland` → 对应 Vue 提醒页面 |
+| `/plugin-host` | `ToastShell` → `VueIsland` → Vue 插件后台宿主页面 |
 
-| 阶段 | 状态 | 说明 |
-|------|------|------|
-| M0 插件收口 | ✅ 已落地 | 前端 `pluginScope.ts` + Rust `REST_ONLY_MIGRATION`，插件页只剩久坐提醒 |
-| M1 React 壳 | ✅ 已落地 | React 入口/路由/主题/i18n/zustand + Vue 岛桥；8 条路由用 Playwright 跑过 dist（页面正常渲染，浏览器里 Tauri API 报错属预期）；页面暂全部保持 Vue |
-| M2 Dashboard | ✅ 已落地 | Dashboard 改成 React 页（统计卡 + 概览/详细时间线），旧 Vue 入口（main.ts/App.vue/vue-router）同步删除 |
-| M2.5 壳视觉 | ✅ 已落地 | 主窗壳重做：侧边栏按 `catrace_macos_edition.html` 抄结构（Profile + 分组标签 + 带图标的导航项 + 选中项系统蓝实心 + 底部外观设置，窄窗收成图标栏），顶栏保留面包屑；配色按该参考换肤（macOS 系统色 + 透光 blur），字体沿用 main 的系统 UI 字体栈（见 §6.9）；设置/调试页仍按旧布局但已跟随新色板。后来按用户要求去掉了侧栏的 Profile 头、分组标题和底部外观入口，侧栏只留导航（主题切换改在「系统设置 → 外观主题」） |
-| M3 插件中心 | ✅ 已落地（先于设置） | 插件中心 + 久坐提醒面板改成 React（Radix Tabs/Slider/Select/Switch），只保留久坐提醒；旧 `Plugins.vue` / `RestPluginPanel.vue` 等已删除 |
-| M4 设置 | ✅ 已落地 | 设置页主框架（网格 + Sortable 拖拽排序 + 全局 toast）与 5 张卡（视频/信号/系统/系统通知/链接）全部 React；`SystemSettingsCard` 已从 Vue 岛换成 React（语言/主题/自启/静默/轻量/更新），旧 `.vue` 已删除 |
-| M4.5 调试 | ✅ 已落地（先于 Toast） | 调试页改成 React（媒体检测 / Signal 分钟桶 / 通知测试 / Event SDK 卡），每 2 秒轮询、离开页面停轮询与通知测试与旧版一致；旧 `Debug.vue` / `EventSdkSettingsCard.vue` 已删除，主窗四条路由全部 React |
+主窗布局、滚动与导航见 [应用外壳](../app-shell/README.md)。
 
-## 2. 现状盘点
+## Vue 运行时与插件
 
-| 层 | 现状 | 文件 / 备注 |
-|----|------|-------------|
-| 构建 | Vite 6 + `@vitejs/plugin-vue`；M1 起加 `@vitejs/plugin-react`（双插件共存），单入口 `index.html`，hash 路由 | [vite.config.ts](../../../vite.config.ts) |
-| 窗口 | 单 HTML，多窗口靠 hash 区分：`#/dashboard`、`#/reminder-toast`、`?plugin_id=x#/plugin-host` 等 | `src-tauri/src/lib.rs`、`reminder_toast.rs`、`plugin_window.rs` |
-| 壳 | 已是 React：`src/app/shell/MainShell.tsx`（顶栏） + `ToastShell.tsx`（提醒窗出口）；旧 `MainShell.vue` / `ToastShell.vue` 已删除 | `src/app/shell/` |
-| 页面体量 | 已迁 React：Dashboard（`src/app/pages/Dashboard.tsx`）、插件中心（`src/app/pages/Plugins.tsx` + 久坐提醒面板）、设置（`src/app/pages/Settings.tsx` + 5 张卡）、调试（`src/app/pages/Debug.tsx` + `debug/EventSdkCard.tsx`）；仍为 Vue：ReminderToast 23.4 KB、ReminderFullscreen 17.9 KB、ReminderPopup 8.7 KB、PluginHost 2 KB | 迁移工作量按此排序 |
-| 状态 | pinia：`eventHub`（Event Bus 订阅 + 150 条已解决上限）、`pluginRegistry` | `src/stores/` |
-| i18n | vue-i18n，词条是纯 TS 对象（zh-CN 19.7 KB / en-US 20.3 KB） | `src/i18n/` |
-| 主题 | `useTheme`：Store 持久化 `theme.mode` → `data-theme` → 跨窗口 `catrace-theme-changed`；naive-ui overrides + `--ct-*` CSS 变量 | `src/composables/useTheme.ts`、`src/theme.ts`、`src/styles/theme.css` |
-| 插件 UI | 外部插件 `ui.mjs`/`settings.mjs` 是 **Vue 组件源码**：Rust 读源码 → Blob → 动态 import；宿主注入 `__CATRACE_VUE__`、`__CATRACE_NAIVE__`（naive-ui 组件 + `useMessage`/`useDialog`）、`__CATRACE_UI__`（Vue 版 SettingRow/SliderControl） | `src/plugins/loadExternalPlugins.ts`、`src/plugins/pluginRuntime.ts` |
-| Tauri API | `src/api/tauri.ts` 纯 TS 封装（19 KB），与框架无关，可直接复用 | 迁移期不动 |
-| 验证 | Playwright e2e（`e2e/plugins.spec.ts`）、`vue-tsc`、`pnpm build`；原型另有 13 状态测试 + 4 渲染检查 | 迁移期 e2e 是主要回归网 |
+- [VueIsland.tsx](../../../src/app/legacy/VueIsland.tsx) 在 React 容器内挂载 Vue app，并在 React 卸载时销毁它；它也用于插件中心的外部设置面板。
+- [vueRuntime.ts](../../../src/app/legacy/vueRuntime.ts) 在每个 WebView 内提供共享 Pinia，并为 Vue 岛注入 i18n、naive-ui 主题、消息和对话框 provider。不同窗口的 JS 状态各自独立。
+- 内置久坐提醒的设置是 React [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx)，由 [Plugins.tsx](../../../src/app/pages/Plugins.tsx) 管理配置读写；[registerBuiltins.ts](../../../src/plugins/registerBuiltins.ts) 负责其事件注册。
+- 外部插件正常参与发现、安装和用户授权启用。启用后的 Vue UI/设置由 [loadExternalPlugins.ts](../../../src/plugins/loadExternalPlugins.ts) 加载；[ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 从 registry 取设置组件并交给 `VueIsland`。
+- 外部插件的 Vue/naive-ui/宿主 UI 注入契约由 [pluginRuntime.ts](../../../src/plugins/pluginRuntime.ts) 提供。修改插件宿主边界时需要同时考虑设置面板、Toast 卡与后台窗口，详见 [插件中心](../../features/plugin-center/README.md)。
 
-## 3. 目标结构
+## 状态、语言与主题
 
-```
-src/
-  app/                       React 宿主（M1 已落地）
-    main.tsx                 入口：normalize hash → bootstrap → 渲染
-    bootstrap.ts             窗口分流 / console 埋点 / 插件注册 / 语言主题初始化 / Event Bus
-    preflight.ts             窗口类型判定 + ?reminder= 兼容
-    router.tsx               react-router（hash 模式，路径与 Tauri 建窗一致）
-    store.ts                 zustand：resolvedTheme / themeMode / locale
-    i18n.ts                  t() / useT()，复用 vue-i18n 的词条对象
-    shell/MainShell.tsx      顶栏（Radix Theme 局部包住）+ 内容区
-    shell/ToastShell.tsx     提醒 / Toast 窗出口
-    shell/shell.css          壳样式（沿用 --ct-* token）
-    legacy/vueRuntime.ts     共享 pinia + 每个岛 createApp（NConfigProvider / 消息 / 对话框 provider）
-    legacy/VueIsland.tsx     <VueIsland component={Page} />：把 Vue 页面挂进 React 路由
-    legacy/legacy.css        原 App.vue 的全局基础样式（html/body/#app、user-select）
-  views/                     未迁移的 Vue 页面（逐个清空）
-```
+| 责任 | 真源与消费方 |
+|------|--------------|
+| 主题偏好及解析值 | [useTheme.ts](../../../src/composables/useTheme.ts) 管理持久化、`data-theme` 和跨窗口主题同步 |
+| 当前语言 | [i18n 入口](../../../src/i18n/index.ts) 的 Vue i18n 单例；词条位于同目录 locales |
+| React 壳状态 | [store.ts](../../../src/app/store.ts) 的 zustand 镜像主题和语言，由启动流程中的 Vue watch 同步 |
+| React 翻译 | [i18n.ts](../../../src/app/i18n.ts) 直接查询共享词条对象，通过 `useT()` 随 locale 更新 |
+| 事件与插件注册 | [eventHub.ts](../../../src/stores/eventHub.ts)、[pluginRegistry.ts](../../../src/stores/pluginRegistry.ts) 使用共享 Pinia |
+| 页面业务状态 | 页面自身的 React state 与框架无关的 [Tauri API 封装](../../../src/api/tauri.ts) |
 
-Vite 保持单入口；共存期间 `plugins: [vue(), react()]` 同时启用。**Tauri 建窗 URL 不变**，React 路由覆盖现有全部 hash：`#/dashboard`、`#/plugins`、`#/settings`、`#/debug`、`#/reminder-toast`、`#/reminder-popup`、`#/reminder-fullscreen`、`#/plugin-host`。
+配色 token 在 [theme.css](../../../src/styles/theme.css)，Radix 映射与控件反馈在 [radix-theme.css](../../../src/app/radix-theme.css)，naive-ui overrides 在 [theme.ts](../../../src/theme.ts)。两套 UI 都消费同一主题状态。React 页面用 [RadixPage.tsx](../../../src/app/components/RadixPage.tsx) 声明页面主题作用域；独立 Vue 窗口不增加 Radix 根主题。
 
-## 4. 插件策略：全部改写成 React（迁移期先只留久坐提醒）
+## 修改边界
 
-用户决定：插件也不保留 Vue，逐个改写成 React。当前落地的是"收口"这一步：
-
-- **前端开关**：[src/config/pluginScope.ts](../../../src/config/pluginScope.ts) → `REST_ONLY_MIGRATION = true`
-  - `src/app/bootstrap.ts` 跳过 `loadExternalPlugins()`，外部插件的 Card / Settings 组件不再注册；
-  - 插件页 `Plugins.vue` 不再拉外部插件列表，隐藏刷新 / 安装 / 打开目录入口（`PluginNavRail` 的 `canManageExternal=false`），页面只剩「久坐提醒」。
-- **Rust 开关**：`src-tauri/src/plugins.rs` → `REST_ONLY_MIGRATION = true`
-  - `PluginManager::rescan` 直接返回空列表：不扫描 `app_data/plugins`，外部插件的 **UI 下发、后台 WebView、sidecar 进程、事件发布权限** 全部不会启动。
-- **恢复/迁回**：某个插件改写成 React 后，两处开关同步放开（前端 id 列表 + Rust 常量）。整轮迁移结束（M6）删除两处开关。
-
-终态契约：
-
-- 插件 UI 从 Vue SFC 改成 **React 组件**（`Card` / `Settings` 导出 React 组件），宿主直接用 React 挂载，不再需要 `__CATRACE_VUE__` / `__CATRACE_NAIVE__` 注入，也不再需要 `<PluginUiHost>` 兼容层。
-- [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin) 仓库里的插件逐个改写；旧 Vue 契约在迁移完成后不再支持（过渡期若要兼容，可临时保留 Vue 岛桥，但不在终态）。
-- 迁移顺序建议：久坐提醒（宿主内置，先重写 `RestPluginPanel.vue`）→ 定时提醒 → 喝水 / 护眼 → Agent 通知 → 蓝牙音乐。
-
-## 5. 设计系统（已定：Radix Themes）
-
-| 方案 | 与原型一致性 | 组件完备度 | 代价 |
-|------|--------------|------------|------|
-| **Radix Themes**（原型同款） | 高，视觉已评审 | 基础组件有限：无 Table、DatePicker、表单校验，需要自研组合 | 低（沿用 `layout.css` 的设计 token），后续重型页面可能要补组件 |
-| **shadcn/ui + Tailwind** | 中，需按原型重做 token | 高，组件可拷入仓库、生态最大 | 引入 Tailwind 构建链，与现有 `--ct-*` CSS 变量要打通 |
-| **Mantine** | 中，视觉偏默认 | 高，hooks 齐全 | 包体较大，样式体系另起一套 |
-| **Ant Design** | 低 | 最全（Table/Form/DatePicker 强） | 企业风、深度定制成本高、包体大 |
-| **保留 naive-ui** | — | **不可行** | naive-ui 只有 Vue 版，React 侧不存在对应实现 |
-
-定为 **Radix Themes**（原型同款）：起壳与插件中心延续已评审视觉；到 Debug（表格/统计密集）和设置表单时，若 Radix 组合成本过高，再局部引入 shadcn 组件或自研。下表作为当时的对比依据保留。
-
-## 6. 工程改造要点
-
-1. **入口与路由**：`index.html` 的挂载点改为 React root（`src/app/main.tsx`）；`react-router` 用 hash history，路由表与现有完全对齐（含窗口分流逻辑）。M2 起旧 Vue 入口 `src/main.ts` / `App.vue` / `vue-router` / `mainWindow/MainShell.vue` / `toastWindows/ToastShell.vue` 已删除，仓库里只剩未迁移页面的 Vue 岛。
-2. **状态**：zustand 先接管壳级状态（`src/app/store.ts`：主题解析值、语言）；`eventHub` / `pluginRegistry` 留在 pinia，由共享的 pinia 实例同时供给 Vue 岛与 React 启动流程（`src/app/legacy/vueRuntime.ts`）。Dashboard 页面状态（records/config/hideStats）用 React 本地 state，不依赖 pinia；eventHub 随 M5 Toast 迁移再换 zustand。
-3. **i18n**：词条是纯 TS 对象，React 侧自研约 1.7 KB 的 `t(key)`（`src/app/i18n.ts`，保持 `nav.plugins` 的 key 结构），locale 真源仍是 vue-i18n，经 store 镜像；不引入 react-i18next。
-4. **主题**：`--ct-*` 变量与 `data-theme` 不变；`useTheme`（Vue 单例）仍是真源，React 通过 `watch` 镜像到 zustand；Radix `Theme` 只局部包住 React 壳顶栏，Vue 岛留在作用域外。
-5. **多窗口**：`src/app/bootstrap.ts` 平移了窗口分流（Toast / 弹窗 / 插件后台窗）、`patchConsole`、F12 DevTools、插件日志转发、语言/主题初始化与 Event Bus 订阅。
-6. **测试**：`vue-tsc` 随 Vue 页面减少逐步退役，新增 `tsc --noEmit`（React 侧）；Playwright 覆盖插件开关、更新卡片、Toast 关键路径；`pnpm build` 作为每次替换后的硬门槛。
-7. **包体**：共存期 Radix Themes 全量 CSS（约 690 KB）+ naive-ui 同时进包，构建 CSS 到 761 KB；M6 删掉 naive-ui 后再收敛，必要时改用 Radix 的分文件 CSS（`tokens.css` / `components.css`）。
-8. **Radix 主题只建一个根**：主窗在 `src/app/main.tsx` 用**一个** `<Theme>` 包住整棵树；壳里的侧栏/顶栏、页面容器都不再各自建根主题。Radix 的根主题自带 `.radix-themes[data-is-root-theme='true'] { min-height: 100vh }`，局部容器再建根会被撑满整窗、把同级内容区压成 0 高（M1/M2.5 两次实机截图都是这个症状）。Toast/弹窗窗全是 Vue 岛，不建 Radix 主题。
-9. **色板 = macOS 风格（参考根目录 `catrace_macos_edition.html`）**：`src/styles/theme.css` 的 `--ct-*` 与 `src/theme.ts` 的 naive-ui overrides 用系统色 —— 背景 `#f6f6f6`、卡片白、微边框 `rgba(0,0,0,.08)`、系统蓝 `#007aff`、系统紫 `#5e5ce6`、系统绿 `#34c759`、系统橙 `#ff9500`，深色 `#1e1e1e` / `#2c2c2e`；**字体和 main（Vue 版）一致**：main 自己没写全局字体，body 用的是 naive-ui 全局基础样式里的 `v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`（v-sans 不存在，实际落 system-ui：macOS = SF Pro、Windows = Segoe UI，中文回落雅黑），等宽对应 `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas`（Windows = Consolas），数字开 `tnum`；侧栏/顶栏用 `backdrop-filter: blur(20px) saturate(180%)` 的透光效果。`src/app/radix-theme.css` 把 Radix 的 accent/gray 变量接到同一套 token，并把 `--default-font-family` / `--code-font-family` 指到我们的字体 token。换肤只改 CSS/token，不动组件结构与布局。**注**：迁移中曾把 `--ct-font-sans` 写成手写的 macOS 栈（`-apple-system … 'Microsoft YaHei UI'`），Windows 上会变成全雅黑、和 main 观感不同，别再改回去。
-10. **dev server 缓存中间的半成品模块**：在 dev server 运行中删大文件或分两步改入口路由，Vite 可能缓存在两次编辑之间的 `router.tsx`（比如路由还走 `mainPage()`，但导入已换成 React 组件），表现为 Vue 把 React 函数当函数式组件调用、报 `Invalid hook call`。重启 `pnpm tauri dev`（或 touch 改动文件）即可；生产构建不受影响。
-
-## 7. 迁移顺序与里程碑
-
-| 里程碑 | 内容 | 验收 |
-|--------|------|------|
-| M0 收口 | 停用除久坐提醒外的所有插件（前端 `pluginScope.ts` + Rust `plugins.rs` 双开关） | 插件页只剩久坐提醒；无外部插件 sidecar / 后台窗 / Toast 卡 |
-| M1 壳 | React 入口 + 路由 + 主题 + i18n + zustand + Tauri hook + Vue 岛桥（页面暂全部保持 Vue） | 主窗/Toast 窗路由可跑，`pnpm build` 通过；页面行为与现版一致（靠 Vue 岛） |
-| M2 Dashboard | Dashboard 改写成 React（统计卡 + 概览/详细时间线，替代 Dashboard.vue / Timeline.vue / TimelineWindows.vue）；eventHub 暂未迁（Dashboard 不依赖它，留到 M5 Toast 一起迁） | 事件流、时间线、刷新行为与现版一致 |
-| M3 插件中心 | 插件中心按 concept 重做，久坐提醒设置面板改成 React（配置读写、提醒方式、全屏参数、通知内容、测试提醒） | 插件中心只显示久坐提醒；设置项与行为跟旧版一致 |
-| M4 设置 | Settings + 各设置卡（表单密集，验证设计系统取舍） | 设置读写/自动保存与现版一致 |
-| M5 Toast | ReminderToast / Popup / Fullscreen / PluginHost | 多窗口尺寸、层级、事件行为与现版一致 |
-| M6 清场 | 删 `vue-router`、`vue-i18n`、pinia 与剩余 Vue 岛组件；依赖收敛 | 不再依赖 vue / naive-ui |
-| M7 插件迁回 | 按 §4 顺序把插件逐个改写成 React 并放开开关（含 catrace-plugin 仓库） | 每个插件单独验收，开关同步放开 |
-
-## 8. 风险
-
-- **插件契约重写**是最大成本：外部插件、catrace-plugin 仓库、事件权限与 sidecar 协议都要跟着走；迁移期收口只是把风险暂时隔离。
-- **双框架共存**：naive-ui 全局 CSS 变量与 Radix Themes 变量、`data-theme` 与 Radix 的 `dark` class 需要统一；共存期样式隔离要专门验证。
-- **KeepAlive/滚动位置/详情面板状态**：现版 MainShell 用 `<KeepAlive>` 保活页面，React 需要自己实现等价行为（或明确不做）。
-- **多窗口与事件时序**：Toast 窗的 show/resize/层级逻辑对时序敏感（见 `.agent/bugs/2026-10-15-*`），迁移时不能只搬 UI。
-- **i18n 词条量大**：机械替换 + 人工抽查，避免 key 漂移导致缺词。
-
-## 9. 已确认的决策
-
-1. 设计系统：**Radix Themes**（§5）。
-2. 状态方案：**zustand**（壳级状态已落地，业务 store 按页面迁移）。
-3. 共存方向：**React 壳 + Vue 岛**。
-4. 插件：**全部改写成 React**，迁移期先只留久坐提醒（§4）。
+- 主窗页面与控件写在 React 层，系统设置只挂五张核心卡，见 [设置页](../../features/settings/README.md)。
+- Vue/naive-ui/Pinia/i18n 仍是提醒窗口与插件运行链路的依赖；依赖调整须覆盖这些实际使用点。
+- 多窗口共用 URL 路由表，不共用 JS 内存；跨窗口变更经 Tauri 事件或持久化同步。

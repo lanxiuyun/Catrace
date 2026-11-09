@@ -63,7 +63,7 @@ pub async fn set_window_active_mode<R: Runtime>(window: WebviewWindow<R>, active
 catrace-window.set_window_active_mode not allowed. Plugin not found
 ```
 
-**解决**：把需要前端调用的命令提升为 app command，注册到 `lib.rs` 的 `generate_handler!`，由 `core:default` 统一授权：
+**解决**：把需要前端调用的命令提升为 app command，注册到 `lib.rs` 的 `generate_handler!`，由命令自身的调用方检查约束；插件 capability 不代替 app command 的校验：
 
 ```rust
 // lib.rs
@@ -128,4 +128,4 @@ use macos as platform;
 - `restore_normal_style`：`Some(HWND(null))` + `SWP_NOZORDER`，只去掉 `WS_EX_NOACTIVATE` 不动 Z 序
 - `ensure_toast_window_visible` 已可见短路：sticky 卡过夜时也要跑同一检查
 
-为什么这样设计详见 [无焦点弹出特性：Z 序约束演变](../features/window-manager/README.md#z-序约束演变)。
+为什么这样设计详见 [无焦点弹出特性](../../features/window-manager/README.md)。

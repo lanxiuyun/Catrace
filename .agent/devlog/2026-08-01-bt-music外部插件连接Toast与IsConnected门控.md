@@ -6,7 +6,6 @@
 
 ## Completed
 
-- 落地 `tools/plugin-demo/bt-music`：manifest + Node sidecar + settings + ui.mjs
 - 模拟连接/断开验收 publish → Toast → `open-player` resolved → sidecar spawn
 - Windows 可选 PnP 轮询；以 `DEVPKEY_Device_IsConnected` 区分配对与真连接
 - 修复：多 Toast/乱码、过滤过死后不弹、未连接假阳性
@@ -24,8 +23,6 @@
 
 | File | Change |
 |------|--------|
-| `tools/plugin-demo/bt-music/**` | 新插件包 |
-| `tools/plugin-demo/README.md` | bt-music 手测与 IsConnected 说明 |
 | `.agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md` | demo 表标记包已落地 |
 
 ## 关键结论（给后续 agent）

@@ -1,6 +1,6 @@
 # 新增一个 agent hook 接入要改的所有位置
 
-以 Codex / Gemini / Kimi（2026-07 接入）为参照。各 agent 的机制差异详见 [agent-hook-integration-per-agent](../../../reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md)。
+以 Codex / Gemini / Kimi（2026-07 接入）为参照。各 agent 的机制差异详见 [agent-hook-integration-per-agent](../../reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md)。
 
 ## 前置判断
 

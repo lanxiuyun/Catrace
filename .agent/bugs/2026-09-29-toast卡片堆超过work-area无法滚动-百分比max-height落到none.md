@@ -8,14 +8,12 @@
 
 两侧都没写错，是中间那层没接上：
 
-1. Rust `fit_toast_window` 把窗高 clamp 到 `work_area`（[小窗化](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) 的设计，不能盖住任务栏/超出屏幕）→ 内容比窗高时窗口不再跟着长，**预期由前端栈内滚动承担**。
+1. Rust `fit_toast_window` 把窗高 clamp 到 `work_area`（[小窗化](../features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) 的设计，不能盖住任务栏/超出屏幕）→ 内容比窗高时窗口不再跟着长，**预期由前端栈内滚动承担**。
 2. 前端 `.toast-stack` 确实写了 `max-height: 100%; overflow-y: auto`，但包含块 `.toast-root` 当时是 `min-height: 100vh` —— 高度仍是 **auto（内容高）**。
 3. 百分比 `max-height` 在包含块高度不确定时按 `none` 处理（CSS2.1 §10.7），于是栈永远等于内容高：`scrollHeight == clientHeight`，**根本没形成 overflow** → 没有滚动条，滚轮无处可滚。
 4. 溢出部分被 `.toast-root` 的 `overflow: hidden` 直接吃掉，表现就是「排到窗口下缘被切断」。
 
 旁证：`scrollStackToBottom()` 从写下那天起就是 no-op（没有可滚动的量），README 里「内容超出时 `.toast-stack` 可滚动，并自动滚动到底部」是**当时并不成立**的声明。
-
-同类坑（同一类「百分比高度参照 indefinite」）：[2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md](2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md)。
 
 ## 验证（Chromium 探针）
 

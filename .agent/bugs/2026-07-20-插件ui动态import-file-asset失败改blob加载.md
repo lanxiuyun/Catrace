@@ -34,5 +34,4 @@
 - `src-tauri/src/plugins.rs` — `get_plugin_ui_source`
 - `src/plugins/loadExternalPlugins.ts`
 - `src/components/PluginHostCard.vue`
-- `tools/plugin-demo/demo-timer/ui.mjs`
 - `.agent/architecture/desktop-event-os/m10-external-plugins.md`

@@ -1,33 +1,23 @@
 # 久坐提醒内置插件边界
 
-> 2026-07-21：从 `lib.rs` 抽到 `rest_plugin.rs`；同日产品侧暂只启用 toast。
+## Rust 职责
 
-## 边界
+[rest_plugin.rs](../../../src-tauri/src/rest_plugin.rs) 负责 `ReminderState`（snooze / skip / break timer）、久坐 commands、分钟结算 `on_minute_settled` 和测试通知。
 
-`src-tauri/src/rest_plugin.rs` 负责：
+- `reminder_mode=toast` 时，提醒与计时经 Event Bus 发布 `reminder.rest.due` / `reminder.rest.timer`。
+- `reminder_mode=fullscreen` 时调用宿主全屏窗口，在光标所在监视器展示倒计时；全屏期间不叠加 rest-timer Toast。
 
-- `ReminderState`（snooze / skip / break timer）
-- 久坐相关 invoke commands（command 名保持不变）
-- 分钟结算 `on_minute_settled` 入口
-- `reminder.rest.due` / `reminder.rest.timer` Event Bus 发布
-- 测试通知路径
-- **当前仅 toast**：`show_notification` 固定 publish toast；不再按 mode 分支 popup/fullscreen
+[lib.rs](../../../src-tauri/src/lib.rs) 负责 Signal、监听、窗口 / 宿主生命周期、Bus state、提醒方式与全屏配置 commands，以及分钟循环中调用久坐插件。
 
-仍由 `src-tauri/src/lib.rs` 负责：
+## 配置与 UI
 
-- Signal/监听/窗口与宿主生命周期
-- Event Bus 创建与 Tauri state 注入
-- popup/fullscreen 窗口基础设施（保留，暂不由 rest 插件调用）
-- 分钟循环里回调 `rest_plugin::on_minute_settled`
+- 启用状态、工作 / 休息时长、推迟时长与提醒文案由 `RestPluginConfig` 保存到 Store 的 `plugin_config:rest`。
+- 提醒方式与全屏背景、透明度、填充等宿主窗口参数由 SQLite settings 保存。
+- 配置入口：[Plugins.tsx](../../../src/app/pages/Plugins.tsx) / [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx)。
+- 提醒方式支持 `toast` / `fullscreen`，行为详见[久坐提醒](../../features/reminder/README.md)。
 
-## 契约不变
+## 协作边界
 
-- 对外 invoke command 名不变
-- 配置键名不变（含 `window_minutes`、`break_minutes`、`snooze_interval_minutes`、`reminder_*`、`fullscreen_*`）
-- Event 类型不变（`reminder.rest.due`、`reminder.rest.timer`；kind 为 `rest` / `rest-timer`）
-- Toast 仍是可见权威；bus 失败不挡既有路径约定
-- 业务配置仍进 SQLite；UI 开关等非核心走前端 Store
-
-## 备注
-
-popup/fullscreen 窗口与 `fullscreen_*` settings API 仍在 Host 侧保留，待重新接入时再启用；`get/set_reminder_mode` 现阶段将非 toast 钳制为 toast。
+- Toast 订阅 Bus 展示内容，主窗 Hub 不渲染第二张卡。
+- 窗口创建、定位、前台状态和多监视器处理留在宿主窗口层，不混入提醒判定。
+- Event 类型使用 `reminder.rest.due` / `reminder.rest.timer`，kind 为 `rest` / `rest-timer`。

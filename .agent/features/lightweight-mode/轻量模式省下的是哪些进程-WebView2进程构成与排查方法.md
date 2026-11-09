@@ -46,11 +46,9 @@ Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe' OR Name='catrac
 
 ## 4. 三个会让人误判的坑
 
-**（1）插件后台窗还在 = 加载的是旧版插件（dev 环境最常见）**
+**（1）启用插件声明了 background**
 
-（历史记录，该自动链接机制已于 2026-11 移除）debug 构建把插件 junction 进 `app_data/plugins/`，源路径是**编译期**的 `CARGO_MANIFEST_DIR`。如果 junction 是别的工位建的、而那个工位的 `tools/plugin-demo` 停在旧提交，加载到的就是还带 `background` 字段的旧 manifest → 宿主照旧给每个插件建后台 WebView。
-
-证据看日志：`loaded github-notify v0.1.1` + `started background window for github-notify`（新版是 0.2.0 且无 background）。2026-09-29 已修（是链接就重指向当前工位），但**修复要重编该工位的 exe 才生效**；老 junction 也可以手动删掉让它重建。
+每个启用且声明 `background` 的插件都有独立隐藏 WebView。查看安装目录的 manifest 与日志 `started background window for <id>`，不要把该 renderer 误算为主窗或 Toast。
 
 **（2）轻量模式是运行中打开的 → 启动期预创建的 Toast 还在**
 
@@ -67,7 +65,7 @@ Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe' OR Name='catrac
 | 0 | 轻量模式 + 插件无后台窗，托盘静默——目标状态 |
 | 1，且是 392x160 贴右下角 | 有一个隐藏的预创建 Toast（见坑 2） |
 | 1，且标题 `Catrace Plugin: <id>` | 某个插件还在用 background WebView（见坑 1） |
-| N = 启用的带 background 插件数 | 插件迁移没生效，对照日志的 `loaded <id> v<版本>` |
+| N = 启用的带 background 插件数 | 由启用插件的 background 声明产生，对照安装清单与启动日志 |
 | 大于窗口数 | WebView2 回收 renderer 有延迟/会留备用 renderer，重启后再看 |
 
 ## 相关

@@ -27,8 +27,6 @@
 | `src/plugins/loadExternalPlugins.ts` | settings/UI 注入模块局部 `plugin` |
 | `src/components/PluginHostCard.vue` | Toast card 回退加载路径注入 `plugin` |
 | `src/views/toastWindows/PluginHost.vue` | background 模块注入 `plugin` |
-| `tools/plugin-demo/sidecar-echo/settings.mjs` | 使用统一宿主 API |
-| `tools/plugin-demo/sidecar-echo/runtime/main.mjs` | 删除重复桌面能力，只保留 sidecar 后台事件 |
 
 ## Newly completed host capabilities
 
@@ -36,7 +34,6 @@
 - Clipboard and plugin-isolated JSON storage.
 - `openExternal/openPath/showItemInFolder` shell operations.
 - Platform, theme, and Event Bus-backed Toast notification.
-- Rust implementation is centralized in `src-tauri/src/plugin_api.rs`; `plugins.rs` remains responsible for manifest scanning and lifecycle state.
 ## Vue component update crash fix
 
 - Symptom: refreshing/re-registering an external Settings component could throw `getComponentPublicInstance(... exposed)` and `parentNode` errors inside Vue/Naive UI ResizeObserver updates.
@@ -50,6 +47,3 @@
 - Added system beep.
 - Added clipboard RGBA image read/write and clipboard clear.
 - Extended the sidecar-echo Settings demo to exercise these capabilities.
-## Disabled detail panel rule
-
-External Settings components are mounted even while their plugin is disabled so users can inspect the panel before enabling it. Therefore a Settings component must not invoke enabled-only host APIs from `onMounted`; capability calls should start from explicit user actions after the plugin is enabled. The sidecar-echo demo removed its automatic environment/platform/screen reads for this reason.

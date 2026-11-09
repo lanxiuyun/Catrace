@@ -16,7 +16,7 @@
 | `catrace-plugin/bt-music/ui.mjs` | 紧凑 Toast：图标 +「设备名 已连接」+ 启动/关闭 + 进度条 |
 | `catrace-plugin/README.md` | demo 索引与手测 |
 
-安装：插件中心从仓库装到 `app_data/plugins/bt-music`（不再自动 junction）。
+安装：插件中心从仓库装到 `app_data/plugins/bt-music`。
 
 ## 子文档
 

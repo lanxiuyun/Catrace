@@ -13,7 +13,6 @@
 - **sidecar 协议加 5 个能力 op**：`activity.get` / `clipboard.write_text` / `shell.open_url` / `config.get` / `config.set`，与 `storage.*` 同模板（requestId + response + 2.5s 超时）
 - **两个官方插件迁到 sidecar**：github-notify 0.2.0、smsforwarder-notify 0.1.8，删 `background.mjs` 与 manifest 的 `background` 字段（插件仓库 PR #8，宿主 PR #83）
 - **插件仓库文档更新**：SKILL.md / develop.md 补新 op 契约与 resolved payload 说明，写明新插件不再建议用 `background`
-- **收尾**：PR #83 的 submodule 指针从 squash 前的分支 commit 重指到插件 main tip；CI 四项全绿
 
 ## 实测收益（4 个插件）
 
@@ -38,8 +37,6 @@ WebView2 在最后一个 webview 销毁后会连底座一起收掉，比最初�
 | `src-tauri/src/lib.rs` | 轻量模式开关、主窗销毁/重建、`ExitRequested` 拦截、Toast 销毁分支 |
 | `src-tauri/src/plugin_sidecar.rs` | 5 个宿主能力 op（+281 行）+ 解析单测 |
 | `src-tauri/src/reminder_toast.rs` | `request_destroy_toast_window`（走 `TOAST_MUTEX`） |
-| `src/components/settings/SystemSettingsCard.vue` / `src/api/tauri.ts` | 开关 UI 与 invoke 封装 |
-| `tools/plugin-demo/github-notify` `smsforwarder-notify` | 后台逻辑迁入 `runtime/main.mjs`，删 `background.mjs` |
 | `.agent/features/lightweight-mode/` | 行为、内存账本与排查方法 |
 
 ## 沉淀
@@ -47,4 +44,3 @@ WebView2 在最后一个 webview 销毁后会连底座一起收掉，比最初�
 - [features/lightweight-mode/](../features/lightweight-mode/README.md)（README + 进程构成与排查方法）
 - [architecture/desktop-event-os/插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](../architecture/desktop-event-os/插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)
 - [bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md](../bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md) · [bugs/2026-09-29-轻量模式重建主窗白屏未响应.md](../bugs/2026-09-29-轻量模式重建主窗白屏未响应.md)
-- [reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md](../reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md)
