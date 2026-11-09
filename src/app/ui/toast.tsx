@@ -10,7 +10,7 @@ interface ToastItem {
 
 let listeners: Array<(item: ToastItem) => void> = []
 
-/** 轻量消息提示（替代 naive-ui 的 message），由 <Toaster /> 统一渲染。 */
+/** 主窗操作消息，由 <Toaster /> 统一渲染。 */
 export function showToast(text: string, kind: ToastKind = 'success'): void {
   const item: ToastItem = { id: Date.now() + Math.random(), text, kind }
   for (const listener of listeners) listener(item)

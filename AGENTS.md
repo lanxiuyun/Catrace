@@ -6,16 +6,16 @@
 
 Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、通知聚合与自定义插件，后台静默监听键鼠感知行为信号。所有信息保存在本地，不上传数据。
 
-架构：[Desktop Event OS](.agent/architecture/desktop-event-os/README.md)。主窗口采用 React + Radix Themes，Toast / 提醒窗口和外部插件设置使用 Vue 岛，详见[前端架构](.agent/architecture/react-migration/README.md)。
+架构：[Desktop Event OS](.agent/architecture/desktop-event-os/README.md)。所有窗口与外部插件 UI 使用 React + Radix Themes，共享状态使用 zustand，详见[前端架构](.agent/architecture/react-migration/README.md)。
 
 **插件生态**：外部插件在独立仓库 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin) 维护。插件中心按固定 commit 下载到 `app_data/plugins/`，安装后默认停用，用户通过开关启用。
 
 ## 关键规则
 
 - **PR 使用中文**：创建或更新 Pull Request 时，标题和描述均用中文撰写。
-1. **先读代码再改** — Rust 主组合在 [lib.rs](src-tauri/src/lib.rs)；Event/Signal 在 `event.rs` / `bus.rs` / `signal.rs`；React 主窗在 [src/app/](src/app/)，Vue 独立窗在 [src/views/toastWindows/](src/views/toastWindows/)，共享组件与业务状态在 [src/components/](src/components/) / [src/stores/](src/stores/)
+1. **先读代码再改** — Rust 主组合在 [lib.rs](src-tauri/src/lib.rs)；Event/Signal 在 `event.rs` / `bus.rs` / `signal.rs`；主窗在 [src/app/pages/](src/app/pages/)，独立窗在 [src/app/windows/](src/app/windows/)，共享组件与业务状态在 [src/components/](src/components/) / [src/stores/](src/stores/)
 2. **跨平台** — 任何平台相关代码必须 `#[cfg]` 隔离，标配降级方案
-3. **不要自动启动 dev server** — 先跑 `pnpm vue-tsc --noEmit` / `pnpm build` / `cargo check`
+3. **不要自动启动 dev server** — 先跑 `pnpm typecheck` / `pnpm build` / `cargo check`
 4. **前端尺寸用 rem** — `1rem = 16px`，例外：1px 边框、blur、SVG viewBox
 5. **简单配置用 Store 插件** — 非业务核心的前端配置走 `@tauri-apps/plugin-store`，不进 SQLite
 6. **修改版本号** — 用 `pnpm version:set <x.y.z>`，勿手改单文件。说明见 [version-management](.agent/reference/version-management.md)

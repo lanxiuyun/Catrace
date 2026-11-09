@@ -1,0 +1,133 @@
+.ct-notification-toast-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  --accent: var(--ct-accent);
+  --light-bg: var(--ct-accent-softer);
+}
+
+/* 有主操作时整卡可点（对齐原生 toast：点本体触发跳转） */
+.ct-notification-toast-card.clickable {
+  cursor: pointer;
+}
+
+.ct-notification-toast-card .header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ct-notification-toast-card .app-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.ct-notification-toast-card .app-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ct-on-accent);
+  background: var(--accent);
+}
+
+.ct-notification-toast-card .app-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.0312rem;
+  text-transform: uppercase;
+  color: var(--ct-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-notification-toast-card .close-btn {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: transparent;
+  border-radius: 0.25rem;
+  color: var(--ct-text-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ct-notification-toast-card .close-btn:hover {
+  background: var(--light-bg);
+  color: var(--accent);
+}
+
+.ct-notification-toast-card .progress-bar {
+  height: 0.125rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--light-bg));
+  transform-origin: left center;
+  animation: ct-notification-toast-card-shrink var(--toast-auto-hide-ms, 6000ms) linear forwards;
+  margin: 0.375rem 0 0.5rem;
+}
+
+/* 与 ReminderToast 的 hover 暂停计时（stopTimer/startTimer 保 remainingMs）对齐：
+   CSS 动画同样停在原地、恢复时续走，两边始终同步 */
+.ct-notification-toast-card .progress-bar.paused {
+  animation-play-state: paused;
+}
+
+@keyframes ct-notification-toast-card-shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.ct-notification-toast-card .notif-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ct-text);
+  word-break: break-word;
+}
+
+.ct-notification-toast-card .notif-body {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--ct-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ct-notification-toast-card .notif-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+/* 等权重的低调描边按钮：系统通知的按钮本身没有主次 */
+.ct-notification-toast-card .notif-action-btn {
+  border: 0.0625rem solid var(--ct-border);
+  border-radius: 0.375rem;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ct-text);
+}
+.ct-notification-toast-card .notif-action-btn:hover {
+  background: var(--ct-accent-softer);
+  border-color: var(--ct-accent);
+  color: var(--ct-accent-strong);
+}

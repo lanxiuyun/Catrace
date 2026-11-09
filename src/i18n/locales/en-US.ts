@@ -328,6 +328,7 @@ export default {
     activeShort: 'Active',
   },
   common: {
+    close: 'Close',
     minutes: 'min',
     minute: 'min',
     hours: 'hr',
@@ -570,7 +571,5 @@ export default {
     installZip: 'Install from zip…',
     installOk: 'Installed {name}',
     installFailed: 'Install failed: {error}',
-    notMigratedTitle: 'Settings not migrated yet',
-    notMigratedBody: 'This plugin still lives in the Vue build. The React plugin center can only configure Sitting Reminder for now; its settings will show up here once migrated.',
   },
 }

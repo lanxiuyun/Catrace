@@ -39,7 +39,7 @@ fn fit_toast_window(window, app_handle, follow_cursor) {
 
 ```ts
 async function reportWindowSize() {
-  if (notifications.value.length === 0) return  // 空栈即将关窗，不要把窗口缩成一条
+  if (notifications.length === 0) return  // 空栈即将关窗，不要把窗口缩成一条
   const width = Math.max(1, Math.ceil(root.scrollWidth))
   const height = Math.max(1, Math.ceil(stack.scrollHeight))  // 不设最小值：窗口高度 = 内容高度
   await setToastContentSize(width, height)
@@ -51,7 +51,7 @@ async function reportWindowSize() {
 - ResizeObserver 监听 `stack` 和每张卡片
 - 卡片添加/移除/动画结束
 - update 详情展开/收起
-- agent session 变化
+- 插件卡内容变化
 
 ## 前端布局调整
 
@@ -59,12 +59,12 @@ async function reportWindowSize() {
 - `justify-content` 从 `flex-end`（贴底）改为 `flex-start`（贴顶）
 - `.toast-stack` 去掉负 margin，直接用窗口本身的 16px 出血区
 - 滚动条 gutter 用 `scrollbar-gutter: stable` 保持右侧留白恒定。滑块颜色要用中性灰：gutter 那一列是窗口透明区（背景是壁纸），纯黑滑块在深色壁纸上几乎看不见
-- 溢出后新卡会落在可视区外，靠 `scrollStackToBottom()` 跟随：**仅在栈本就贴底时**滚到底（`@scroll` 记录 + 容差），否则会把正在翻旧卡的人拽走
+- 溢出后新卡会落在可视区外，靠 `scrollStackToBottom()` 跟随：**仅在栈本就贴底时**滚到底（React onScroll 记录 + 容差），否则会把正在翻旧卡的人拽走
 
 ## 相关文件
 
 - `src-tauri/src/reminder_toast.rs` — `fit_toast_window`、`set_toast_content_size`、`build_toast_window`
 - `src-tauri/src/window_manager/windows.rs` — `set_window_rect_physical`
-- `src/views/toastWindows/ReminderToast.vue` — `reportWindowSize`、`ResizeObserver`、样式
+- [windowResize.ts](../../../src/app/windows/toast/windowResize.ts) — 尺寸测量与 ResizeObserver；[toast.css](../../../src/app/windows/toast/toast.css) — 栈样式
 - `src/api/tauri.ts` — `setToastContentSize` 封装
 - [ToastShell.tsx](../../../src/app/shell/ToastShell.tsx) — 强制透明背景

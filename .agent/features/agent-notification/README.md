@@ -1,49 +1,10 @@
-# Agent 通知
+# Agent 通知插件接入
 
-接收 AI agent（Claude Code / Codex / Gemini / Kimi）hook 推送的状态事件，按用户配置的三态策略复用 [[toast-window]] 弹出卡片；Claude **PermissionRequest** 走阻塞 `/permission` 真审批；设置页提供每 agent 一键安装/卸载。
+Agent 会话、Hook 安装、事件策略与插件卡片由独立仓库的 `agent-notify` 插件维护。开发、使用和故障知识查阅[插件 Agent 通知文档](https://github.com/lanxiuyun/catrace-plugin/tree/main/.agent/features/agent-notify)。
 
-## 链路
+## 宿主边界
 
-```
-agent 触发 hook
-  ├─ 状态事件 → catrace-agent-hook.cjs → POST :23456/state
-  │     ├─ UserPromptSubmit：timeout 该 session 挂起审批 + dismissAgentSession（即使 mode=off）
-  │     └─ 策略过滤 / auto 去重 / transcript 摘要 + ai-title 会话名
-  │           → create_agent_toast_window → EventBus.publish(kind=agent)
-  │                 → ReminderToast listen catrace:event → AgentToastCard
-  │
-  └─ PermissionRequest（Claude type:http）→ POST :23456/permission（阻塞）
-        → 挂起 PENDING_PERMISSIONS
-        → create_agent_permission_window → EventBus.publish(kind=permission)
-        → Allow/Deny/timeout → 手写 HTTP 决策（timeout 回 {} 让 Claude 回退终端）
-```
-
-UI 内容路径见 [[desktop-event-os]]；HTTP/策略/安装逻辑未改。
-
-默认策略：召唤型（Stop / StopFailure / Notification）= sticky；播报型 off。PermissionRequest **不走三态**，装了 http hook 即代批。
-
-HTTP **每请求一线程**（permission 阻塞不得卡住后续 /state）。本机测试页需要 CORS，见子文档。
-
-## 涉及文件
-
-- `src-tauri/src/agent_hook.rs` — HTTP（23456）、三态、去重、安装器、transcript 摘要/title、`/permission` 挂起与 timeout、CORS、并行 accept、`open_agent_session`、提示音
-- `src-tauri/resources/catrace-agent-hook.cjs` — 状态 hook 脚本（**必须 .cjs**）；透传 `session_title`；PermissionRequest **不**走此脚本
-- `src-tauri/resources/agent-notify.wav` — 内置提示音
-- `src-tauri/src/reminder_toast.rs` — `create_agent_toast_window` / `create_agent_permission_window` / `dismiss_agent_session_toast`
-- `src/views/toastWindows/ReminderToast.vue` — 栈生命周期、高度重算、permission 移除兜底 timeout、**hover 生命周期豁免 permission**、`dismissAgentSession`
-- `src/components/AgentToastCard.vue` — 项目/事件/会话 title 分层、聚合、前往、layout 事件
-- `src/components/PermissionToastCard.vue` — Allow / Deny / 前往终端
-- `src/components/settings/AgentSettingsCard.vue` — 开关、安装、事件策略、提示音
-- `src/api/tauri.ts` — invoke 封装（含 `resolvePermission`）
-- `tools/agent-hook-tester/` — 本地网页测试器（直连 23456）
-
-## 子文档
-
-- [roadmap-and-progress.md](roadmap-and-progress.md) — P0–P8 路线图与进度
-- [event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md](event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md) — 三态与 sticky 合并
-- [agent-toast-card-content-interaction-and-component-boundary.md](agent-toast-card-content-interaction-and-component-boundary.md) — 内容来源、交互、组件边界、提示音
-- [agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md](agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md) — **卡面信息架构 + 合并后高度纪律**
-- [permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md](permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md) — **P6 挂起释放 + 并行 accept + CORS**
-- [本地网页直连-agent-hook-测全链路-CORS与测试页.md](本地网页直连-agent-hook-测全链路-CORS与测试页.md) — 测试页用法与设计取舍
-- [files-to-change-when-adding-a-new-agent-hook-target.md](files-to-change-when-adding-a-new-agent-hook-target.md) — 新增 agent 接入清单
-- [hook-install-development-guide.md](hook-install-development-guide.md) — 改安装/脚本前必读
+- 通过[插件中心](../plugin-center/README.md)发现、按固定 commit 安装并由用户启用。
+- 插件导出 React Card／Settings，使用宿主注入的 React、Radix 与插件 API；合同见[外部插件加载](../../architecture/desktop-event-os/m10-external-plugins.md)。
+- 后台逻辑使用 sidecar 或普通 ESM background；事件经宿主 Bus、Toast 外部卡入口展示。宿主只负责启用状态、身份、事件所有权、运行时生命周期与配置／storage 隔离。
+- 涉及窗口尺寸、层级、卡片堆叠与跨插件协作的问题属于宿主，见[Toast 窗口](../toast-window/README.md)；仅该插件的会话与 Hook 业务记录写插件仓库。

@@ -24,4 +24,4 @@
 | `src-tauri/src/plugin_sidecar.rs` | sidecar 进程托管与 JSONL bridge |
 | `src-tauri/src/plugins.rs` | sidecar spec / 列表 |
 | `src-tauri/src/bus.rs` | resolve → sidecar stdin |
-| `src/views/toastWindows/ReminderToast.vue` | echo keep / dismiss remove |
+| `src/app/windows/ReminderToast.tsx` | echo keep / dismiss remove |

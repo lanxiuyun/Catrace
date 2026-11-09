@@ -1,39 +1,16 @@
-# rest-timer 收敛到 Event Bus（upsert 路径）
+# 休息计时的 Bus upsert
 
-## 背景
+休息计时是全局单卡：`event_type=reminder.rest.timer`、`kind=rest-timer`、`dedupe_key=reminder.rest.timer`、sticky=true。payload 含 break_minutes、rest_start_ts、rest_streak、remaining_minutes 和 is_complete。
 
-Step2 路线图一句话进度里，Toast 内容路径已全部经 Bus，仅 `dismissAgentSession` 与 `rest-timer` 仍用专用通道。
-`rest-timer` 原先走 `emit_to(..., "catrace-rest-timer")`，Toast 窗单独 listen，与 rest/water/eye 渲染线分裂。
+## 后端
 
-## 做法
+[rest_plugin.rs](../../../src-tauri/src/rest_plugin.rs) 结算与 Toast 测试路径发布计时状态。`EventBus::upsert_by_dedupe_key` 对现有 active 事件 update，保持 id 并增加 revision，避免每分钟 supersede 后再挂新卡。dismiss_rest_timer 清业务状态并 resolve 当前事件。
 
-### 后端
+## React 前端
 
-- 新增 `EventBus::upsert_by_dedupe_key`：有同 `dedupe_key` 的 active 事件则 `update`（同 id 升 revision），否则 `publish`。
-  - **为什么不用每次 publish + supersede？** rest-timer 每分钟（测试时连点）刷新；supersede 会 resolved 旧 id + 新 id，前端易闪烁/抖窗。
-- 统一入口 `emit_rest_timer_event`：
-  - `event_type = reminder.rest.timer`
-  - `kind = rest-timer`
-  - `dedupe_key = reminder.rest.timer`（全局单卡）
-  - `sticky = true`
-  - payload：`break_minutes / rest_start_ts / rest_streak / remaining_minutes / is_complete`
-- 调用点：settle 休息分钟、`test_notification` Toast 模式。
-- `dismiss_rest_timer`：清 `break_timer_active`，并 resolve 上述 dedupe 事件（Dismissed）。
+- [busEvents.ts](../../../src/app/windows/toast/busEvents.ts) 对 rest-timer 分流，不受 seen id 短路影响，同一事件的新 revision 必须刷新。
+- [restTimer.ts](../../../src/app/windows/toast/restTimer.ts) 原地更新计时卡，并轮询活跃状态，卸载时清理轮询。
+- [RestTimerToastCard.tsx](../../../src/components/RestTimerToastCard.tsx) 与 [RestTimerBall.tsx](../../../src/components/RestTimerBall.tsx) 只展示状态。
+- 手动关闭或恢复活跃后移除时，先 dismiss 业务计时并 resolve，避免下一次 active 水合重新出现。
 
-### 前端 `ReminderToast.vue`
-
-- 删除 `catrace-rest-timer` listen。
-- `handleBusEvent` 接受 `rest-timer`；**不**走 `seenBusEventIds` 短路（同 id 的 update 要能刷新）。
-- 仍用 `updateRestTimer` 原地改卡 + 2s 活跃轮询。
-- 手动关闭 / 恢复活跃延迟移除：继续 `dismissRestTimer()`，并 `markEventResolved`，避免 active 水合后重新冒卡。
-
-## 手测
-
-1. 设置 → 测试通知（Toast 模式）：应出现久坐卡 + 休息计时卡；连点受 1s 限流，计时卡应原地刷新不崩。
-2. 真休息路径：触发休息后出现计时卡；到点完成文案变化；恢复键鼠约 4s 后消失且不再自动冒出。
-3. 关卡后 `get_active_events` 无 `reminder.rest.timer`。
-
-## 仍未做
-
-- water/eye 插件 UI
-- Toast 无限制连点堆叠抗崩（仍依赖 1s 限流）
+验证应覆盖：测试与真实休息原地更新、恢复活跃后消失、关闭后 get_active_events 不再含该计时事件，以及组件卸载不遗留轮询。

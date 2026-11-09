@@ -7,12 +7,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test scripts/test-*.mjs src/app/windows/toast/*.test.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "version:set": "node scripts/set-version.mjs"
   },
   "dependencies": {
-    "@lucide/vue": "^1.39.0",
     "@radix-ui/themes": "3.3.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2.5.1",
@@ -22,15 +23,10 @@
     "@tauri-apps/plugin-store": "^2.4.3",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "lucide-react": "0.468.0",
-    "naive-ui": "^2.44.1",
-    "pinia": "^4.0.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-router-dom": "^7.18.4",
     "sortablejs": "^1.15.7",
-    "vue": "^3.5.13",
-    "vue-i18n": "^9.14.5",
-    "vue-router": "^4.6.4",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
@@ -40,10 +36,8 @@
     "@types/react-dom": "^19.3.0",
     "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-react": "4.3.4",
-    "@vitejs/plugin-vue": "^5.2.1",
     "playwright": "^1.61.1",
     "typescript": "~5.6.2",
-    "vite": "^6.0.3",
-    "vue-tsc": "^2.1.10"
+    "vite": "^6.0.3"
   }
 }

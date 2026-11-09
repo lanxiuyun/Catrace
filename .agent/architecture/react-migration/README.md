@@ -1,45 +1,44 @@
 # React 前端架构
 
-主窗口使用 React 19、React Router、Radix Themes 与 zustand；提醒窗口、插件后台窗口和外部插件设置使用 Vue 运行时。Vite 同时启用 React/Vue 插件，所有窗口共用 [index.html](../../../index.html) 与 [main.tsx](../../../src/app/main.tsx)。
+所有窗口与插件 UI 使用 React 19、React Router、Radix Themes 与 zustand。Vite 使用 React 插件；各原生窗口共用 [index.html](../../../index.html) 与 [main.tsx](../../../src/app/main.tsx)，由 hash 路由选择页面。
 
-## 入口与路由
+## 入口与窗口
 
-1. [preflight.ts](../../../src/app/preflight.ts) 归一提醒窗口 hash，并判定窗口类型。
-2. [bootstrap.ts](../../../src/app/bootstrap.ts) 初始化日志、F12、插件、语言、主题和主窗 Event Hub；插件后台窗口单独安装带插件身份的日志转发。
-3. [main.tsx](../../../src/app/main.tsx) 在启动流程结束后渲染 React root；主窗口包在一个 Radix 根主题内，独立窗口直接渲染路由。
-4. [router.tsx](../../../src/app/router.tsx) 用 hash 路由匹配 Tauri 建窗 URL。
+1. [preflight.ts](../../../src/app/preflight.ts) 归一提醒窗口 hash，并判定窗口职责。
+2. [bootstrap.ts](../../../src/app/bootstrap.ts) 安装日志、F12、插件生命周期监听，初始化语言与主题；主窗启动 Event Hub。
+3. [main.tsx](../../../src/app/main.tsx) 在 bootstrap 结束后渲染 React root。每个 WebView 只有一个 Radix 根主题，根主题由 [base.css](../../../src/app/base.css) 约束高度并保持透明。
+4. [router.tsx](../../../src/app/router.tsx) 的 hash 与 Tauri 建窗 URL 一致。
 
-| 窗口/路由 | 页面与外壳 |
-|-----------|------------|
-| `/dashboard`、`/plugins`、`/settings`、`/debug` | React 页面，共用 `MainShell` 布局路由与 `<Outlet />` |
-| `/reminder-toast`、`/reminder-popup`、`/reminder-fullscreen` | `ToastShell` → `VueIsland` → 对应 Vue 提醒页面 |
-| `/plugin-host` | `ToastShell` → `VueIsland` → Vue 插件后台宿主页面 |
+| 路由 | React 组件 |
+|---|---|
+| `/dashboard`、`/plugins`、`/settings`、`/debug` | `MainShell` 布局路由下的页面 |
+| `/reminder-toast` | [ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx)，Toast controller 与卡片栈 |
+| `/reminder-popup` | [ReminderPopup.tsx](../../../src/app/windows/ReminderPopup.tsx) |
+| `/reminder-fullscreen` | [ReminderFullscreen.tsx](../../../src/app/windows/ReminderFullscreen.tsx) |
+| `/plugin-host` | [PluginHost.tsx](../../../src/app/windows/PluginHost.tsx)，隐藏后台 ESM 宿主 |
 
-主窗布局、滚动与导航见 [应用外壳](../app-shell/README.md)。
+插件后台窗口在 bootstrap 中只安装按 `plugin-bg-<id>` 绑定的日志转发，不读取主窗设置 Store；后台通过插件专属 API 查询配置、语言与主题。后台 ESM 在窗口内执行普通模块副作用，其资源寿命由原生窗口销毁结束。
 
-## Vue 运行时与插件
+## 状态 API
 
-- [VueIsland.tsx](../../../src/app/legacy/VueIsland.tsx) 在 React 容器内挂载 Vue app，并在 React 卸载时销毁它；它也用于插件中心的外部设置面板。
-- [vueRuntime.ts](../../../src/app/legacy/vueRuntime.ts) 在每个 WebView 内提供共享 Pinia，并为 Vue 岛注入 i18n、naive-ui 主题、消息和对话框 provider。不同窗口的 JS 状态各自独立。
-- 内置久坐提醒的设置是 React [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx)，由 [Plugins.tsx](../../../src/app/pages/Plugins.tsx) 管理配置读写；[registerBuiltins.ts](../../../src/plugins/registerBuiltins.ts) 负责其事件注册。
-- 外部插件正常参与发现、安装和用户授权启用。启用后的 Vue UI/设置由 [loadExternalPlugins.ts](../../../src/plugins/loadExternalPlugins.ts) 加载；[ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 从 registry 取设置组件并交给 `VueIsland`。
-- 外部插件的 Vue/naive-ui/宿主 UI 注入契约由 [pluginRuntime.ts](../../../src/plugins/pluginRuntime.ts) 提供。修改插件宿主边界时需要同时考虑设置面板、Toast 卡与后台窗口，详见 [插件中心](../../features/plugin-center/README.md)。
+| 职责 | 真源与使用方式 |
+|---|---|
+| 语言、主题偏好与解析值 | [useShellStore](../../../src/app/store.ts)，React selector 或框架外 `.getState()` |
+| 插件组件与 kind 映射 | [usePluginRegistry](../../../src/stores/pluginRegistry.ts)，不可变 Map；组件类型是 React ComponentType |
+| 主窗事件观察 | [useEventHub](../../../src/stores/eventHub.ts)，active/resolved 数组，resolved 历史上限 150 |
+| Toast 生命周期 | [controller.ts](../../../src/app/windows/toast/controller.ts) 与局部 zustand store；挂载启动，卸载统一 dispose |
+| 页面业务状态 | 页面 React state 与 [Tauri API](../../../src/api/tauri.ts) |
 
-## 状态、语言与主题
+共享 store 只在当前 WebView 内共享，原生窗口之间通过 Tauri 事件与持久化同步。框架外调用 store 时使用 `.getState()`，不在普通函数里调用 React hook。
 
-| 责任 | 真源与消费方 |
-|------|--------------|
-| 主题偏好及解析值 | [useTheme.ts](../../../src/composables/useTheme.ts) 管理持久化、`data-theme` 和跨窗口主题同步 |
-| 当前语言 | [i18n 入口](../../../src/i18n/index.ts) 的 Vue i18n 单例；词条位于同目录 locales |
-| React 壳状态 | [store.ts](../../../src/app/store.ts) 的 zustand 镜像主题和语言，由启动流程中的 Vue watch 同步 |
-| React 翻译 | [i18n.ts](../../../src/app/i18n.ts) 直接查询共享词条对象，通过 `useT()` 随 locale 更新 |
-| 事件与插件注册 | [eventHub.ts](../../../src/stores/eventHub.ts)、[pluginRegistry.ts](../../../src/stores/pluginRegistry.ts) 使用共享 Pinia |
-| 页面业务状态 | 页面自身的 React state 与框架无关的 [Tauri API 封装](../../../src/api/tauri.ts) |
+## 语言与主题
 
-配色 token 在 [theme.css](../../../src/styles/theme.css)，Radix 映射与控件反馈在 [radix-theme.css](../../../src/app/radix-theme.css)，naive-ui overrides 在 [theme.ts](../../../src/theme.ts)。两套 UI 都消费同一主题状态。React 页面用 [RadixPage.tsx](../../../src/app/components/RadixPage.tsx) 声明页面主题作用域；独立 Vue 窗口不增加 Radix 根主题。
+- [i18n.ts](../../../src/app/i18n.ts) 提供纯 TypeScript `translate(locale, key, params)` 与 React `useT()`。`initLocale` 读取 DB 或检测系统语言，`setAppLocale` 持久化成功后广播 `catrace-locale-changed`，各窗口更新 zustand 与 HTML lang。
+- [useTheme.ts](../../../src/composables/useTheme.ts) 提供 `initTheme`、`setThemeMode` 和返回普通状态值的 `useTheme()`。持久化键为 `theme.mode`；监听系统 `matchMedia` 与 `catrace-theme-changed`，更新 zustand 和 `data-theme`。
+- 颜色真源是 [theme.css](../../../src/styles/theme.css) 的 `--ct-*`；[radix-theme.css](../../../src/app/radix-theme.css) 映射 Radix 色阶、焦点和控件反馈。
 
-## 修改边界
+## 插件与组件边界
 
-- 主窗页面与控件写在 React 层，系统设置只挂五张核心卡，见 [设置页](../../features/settings/README.md)。
-- Vue/naive-ui/Pinia/i18n 仍是提醒窗口与插件运行链路的依赖；依赖调整须覆盖这些实际使用点。
-- 多窗口共用 URL 路由表，不共用 JS 内存；跨窗口变更经 Tauri 事件或持久化同步。
+外部插件导出 React Card / Settings 组件，使用宿主注入的 React 与 Radix 运行时，见[外部插件合同](../desktop-event-os/m10-external-plugins.md)。[ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载已启用的 React 设置组件，并负责跨窗口配置事件转发与渲染失败反馈；Toast 卡由 [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) 管理。
+
+修改窗口布局读[应用外壳](../app-shell/README.md)；修改安装、启停与信任读[插件中心](../../features/plugin-center/README.md)；修改窗口显示、层级或尺寸必须同时核对 Rust 与 Toast controller，不能只改卡片 JSX。

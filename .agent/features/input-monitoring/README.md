@@ -11,7 +11,6 @@
 
 - `src-tauri/src/signal.rs` — 键盘 / 鼠标 / 前台采样线程 + 分钟桶
 - `src-tauri/src/lib.rs` — `ActivityState`、settle、启动门闩（accessibility）；macOS 未授权时先跑兜底采样
-- `src/components/AccessibilityBanner.vue` — 授权横幅组件仍在，主窗暂不挂载（兜底采样够用）
 - `src-tauri/src/reminder_toast.rs` — 仅用 `DeviceQuery::get_mouse()` 获取屏幕尺寸计算 Toast 窗口位置
 
 ## 键盘监听（2026-07-20 起）

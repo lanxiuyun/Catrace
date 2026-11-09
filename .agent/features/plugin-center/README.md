@@ -9,7 +9,7 @@ React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**�
 | 久坐提醒配置、启停、自动保存 | [Plugins.tsx](../../../src/app/pages/Plugins.tsx) |
 | 列表、详情、历史记录、卸载确认 | [PluginCenter.tsx](../../../src/app/pages/plugins/PluginCenter.tsx) |
 | 远程 / 本机目录、安装、启停、卸载、操作互斥 | [usePluginCatalog.ts](../../../src/app/pages/plugins/usePluginCatalog.ts) |
-| 外部设置的 Vue 岛 | [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) |
+| 外部 React 设置组件 | [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) |
 | 插件源弹层与持久化 | [PluginSourceSettings.tsx](../../../src/app/pages/plugins/PluginSourceSettings.tsx) / [pluginRepositorySource.ts](../../../src/app/pages/plugins/pluginRepositorySource.ts) |
 | 详情布局与控件样式 | [plugins.css](../../../src/app/pages/plugins.css) |
 | 清单、扫描、启停、卸载 | [plugins.rs](../../../src-tauri/src/plugins.rs) |
@@ -34,7 +34,7 @@ React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**�
 - 例外状态显示清单错误或同 ID 来自其它源。远程请求失败不影响本机管理；本地与远程错误分别显示，不把失败伪装为空目录。
 - 详情是页内整页视图，只有插件内容视口参与 push/pop，侧栏静止。吸顶返回条在内容滚到其下方时出现材质，大标题滚出后显示插件名；总开关 / 安装按钮在标题行右侧。
 - 打开详情从顶部开始，返回恢复列表搜索、滚动与焦点。每个详情占一条 `location.state.pluginDetail` 历史记录：鼠标侧键 / Alt+← 关闭详情，前进重新打开；页内返回用 `navigate(-1)`，无可弹记录时 replace 清掉标记。
-- 内置设置为 React，已启用外部设置通过 VueIsland 挂载；详情不是模态弹窗，插件 teleport 浮层可正常交互。
+- 内置和外部设置都是 React 组件。外部面板订阅 registry 更新；配置跨窗口变更由宿主转发为按 id 的 DOM 事件，监听在卸载时清理，渲染失败可重试。详情不是模态弹窗，插件 Portal 浮层可正常交互。
 - 列表 / 详情转场规则见 [plugins.css](../../../src/app/pages/plugins.css)。方向通过 `view-transition-name` 表达，快照画布必须不透明且裁剪在内容视口内；API 不可用或用户要求降低动态效果时直接切换。
 - 工具栏启停时不整体置灰，避免无关按钮闪烁；详情开关在操作期间按当前实现禁用。滚动所有者、内容边距和控件规范见下方子文档。
 
@@ -59,4 +59,4 @@ React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**�
 - [插件活动记录](plugin-activity-getRecords-历史分钟记录.md)：读取过往分钟记录。
 - [Node 运行环境](Node运行环境与便携安装接口.md)：命令解析、便携安装 API 与当前界面边界。
 - [资源异常观测](插件异常标签如何判定和保持不拦截.md)：诊断阈值与不拦截原则。
-- [外部插件 UI 合同](../../architecture/desktop-event-os/m10-external-plugins.md)：Vue 模块、注入与事件。
+- [外部插件 UI 合同](../../architecture/desktop-event-os/m10-external-plugins.md)：React 模块、共享运行时与 callbacks。

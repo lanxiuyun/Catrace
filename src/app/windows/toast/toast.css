@@ -1,0 +1,188 @@
+/* Native transparent windows must not inherit a main-window canvas or Radix root height. */
+html.reminder-transparent,
+html.reminder-transparent body,
+html.reminder-transparent #app { background: transparent !important; }
+
+.toast-root {
+  --toast-auto-hide-ms: 8000ms;
+  width: 24.5rem; /* 22.5rem card + 1rem shadow bleed each side */
+  /* 兜底铺满整窗：祖先链没有定高，`height: 100%` 不生效，根元素会退化成内容高，
+     窗口一旦比内容高就会露出没人绘制的透明带。用 vh 直接对齐视口。
+     必须是定高而不是 min-height：`.toast-root .toast-stack` 的 `max-height: 100%` 要拿父元素高度当基准，
+     父元素 auto 高时百分比落到 none → 栈永远撑到内容高，overflow-y 没有可滚动的溢出，
+     卡片堆超过窗口（Rust 把窗高 clamp 到 work_area）后就滚不动、也不出滚动条。 */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* 贴窗顶：HWND 底边锚在 work_area。增高若先长高后上移，多出的是透明底，卡片不进任务栏。 */
+  justify-content: flex-start;
+  align-items: stretch;
+  box-sizing: border-box;
+  background: transparent;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  overflow: hidden;
+}
+
+.toast-root .toast-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  width: 100%;
+  flex: 0 1 auto;
+  /* 父元素定高后百分比才生效：内容超出窗高时栈停在这一高度，多出来的卡片靠滚动看。 */
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  /* 窗口本身就是阴影出血区：左右各 16px，不再负 margin 拉出 root */
+  padding: 1rem;
+  /* 始终预留右侧滚动条 gutter：滚动条出现/消失都不引起卡片右缘位移。
+     右侧视觉留白恒为 16px = padding-right 6px + scrollbar gutter 10px */
+  padding-right: 0.375rem;
+  scrollbar-gutter: stable;
+}
+
+/* 卡片超出窗口高度时的可见滚动条。
+   注意 gutter 那一列是窗口透明区（背后是桌面/壁纸），不是卡片底色，
+   所以滑块用中性灰而不是黑：纯黑在深色壁纸上几乎看不见。
+   Chromium 下标准属性 scrollbar-color/width 会盖掉 ::-webkit-scrollbar，两处都写同一颜色。 */
+.toast-root .toast-stack {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(146, 146, 158, 0.7) transparent;
+}
+.toast-root .toast-stack::-webkit-scrollbar {
+  width: 0.625rem;
+}
+.toast-root .toast-stack::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toast-root .toast-stack::-webkit-scrollbar-thumb {
+  background: rgba(146, 146, 158, 0.7);
+  border-radius: 0.3125rem;
+}
+.toast-root .toast-stack::-webkit-scrollbar-thumb:hover {
+  background: rgba(146, 146, 158, 0.95);
+}
+
+.toast-root.debug-bg {
+  background: rgba(255, 220, 0, 0.45);
+}
+
+.toast-root .toast-card {
+  width: 22.5rem;
+  max-height: 37.5rem;
+  background: var(--ct-surface);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 0.5rem 1.5rem rgba(0, 0, 0, 0.18),
+    0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);
+  transform: translateX(120%) scale(0.96);
+  opacity: 0;
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.3s ease;
+  flex-shrink: 0;
+  will-change: transform, opacity;
+}
+
+.toast-root .toast-card.visible {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+}
+
+/* 离场动画：只切 class，依赖 .toast-root .toast-card 自带的 transition 淡出滑出。
+   不做 fixed 定位 / transform FLIP，避免透明全屏 WebView2 合成器冻结。 */
+.toast-root .toast-card.leaving {
+  transform: translateX(120%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease;
+}
+
+/* Agent / permission / sdk / update：内容自撑高度，不要被通用 min-height 卡住或裁切 */
+.toast-root .toast-card-agent,
+.toast-root .toast-card-permission,
+.toast-root .toast-card-sdk {
+  min-height: auto;
+}
+
+/* Plugin chat cards may be user-resized taller than the generic toast cap. */
+.toast-root .toast-card-plugin {
+  min-height: auto;
+  max-height: none;
+}
+
+.toast-root .toast-card-special {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* External cards may opt out of the host surface and own the full shell. */
+.toast-root .toast-card-standalone {
+  min-height: auto;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* Agent notification theming — dynamic per event */
+.toast-root .toast-card-agent .pulse-dot {
+  background: var(--accent);
+}
+
+.toast-root .toast-card-agent .progress-bar {
+  background: linear-gradient(90deg, var(--accent), var(--light-bg));
+}
+
+.toast-root .toast-card-agent .title {
+  color: var(--title);
+}
+
+.toast-root .toast-card-agent .close-btn:hover {
+  background: var(--light-bg);
+  color: var(--accent);
+}
+
+.toast-root .toast-card-agent .body-text {
+  color: var(--body);
+}
+
+/* Permission approval card (P6) — amber, always visible until decision */
+.toast-root .toast-card-permission {
+  border: 0.0625rem solid var(--ct-warning-soft);
+  box-shadow:
+    0 0.5rem 1.5rem rgba(245, 158, 11, 0.18),
+    0 0.125rem 0.375rem rgba(0, 0, 0, 0.12);
+}
+
+.toast-root { position: relative; }
+.toast-root .toast-feedback {
+  position: absolute;
+  z-index: 100;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--ct-danger, #ef4444);
+  color: white;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  pointer-events: none;
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.15);
+}

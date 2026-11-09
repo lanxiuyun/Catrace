@@ -49,9 +49,7 @@ features:
   timer-plugin:
     docs:
       - .agent/features/timer-plugin/README.md
-      - .agent/features/timer-plugin/定时提醒-settings内联编辑与规则排序约定.md
       - .agent/features/timer-plugin/定时提醒-toast颜色与提示音规则字段.md
-      - .agent/features/timer-plugin/外部插件如何使用宿主注入的-naive-ui.md
       - .agent/features/timer-plugin/定时提醒-toast按钮语言读宿主locale不要读html-lang.md
     related:
       - eye-reminder
@@ -164,14 +162,6 @@ features:
   agent-notification:
     docs:
       - .agent/features/agent-notification/README.md
-      - .agent/features/agent-notification/roadmap-and-progress.md
-      - .agent/features/agent-notification/event-display-policy-off-auto-sticky-and-sticky-merge-behavior.md
-      - .agent/features/agent-notification/agent-toast-card-content-interaction-and-component-boundary.md
-      - .agent/features/agent-notification/agent-卡片信息分层-项目事件会话title-与-sticky合并后窗口高度重算.md
-      - .agent/features/agent-notification/permission-挂起时-session变化必须-timeout释放-与-HTTP请求并行.md
-      - .agent/features/agent-notification/本地网页直连-agent-hook-测全链路-CORS与测试页.md
-      - .agent/features/agent-notification/files-to-change-when-adding-a-new-agent-hook-target.md
-      - .agent/features/agent-notification/hook-install-development-guide.md
     related:
       - toast-window
       - settings
@@ -306,8 +296,6 @@ reference:
   - .agent/reference/test-strategy.md
   - .agent/reference/config-reference.md
   - .agent/reference/version-management.md
-  - .agent/reference/clawd-on-desk-agent-notification-mechanism.md
-  - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
@@ -330,20 +318,15 @@ bugs:
   - .agent/bugs/2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md
   - .agent/bugs/2026-08-01-bt-music轮询把仅配对设备当成已连接并多弹Toast.md
   - .agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md
-  - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
   - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
   - .agent/bugs/2026-07-23-单张-toast-自动滚到底导致顶部标题和圆角被裁切.md
   - .agent/bugs/2026-07-21-插件测试连点卡死-toast-supersede卸载与blob重挂载.md
   - .agent/bugs/2026-07-20-插件ui动态import-file-asset失败改blob加载.md
   - .agent/bugs/2026-07-20-久坐测试连点卡死-toast-窗口并发show与resize.md
   - .agent/bugs/2026-07-20-idle-cpu-过高-device-events-百分之一百微秒轮询.md
-  - .agent/bugs/2026-07-18-permission-card-disappears-on-mouse-leave.md
-  - .agent/bugs/2026-07-18-permission-hang-on-session-change.md
-  - .agent/bugs/2026-07-18-permission-card-not-popping-event-field-missing.md
   - .agent/bugs/2026-07-14-toast-hwnd-topmost-推高-Z-序导致全屏游戏退出.md
   - .agent/bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md
   - .agent/bugs/2026-07-10-toast-concurrent-crash.md
-  - .agent/bugs/2026-07-10-toast-stacking-display.md
 
 skills:
   cross-software-http-debugging-logging:
@@ -376,7 +359,6 @@ devlog:
   - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
   - .agent/devlog/2026-08-03-M15.3-sidecar-storage与Plugins-UI运行态.md
   - .agent/devlog/2026-08-02-bt-music产品化动作模型与Toast紧凑卡.md
-  - .agent/devlog/2026-08-02-外部插件toast热更新-generation与reload顺序.md
   - .agent/devlog/2026-08-02-bt-music设置页产品化去开发者术语.md
   - .agent/devlog/2026-08-02-bt-music轮询改为Win32设备变更事件监听.md
   - .agent/devlog/2026-08-02-bt-music去掉模拟卡并启用即监听与Toast倒计时.md
@@ -384,4 +366,3 @@ devlog:
   - .agent/devlog/2026-08-01-bt-music外部插件连接Toast与IsConnected门控.md
   - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md
   - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
-  - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md

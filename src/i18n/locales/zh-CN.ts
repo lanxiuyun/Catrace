@@ -328,6 +328,7 @@ export default {
     activeShort: '活跃',
   },
   common: {
+    close: '关闭',
     minutes: '分钟',
     minute: '分钟',
     hours: '小时',
@@ -569,7 +570,5 @@ export default {
     installZip: '从压缩包安装…',
     installOk: '已安装 {name}',
     installFailed: '安装失败：{error}',
-    notMigratedTitle: '设置面板尚未迁移',
-    notMigratedBody: '这个插件还停留在 Vue 版，React 插件中心目前只能配置久坐提醒。等它迁移过来，设置会出现在这里。',
   },
 }

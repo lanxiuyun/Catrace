@@ -17,7 +17,7 @@
 | `catrace-plugin/timer/ui.mjs` | Toast 卡 |
 | `src-tauri/src/plugin_commands.rs` | `plugin_get_last_real_rest`（阈值读久坐 `break_minutes`） |
 | `src-tauri/src/db.rs` | `get_last_real_rest_ts` |
-| `src/views/toastWindows/ReminderToast.vue` | 读 `payload.auto_hide_ms` / `event.sticky` 控制停留 |
+| `src/app/windows/ReminderToast.tsx` | 读 `payload.auto_hide_ms` / `event.sticky` 控制停留 |
 
 安装：插件中心从仓库装到 `app_data/plugins/timer`。详见 [[m10-external-plugins]] 与插件仓库 `README.md`。
 

@@ -1,6 +1,6 @@
 # Desktop Event OS
 
-Catrace 以统一 **Event Protocol + Bus + Toast 渲染**承载桌面通知，并以 **Signal 行为感知**提供本地活动数据。主窗口采用 React，Toast / 提醒窗口与外部插件设置通过 Vue 岛挂载。
+Catrace 以统一 **Event Protocol + Bus + Toast 渲染**承载桌面通知，并以 **Signal 行为感知**提供本地活动数据。所有窗口与外部插件 UI 使用 React，事件、插件、主题与语言状态使用 zustand。
 
 ## 模块布局
 
@@ -16,15 +16,13 @@ src-tauri/src/
 ├── plugin_commands.rs     # 身份、所有权、活动观测与输入边界
 ├── signal.rs / db.rs      # 行为采集与 signal_minutes
 ├── reminder_toast.rs      # Toast 窗口创建、定位与显示
-├── agent_hook.rs          # Agent Hook 127.0.0.1:23456
 ├── rest_plugin.rs         # 内置久坐提醒与计时事件
 └── lib.rs                 # 宿主启动、命令注册与结算组合
 
 src/
-├── app/                   # React 路由、主窗、页面与 Vue 岛桥
-├── views/toastWindows/    # ReminderToast / Popup / Fullscreen / PluginHost
-├── components/            # Toast 卡与共享 Vue 组件
-├── stores/                # Event Hub / plugin registry（Pinia）
+├── app/                   # React 路由、主窗、独立窗口与 Toast controller
+├── components/            # React Toast 卡与外部插件 Card 宿主
+├── stores/                # zustand Event Hub / plugin registry
 └── plugins/               # 插件注册、Blob 加载与宿主 API
 ```
 
@@ -39,9 +37,9 @@ src/
 
 ## 关键约定
 
-1. **内容只走 Bus**：rest / timer / agent / permission / update 均 publish；主窗 Hub 不渲染第二张卡。
+1. **内容只走 Bus**：rest / timer / update / SDK / plugin 均 publish；主窗 Hub 不渲染第二张卡。
 2. **窗口与内容分离**：`ensure_toast_window_visible` 管窗口，Toast listen 后用 `get_active_events` 水合。
-3. **生命周期与业务分离**：action resolve 记录生命周期；snooze / permission HTTP 等业务由对应 command 处理。Agent 会话销卡另走 `dismissAgentSession`。
+3. **生命周期与业务分离**：action resolve 记录生命周期；snooze 等宿主业务由对应 command 处理，插件业务由其后台或 sidecar 处理。
 4. **外部写入走 :23457**：SDK / plugin 源校验身份与 kind，管理入口在调试页。
 5. **插件启用即信任**：安装默认停用。启用后可执行 WebView / sidecar 代码；宿主按插件 id 强制启用状态、Event 所有权和 storage namespace。
 6. **后台身份不可自报**：WebView 从 `plugin-bg-<id>` label 推导；sidecar 从 manager running map 推导。
@@ -51,7 +49,7 @@ src/
 
 ## 按任务查阅
 
-- 前端入口、路由、状态、Vue 岛：[前端架构](../react-migration/README.md)
+- 前端入口、路由、状态、语言与主题：[前端架构](../react-migration/README.md)
 - 仓库发现、安装、启停、卸载、信任：[插件中心](../../features/plugin-center/README.md)
 - 外部 HTTP：[Event API](m9-event-http-api.md)
 - UI/settings 加载与插件合同：[外部插件](m10-external-plugins.md)

@@ -1,13 +1,14 @@
-import { markRaw, type Component } from 'vue'
+import type { ComponentType } from 'react'
 import {
   getPluginSettingsSource,
   getPluginUiSource,
   listExternalPlugins,
   type ExternalPluginInfo,
 } from '../api/tauri'
-import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
+import { usePluginRegistry, type PluginCardProps, type PluginHandle } from '../stores/pluginRegistry'
 import { ensurePluginRuntime } from './pluginRuntime'
 import { wrapPluginSource } from './pluginApi'
+import { isPluginComponent } from './pluginComponent'
 
 const blobUrlByPlugin = new Map<string, string>()
 const settingsBlobUrlByPlugin = new Map<string, string>()
@@ -47,12 +48,12 @@ function revokeBlob(map: Map<string, string>, pluginId: string, next?: string) {
   }
 }
 
-async function buildComponentFromSource(
+async function buildComponentFromSource<P>(
   pluginId: string,
   source: string,
   map: Map<string, string>,
   exportNames: string[],
-): Promise<Component> {
+): Promise<ComponentType<P>> {
   const blob = new Blob([wrapPluginSource(pluginId, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   revokeBlob(map, pluginId, blobUrl)
@@ -60,9 +61,7 @@ async function buildComponentFromSource(
   try {
     const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
     for (const name of exportNames) {
-      if (mod[name]) {
-        return markRaw(mod[name] as object) as Component
-      }
+      if (isPluginComponent<P>(mod[name])) return mod[name]
     }
     throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
   } catch (error) {
@@ -73,7 +72,7 @@ async function buildComponentFromSource(
 
 async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
   ensurePluginRuntime()
-  const registry = usePluginRegistry()
+  const registry = usePluginRegistry.getState()
   let list: ExternalPluginInfo[] = []
   try {
     list = await listExternalPlugins()
@@ -93,15 +92,15 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
   for (const p of list) {
     if (p.error) continue
 
-    let CardComponent: Component | undefined
-    let SettingsComponent: Component | undefined
+    let CardComponent: ComponentType<PluginCardProps> | undefined
+    let SettingsComponent: ComponentType | undefined
     let uiUrl: string | undefined
 
     // Toast card only for enabled plugins (bg won't publish when disabled).
     if (p.enabled && p.hasUi) {
       try {
         const source = await getPluginUiSource(p.id)
-        CardComponent = await buildComponentFromSource(p.id, source, blobUrlByPlugin, [
+        CardComponent = await buildComponentFromSource<PluginCardProps>(p.id, source, blobUrlByPlugin, [
           'default',
           'Card',
           'card',
@@ -166,7 +165,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 
 /**
  * Discover local plugins via Rust, register into pluginRegistry.
- * Safe to call from main + toast windows (each has its own Pinia).
+ * Safe to call from main + toast windows (each has its own registry).
  *
  * UI/settings loading: Rust reads source → Blob URL → dynamic import.
  * Concurrent calls coalesce; unchanged fingerprint skips Blob rebuild.

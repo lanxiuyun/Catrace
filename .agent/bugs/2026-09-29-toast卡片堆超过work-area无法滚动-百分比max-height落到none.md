@@ -29,16 +29,16 @@
 
 ## 最终修复
 
-`src/views/toastWindows/ReminderToast.vue`：
+`src/app/windows/ReminderToast.tsx`：
 
 - `.toast-root`：`min-height: 100vh` → **`height: 100vh`**（定高）。既保持「铺满整窗」的既有意图，又给栈一个可解析的百分比基准。
 - `.toast-stack`：补 `min-height: 0`（消除 flex item 的自动最小尺寸 = 内容高这条旁路）。
-- `scrollStackToBottom()`：补**贴底判断**。溢出后新卡落在可视区外，无脑滚底会把正在翻旧卡的人拽走 —— 改为只在「本来就贴底」时跟随（`@scroll.passive` 记录，容差 24px）；空栈关窗时重置为贴底。
+- `scrollStackToBottom()`：补**贴底判断**。溢出后新卡落在可视区外，无脑滚底会把正在翻旧卡的人拽走 —— 改为只在「本来就贴底」时跟随（onScroll 记录，容差 24px）；空栈关窗时重置为贴底。
 - 滑块颜色 `rgba(0,0,0,.25)` → 中性灰 `rgba(146,146,158,.7)`：gutter 那一列是**窗口透明区**（背后是壁纸/桌面），纯黑在深色壁纸上几乎不可见。Chromium 下标准属性 `scrollbar-color` 会盖掉 `::-webkit-scrollbar-*`，两处都写同一颜色。
 
 不变量：内容不超 `work_area` 时，窗口高度**仍严格等于内容高**（无 Rust 改动，无回归）。
 
 ## 涉及文件
 
-- `src/views/toastWindows/ReminderToast.vue` — `.toast-root` / `.toast-stack` 样式、`scrollStackToBottom`
+- `src/app/windows/ReminderToast.tsx` — `.toast-root` / `.toast-stack` 样式、`scrollStackToBottom`
 - `src-tauri/src/reminder_toast.rs` — 只读参照（`fit_toast_window` 的 clamp 行为未改）

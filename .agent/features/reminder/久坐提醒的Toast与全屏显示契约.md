@@ -19,7 +19,7 @@
 | [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx) | 节奏 + 方式 + 全屏背景 + 内容 + 测试 |
 | `src-tauri/src/rest_plugin.rs` | mode 分支 `show_notification` |
 | `src-tauri/src/lib.rs` | `get/set_reminder_mode`；独立全屏窗钉光标监视器后 OS fullscreen |
-| `src/views/toastWindows/ReminderFullscreen.vue` | 全屏 UI + MM:SS 倒计时 |
+| `src/app/windows/ReminderFullscreen.tsx` | 全屏 UI + MM:SS 倒计时 |
 
 ## RestSettings 当前区块
 

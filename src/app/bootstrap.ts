@@ -1,23 +1,18 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { watch } from 'vue'
-import { getLocale, logFrontend, setLocale } from '../api/tauri'
-import { detectDefaultLocale, type SupportedLocale } from '../utils/locale'
-import i18n from '../i18n'
-import { useTheme } from '../composables/useTheme'
+import { logFrontend } from '../api/tauri'
+import { initTheme } from '../composables/useTheme'
+import { initLocale } from './i18n'
 import { registerBuiltinPlugins } from '../plugins/registerBuiltins'
 import { loadExternalPlugins } from '../plugins/loadExternalPlugins'
 import { ensurePluginLogConsole, installPluginConsoleForwarding } from '../plugins/pluginApi'
 import { useEventHub } from '../stores/eventHub'
 import { clearPluginHostCardCache } from '../components/pluginHostCardCache'
-import { REST_ONLY_MIGRATION } from '../config/pluginScope'
-import { pinia } from './legacy/vueRuntime'
-import { useShellStore } from './store'
 import { detectWindowMode } from './preflight'
 
 /**
- * 应用启动流程（原 src/main.ts 的平移，React 版）：
+ * React 应用启动流程：
  * 窗口分流 → console 埋点 → 插件注册 → 语言/主题初始化 → Event Bus 订阅。
  * 渲染由 main.tsx 在本函数完成后触发，避免主题/语言闪一下再变（FOUC）。
  */
@@ -65,33 +60,6 @@ function installDevToolsShortcut(): void {
   })
 }
 
-async function initLocale(): Promise<void> {
-  const stored = await getLocale().catch(() => null)
-  const persisted = stored === 'en-US' || stored === 'zh-CN'
-  const locale: SupportedLocale = persisted ? stored : detectDefaultLocale()
-  i18n.global.locale.value = locale
-  if (!persisted) {
-    await setLocale(locale).catch(() => {})
-  }
-}
-
-/** 迁移期：theme / locale 的真源在 Vue 单例，镜像到 zustand 供 React 渲染。 */
-function mirrorVueStateIntoStore(): void {
-  const { mode, resolved } = useTheme()
-  const syncTheme = () => {
-    useShellStore.getState().setThemeState(mode.value, resolved.value)
-  }
-  syncTheme()
-  watch([mode, resolved], syncTheme)
-  watch(
-    () => i18n.global.locale.value,
-    (value) => {
-      useShellStore.getState().setLocale(value === 'en-US' ? 'en-US' : 'zh-CN')
-    },
-    { immediate: true },
-  )
-}
-
 export async function bootstrap(): Promise<void> {
   const windowMode = detectWindowMode()
   installDevToolsShortcut()
@@ -101,7 +69,7 @@ export async function bootstrap(): Promise<void> {
     const pluginId = getCurrentWindow().label.replace(/^plugin-bg-/, '')
     installPluginConsoleForwarding(pluginId)
     // Background plugins use scoped plugin APIs, not the host's settings store.
-    // PluginHost.vue initializes the module runtime when its island mounts.
+    // The plugin-host page initializes its scoped runtime; it does not read host settings.
     return
   } else {
     patchConsole()
@@ -114,33 +82,28 @@ export async function bootstrap(): Promise<void> {
     registerBuiltinPlugins()
   }
 
-  if (REST_ONLY_MIGRATION) {
-    console.info('[plugins] 迁移期收口：外部插件已全部停用，仅保留久坐提醒')
-  } else {
-    // Backend events follow persistence; only refresh frontend modules here.
-    const reload = () => {
-      void loadExternalPlugins({ force: true })
-        .then(() => clearPluginHostCardCache())
-        .catch((error) => console.warn('[plugins] reload failed', error))
-    }
-    await Promise.all(
-      ['plugins-reloaded', 'plugin-enabled-changed'].map((eventName) =>
-        listen(eventName, reload).catch((error) => {
-          console.warn(`[plugins] listen ${eventName} failed`, error)
-        }),
-      ),
-    )
-    void loadExternalPlugins().catch((error) => {
-      console.warn('[plugins] loadExternalPlugins failed', error)
-    })
+  // Backend events follow persistence; only refresh frontend modules here.
+  const reload = () => {
+    void loadExternalPlugins({ force: true })
+      .then(() => clearPluginHostCardCache())
+      .catch((error) => console.warn('[plugins] reload failed', error))
   }
+  await Promise.all(
+    ['plugins-reloaded', 'plugin-enabled-changed'].map((eventName) =>
+      listen(eventName, reload).catch((error) => {
+        console.warn(`[plugins] listen ${eventName} failed`, error)
+      }),
+    ),
+  )
+  void loadExternalPlugins().catch((error) => {
+    console.warn('[plugins] loadExternalPlugins failed', error)
+  })
 
   await initLocale()
-  await useTheme().init()
-  mirrorVueStateIntoStore()
+  await initTheme()
 
   if (windowMode === 'main') {
-    void useEventHub(pinia)
+    void useEventHub.getState()
       .startListening()
       .catch((error) => console.warn('[eventHub] startListening failed', error))
   }

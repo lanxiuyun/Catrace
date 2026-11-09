@@ -1,149 +1,23 @@
-import {
-  computed,
-  h,
-  markRaw,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-  type Component,
-} from 'vue'
-import {
-  NAlert,
-  NButton,
-  NDatePicker,
-  NDivider,
-  NInput,
-  NInputNumber,
-  NModal,
-  NPopconfirm,
-  NProgress,
-  NRadioButton,
-  NRadioGroup,
-  NSelect,
-  NSlider,
-  NSpace,
-  NSwitch,
-  NTag,
-  NTooltip,
-  useDialog,
-  useMessage,
-} from 'naive-ui'
-import SettingRow from '../components/settings/SettingRow.vue'
-import SliderControl from '../components/settings/SliderControl.vue'
+import * as React from 'react'
+import * as RadixThemes from '@radix-ui/themes'
 import { createPluginApi, type PluginApi } from './pluginApi'
 
-/** Minimal Vue APIs for external ESM plugins (bare `vue` import won't resolve from Blob URL). */
-export type PluginVueRuntime = {
-  h: typeof h
-  ref: typeof ref
-  computed: typeof computed
-  watch: typeof watch
-  markRaw: typeof markRaw
-  onMounted: typeof onMounted
-  onBeforeUnmount: typeof onBeforeUnmount
-}
-
-/**
- * Curated naive-ui surface for external plugins.
- * Components work with `h(NButton, props, slots)` under host NConfigProvider.
- * `useMessage` / `useDialog` must be called inside `setup()` (providers already wrap App).
- */
-export type PluginNaiveRuntime = {
-  NAlert: typeof NAlert
-  NButton: typeof NButton
-  NDatePicker: typeof NDatePicker
-  NDivider: typeof NDivider
-  NInput: typeof NInput
-  NInputNumber: typeof NInputNumber
-  NModal: typeof NModal
-  NPopconfirm: typeof NPopconfirm
-  NProgress: typeof NProgress
-  NRadioButton: typeof NRadioButton
-  NRadioGroup: typeof NRadioGroup
-  NSelect: typeof NSelect
-  NSlider: typeof NSlider
-  NSpace: typeof NSpace
-  NSwitch: typeof NSwitch
-  NTag: typeof NTag
-  NTooltip: typeof NTooltip
-  useDialog: typeof useDialog
-  useMessage: typeof useMessage
-}
-
-/** Host settings building blocks — same components as System Settings cards. */
-export type PluginUiRuntime = {
-  SettingRow: Component
-  SliderControl: Component
-}
+/** External ESM modules share the host React instance; Blob modules cannot resolve bare imports. */
+export type PluginReactRuntime = typeof React
+export type PluginRadixRuntime = typeof RadixThemes
 
 declare global {
   // eslint-disable-next-line no-var
-  var __CATRACE_VUE__: PluginVueRuntime | undefined
+  var __CATRACE_REACT__: PluginReactRuntime | undefined
   // eslint-disable-next-line no-var
-  var __CATRACE_NAIVE__: PluginNaiveRuntime | undefined
-  // eslint-disable-next-line no-var
-  var __CATRACE_UI__: PluginUiRuntime | undefined
+  var __CATRACE_RADIX__: PluginRadixRuntime | undefined
   // eslint-disable-next-line no-var
   var __CATRACE_CREATE_PLUGIN_API__: ((pluginId: string) => PluginApi) | undefined
 }
 
-/**
- * Inject host runtimes for external plugin Blob modules.
- * Safe to call from main + toast windows; idempotent.
- */
-export function ensurePluginRuntime() {
-  const g = globalThis as typeof globalThis & {
-    __CATRACE_VUE__?: PluginVueRuntime
-    __CATRACE_NAIVE__?: PluginNaiveRuntime
-    __CATRACE_UI__?: PluginUiRuntime
-    __CATRACE_CREATE_PLUGIN_API__?: (pluginId: string) => PluginApi
-  }
-
-  if (!g.__CATRACE_VUE__) {
-    g.__CATRACE_VUE__ = {
-      h,
-      ref,
-      computed,
-      watch,
-      markRaw,
-      onMounted,
-      onBeforeUnmount,
-    }
-  }
-
-  if (!g.__CATRACE_NAIVE__) {
-    g.__CATRACE_NAIVE__ = {
-      NAlert,
-      NButton,
-      NDatePicker,
-      NDivider,
-      NInput,
-      NInputNumber,
-      NModal,
-      NPopconfirm,
-      NProgress,
-      NRadioButton,
-      NRadioGroup,
-      NSelect,
-      NSlider,
-      NSpace,
-      NSwitch,
-      NTag,
-      NTooltip,
-      useDialog,
-      useMessage,
-    }
-  }
-
-  if (!g.__CATRACE_UI__) {
-    g.__CATRACE_UI__ = {
-      SettingRow: markRaw(SettingRow),
-      SliderControl: markRaw(SliderControl),
-    }
-  }
-
-  if (!g.__CATRACE_CREATE_PLUGIN_API__) {
-    g.__CATRACE_CREATE_PLUGIN_API__ = createPluginApi
-  }
+/** Install the React component contract in each WebView before importing plugin modules. */
+export function ensurePluginRuntime(): void {
+  globalThis.__CATRACE_REACT__ ??= React
+  globalThis.__CATRACE_RADIX__ ??= RadixThemes
+  globalThis.__CATRACE_CREATE_PLUGIN_API__ ??= createPluginApi
 }

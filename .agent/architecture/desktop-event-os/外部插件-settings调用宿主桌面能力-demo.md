@@ -13,10 +13,10 @@ const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__('plugin-id')
 插件直接调用 `plugin.*`；宿主负责 command 名与参数转换。注入入口共用同一个 wrapper：
 
 - [loadExternalPlugins](../../../src/plugins/loadExternalPlugins.ts)：Toast 卡与设置模块加载。
-- [PluginHostCard](../../../src/components/PluginHostCard.vue)：卡片兜底加载。
-- [PluginHost](../../../src/views/toastWindows/PluginHost.vue)：后台 WebView。
+- [PluginHostCard](../../../src/components/PluginHostCard.tsx)：卡片兜底加载。
+- [PluginHost](../../../src/app/windows/PluginHost.tsx)：后台 WebView。
 
-主窗口由 React 管理；外部设置组件由 [ExternalPluginSettings](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 挂载 Vue 岛。模块加载、组件合同与启用门闩见[外部插件合同](m10-external-plugins.md)。
+各窗口统一由 React 管理；[ExternalPluginSettings](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载 React 设置组件。模块加载、组件合同与启用门闩见[外部插件合同](m10-external-plugins.md)。
 
 ## 能力真源
 
@@ -45,6 +45,8 @@ const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__('plugin-id')
 - Event 发布走宿主校验与 Bus，source、保留 kind 与 manifest `events` 边界不可绕过；关闭事件校验本插件所有权。
 - `activity.getRecords` 使用 unix 秒、半开区间 `[from, to)`，最长 31 天，缺失分钟不补行。细节见[历史分钟记录](../../features/plugin-center/plugin-activity-getRecords-历史分钟记录.md)。
 - `i18n.getLocale` 从宿主配置读取语言；插件不要以页面 HTML 的 `lang` 推断用户语言。
+
+`plugin.theme.css(cssText)` 是同步纯函数，将插件 CSS 文本的颜色映射到宿主 token；插件创建 style 节点后用其返回值赋给 textContent。样式转换与插件 JS / 用户配置分开。
 
 ## 日志与回环防护
 

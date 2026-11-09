@@ -1,0 +1,122 @@
+.ct-rest-timer-toast-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.ct-rest-timer-toast-card .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.ct-rest-timer-toast-card .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ct-rest-timer-toast-card .pulse-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ct-success);
+  animation: ct-rest-timer-toast-card-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ct-rest-timer-toast-card-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.3);
+  }
+}
+
+.ct-rest-timer-toast-card .title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ct-success);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-rest-timer-toast-card .close-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ct-text-subtle);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.ct-rest-timer-toast-card .close-btn:hover {
+  background: var(--ct-success-soft);
+  color: var(--ct-success);
+}
+
+.ct-rest-timer-toast-card .close-btn:active {
+  transform: scale(0.95);
+}
+
+.ct-rest-timer-toast-card .rest-timer-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0.375rem 0 0.5rem;
+}
+
+.ct-rest-timer-toast-card .liquid-ball {
+  width: 5.25rem;
+  height: 5.25rem;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  animation: ct-rest-timer-toast-card-rest-ball-float 4s ease-in-out infinite;
+  box-shadow: 0 0.25rem 0.75rem rgba(5, 150, 105, 0.22);
+}
+
+@keyframes ct-rest-timer-toast-card-rest-ball-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.375rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-rest-timer-toast-card .liquid-ball {
+    animation: none;
+  }
+}
+
+.ct-rest-timer-toast-card .body-text {
+  font-size: 0.8125rem;
+  color: var(--ct-success-strong);
+  line-height: 1.5;
+  margin: 0 0 0.5rem 0;
+  word-break: break-word;
+  text-align: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}

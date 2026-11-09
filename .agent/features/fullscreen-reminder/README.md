@@ -9,7 +9,7 @@
 
 ## 涉及文件
 
-- `src/views/toastWindows/ReminderFullscreen.vue` — 全屏提醒窗口
+- `src/app/windows/ReminderFullscreen.tsx` — 全屏提醒窗口
 - `src-tauri/src/lib.rs` — 背景图存储（base64↔文件）、按监视器创建/关闭全屏窗、`set_fullscreen_settings`
 - `src-tauri/src/window_manager/shared.rs` — 编号 label 与多屏 placement
 - `src-tauri/capabilities/default.json` — `reminder-fullscreen-*`

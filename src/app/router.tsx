@@ -1,33 +1,16 @@
 import { createHashRouter, Navigate } from 'react-router-dom'
-import type { Component } from 'vue'
 import { MainShell } from './shell/MainShell'
 import { ToastShell } from './shell/ToastShell'
-import { VueIsland } from './legacy/VueIsland'
 import { Dashboard } from './pages/Dashboard'
 import { Plugins } from './pages/Plugins'
 import { Settings } from './pages/Settings'
 import { Debug } from './pages/Debug'
-import ReminderToast from '../views/toastWindows/ReminderToast.vue'
-import ReminderPopup from '../views/toastWindows/ReminderPopup.vue'
-import ReminderFullscreen from '../views/toastWindows/ReminderFullscreen.vue'
-import PluginHost from '../views/toastWindows/PluginHost.vue'
+import ReminderToast from './windows/ReminderToast'
+import ReminderPopup from './windows/ReminderPopup'
+import ReminderFullscreen from './windows/ReminderFullscreen'
+import PluginHost from './windows/PluginHost'
 
-/**
- * React 路由表，hash 模式，路径与 Tauri 建窗 URL 完全一致：
- *   index.html#/dashboard、#/reminder-toast、?plugin_id=x#/plugin-host ...
- * 主窗页面已全部是 React；Toast / 插件宿主窗仍是 Vue 岛。
- *
- * 主窗四条页面挂在 `MainShell` 布局路由的 children 下（页面用 <Outlet /> 渲染），
- * 这样切页只换页面、不重建侧栏，也是切页交叉淡入的前提（见 shell.css）。
- */
-function toastPage(Page: Component) {
-  return (
-    <ToastShell>
-      <VueIsland component={Page} className="vue-island-toast" />
-    </ToastShell>
-  )
-}
-
+/** All windows use React; hash routes stay aligned with the native window URLs. */
 export function createAppRouter() {
   return createHashRouter([
     {
@@ -41,12 +24,10 @@ export function createAppRouter() {
         { path: 'debug', element: <Debug /> },
       ],
     },
-
-    { path: '/reminder-toast', element: toastPage(ReminderToast) },
-    { path: '/reminder-popup', element: toastPage(ReminderPopup) },
-    { path: '/reminder-fullscreen', element: toastPage(ReminderFullscreen) },
-    { path: '/plugin-host', element: toastPage(PluginHost) },
-
+    { path: '/reminder-toast', element: <ToastShell><ReminderToast /></ToastShell> },
+    { path: '/reminder-popup', element: <ToastShell><ReminderPopup /></ToastShell> },
+    { path: '/reminder-fullscreen', element: <ToastShell><ReminderFullscreen /></ToastShell> },
+    { path: '/plugin-host', element: <ToastShell><PluginHost /></ToastShell> },
     { path: '*', element: <Navigate to="/dashboard" replace /> },
   ])
 }

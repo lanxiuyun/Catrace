@@ -12,16 +12,16 @@
 - [bus.rs](../../../src-tauri/src/bus.rs) — `EventBus::get`（HTTP get/patch/resolve）
 - [lib.rs](../../../src-tauri/src/lib.rs) — 启动 `event_http::start_server`、注册 commands
 - [event.rs](../../../src-tauri/src/event.rs) — `EventSource::Sdk`
-- [SdkToastCard.vue](../../../src/components/SdkToastCard.vue) — 通用 sdk Toast 卡
+- [SdkToastCard.tsx](../../../src/components/SdkToastCard.tsx) — 通用 sdk Toast 卡
 - [EventSdkCard.tsx](../../../src/app/pages/debug/EventSdkCard.tsx) — React 调试面板（开关/token/轮换）
 - [Debug.tsx](../../../src/app/pages/Debug.tsx) — 挂载 Event SDK 面板
-- [ReminderToast.vue](../../../src/views/toastWindows/ReminderToast.vue) — `kind: sdk` 监听、原地更新、action resolve
+- [busEvents.ts](../../../src/app/windows/toast/busEvents.ts) — `kind: sdk` 监听、原地更新、action resolve
 - [tauri.ts](../../../src/api/tauri.ts) — `getEventSdkStatus` / `setEventSdkEnabled` / `rotateEventSdkToken`
 - [demo kit](../../../tools/event-sdk/) — 外部脚本调用示例
 
 ## 关键约定
 
-1. **仅 loopback**；无 CORS；与 `agent_hook` `:23456` 分离
+1. **仅 loopback**；无浏览器 CORS；插件专用 HTTP 服务由各自 sidecar 管理
 2. **默认启用**；关闭后写入 503，`GET /v1/health` 仍可探活（无 token）
 3. 外部请求 **强制** `source=sdk`、`kind=sdk`、`display_mode=toast`；保留 kind（rest/agent/permission/update/rest-timer/sdk）→ 403
 4. list/get/resolve **只允许 sdk source** 事件

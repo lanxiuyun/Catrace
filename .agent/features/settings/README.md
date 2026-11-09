@@ -48,8 +48,7 @@
 ## 功能设置的归属
 
 - **久坐提醒**：节奏、提醒内容、Toast/全屏方式、全屏背景和测试提醒由 [Plugins.tsx](../../../src/app/pages/Plugins.tsx) 与 [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx) 管理，不进系统设置网格。
-- **外部插件**：在插件中心的详情中配置，启用后的 Vue 设置组件经 [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) → [VueIsland.tsx](../../../src/app/legacy/VueIsland.tsx) 挂载。安装后由用户授权启用，安装、授权和开关见 [插件中心](../plugin-center/README.md)。
-- **Vue 插件公共控件**：[SettingRow.vue](../../../src/components/settings/SettingRow.vue)、[SliderControl.vue](../../../src/components/settings/SliderControl.vue) 属于外部插件 UI 注入契约，不是系统设置卡。
+- **外部插件**：启用后的 React SettingsComponent 由 [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载，使用宿主共享 React 与 Radix。安装与信任见[插件中心](../plugin-center/README.md)。
 - **Event SDK**：管理面板挂在调试页，见 [Event SDK](../event-sdk/README.md)。
 
-宿主主题、语言与 React/Vue 运行时协作见 [React 前端架构](../../architecture/react-migration/README.md)。
+宿主主题、语言与 zustand 状态协作见 [React 前端架构](../../architecture/react-migration/README.md)。

@@ -1,33 +1,17 @@
-﻿# Toast Card 拆分与 dismiss-agent-session emit
+﻿# Toast Card 与宿主 controller 的分工
 
-## 目标
+[ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) 只组装卡片栈与互斥的内容分支；[controller.ts](../../../src/app/windows/toast/controller.ts) 管理显示／关闭、动作和窗口协作。
 
-- 去掉 `window.dismissAgentSession` eval 专用通道
-- 将 rest/water/update/rest-timer 内联 UI 拆成与 Eye/Agent/Permission 同级的卡片组件
+| kind | React 内容组件 |
+|---|---|
+| rest | [RestToastCard.tsx](../../../src/components/RestToastCard.tsx) |
+| update | [UpdateToastCard.tsx](../../../src/components/UpdateToastCard.tsx) |
+| rest-timer | [RestTimerToastCard.tsx](../../../src/components/RestTimerToastCard.tsx) |
+| notification | [NotificationToastCard.tsx](../../../src/components/NotificationToastCard.tsx) |
+| special | [SpecialDayToastCard.tsx](../../../src/components/SpecialDayToastCard.tsx) |
+| sdk | [SdkToastCard.tsx](../../../src/components/SdkToastCard.tsx) |
+| 外部插件 | [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) |
 
-## 实现
+controller 的纯函数模块分别负责 Bus 映射、计时、尺寸、滚动、激活与休息计时。业务组件通过 callbacks 请求动作，不能直接绕过总线维护第二份事件状态。卡片内展开／折叠使用 resize callback 或 ResizeObserver，让窗口跟随内容变化。
 
-### dismiss
-
-- Rust `dismiss_agent_session_toast` → `app.emit("catrace:dismiss-agent-session", session_id)`
-- 前端 `ReminderToast` `listen('catrace:dismiss-agent-session')` → 既有 `dismissAgentSession()` 逻辑
-- 调用方不变：`agent_hook` UserPromptSubmit / permission 顶替
-
-### 卡片组件
-
-| kind | 组件 |
-|------|------|
-| rest | `RestToastCard.vue` |
-| water | `WaterToastCard.vue` |
-| update | `UpdateToastCard.vue` |
-| rest-timer | `RestTimerToastCard.vue` |
-| eye / agent / permission | 既有组件 |
-
-`ReminderToast.vue` 保留：堆叠、resize、bus 映射、计时/动作 handlers。
-
-## 手测
-
-1. 久坐测试：rest 卡样式/按钮正常
-2. rest-timer：计时球 + 关卡不反复冒出
-3. Agent sticky：回到会话或新 permission 顶替 → 旧 session 卡消失（不依赖 eval）
-4. 更新卡：详情展开/安装进度（若可触发）
+Agent 等插件专属 UI 由独立插件包提供，宿主不把会话模型塞进通用 Toast 容器。新增内容边界见[卡片约定](../../features/toast-window/dedicated-card-renders-own-body-generic-template-must-exclude-it.md)。

@@ -2,12 +2,11 @@ import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
 
 /**
  * 内置「插件」注册：event_type 边界绑到 registry。
- * 插件中心的 UI 已在 React 侧（src/app/pages/Plugins.tsx）直接实现，
- * 这里不再挂 Vue 的 SettingsComponent；等插件契约改成 React 后再统一接入。
+ * 内置久坐提醒设置由 React 插件中心直接提供；本模块只注册事件边界。
  * 定时提醒已抽离为外部插件（独立仓库 catrace-plugin 的 timer）。
  */
 export function registerBuiltinPlugins() {
-  const registry = usePluginRegistry()
+  const registry = usePluginRegistry.getState()
 
   const builtins: Array<{
     name: string

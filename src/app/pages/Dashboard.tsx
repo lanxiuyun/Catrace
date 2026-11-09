@@ -39,7 +39,7 @@ function formatDuration(minutes: number): string {
   return `${m}m`
 }
 
-/** 今日统计页（Dashboard 的 React 版，替代 views/mainWindow/Dashboard.vue）。 */
+/** 今日统计与活动概览。 */
 export function Dashboard() {
   const t = useT()
   const locale = useShellStore((state) => state.locale)
@@ -150,7 +150,7 @@ export function Dashboard() {
     return computeTimeBlocks(allMinutes, config.window_minutes, config.break_minutes, nowIdx)
   }, [allMinutes, config, dayStart, records])
 
-  // 与 Vue 版一致：活跃 block 全部时长算活跃；休息 block 里逐分钟拆活跃/休息。
+  // 活跃 block 全部时长算活跃；休息 block 里逐分钟拆活跃/休息。
   const blockStats = useMemo(() => {
     let activeMinutes = 0
     let restMinutes = 0

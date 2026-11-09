@@ -5,11 +5,8 @@
  */
 
 :root {
-  /* 字体：和 main（Vue 版）实际渲染的一致。
-     main 自己没写全局字体，body 的字体来自 naive-ui 的全局基础样式
-     `v-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-     —— v-sans 不是真实字体，实际落在 system-ui：macOS = SF Pro、Windows = Segoe UI（中文回落雅黑）。
-     等宽同理沿用 main 各组件里的写法：ui-monospace 优先（Windows = Consolas）。 */
+  /* 系统字体：macOS = SF Pro，Windows = Segoe UI，中文按系统回退。
+     等宽使用 ui-monospace，Windows 回退到 Consolas。 */
   --ct-font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ct-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 

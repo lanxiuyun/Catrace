@@ -58,10 +58,10 @@ agent-notify 的状态卡和权限卡在 sidecar 发布时传 `toastStyle: 'stan
 - 只允许插件事件使用 `toastStyle`；内置 rest/update 等卡片不读取它。
 - flag 名称固定为 `standalone`，不要使用含义不清的 `style` 或 `custom`。
 - object 值应只放 presentation CSS；不要覆盖 `position`、`width`、`height`、`transform`、`z-index` 等窗口布局属性。
-- 宿主只在 `ReminderToast.vue` 统一读取、存储和绑定，旧插件无需迁移。
+- 宿主在 [toastCard.ts](../../../src/app/windows/toast/toastCard.ts) 校验样式并生成 React CSSProperties，在 React 卡片栈统一绑定。
 
 ## 涉及文件
 
-- `src/views/toastWindows/ReminderToast.vue` — 解析 `payload.toastStyle`，给当前 Toast card 添加 standalone class 或 inline style。
+- [ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) — 为插件卡应用 standalone class 或 inline style。
 - `catrace-plugin/agent-notify/runtime/main.mjs` — agent-notify 发布状态/权限卡时传 `toastStyle: 'standalone'`。
 - `catrace-plugin/agent-notify/ui.mjs` — standalone 模式下绘制插件自己的卡片外壳。

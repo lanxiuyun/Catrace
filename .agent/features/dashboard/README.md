@@ -4,7 +4,7 @@
 
 ## 涉及文件
 
-- `src/app/pages/Dashboard.tsx` — 页面布局（React 版，替代 `views/mainWindow/Dashboard.vue`）
+- `src/app/pages/Dashboard.tsx` — React 页面布局
 - `src/app/pages/dashboard/TimelineGrid.tsx` — 详细视图热力图
 - `src/app/pages/dashboard/TimelineWindows.tsx` — 概览视图 block 卡片
 - `src/utils/timeBlocks.ts` — 前端 block 切分算法

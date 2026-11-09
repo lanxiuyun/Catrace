@@ -8,8 +8,8 @@
 - `src-tauri/src/update.rs` — 源列表、endpoint、下载 URL 改写、`check_app_update` / `get|set_update_source`
 - `src-tauri/src/lib.rs` — 启动 3 秒后按已保存源检查一次（10s 超时）
 - `src-tauri/src/reminder_toast.rs` — 创建更新 Toast
-- `src/views/toastWindows/ReminderToast.vue` — 更新卡片安装走 `checkAppUpdate`，并负责按卡片内容调整 Toast 窗口尺寸
-- `src/components/UpdateToastCard.vue` — 更新 Toast UI；更新源选择、官网最新说明 iframe、iframe 高度消息校验与上限、加载失败回退
+- [controller.ts](../../../src/app/windows/toast/controller.ts) — 更新安装走 `checkAppUpdate`，[windowResize.ts](../../../src/app/windows/toast/windowResize.ts) 跟随卡片测量尺寸
+- `src/components/UpdateToastCard.tsx` — 更新 Toast UI；更新源选择、官网最新说明 iframe、iframe 高度消息校验与上限、加载失败回退
 - `website/latest/index.html` — 官网线上版本说明页（累积时间线，最新版本节点置顶，历史节点保留）
 - `website/latest/preview.html` — 本地 iframe 预览页面，内容/样式确认后同步至官网页面
 - `src-tauri/src/reminder_toast.rs` — 接收前端测量内容尺寸并调整 Toast 窗口

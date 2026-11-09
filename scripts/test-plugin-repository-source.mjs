@@ -212,7 +212,7 @@ test('save failure retains old catalog and restores both in-memory and persisted
   const before = h.current.repository
   let attempts = 0
   h.state.onSave = async () => { if (++attempts === 1) throw new Error('disk full') }
-  await assert.rejects(h.current.changeSource(CUSTOM), /disk full/)
+  await assert.rejects(h.current.changeSource(CUSTOM, false), /disk full/)
   assert.equal(h.current.source, OFFICIAL)
   assert.equal(h.current.repository, before)
   assert.equal(h.current.sourceBusy, false)
@@ -227,7 +227,7 @@ test('failed first-ever save deletes the new in-memory key rather than leaving a
   await h.mount()
   let attempts = 0
   h.state.onSave = async () => { if (++attempts === 1) throw new Error('cannot save') }
-  await assert.rejects(h.current.changeSource(CUSTOM), /cannot save/)
+  await assert.rejects(h.current.changeSource(CUSTOM, false), /cannot save/)
   assert.equal(h.state.memory.has(KEY), false)
   assert.equal(h.state.disk.has(KEY), false)
   assert.ok(h.state.storeCalls.some(([action, key]) => action === 'delete' && key === KEY))
@@ -238,7 +238,7 @@ test('even if rollback save also fails, in-memory source is restored and origina
   const h = harness(OFFICIAL)
   await h.mount()
   h.state.onSave = async () => { throw new Error('persistent save failure') }
-  await assert.rejects(h.current.changeSource(CUSTOM), /persistent save failure/)
+  await assert.rejects(h.current.changeSource(CUSTOM, false), /persistent save failure/)
   assert.equal(h.state.memory.get(KEY), OFFICIAL)
   assert.equal(h.state.disk.get(KEY), OFFICIAL)
   assert.equal(h.current.source, OFFICIAL)
@@ -264,7 +264,7 @@ for (const lateFailure of [false, true]) {
     h.state.onList = async repository => repository === OFFICIAL ? oldRequest.promise : catalog(repository, NEW_SHA)
     const refreshing = h.current.refreshRemote()
     await flush()
-    await h.current.changeSource(CUSTOM)
+    await h.current.changeSource(CUSTOM, false)
     if (lateFailure) oldRequest.reject(new Error('old source timeout'))
     else oldRequest.resolve(catalog(OFFICIAL, '3'.repeat(40)))
     await refreshing
@@ -281,14 +281,14 @@ test('install passes the catalog snapshot repository and commit explicitly', asy
   h.state.onList = async repository => catalog(repository, NEW_SHA)
   await h.mount()
   await h.current.install('timer')
-  assert.deepEqual(h.state.installs, [['timer', NEW_SHA, CUSTOM]])
+  assert.deepEqual(h.state.installs, [['timer', NEW_SHA, CUSTOM, false]])
 })
 
 test('an install callback captured before switching source cannot install from stale cards', async () => {
   const h = harness(OFFICIAL)
   await h.mount()
   const staleInstall = h.current.install
-  await h.current.changeSource(CUSTOM)
+  await h.current.changeSource(CUSTOM, false)
   await staleInstall('timer')
   assert.deepEqual(h.state.installs, [])
   assert.ok(h.state.toasts.some(([message, kind]) => message === 'pluginMarket.operationFailed' && kind === 'error'))
@@ -299,7 +299,7 @@ test('source validation holds the operation lock against install and another sou
   await h.mount()
   const validation = deferred()
   h.state.onList = async () => validation.promise
-  const switching = h.current.changeSource(CUSTOM)
+  const switching = h.current.changeSource(CUSTOM, false)
   await h.current.install('timer')
   await assert.rejects(h.current.changeSource('another/source'), /pluginMarket.sourceWait/)
   assert.deepEqual(h.state.installs, [])
@@ -307,7 +307,7 @@ test('source validation holds the operation lock against install and another sou
   validation.resolve(catalog(CUSTOM, NEW_SHA))
   await switching
   await h.current.install('timer')
-  assert.deepEqual(h.state.installs, [['timer', NEW_SHA, CUSTOM]])
+  assert.deepEqual(h.state.installs, [['timer', NEW_SHA, CUSTOM, false]])
 })
 
 test('installation holds the lock against source switches until it settles', async () => {
@@ -317,13 +317,13 @@ test('installation holds the lock against source switches until it settles', asy
   h.state.onInstall = async () => installing.promise
   const operation = h.current.install('timer')
   assert.equal(h.current.busyId, 'timer')
-  await assert.rejects(h.current.changeSource(CUSTOM), /pluginMarket.sourceWait/)
+  await assert.rejects(h.current.changeSource(CUSTOM, false), /pluginMarket.sourceWait/)
   assert.deepEqual(h.state.lists, [OFFICIAL])
   assert.equal(h.state.memory.get(KEY), OFFICIAL)
   installing.resolve({ id: 'timer', name: 'Timer' })
   await operation
   assert.equal(h.current.busyId, null)
-  await h.current.changeSource(CUSTOM)
+  await h.current.changeSource(CUSTOM, false)
   assert.equal(h.current.source, CUSTOM)
 })
 

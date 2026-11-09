@@ -34,7 +34,7 @@ Toast 复用同一 HWND。创建时 `always_on_top(true)` 带上 `WS_EX_TOPMOST`
 
 - `src-tauri/src/window_manager/windows.rs` — `ensure_topmost_style` / `ensure_reminder_topmost`
 - `src-tauri/src/reminder_toast.rs` — 已可见时也自愈
-- `src/views/toastWindows/ReminderToast.vue` — 点击抢焦点（碰巧能修好，不是正道）
+- `src/app/windows/ReminderToast.tsx` — 点击抢焦点（碰巧能修好，不是正道）
 
 ## 涉及的知识
 

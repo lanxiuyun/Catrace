@@ -6,7 +6,7 @@ import './radix-page.css'
 /**
  * React 页面外层的 Radix 主题作用域。
  *
- * 只包 React 页面，不包 Vue 岛——避免 Radix 的样式影响 naive-ui。
+ * 页面使用继承的 Radix 主题，不创建额外原生窗口或独立运行时。
  * 注意：Theme 作为根主题时自带 `min-height: 100vh`（见 shell.css 的
  * `.radix-themes.ct-radix-page` 覆盖），这里用 asChild 让 class 落在页面容器上。
  */

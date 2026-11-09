@@ -1,15 +1,15 @@
 # 外部插件 Toast 卡缓存与重载
 
-每个 WebView 有独立 Pinia registry 与模块级卡片缓存，主窗更新不能直接替代 Toast 窗更新。
+每个 WebView 有独立 zustand registry 与模块级卡片缓存，主窗更新不能直接替代 Toast 窗更新。
 
 ## generation
 
-[pluginHostCardCache.ts](../../../src/components/pluginHostCardCache.ts) 按插件 id 缓存异步组件，避免 supersede / upsert 时反复导入。清理 Map 不会自动替换已挂载的组件，因此 `clearPluginHostCardCache()` 同时增加响应式 generation，驱动 [PluginHostCard.vue](../../../src/components/PluginHostCard.vue) 重新解析组件。
+[pluginHostCardCache.ts](../../../src/components/pluginHostCardCache.ts) 按插件 id 缓存 React 组件，避免 supersede / upsert 时反复导入。清理 Map 不会自动替换已挂载的组件，因此 `clearPluginHostCardCache()` 同时增加通过 useSyncExternalStore 订阅的 generation，驱动 [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) 重新解析组件。
 
 ## 重载入口
 
 - [bootstrap.ts](../../../src/app/bootstrap.ts) 监听后端 `plugins-reloaded` / `plugin-enabled-changed`：先 `loadExternalPlugins({ force: true })` 更新当前窗口 registry，再清卡片缓存。
-- [ReminderToast.vue](../../../src/views/toastWindows/ReminderToast.vue) 还监听显式 `catrace:reload-external-plugins`：先 force load，再更新存活通知的 uiUrl，最后增加 generation。
+- [controller.ts](../../../src/app/windows/toast/controller.ts) 还监听显式 `catrace:reload-external-plugins`：先 force load，再更新存活通知的 uiUrl，最后增加 generation。
 - 当前 React 插件中心刷新仅重读本机 / 远程目录，不发送上述显式重载事件。没有插件脚本文件监视，编辑文件不会自动广播重载。
 
 ## 必须保持的顺序

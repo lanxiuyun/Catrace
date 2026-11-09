@@ -1,35 +1,17 @@
-# 插件 sticky 卡：action 回传时只对 echo 留卡，dismiss 仍卸卡
+# 插件 sticky 卡的 action 回传与卸卡
 
-## 背景
-
-外部插件 Toast 走 `PluginHostCard` + bus。sidecar 类插件常在 action resolve 后立刻用同一 `dedupe_key` 再 publish（roundtrip）。若 resolved 时卸卡，会与 leave 动画/窗口缩放竞态，Windows 上易冻透明 toast。
+外部 Card 动作只请求 Bus resolve，不在本地先卸一次卡。sidecar 可按同一 dedupe key 回传更新；提前卸卡会将 leave 动画、动态模块挂载与窗口缩放叠在一起。
 
 ## 规则
 
-在 `ReminderToast.vue` 的 `handleBusEvent`，`status === 'resolved'` 分支：
+[busEvents.ts](../../../src/app/windows/toast/busEvents.ts) 对 resolved 事件执行：
 
-| resolution | 行为 |
-|------------|------|
-| `superseded` | 不卸卡；等后续 active upsert |
-| `action` + `action_id === 'echo'` + sticky 插件卡 | **留卡**，等 roundtrip upsert |
-| 其它 `action`（如 `dismiss`）/ `dismissed` / `completed` / … | `removeNotification` |
+| 条件 | 行为 |
+|---|---|
+| superseded | 保留可见卡，等待 active upsert |
+| sticky 插件卡的 action，id 不是 `end`／`dismiss` | 留卡供插件回传 |
+| `end`／`dismiss` action 或 dismissed／completed 等其它结束 | 正常移除 |
 
-`handlePluginAction`：
+[controller.ts](../../../src/app/windows/toast/controller.ts) 的 handlePluginAction 仅调用 markEventResolved；同 id 或 dedupe key 的 active 由总线层原地更新，避免两次卸卡和 Blob 重新导入。
 
-- 只调用 `markEventResolved(eventId, actionId)`
-- **禁止**再本地 `removeNotification`（避免双卸卡）
-
-`markEventResolved`：
-
-- 无 `actionId`（dismiss 路径）可先 `seenBusEventIds.add`
-- 有 `actionId` 时不要提前把 id 当“已见”堵死后续 active（roundtrip 会换新 event id）
-
-## 插件作者注意
-
-- 需要「点了按钮卡还在、内容刷新」的 roundtrip：action id 用稳定名，并在宿主约定 keep 列表中（当前 demo 为 `echo`）；或改用 **不卸卡的 update/upsert** 语义而不是 resolve+re-publish。
-- 需要「点了就关」：用独立 action id（如 `dismiss`），或走 close → dismissed；不要复用 keep 名单里的 id。
-
-## 相关
-
-- 故障记录：[.agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md](../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md)
-- Sidecar 设计：[[desktop-event-os]] / [plugin-native-sidecar-runtime.md](../../architecture/desktop-event-os/plugin-native-sidecar-runtime.md)
+插件要“动作后继续显示”时使用稳定 action id 并负责回传；要结束则使用 `end`／`dismiss` 或 onClose。宿主不根据业务名称维护特例名单。回传协议见[sidecar](../../architecture/desktop-event-os/plugin-native-sidecar-runtime.md)。

@@ -6,22 +6,18 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import {
   checkAppUpdate,
   getLightweightMode,
-  getLocale,
   getSilentStart,
   getUpdateSource,
   installAppUpdate,
   setLightweightMode,
-  setLocale,
   setSilentStart,
   setUpdateSource,
   type UpdateSourceId,
 } from '../../../api/tauri'
-import { useT } from '../../i18n'
+import { isLocaleKey, setAppLocale, useT } from '../../i18n'
 import { useShellStore } from '../../store'
 import { showToast } from '../../ui/toast'
 import { useTheme } from '../../../composables/useTheme'
-import i18n from '../../../i18n'
-import { detectDefaultLocale, type SupportedLocale } from '../../../utils/locale'
 import { SettingRow } from './SettingRow'
 import { SettingsCard } from './SettingsCard'
 
@@ -34,14 +30,13 @@ interface UpdateInfo {
 }
 
 /**
- * 「系统」设置卡（React 版，替代 components/settings/SystemSettingsCard.vue）：
+ * 「系统」设置卡：
  * 语言 / 外观主题 / 开机自启 / 静默启动 / 轻量模式 / 软件更新。
  */
 export function SystemSettingsCard() {
   const t = useT()
   const locale = useShellStore((state) => state.locale)
-  const themeMode = useShellStore((state) => state.themeMode)
-  const { setMode: setThemeMode } = useTheme()
+  const { mode: themeMode, setMode: setThemeMode } = useTheme()
 
   const [autostart, setAutostart] = useState(false)
   const [silentStart, setSilentStartEnabled] = useState(false)
@@ -64,12 +59,11 @@ export function SystemSettingsCard() {
     let alive = true
     void (async () => {
       try {
-        const [nextAutostart, nextSilent, version, storedLocale, source, lightweight] =
+        const [nextAutostart, nextSilent, version, source, lightweight] =
           await Promise.all([
             isEnabled(),
             getSilentStart(),
             getVersion(),
-            getLocale(),
             getUpdateSource(),
             getLightweightMode(),
           ])
@@ -79,15 +73,6 @@ export function SystemSettingsCard() {
         setLightweightModeEnabled(lightweight)
         setAppVersion(version)
         setUpdateSourceState(source)
-
-        if (!storedLocale) {
-          // 首次启动：按系统语言自动检测并静默保存，不弹「已保存」提示。
-          const detected = detectDefaultLocale()
-          await setLocale(detected)
-          i18n.global.locale.value = detected
-        } else {
-          i18n.global.locale.value = storedLocale as SupportedLocale
-        }
       } catch (error) {
         console.error('Failed to load system settings', error)
       } finally {
@@ -100,11 +85,10 @@ export function SystemSettingsCard() {
   }, [])
 
   const changeLocale = async (value: string) => {
-    if (!ready || value === locale) return
+    if (!ready || value === locale || !isLocaleKey(value)) return
     setLocaleLoading(true)
     try {
-      await setLocale(value)
-      i18n.global.locale.value = value as SupportedLocale
+      await setAppLocale(value)
     } catch {
       showToast(t('settings.messages.saveFailed'), 'error')
     } finally {

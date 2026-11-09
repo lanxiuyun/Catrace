@@ -35,7 +35,7 @@
 | 来源 | 事件 / kind | 入口 |
 |---|---|---|
 | 久坐 Toast / 计时 | `reminder.rest.due` / `reminder.rest.timer` | [rest_plugin.rs](../../../src-tauri/src/rest_plugin.rs) |
-| Agent / 审批 / 更新 | agent / permission / update | [reminder_toast.rs](../../../src-tauri/src/reminder_toast.rs) |
+| 宿主更新 | update | [reminder_toast.rs](../../../src-tauri/src/reminder_toast.rs) |
 | SDK / 外部插件 | sdk / plugin kind | [event_http.rs](../../../src-tauri/src/event_http.rs)、[plugin_commands.rs](../../../src-tauri/src/plugin_commands.rs) |
 
 Toast 窗监听 `catrace:event` 并调用 `getActiveEvents` 水合；主窗 Hub 只观察，不驱动 Toast。用户动作由对应业务 command 完成后 resolve。

@@ -1,27 +1,12 @@
-# 专用 Toast 卡片自渲染正文与外层通用模板的取舍
+# Toast 内容组件边界
 
-`ReminderToast.vue` 是通用卡片堆叠容器，对每种 `kind` 做两件事：渲染专用组件（如 `EyeToastCard`）、再用通用模板渲染 header / progress / body / actions 等公共部分。当某个 `kind` 改用专用卡片完全自定义布局时，必须显式把通用模板里对应的部分排除，否则会渲染两遍。
+[ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) 的 `CardContent` 按 kind 选择且只返回一个 React 内容组件。容器负责外壳、入退场、hover、尺寸和原生窗口协作；卡片负责标题、正文、动作与自身布局。
 
-## 这条约定踩过的坑
+## 新增卡片
 
+1. 在 [toastCard.ts](../../../src/app/windows/toast/toastCard.ts) 定义数据与内置 kind 边界。
+2. 独立实现 React 卡片，使用 props 与 callbacks，不把业务 JSX 混入 controller。
+3. 在 `CardContent` 增加一个互斥分支；专用组件与通用 SdkToastCard 不应同时输出同一份 header／body／progress／actions。
+4. 内容增减时让 ResizeObserver 或显式 resize callback 驱动窗口测量。
 
-修法：通用模板的 body 渲染条件加上 `&& item.kind !== 'eye'`，正文只由 `EyeToastCard` 自渲染。
-
-## 判断原则
-
-- **专用卡片只是换皮**（按钮、颜色不同，布局一致）→ 不要自渲染，继续用通用模板，通过 `.toast-card-<kind> .xxx` 选择器覆盖样式。喝水 / 休息提醒走这条路。
-- **专用卡片要改结构**（多/少元素、不同顺序、自定义组件）→ 自渲染全套内容，并把通用模板里同位置的部分用 `v-if="item.kind !== '<kind>'"` 排除。护眼（自渲染 body）、更新通知（完全独立分支）、休息计时（液体球）走这条路。
-
-## 通用模板里需要逐项排除的位置
-
-| 通用模板部分 | 排除条件 | 谁自渲染 |
-|---|---|---|
-| header | `v-if="item.kind !== 'eye'"` | `EyeToastCard` |
-| progress bar | `v-if="item.kind !== 'eye' && !== 'update' && !== 'rest-timer'"` | 护眼/更新/休息计时各自处理 |
-| actions | 按 `kind` 分支渲染 | 每种自己一组按钮 |
-
-新增自渲染型卡片时，对照这张表逐项加排除条件，避免正文/进度条/header 重复。
-
-## 相关
-
-- [[water-reminder]] — 喝水提醒走「只换皮」路线，作对比
+外部插件卡由 [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) 管理，其 API／渲染失败降级到通用卡。supersede 与原地更新时保持组件身份，避免反复 Blob 导入和窗口动画冲突。

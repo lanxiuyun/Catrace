@@ -53,7 +53,7 @@ const Cells = memo(function Cells({ minutes }: { minutes: MinuteData[] }) {
   )
 })
 
-/** 全天分钟网格视图（原 components/Timeline.vue 的 React 版）。 */
+/** 全天分钟网格视图。 */
 export function TimelineGrid({ minutes }: { minutes: MinuteData[] }) {
   const t = useT()
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)

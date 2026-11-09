@@ -1,105 +1,54 @@
 # Toast 提醒窗口
 
-独立透明 WebviewWindow + Vue 卡片实现的右下角通知堆叠。
+独立透明 WebView 内使用 React 卡片实现右下角通知堆叠。内容只来自 Event Bus；Rust 负责原生窗口创建、定位、显示与生命周期，主窗 Hub 只观察，不显示第二份卡片。
 
-> **内容入口（Step 2）**：rest/agent/permission/update 与外部插件（如 timer）均经 [[desktop-event-os]] Event Bus（`catrace:event`）到达本窗；  
-> Rust 侧 `ensure_toast_window_visible` 只保证窗口在位。详见  
-> [toast-renders-only-from-event-bus.md](../../architecture/desktop-event-os/toast-renders-only-from-event-bus.md)。  
-> 例外：`dismissAgentSession` eval；rest-timer 已走 Bus upsert（见子文档）。
+## 实现入口
 
-## 涉及文件
+| 职责 | 文件 |
+|---|---|
+| React 卡片栈与互斥内容分支 | [ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) |
+| 挂载、销毁、动作、反馈 | [controller.ts](../../../src/app/windows/toast/controller.ts) |
+| 事件订阅、水合、upsert、resolve | [busEvents.ts](../../../src/app/windows/toast/busEvents.ts) |
+| 数据、kind、自动隐藏和外壳解析 | [toastCard.ts](../../../src/app/windows/toast/toastCard.ts) |
+| 计时／hover、尺寸、滚动、激活 | [toast/](../../../src/app/windows/toast/) |
+| 卡片组件与外部插件 Card | [components/](../../../src/components/) |
+| 原生窗口与层级 | [reminder_toast.rs](../../../src-tauri/src/reminder_toast.rs)、[window_manager/](../../../src-tauri/src/window_manager/) |
 
-- `src-tauri/src/reminder_toast.rs` — 窗口 ensure/复用/定位；`set_toast_content_size`
-- `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）、`set_window_active_mode`
-- `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
-- `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件；尺寸上报 + 点击抢焦点
-- [ToastShell.tsx](../../../src/app/shell/ToastShell.tsx) — Toast 路由外壳，强制透明背景
-- `src/api/tauri.ts` — `setToastContentSize`、`setWindowActiveMode` 等 invoke 封装
-- `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
-- `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
+controller 与局部 zustand store 管数据变更，React 订阅快照渲染。页面卸载统一 dispose：注销 Tauri／DOM 监听、定时器、rAF、ResizeObserver 与卡片引用；异步监听注册若迟到，在 dispose 后立即注销。
 
-## 组件边界纪律
+## 内容与生命周期
 
-新增卡片类型时**必须抽独立组件**，不要堆进 ReminderToast.vue；同时检查父模板三处按 kind 分支的 v-if（通用 header / body-text / progress-bar）都把新 kind 排除，否则会和组件内部渲染叠成双份（2026-07-12 agent 双进度条 bug 即此原因）。
+- `catrace:event` 实时订阅，`get_active_events` 水合晚创建窗口，按 Event id／dedupe key 原地更新 SDK 和插件卡。
+- resolved 的 superseded 不卸卡，等待后续 active；普通结束移除；sticky 插件 action 在非 `end`／`dismiss` 时留卡供 roundtrip。
+- 自动隐藏遵循 sticky 与 payload 时长，hover 暂停剩余时间；进度条和关闭定时器必须同源。宿主没有卡片数量上限。
+- 内容组件只处理标题、正文、动作与自身布局。容器的 `CardContent` 分支互斥，避免专用卡和通用卡重复输出内容，见[组件边界](dedicated-card-renders-own-body-generic-template-must-exclude-it.md)。
+- 内置 kind 为 rest、update、rest-timer、sdk、special、notification；其它功能通过已启用外部插件 Card 展示。插件组件故障降级通用卡，不拖垮 Toast 栈。
+- rest-timer 使用 Bus upsert，保留同一事件与卡片身份，见[休息计时](rest-timer-收敛到-event-bus-的-upsert-路径.md)。
 
-## 窗口特性
+## 尺寸与滚动
 
-- 透明无边框 WebviewWindow，复用而非销毁
-- **右下角原生小窗**：窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
-- Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
-- **Toast 必须排除在窗口状态插件之外（2026-10-21）**：`lib.rs` 注册 `tauri-plugin-window-state` 时用 `with_denylist` 排除 `TOAST_WINDOW_LABEL`。该插件默认在窗口 ready 时恢复可见性并调用 `show()` + `set_focus()`，即使 builder 已设置 `focused(false)` / `visible(false)` 也会抢焦点；轻量模式每次重建都会再次触发。Toast 的尺寸、位置和显示由 `reminder_toast.rs` / `window_manager` 管理，不应恢复历史状态。现有前台巡检仅为兜底，不能替代此排除规则。
-- Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式，**但分两步**（2026-09-30）：`pointerover` 只调 `prepareWindowActivation`（仅清 NOACTIVATE，不抢前台），`pointerdown` 才调 `setWindowActiveMode(true)`（接管焦点）。此前 hover 直接全套激活，弹窗后鼠标一划过就抢走正在输入应用的键盘焦点；只清样式不抢前台同样能让首次点击原生激活，绕开 NOACTIVATE 首击焦点时序问题
-- **重建后的前台巡检兜底（2026-09-30，2026-10-21 修正归因）**：重建前 `current_foreground()` 记下前台，show 后 ~0.15–4s 分六拍 `restore_foreground_if_taken(toast_hwnd, prev_fg)`，仅当前台仍是 Toast 本尊且用户没点卡接管（`TOAST_FOCUS_TAKEN_DELIBERATELY`）时归还。此前把创建期间的抢焦点归因于 WebView2 初始化，但窗口状态插件存在明确的 `set_focus()` 调用，必须先排除该路径；延迟归还仍可能丢失键击，不能视为不抢焦点的保证。
-- macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
-- Z 序约束见 [window-manager 架构](../../architecture/window-manager/README.md#z-序约束重要)
+窗口逻辑宽约 392px，卡片约 360px，左右提供阴影出血。高度来自内容测量，Rust clamp 到工作区；Windows 再应用显示器 DPI 与辅助功能文本缩放。
 
-## 卡片行为
+- 测量 single-flight／合并调度，禁止每张卡并发调用原生 resize。
+- `.toast-root` 用 `height: 100vh` 定高，栈内部滚动；父高 auto 会让百分比 max-height 失效。
+- 新卡只有在栈本来贴底时才跟随滚到底，不能打断用户翻旧卡；单卡保留顶部阴影空间。
+- 普通模式复用隐藏窗口；轻量模式仅在最后一张卡移除后销毁，下一次通过 Bus 水合恢复。
 
-- 新卡片右侧滑入，关闭时 FLIP 动画让下方卡片上移
-- 普通卡片 8 秒自动消失，hover 暂停，离开恢复
-- **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
-- **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
-- 无 dedupe 的 kind 仍入栈，**当前没有数量上限**
-- `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
-- 内容超出窗高（`work_area` clamp）时 `.toast-stack` 内部滚动；栈内已贴底时新卡跟随滚到底，用户翻旧卡时不被拽走。**滚动依赖 `.toast-root` 是 `height: 100vh` 定高**（父高 auto 时栈的 `max-height: 100%` 会落到 `none`，见 [2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
+详细尺寸见[原生小窗与测量](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)和[阴影出血](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md)。
 
-## 点击抢焦点
+## 焦点与层级约束
 
-Toast 默认是 `WS_EX_NOACTIVATE` 无焦点窗，鼠标滑入/选择文本不会把键盘焦点从原窗口抢走。只有用户**点击卡片**时，前端 `pointerdown` 才会调用 `setWindowActiveMode('reminder-toast', true)`，Rust 去掉 `WS_EX_NOACTIVATE` 并把窗口拉到前台。
+- Windows 默认 `WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`；pointerover 仅 `prepareWindowActivation` 清样式，pointerdown 才接管焦点。
+- Toast 必须从 window-state 插件恢复中排除：其 show／set_focus 会在重建时抢焦点。前台巡检仅为兜底，不能替代排除规则。
+- 仅 TOPMOST 样式丢失或 HWND 首次可见的特定路径调整层级，不能每次 show 都推到最顶，避免切出全屏游戏。
+- macOS 显示／隐藏走非激活路径，不能通过关闭最后一张卡把主窗拉到前台。
 
-清选区 / 恢复无焦点态的时机：
-- 点卡片外空白（当前实现由 WebView 自然失焦）
-- 窗口隐藏/关闭：`close_reminder_window` 里调 `set_window_active_mode_internal(false)` 重新应用 `WS_EX_NOACTIVATE`
+根因见[首次点击与焦点](Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md)、[TOPMOST 自愈](锁屏解锁后TOPMOST丢失需在show时按需自愈.md)和[窗口模块](../../architecture/window-manager/README.md)。
 
-## 卡片类型（按 `kind` 区分主题）
+## 插件与调试
 
-| kind | 颜色 | 行为 |
-|------|------|------|
-| 休息提醒 | 紫色 | 8s 自动消失 |
-| 休息计时 | 绿色 | 不自动关闭，液体球动画，满 break_minutes 后继续累计 |
-| 更新通知 | 橙色 | 不自动关闭，展开更新日志 + 下载进度条 |
-| agent 通知 | 青色 | 按事件策略：auto 8s 消失 / sticky 常驻手动关，多个 sticky 合并为一张「N 个会话在等你」；详见 [[agent-notification]] |
-
-## 定位职责
-
-- Rust `fit_toast_window` 按光标屏 `work_area` 把小窗钉在右下；物理像素一次写入（切屏 DPI 仍走 `set_window_rect_physical`）。Windows 还需乘辅助功能「文本大小」系数，否则 WebView 视觉放大后卡片会被裁切。
-- 前端 `setToastContentSize` 上报内容逻辑宽高；高度随卡片变化，Rust clamp 到 work_area
-- 已可见时连点只堆叠，不反复 show / 不跟光标跳屏
-- 依赖窗口/显示器相关 core 权限（如 `core:window:allow-current-monitor`、`core:window:allow-scale-factor` 等，见 `src-tauri/capabilities/default.json`）
-
-## 调试
-
-Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，方便排查布局/点击。
-
-
-## sdk 通用卡（M9）
-
-- `kind: 'sdk'` → `SdkToastCard.vue`
-- 外部 HTTP / 内部 publish 均可；渲染仍只听 `catrace:event`
-- 同 `event.id` 或 `dedupe_key` **原地更新** progress/title/actions（勿二次堆卡）
-- sticky sdk 不走 auto-hide；action → `resolve_event_action`
-
-
-## 外部插件卡热更新（开发期）
-
-- 模块生命周期事件更新各窗口注册表；显式 `catrace:reload-external-plugins` 会按下述顺序强制重载。当前插件中心刷新仅重读目录，不发送该强制重载事件。
-- Toast：force `loadExternalPlugins` → 更新 live `uiUrl` → `clearPluginHostCardCache()`（generation++）→ 已挂载卡 remount。
-- 细节：[外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md)
-
-## 外部插件卡 + sticky action 回传
-
-- 外部插件 Toast 走 `PluginHostCard` + bus；`handlePluginAction` **只** `markEventResolved`，不本地卸卡。
-- bus `resolved` 且 `resolution.kind === 'superseded'`：**不卸卡**（等后续 active upsert）。
-- **仅** sticky 插件卡 + `resolution.kind === 'action'` + `action_id === 'echo'` 时 **留卡**，供 sidecar roundtrip 原地 upsert。
-- 其它 action（如 `dismiss`）/ dismissed / completed：正常 `removeNotification`。
-- 细节：[插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)
-
-- 点击唤醒与 NOACTIVATE 输入焦点时序：[Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md](Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md)
-
-## 子文档
-- [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 右下角原生小窗的定位与内容测量
-- [外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md) — 开发期 ui.mjs 热更：generation 缓存与 reload 顺序
-- [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
-- [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍
-- [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
-- [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道
+- Card／Settings 都是 React，注入与 callbacks 见[外部插件合同](../../architecture/desktop-event-os/m10-external-plugins.md)。
+- 卡片缓存与 generation 见[模块重载](外部插件toast卡热更新-generation缓存与reload顺序.md)，sticky 动作规则见[回传](插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)。
+- 插件 `payload.toastStyle` 见[外壳样式](外部插件通过payload-toastStyle选择默认或独立卡片外壳.md)。
+- 调试页 `toast_debug_mode` 切换黄色半透明背景，只用于观察尺寸与点击区域。
+- 验证入口：`pnpm typecheck`、`pnpm test`、`pnpm build`；原生焦点／DPI／层级仍需要用户授权的实机验证。

@@ -1,6 +1,6 @@
 /**
- * 把插件源码里的裸 hex 改写成宿主语义 token。
- * 亮色 token 值沿用原色，所以亮色外观不变；暗色下自动跟主题。
+ * 把插件显式提供的 CSS 中的裸 hex 改写成宿主语义 token。
+ * 颜色映射到当前主题语义值；不接收 JavaScript 模块或配置数据。
  * 品牌固定色（国旗红/黄）不改写。
  */
 
@@ -140,9 +140,9 @@ function tokenForHex(hex: string): string | null {
 }
 
 /**
- * 改写插件源码中的裸色。#fff/#ffffff：
+ * 改写 CSS 文本中的裸色。#fff/#ffffff：
  * - `color:`（文字）→ --ct-on-accent（两套主题都是白）
- * - 其余（背景/边框/naive --n-color）→ --ct-surface
+ * - 其余（背景/边框）→ --ct-surface
  */
 export function rewriteThemeColors(source: string): string {
   let out = source.replace(HEX6, (m) => {

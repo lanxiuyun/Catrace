@@ -25,8 +25,8 @@
 | `src-tauri/src/plugins.rs` | 通用插件宿主原语与 `plugin_api_log` |
 | `src/plugins/pluginApi.ts` | Rubick 风格 facade、源码包装和 console listener |
 | `src/plugins/loadExternalPlugins.ts` | settings/UI 注入模块局部 `plugin` |
-| `src/components/PluginHostCard.vue` | Toast card 回退加载路径注入 `plugin` |
-| `src/views/toastWindows/PluginHost.vue` | background 模块注入 `plugin` |
+| `src/components/PluginHostCard.tsx` | Toast card 回退加载路径注入 `plugin` |
+| `src/app/windows/PluginHost.tsx` | background 模块注入 `plugin` |
 
 ## Newly completed host capabilities
 
@@ -34,12 +34,6 @@
 - Clipboard and plugin-isolated JSON storage.
 - `openExternal/openPath/showItemInFolder` shell operations.
 - Platform, theme, and Event Bus-backed Toast notification.
-## Vue component update crash fix
-
-- Symptom: refreshing/re-registering an external Settings component could throw `getComponentPublicInstance(... exposed)` and `parentNode` errors inside Vue/Naive UI ResizeObserver updates.
-- Cause: the registry temporarily unregistered live components and replaced them with new `defineAsyncComponent` wrappers while the Plugins page was rendering them. The external component also received a dynamic component ref that is only needed by built-in panels.
-- Fix: import Blob modules before registration, replace registry entries without an intermediate empty state, unregister only removed plugins, and attach the panel ref only to built-in panels.
-
 ## Rubick API second batch
 
 - Added main-window hide/show controls.

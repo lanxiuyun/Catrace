@@ -10,11 +10,15 @@ assert.ok(source.includes(dynamicImport), 'Update the import mock when the loade
 const compiled = ts.transpileModule(source.replace(dynamicImport, 'await globalThis.__testImport(blobUrl)'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
+const validator = {}
+runInNewContext(ts.transpileModule(readFileSync(new URL('../src/plugins/pluginComponent.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { exports: validator })
 const plugin = { id: 'test-plugin', name: 'Test', version: '1', enabled: false, hasUi: true, hasSettings: true, events: [] }
 const enabled = { ...plugin, enabled: true }
 
 function harness(initial = [plugin]) {
-  const state = { plugins: initial, reads: [], imports: 0, scans: 0, created: [], revoked: [], warnings: [], failImport: false, failSource: false, nextList: null }
+  const state = { plugins: initial, reads: [], imports: 0, scans: 0, created: [], revoked: [], warnings: [], failImport: false, failSource: false, invalidExport: false, nextList: null }
   const entries = new Map()
   const registry = {
     listExternalNames: () => [...entries.keys()],
@@ -38,11 +42,11 @@ function harness(initial = [plugin]) {
     },
   }
   const dependencies = {
-    vue: { markRaw: value => value },
     '../api/tauri': api,
-    '../stores/pluginRegistry': { usePluginRegistry: () => registry },
+    '../stores/pluginRegistry': { usePluginRegistry: { getState: () => registry } },
     './pluginRuntime': { ensurePluginRuntime() {} },
     './pluginApi': { wrapPluginSource: (_id, text) => text },
+    './pluginComponent': validator,
   }
   const exports = {}
   runInNewContext(compiled, {
@@ -64,7 +68,7 @@ function harness(initial = [plugin]) {
     async __testImport() {
       state.imports++
       if (state.failImport) throw new Error('intentional import failure')
-      return { default: { name: 'LegacyVueComponent' } }
+      return { default: state.invalidExport ? { setup() {} } : function PluginComponent() { return null } }
     },
   }, { filename: 'loadExternalPlugins.mock.cjs' })
   return { state, entries, load: exports.loadExternalPlugins }
@@ -75,6 +79,23 @@ function assertNoComponents(entries) {
   assert.equal(entries.get(plugin.id).SettingsComponent, undefined)
 }
 
+test('module exports must be React functions or React descriptors', () => {
+  assert.equal(validator.isPluginComponent(() => null), true)
+  assert.equal(validator.isPluginComponent({ $$typeof: Symbol.for('react.memo') }), true)
+  assert.equal(validator.isPluginComponent({ $$typeof: Symbol.for('react.forward_ref') }), true)
+  assert.equal(validator.isPluginComponent({ setup() {} }), false)
+  assert.equal(validator.isPluginComponent(null), false)
+})
+
+test('invalid options-object exports are not registered or cached', async () => {
+  const { state, entries, load } = harness([enabled])
+  state.invalidExport = true
+  await load()
+  assertNoComponents(entries)
+  assert.equal(state.created.length, 2)
+  assert.deepEqual(state.revoked, state.created)
+})
+
 test('disabled install never reads or imports plugin UI/settings', async () => {
   const { state, entries, load } = harness()
   await load()
@@ -84,7 +105,7 @@ test('disabled install never reads or imports plugin UI/settings', async () => {
   assertNoComponents(entries)
 })
 
-test('explicit enable imports both legacy Vue modules', async () => {
+test('explicit enable imports both React modules', async () => {
   const { state, entries, load } = harness()
   await load()
   state.plugins = [enabled]

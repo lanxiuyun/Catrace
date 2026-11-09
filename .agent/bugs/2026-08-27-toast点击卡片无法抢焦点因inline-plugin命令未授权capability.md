@@ -36,7 +36,7 @@ catrace-window.set_window_active_mode not allowed. Plugin not found
 - `src-tauri/src/window_manager/windows.rs` — `force_foreground_window` 实现
 - `src-tauri/src/lib.rs` — app command 注册
 - `src/api/tauri.ts` — 前端 invoke 调用点
-- `src/views/toastWindows/ReminderToast.vue` — 点击卡片触发 `setWindowActiveMode`
+- `src/app/windows/ReminderToast.tsx` — 点击卡片触发 `setWindowActiveMode`
 
 ## 教训
 
