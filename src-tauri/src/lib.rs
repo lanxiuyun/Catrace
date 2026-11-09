@@ -10,6 +10,7 @@ mod special_day;
 mod plugin_api;
 mod plugin_commands;
 mod plugin_config;
+mod plugin_repository;
 mod plugin_sidecar;
 mod sidecar;
 mod plugin_window;
@@ -1315,7 +1316,10 @@ pub fn run() {
             notification_listener::open_notification_permission_settings,
             notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
-            plugins::install_external_plugin,
+            plugins::list_plugin_catalog,
+            plugin_repository::list_repository_plugins,
+            plugin_repository::install_repository_plugin,
+            plugins::uninstall_external_plugin,
             plugins::set_external_plugin_enabled,
             plugins::get_plugin_ui_url,
             plugins::get_plugin_ui_source,

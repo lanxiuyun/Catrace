@@ -1,23 +1,14 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
-import vueDevTools from "vite-plugin-vue-devtools";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// Vite launch-editor has no built-in trae mapping. Bare `trae` gets
-// `trae <file> <line> <col>`, so Trae opens line/col as new files.
-// Use a single .cmd path (not `node script.mjs`): on Windows launch-editor
-// quotes the whole editor string, so multi-token commands fail with code 1.
-const openInTrae = path
-  .join(path.dirname(fileURLToPath(import.meta.url)), "scripts/open-in-trae.cmd")
-  .replace(/\\/g, "/");
-
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [vue(), vueDevTools({ launchEditor: openInTrae })],
+  // React 壳 + 共存期的 Vue 岛：两套插件同时启用，直到 M6 清场。
+  plugins: [vue(), react()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -39,11 +30,9 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: [
         "**/src-tauri/**",
-        // 插件源码不参与前端构建（宿主运行时按需读文件），必须整目录排除：
         // 编辑器/工具有序写入会在同目录建 `.xxx.tmpdir/` 临时文件再 rename，
         // Vite 的 fs.watch 撞上这个瞬间会 EBUSY，未捕获的 FSWatcher error 会直接打死 dev server，
         // 进而让 `pnpm tauri dev`（beforeDevCommand）一起退出。
-        "**/tools/plugin-demo/**",
         "**/*.tmpdir/**",
         "**/*.tmpdir",
         // 一次性验证脚本目录（Playwright 临时件、量具脚本），同理不需要监视

@@ -1,5 +1,4 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 import { Update, type DownloadEvent } from '@tauri-apps/plugin-updater'
 
 export interface AppConfig {
@@ -451,6 +450,8 @@ export interface ExternalPluginInfo {
   enabled: boolean
   enabledByDefault: boolean
   dir: string
+  sourceRepository?: string | null
+  sourceCommit?: string | null
   hasUi: boolean
   hasBackground: boolean
   hasSettings: boolean
@@ -468,12 +469,61 @@ export async function listExternalPlugins(opts?: {
   })
 }
 
+/** 已安装插件目录条目：清单 + 本地图标 data URL。 */
+export interface PluginCatalogEntry {
+  info: ExternalPluginInfo
+  iconDataUrl?: string | null
+}
+
+/** 只读扫描插件目录：返回已安装插件，不加载、不运行、不写运行时缓存。 */
+export async function listPluginCatalog(): Promise<PluginCatalogEntry[]> {
+  return invoke('list_plugin_catalog')
+}
+
 export interface PluginInstallResult {
   id: string
   name: string
   version: string
   overwritten: boolean
   path: string
+}
+
+export interface RepositoryPluginInfo {
+  id: string
+  name: string
+  version: string
+  description: string
+  hasUi: boolean
+  hasBackground: boolean
+  hasSettings: boolean
+  hasSidecar: boolean
+}
+
+export const DEFAULT_PLUGIN_REPOSITORY = 'lanxiuyun/catrace-plugin'
+
+export interface RepositoryPluginCatalog {
+  repository: string
+  commit: string
+  plugins: RepositoryPluginInfo[]
+}
+
+/** Validate a public GitHub or Gitee repository and read plugins at its default-branch HEAD. */
+export async function listRepositoryPlugins(
+  repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
+): Promise<RepositoryPluginCatalog> {
+  return invoke('list_repository_plugins', { repository, mirror })
+}
+
+/** Pin both source and commit, even if the selected source changes later. */
+export async function installRepositoryPlugin(
+  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
+): Promise<PluginInstallResult> {
+  return invoke('install_repository_plugin', { id, commit, repository, mirror })
+}
+
+/** Stop the plugin, remove its installation, and retain its saved configuration. */
+export async function uninstallExternalPlugin(id: string): Promise<void> {
+  return invoke('uninstall_external_plugin', { id })
 }
 
 // ---------- Node runtime (plugin sidecars) ----------
@@ -499,31 +549,6 @@ export function sidecarNeedsNode(sidecar: unknown): boolean {
   const cmd =
     (sidecar as { command?: string } | null | undefined)?.command ?? ''
   return /^node(\.exe)?$/i.test(String(cmd).trim())
-}
-
-/** Install a local plugin folder or zip into app plugins dir. Does not enable. */
-export async function installExternalPlugin(
-  sourcePath: string,
-  overwrite = false,
-): Promise<PluginInstallResult> {
-  return invoke('install_external_plugin', { sourcePath, overwrite })
-}
-
-export async function pickPluginZip(): Promise<string | null> {
-  const selected = await open({
-    multiple: false,
-    directory: false,
-    filters: [{ name: 'Plugin zip', extensions: ['zip'] }],
-  })
-  return typeof selected === 'string' && selected ? selected : null
-}
-
-export async function pickPluginFolder(): Promise<string | null> {
-  const selected = await open({
-    multiple: false,
-    directory: true,
-  })
-  return typeof selected === 'string' && selected ? selected : null
 }
 
 export async function setExternalPluginEnabled(

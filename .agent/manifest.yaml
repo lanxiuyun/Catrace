@@ -2,16 +2,13 @@ features:
   plugin-center:
     docs:
       - .agent/features/plugin-center/README.md
+      - .agent/features/plugin-center/插件详情页设置面板的行语言与控件尺寸规范.md
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
-      - .agent/features/plugin-center/unify-plugin-panel-shell-and-section-for-agent-rest-panels.md
       - .agent/features/plugin-center/plugin-activity-getRecords-历史分钟记录.md
-      - .agent/features/plugin-center/sidecar-缺node时一键安装便携Node.md
-      - .agent/features/plugin-center/插件状态排序和统一详情顶栏实现约定.md
-      - .agent/features/plugin-center/插件中心-sidecar本机进程徽章与信任文案展示.md
-      - .agent/features/plugin-center/插件开关只启停当前sidecar-刷新按钮才按enable全量重启.md
+      - .agent/features/plugin-center/Node运行环境与便携安装接口.md
+      - .agent/features/plugin-center/sidecar启停与目录刷新边界.md
       - .agent/features/plugin-center/插件异常标签如何判定和保持不拦截.md
       - .agent/features/plugin-center/插件开关必须在持久化成功后再刷新列表.md
-      - .agent/features/plugin-center/插件面板和导航栏组件化拆分.md
     related:
       - app-shell
       - settings
@@ -22,7 +19,7 @@ features:
   reminder:
     docs:
       - .agent/features/reminder/README.md
-      - .agent/features/reminder/久坐插件当前仅toast-运行时与配置钳制.md
+      - .agent/features/reminder/久坐提醒的Toast与全屏显示契约.md
     related:
       - water-reminder
       - toast-window
@@ -87,7 +84,6 @@ features:
       - .agent/features/toast-window/rest-timer-收敛到-event-bus-的-upsert-路径.md
       - .agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md
       - .agent/features/toast-window/外部插件通过payload-toastStyle选择默认或独立卡片外壳.md
-      - .agent/features/toast-window/full-screen-click-through-overlay-windows-implementation.md
       - .agent/features/toast-window/toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md
       - .agent/features/toast-window/Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md
       - .agent/features/toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md
@@ -122,8 +118,6 @@ features:
   settings:
     docs:
       - .agent/features/settings/README.md
-      - .agent/features/settings/设置页按-plugin-registry-挂载插件设置卡.md
-      - .agent/features/settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md
     related:
       - media-audio
       - i18n
@@ -184,6 +178,15 @@ features:
       - i18n
       - desktop-event-os
 
+  debug:
+    docs:
+      - .agent/features/debug/README.md
+    related:
+      - event-sdk
+      - input-monitoring
+      - media-audio
+      - settings
+
   event-sdk:
     docs:
       - .agent/features/event-sdk/README.md
@@ -215,14 +218,20 @@ architecture:
   app-shell:
     docs:
       - .agent/architecture/app-shell/README.md
-      - .agent/architecture/app-shell/主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md
-      - .agent/architecture/app-shell/插件页左侧插件中心与右侧固定顶栏的布局约定.md
     related:
       - project-structure
       - dashboard
       - toast-window
       - plugin-center
       - input-monitoring
+  react-migration:
+    docs:
+      - .agent/architecture/react-migration/README.md
+    related:
+      - app-shell
+      - project-structure
+      - plugin-center
+      - toast-window
   window-manager:
     docs:
       - .agent/features/window-manager/README.md
@@ -268,10 +277,6 @@ architecture:
       - .agent/architecture/desktop-event-os/README.md
       - .agent/architecture/desktop-event-os/m9-event-http-api.md
       - .agent/architecture/desktop-event-os/m10-external-plugins.md
-      - .agent/architecture/desktop-event-os/step2-roadmap-event-core-and-signal-core.md
-      - .agent/architecture/desktop-event-os/step3-roadmap-plugin-runtime.md
-      - .agent/architecture/desktop-event-os/step3-收尾评估-核心目标已达成与Step4候选.md
-      - .agent/architecture/desktop-event-os/step4-roadmap-plugin-ecosystem.md
       - .agent/architecture/desktop-event-os/plugin-native-sidecar-runtime.md
       - .agent/architecture/desktop-event-os/插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md
       - .agent/architecture/desktop-event-os/sidecar孤儿进程清理-Windows-Job-Object实现.md
@@ -305,28 +310,26 @@ reference:
   - .agent/reference/agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md
   - .agent/reference/macos-accessibility-permission.md
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
-  - .agent/reference/插件子仓库submodule-合并后重指指针与本地git拉取问题.md
 
 bugs:
+  - .agent/bugs/2026-11-05-插件设置多行输入框缩成一百多像素因选错-radix-根类名.md
+  - .agent/bugs/2026-11-03-详细热力图hover重渲染1440格导致鼠标事件卡死.md
   - .agent/bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md
   - .agent/bugs/2026-09-29-轻量模式关掉最后一个窗口整个应用退出.md
   - .agent/bugs/2026-09-29-轻量模式重建主窗白屏未响应.md
   - .agent/bugs/2026-09-21-定时提醒蓝牙耳机无声.md
   - .agent/bugs/2026-09-21-macOS关Toast弹出主窗.md
-  - .agent/bugs/2026-09-20-插件详情顶栏插槽图标scoped样式失效撑破布局.md
   - .agent/bugs/2026-09-19-macOS更新后辅助功能授权失效导致一直休息.md
   - .agent/bugs/2026-09-21-fullscreen-双屏只盖一块屏.md
   - .agent/bugs/2026-09-19-锁屏解锁后toast丢失TOPMOST且Win+D可最小化.md
   - .agent/bugs/2026-08-31-sidecar重启误杀其他插件的子进程树.md
   - .agent/bugs/2026-08-27-toast点击卡片无法抢焦点因inline-plugin命令未授权capability.md
   - .agent/bugs/2026-08-27-toast小窗增高时卡片闪到任务栏.md
-  - .agent/bugs/2026-08-11-toast-全屏覆盖层空白区域无法点击穿透.md
   - .agent/bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md
   - .agent/bugs/2026-08-02-set_plugin_config整包写入冲掉外部插件enabled.md
   - .agent/bugs/2026-08-02-外部插件toast改ui后不热更新需重启tauri-dev.md
   - .agent/bugs/2026-08-01-bt-music轮询把仅配对设备当成已连接并多弹Toast.md
   - .agent/bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md
-  - .agent/bugs/2026-07-27-插件页高度未铺满因-n-scrollbar-content-百分比min-height无效.md
   - .agent/bugs/2026-07-24-插件关闭后列表状态点和排序没有更新.md
   - .agent/bugs/2026-07-23-从禁用状态启用外部插件时同步创建-webview-导致主界面卡死.md
   - .agent/bugs/2026-07-23-单张-toast-自动滚到底导致顶部标题和圆角被裁切.md
@@ -352,8 +355,6 @@ skills:
   external-plugin-authoring:
     docs:
       - .agent/skills/external-plugin-authoring/README.md
-      - .agent/skills/external-plugin-authoring/how-to-develop-catrace-external-plugins-complete-guide.md
-      - .agent/skills/external-plugin-authoring/plugin-file-scaffolds-and-copy-paste-templates.md
     related:
       - desktop-event-os
       - timer-plugin
@@ -363,21 +364,16 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-11-05-插件详情页头部间距与设置面板UI收口.md
   - .agent/devlog/2026-09-29-轻量模式落地与插件后台WebView下线sidecar.md
   - .agent/devlog/2026-09-20-便携Node安装补上macOS与Linux.md
   - .agent/devlog/2026-09-20-mac不催辅助功能授权-横幅和设置项都藏掉.md
-  - .agent/devlog/2026-09-20-sidecar缺node一键安装便携Node与详情页整页遮罩.md
   - .agent/devlog/2026-09-19-macos更新后辅助功能失效用空闲秒数兜底.md
-  - .agent/devlog/2026-09-03-插件页统一使用-Lucide-图标.md
   - .agent/devlog/2026-09-01-sidecar开关不再全量重启以免误杀其他插件进程树.md
   - .agent/devlog/2026-08-31-更新支持换源Toast也能选.md
   - .agent/devlog/2026-08-31-定时提醒颜色提示音与plugin-audio-API.md
   - .agent/devlog/2026-08-27-toast小窗化与点击抢焦点修复.md
-  - .agent/devlog/2026-08-11-插件抽离catrace-plugin仓库与文档skill.md
-  - .agent/devlog/2026-08-11-toast全屏覆盖与点击穿透.md
   - .agent/devlog/2026-08-08-sidecar挂JobObject宿主退出自动回收孤儿进程.md
-  - .agent/devlog/2026-08-03-Step4-S4.1本地文件夹与zip安装插件.md
-  - .agent/devlog/2026-08-03-Step3收尾评估-核心完成可关账.md
   - .agent/devlog/2026-08-03-M15.3-sidecar-storage与Plugins-UI运行态.md
   - .agent/devlog/2026-08-02-bt-music产品化动作模型与Toast紧凑卡.md
   - .agent/devlog/2026-08-02-外部插件toast热更新-generation与reload顺序.md
@@ -389,13 +385,3 @@ devlog:
   - .agent/devlog/2026-07-31-sidecar-echo扩展桌面能力demo.md
   - .agent/devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md
   - .agent/devlog/2026-07-29-定时提醒settings内联编辑与宿主naive注入.md
-  - .agent/devlog/2026-07-27-外部插件settings根padding与宿主双倍缩进.md
-  - .agent/devlog/2026-07-27-插件页铺满高度与拆除-PluginPanelShell.md
-  - .agent/devlog/2026-07-26-unify-agent-rest-plugin-panel-structure-and-disabled-overlay.md
-  - .agent/devlog/2026-07-25-主窗与Toast窗views拆分与nested-route外壳.md
-  - .agent/devlog/2026-07-25-插件面板header与左侧导航栏组件化拆分.md
-
-current:
-  plan: .agent/features/lightweight-mode/README.md
-  phase: 轻量模式两期已落地（主窗销毁重建 + 插件后台 WebView 下线 sidecar），PR #83 已开、CI 全绿、待合并
-  next: 合并 PR #83（插件仓库 #8 已先合）；合并后跟进两个缺口——插件页内存看门狗对无后台窗插件失去样本、运行中打开轻量模式时已预创建的 Toast 残留

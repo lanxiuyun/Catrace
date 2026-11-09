@@ -11,8 +11,11 @@ import { wrapPluginSource } from './pluginApi'
 
 const blobUrlByPlugin = new Map<string, string>()
 const settingsBlobUrlByPlugin = new Map<string, string>()
-/** Single-flight: concurrent callers share one scan (toast + main + refresh). */
+/** Single-flight: concurrent callers share one reload queue per WebView. */
 let inflight: Promise<ExternalPluginInfo[]> | null = null
+/** A persisted change during a scan must not be lost to single-flight coalescing. */
+let reloadRequested = false
+let forceRequested = false
 /** Skip full rebuild when list fingerprint matches last successful load. */
 let lastFingerprint = ''
 
@@ -54,13 +57,18 @@ async function buildComponentFromSource(
   const blobUrl = URL.createObjectURL(blob)
   revokeBlob(map, pluginId, blobUrl)
 
-  const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
-  for (const name of exportNames) {
-    if (mod[name]) {
-      return markRaw(mod[name] as object) as Component
+  try {
+    const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
+    for (const name of exportNames) {
+      if (mod[name]) {
+        return markRaw(mod[name] as object) as Component
+      }
     }
+    throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
+  } catch (error) {
+    revokeBlob(map, pluginId)
+    throw error
   }
-  throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
 }
 
 async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
@@ -100,14 +108,15 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
         ])
         uiUrl = blobUrlByPlugin.get(p.id)
       } catch (e) {
+        revokeBlob(blobUrlByPlugin, p.id)
         console.warn(`[plugins] ui load failed for ${p.id}`, e)
       }
     } else {
       revokeBlob(blobUrlByPlugin, p.id)
     }
 
-    // Settings available even when disabled so Plugins page can show the panel.
-    if (p.hasSettings) {
+    // Importing settings executes plugin code too: disabled means not trusted yet.
+    if (p.enabled && p.hasSettings) {
       try {
         const source = await getPluginSettingsSource(p.id)
         SettingsComponent = await buildComponentFromSource(
@@ -117,6 +126,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
           ['default', 'Settings', 'settings'],
         )
       } catch (e) {
+        revokeBlob(settingsBlobUrlByPlugin, p.id)
         console.warn(`[plugins] settings load failed for ${p.id}`, e)
       }
     } else {
@@ -146,6 +156,8 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 
   for (const name of previousNames) {
     registry.unregister(name)
+    revokeBlob(blobUrlByPlugin, name)
+    revokeBlob(settingsBlobUrlByPlugin, name)
   }
 
   lastFingerprint = fp
@@ -163,8 +175,23 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 export async function loadExternalPlugins(
   opts: { force?: boolean } = {},
 ): Promise<ExternalPluginInfo[]> {
-  if (inflight) return inflight
-  inflight = loadExternalPluginsInner(!!opts.force).finally(() => {
+  if (inflight) {
+    // A lifecycle event may arrive after the in-flight scan read the old state.
+    reloadRequested = true
+    forceRequested ||= !!opts.force
+    return inflight
+  }
+  inflight = (async () => {
+    let force = !!opts.force
+    let list: ExternalPluginInfo[]
+    do {
+      reloadRequested = false
+      forceRequested = false
+      list = await loadExternalPluginsInner(force)
+      force = forceRequested
+    } while (reloadRequested)
+    return list
+  })().finally(() => {
     inflight = null
   })
   return inflight

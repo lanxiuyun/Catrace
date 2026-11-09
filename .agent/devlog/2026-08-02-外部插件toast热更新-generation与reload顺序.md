@@ -25,7 +25,6 @@
 | `src/components/pluginHostCardCache.ts` | generation ref + clear bump |
 | `src/components/PluginHostCard.vue` | cardKey@gN + watch resolve |
 | `src/views/toastWindows/ReminderToast.vue` | reload 顺序与 live uiUrl |
-| `src/views/mainWindow/Plugins.vue` | 测试路径 emit reload |
 
 ## Knowledge
 

@@ -1,0 +1,315 @@
+/* Plugin center: quiet App Store-style discovery, local management, and settings sheets. */
+.ct-plugins-page { min-height: 100%; }
+.ct-market { width: 100%; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1.75rem 2.5rem; box-sizing: border-box; }
+.ct-market-eyebrow { color: var(--ct-text-subtle); font-size: 0.625rem; font-weight: 650; letter-spacing: 0.12em; }
+.ct-market-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; }
+.ct-market-tools { display: flex; align-items: center; gap: 0.625rem; min-width: 0; flex: 0 1 auto; }
+.ct-market-source-popover { max-width: calc(100vw - 2rem); }
+.ct-market-source-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.ct-market-source-form h3 { margin: 0; font-size: 0.9375rem; font-weight: 650; color: var(--ct-text); }
+.ct-market-source-form > p { margin: 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
+.ct-market-source-busy { display: flex; align-items: center; gap: 0.375rem; margin: 0; color: var(--ct-text-muted); font-size: 0.75rem; }
+.ct-market-source-options { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.ct-market-source-block { border-radius: 0.625rem; }
+.ct-market-source-block:hover { background: var(--ct-surface-2); }
+.ct-market-source-option { display: flex; align-items: center; gap: 0.625rem; min-height: 2.625rem; padding: 0 0.5rem; border-radius: 0.625rem; color: var(--ct-text); font-size: 0.8125rem; cursor: pointer; }
+.ct-market-source-option input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--ct-accent); flex-shrink: 0; }
+.ct-market-source-option input:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
+.ct-market-source-option small { color: var(--ct-text-muted); font-size: 0.75rem; overflow-wrap: anywhere; }
+.ct-market-source-options:disabled .ct-market-source-block { opacity: 0.5; cursor: not-allowed; }
+.ct-market-source-options:disabled .ct-market-source-option { cursor: not-allowed; }
+.ct-market-source-custom { display: flex; flex-direction: column; gap: 0.5rem; padding: 0 0.5rem 0.625rem 2.125rem; }
+.ct-market-source-note { margin: 0; padding: 0 0.5rem 0.625rem 2.125rem; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
+.ct-market-source-custom p { margin: 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
+.ct-market-source-form > .ct-market-source-error { color: var(--ct-error); overflow-wrap: anywhere; user-select: text; }
+.ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
+.ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
+.ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }
+.ct-market-tabs button span { padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: var(--ct-surface-2); font-size: 0.625rem; font-variant-numeric: tabular-nums; }
+.ct-plugin-search { position: relative; display: flex; align-items: center; }
+.ct-plugin-search svg { position: absolute; left: 0.6875rem; color: var(--ct-text-subtle); pointer-events: none; }
+.ct-plugin-search:focus-within svg { color: var(--ct-accent); }
+.ct-plugin-search input { box-sizing: border-box; width: 100%; height: 2.375rem; padding: 0 0.75rem 0 2rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface); color: var(--ct-text); font: inherit; font-size: 0.8125rem; }
+.ct-plugin-search input::placeholder { color: var(--ct-text-subtle); }
+.ct-plugin-search input:focus { outline: none; border-color: var(--ct-accent); box-shadow: 0 0 0 0.1875rem var(--ct-accent-soft); }
+.ct-market-search { width: clamp(10rem, 22vw, 15rem); flex: 1 1 auto; min-width: 0; }
+.ct-plugin-icon-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.375rem; height: 2.375rem; padding: 0; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; color: var(--ct-text-muted); cursor: pointer; transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
+/* Toolbar buttons stay borderless; the hover pill is the only chrome, like macOS toolbars. */
+.ct-plugin-icon-btn:hover:not(:disabled) { background-color: var(--ct-nav-hover); color: var(--ct-text); }
+.ct-plugin-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Label variant of the icon button: keeps the 2.375rem-tall shell but sizes to its text. */
+.ct-plugin-icon-btn.ct-market-label-btn { width: auto; gap: 0.4375rem; padding: 0 0.75rem; font: inherit; font-size: 0.75rem; line-height: 1; white-space: nowrap; }
+/* Label text uses the normal label colour; icons stay muted until hover. */
+.ct-plugin-icon-btn.ct-market-label-btn > span { color: var(--ct-text); }
+/* Open-folder and refresh read as one toolbar group. */
+.ct-market-tool-group { display: flex; align-items: center; flex-shrink: 0; gap: 0.25rem; }
+/* The plugin source shows a value, so it keeps the bordered popup-button look. */
+.ct-plugin-icon-btn.ct-market-popup-btn { border-color: var(--ct-border); background: var(--ct-surface); }
+.ct-plugin-icon-btn.ct-market-popup-btn:hover:not(:disabled) { border-color: var(--ct-border-strong); background: var(--ct-surface); }
+.ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
+.ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; box-shadow: var(--ct-shadow-card); transition: box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease, transform 0.22s cubic-bezier(0.2, 0, 0, 1); }
+/* Hover keeps the white surface and answers with depth only: no fill, no movement. */
+.ct-market-card:hover { border-color: var(--ct-border-strong); box-shadow: var(--ct-shadow-card-hover); }
+/* Press keeps the dashboard's tap response: shrink a hair. */
+.ct-market-card:has(.ct-market-card-open:active) { transform: scale(0.994); transition-duration: 0.09s; }
+.ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; text-align: left; transition: filter 120ms ease-out; }
+/* Whole-card hit area; content stays visible underneath, controls paint above it. */
+.ct-market-card-open { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.ct-market .ct-market-card-open:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: -0.1875rem; border-radius: 1rem; }
+/* Pressing the card dims its content: instant on press, eased on release. */
+.ct-market-card-open:active:not(:disabled) ~ .ct-market-card-main { filter: brightness(0.98); transition: none; }
+@keyframes ct-market-card-in { from { opacity: 0; transform: translateY(0.25rem); } }
+@keyframes ct-market-card-fade { from { opacity: 0; } }
+/* Only cards that appear later carry this class, so reorders and returns never replay it. */
+.ct-market-card.is-entering { animation: ct-market-card-in 160ms ease-out both; }
+/* Off plugins step back a little: colour drains from the icon, the title quiets down one step.
+   The card stays fully usable — this is not a disabled state. */
+.ct-market-card.is-off .ct-market-plugin-icon { opacity: 0.72; filter: saturate(0.4); }
+.ct-market-card.is-off .ct-market-card-copy h3 { color: var(--ct-text-muted); }
+/* The installed tab's switch lives in the title row; keep it out of the text flow. */
+.ct-market-card.has-toggle .ct-market-card-main { grid-template-columns: 2.875rem minmax(0, 1fr); }
+.ct-market-card-toggle { position: absolute; top: 1.25rem; right: 1.25rem; z-index: 2; display: flex; align-items: center; height: 2.875rem; }
+.ct-market-plugin-icon { display: flex; align-items: center; justify-content: center; width: 2.875rem; height: 2.875rem; flex-shrink: 0; color: var(--ct-text-muted); transition: opacity 0.2s ease, filter 0.2s ease; }
+.ct-market-plugin-icon > svg { width: 1.375rem; height: 1.375rem; }
+.ct-market-plugin-icon > img { width: 1.875rem; height: 1.875rem; object-fit: contain; }
+.ct-market-plugin-icon.is-builtin { color: var(--ct-accent); }
+.ct-market-card-copy h3 { margin: 0 0 0.3125rem; color: var(--ct-text); font-size: 0.9375rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; transition: color 0.18s ease; }
+.ct-market-card-copy > span { color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4375rem; }
+.ct-market-card.has-toggle .ct-market-card-copy { padding-right: 3.25rem; }
+.ct-market-card-flag { display: inline-flex; align-items: center; gap: 0.1875rem; padding: 0 0.375rem; border-radius: 999rem; background: var(--ct-success-soft); color: var(--ct-success-strong); font-size: 0.6875rem; font-weight: 600; line-height: 1.7; }
+.ct-market-card-arrow { color: var(--ct-text-subtle); }
+.ct-market-card-main > p { display: -webkit-box; grid-column: 1 / -1; align-self: start; margin: 0.125rem 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; }
+.ct-market-card-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.875rem 1.25rem 1.125rem; }
+.ct-market-card-status { display: inline-flex; align-items: center; gap: 0.3125rem; margin-right: auto; color: var(--ct-text-subtle); font-size: 0.6875rem; }
+.ct-market-card-status.is-error { color: var(--ct-error); }
+.ct-market-card-footer .rt-Button { position: relative; z-index: 2; min-width: 4.25rem; border-radius: 999rem; font-size: 0.75rem; }
+.ct-market-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; grid-column: 1 / -1; min-height: 15rem; gap: 0.625rem; padding: 2rem 1rem; color: var(--ct-text-subtle); text-align: center; }
+.ct-market-empty h3 { margin: 0.25rem 0 0; color: var(--ct-text-muted); font-size: 0.9375rem; font-weight: 600; }
+.ct-market-empty p { margin: 0; font-size: 0.8125rem; line-height: 1.6; }
+.ct-market-error { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem; margin: 0 0 1rem; border: 1px solid var(--ct-border); border-radius: 0.75rem; background: var(--ct-surface); color: var(--ct-error); font-size: 0.8125rem; }
+.ct-market-error > svg { flex-shrink: 0; margin-top: 0.125rem; }
+.ct-market-error > div { flex: 1; min-width: 0; }
+.ct-market-error strong { font-size: 0.8125rem; font-weight: 600; }
+.ct-market-error p { margin: 0.375rem 0 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+
+/* ---------- 详情页头：整宽吸顶导航条 + 大标题 ----------
+   详情是整页，不是内容栏里的弹层：导航条横跨整个滚动视口（像 macOS 工具栏），内容仍收在
+   52rem 中线。静止时条子完全透明——材质只在内容真的滚到它下面时才出现；以前那条只盖内容栏
+   的半透明带会在页面柔光上切出硬边矩形，下面又没有内容，看起来像没做完的浮层。 */
+.ct-plugin-detail {
+  /* 沿用旧详情的内容栏：52rem 外框 + 两侧 1.75rem 页边距 → 48.5rem 内容列。
+     导航条要整宽，页边距不能写在 section 上，所以由条子和内容列各算一套。 */
+  --ct-detail-col: 48.5rem;
+  --ct-detail-pad: 1.75rem;
+  width: 100%;
+  padding-bottom: 2.5rem;
+}
+/* 导航条是唯一整宽的子元素；其余子元素各自走同一条内容列（见下条规则），
+   这样返回控件的 chevron 和下方图标能落在同一条左边缘上，不会出现两套缩进。 */
+.ct-plugin-detail-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  /* 条子高 3rem = 36px 返回胶囊 + 上下各 6px 呼吸。以前是 3.5rem + 0.5rem padding，
+     条子被撑到 56px：返回控件下沿到大标题之间有 22px 空档，小窗口里整页像浮在半空。 */
+  min-height: 3rem;
+  padding: 0.375rem max(var(--ct-detail-pad), calc((100% - var(--ct-detail-col)) / 2));
+  border-bottom: 0.0625rem solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ct-plugin-detail-nav.is-scrolled {
+  border-bottom-color: var(--ct-border);
+  background: color-mix(in srgb, var(--ct-bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+/* iOS 式返回控件：chevron 落在内容栏左边缘上（负左边距把可点区域探进页边距，
+   悬停胶囊不会把文字整体推开）。 */
+.ct-plugin-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  height: 2.25rem;
+  margin-left: -0.5rem;
+  padding: 0 0.625rem 0 0.5rem;
+  border: 0;
+  border-radius: 0.5625rem;
+  background: transparent;
+  color: var(--ct-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+.ct-plugin-detail-back > svg { flex-shrink: 0; }
+.ct-plugin-detail-back:hover { background: var(--ct-nav-hover); }
+/* 标题滚出导航条后，插件名接替条子中央的位置：大标题消失不丢上下文。 */
+.ct-plugin-detail-nav-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--ct-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+.ct-plugin-detail-nav.is-titled .ct-plugin-detail-nav-title { opacity: 1; }
+/* 内容列：和导航条同一条左边缘。窄窗口用 100% - 两侧页边距，宽窗口才收成 48.5rem。 */
+.ct-plugin-detail > :not(.ct-plugin-detail-nav) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: min(var(--ct-detail-col), calc(100% - 2 * var(--ct-detail-pad)));
+  margin-inline: auto;
+}
+/* 返回条、标题组、描述是一个页头单元，下面才是内容卡。
+   大标题紧跟导航条（0.5rem），页头到卡片 1.25rem：大标题是页面的第一笔，不是第二屏。 */
+.ct-plugin-detail-header { margin: 0.5rem 0 1.25rem; }
+/* 标题行：图标 + 标题/版本 + 右侧开关（未安装时同一位置放「安装」）。
+   标题列吃满剩余宽度，长名字换行也不会把开关挤走。 */
+.ct-plugin-detail-identity { display: flex; align-items: center; gap: 1rem; }
+.ct-plugin-detail-titles { flex: 1 1 auto; min-width: 0; }
+.ct-plugin-detail-identity > .rt-Button,
+.ct-plugin-detail-identity > .rt-SwitchRoot { flex-shrink: 0; }
+/* The detail header keeps a plate so the hero icon stays grounded; list cards show icons bare. */
+.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; background: var(--ct-surface-2); }
+.ct-market-plugin-icon.is-large.is-builtin { background: var(--ct-accent-soft); }
+.ct-market-plugin-icon.is-large > svg { width: 1.75rem; height: 1.75rem; }
+.ct-market-plugin-icon.is-large > img { width: 2.5rem; height: 2.5rem; }
+.ct-plugin-detail-identity h2 { margin: 0 0 0.375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; overflow-wrap: anywhere; }
+.ct-plugin-detail-identity h2:focus { outline: none; }
+.ct-plugin-tag { display: inline-block; padding: 0.125rem 0.4375rem; border-radius: 0.3125rem; background: var(--ct-surface-2); color: var(--ct-text-muted); font-size: 0.6875rem; font-weight: 550; line-height: 1.5; }
+/* 描述收一行长度上限：13px 铺满 48.5rem 内容栏一行要 70+ 字，读起来散。 */
+.ct-plugin-detail-description { margin: 0.75rem 0 0 !important; max-width: 36rem; font-size: 0.8125rem !important; line-height: 1.7 !important; color: var(--ct-text-muted); }
+.ct-plugin-detail-body { display: flex; flex-direction: column; gap: 1rem; }
+.ct-market-installation { margin-top: 0.25rem; }
+.ct-market-installation dl { margin: 0.75rem 0 0; }
+.ct-market-installation dl > div { display: flex; gap: 1.25rem; padding: 0.5rem 0; font-size: 0.75rem; line-height: 1.6; }
+.ct-market-installation dt { flex: 0 0 5rem; color: var(--ct-text-muted); }
+.ct-market-installation dd { margin: 0; color: var(--ct-text); min-width: 0; overflow-wrap: anywhere; user-select: text; }
+.ct-market-installation code { font-size: 0.6875rem; }
+.ct-market-remove-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--ct-border); }
+.ct-market-remove-row p { margin: 0; color: var(--ct-text-muted); font-size: 0.6875rem; line-height: 1.6; }
+.ct-market-remove-row .rt-Button { flex-shrink: 0; }
+.ct-market-confirm-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.ct-market-settings-status { display: flex; align-items: center; gap: 0.625rem; padding: 1rem; color: var(--ct-text-muted); font-size: 0.8125rem; }
+.ct-market-settings-status p { flex: 1; margin: 0; }
+.ct-market-external-settings { min-width: 0; width: 100%; }
+.ct-market-spin { animation: ct-market-spin 1s linear infinite; }
+@keyframes ct-market-spin { to { transform: rotate(360deg); } }
+.ct-market button:focus-visible, .ct-plugin-detail button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
+.ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
+
+/* Native React reminder settings, shared with the detail sheet. */
+.ct-plugin-groups { display: flex; flex-direction: column; gap: 1rem; }
+.ct-plugin-group { padding: 1.125rem 1.25rem 1rem; background: var(--ct-surface); border: 1px solid var(--ct-border-card); border-radius: 1.125rem; }
+.ct-plugin-group-title { margin: 0 0 0.375rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ct-text-muted); }
+.ct-plugin-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; padding: 0.75rem 0; }
+.ct-plugin-row:first-of-type { padding-top: 0; }
+.ct-plugin-row + .ct-plugin-row { border-top: 1px solid var(--ct-border); }
+.ct-plugin-row.is-stack { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+.ct-plugin-row-copy { display: flex; flex-direction: column; gap: 0.1875rem; flex: 1 1 auto; min-width: 0; }
+.ct-plugin-row-title { font-size: 0.875rem; font-weight: 600; color: var(--ct-text); }
+.ct-plugin-row-desc { font-size: 0.75rem; line-height: 1.5; color: var(--ct-text-muted); }
+.ct-plugin-row-control { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex: 0 0 auto; min-width: 0; }
+.ct-plugin-row.is-stack .ct-plugin-row-control { width: 100%; justify-content: flex-start; }
+.ct-plugin-row-control.is-slider { flex: 0 1 20rem; }
+.ct-plugin-row-control.is-slider .rt-SliderRoot { flex: 1 1 auto; min-width: 0; }
+/* Radix 多行输入的根是 .rt-TextAreaRoot（.rt-TextArea 是内部 textarea 的类名，选不中它）。
+   写错类名时文本域会缩成控件默认宽度（约 11rem），比同一张卡里的单行输入窄一大截，
+   长文案还会被自己的滚动条截掉。 */
+.ct-plugin-row-control .rt-TextFieldRoot, .ct-plugin-row-control .rt-TextAreaRoot { width: 100%; }
+.ct-plugin-select { min-width: 8rem; }
+.ct-plugin-value { flex-shrink: 0; min-width: 4rem; padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--ct-surface-2); text-align: right; font-family: var(--ct-font-mono); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ct-text); white-space: nowrap; }
+.ct-plugins-page .rt-SliderRoot, .ct-plugin-detail .rt-SliderRoot { --slider-track-size: 0.25rem; --slider-thumb-size: 0.9375rem; }
+/* 轨道保持中性灰，已选段用主题色：iOS / macOS 的滑块都靠这段填充读「当前值在区间里的位置」，
+   全灰时三个滑块长得一模一样，只能去右边读数字。填充段去掉 Radix 的内描边，
+   4px 高的轨道上那圈深边会把蓝色切出一道边。 */
+.ct-plugins-page .rt-SliderTrack, .ct-plugin-detail .rt-SliderTrack { background-color: var(--ct-surface-2); }
+.ct-plugins-page .rt-SliderRange, .ct-plugin-detail .rt-SliderRange { background-color: var(--ct-accent); box-shadow: none; }
+.ct-plugins-page .rt-SliderThumb, .ct-plugin-detail .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
+[data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-plugin-detail .rt-SliderThumb { background-color: #e5e5ea; }
+.ct-plugin-bg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; width: 100%; min-height: 5rem; padding: 0.75rem; border: 1px dashed var(--ct-border-strong); border-radius: 0.75rem; background: var(--ct-bg); color: var(--ct-text-muted); font-size: 0.75rem; text-align: center; cursor: pointer; }
+.ct-plugin-bg-empty:hover { border-color: var(--ct-accent-border); color: var(--ct-text); }
+.ct-plugin-bg-empty:focus-within { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.125rem; }
+.ct-plugin-bg-preview { position: relative; width: 100%; height: 5rem; border: 1px solid var(--ct-border); border-radius: 0.75rem; overflow: hidden; }
+.ct-plugin-bg-preview img { width: 100%; height: 100%; object-fit: cover; }
+.ct-plugin-bg-actions { position: absolute; right: 0.5rem; bottom: 0.5rem; display: flex; gap: 0.375rem; }
+.ct-plugin-bg-btn { padding: 0.1875rem 0.5rem; border: none; border-radius: 0.5rem; background: color-mix(in srgb, var(--ct-surface) 88%, transparent); backdrop-filter: blur(8px); color: var(--ct-text-muted); font-size: 0.6875rem; cursor: pointer; }
+.ct-plugin-bg-btn:hover { color: var(--ct-text); }
+.ct-plugin-bg-btn.is-danger { color: var(--ct-error); }
+.ct-plugin-bg-btn.is-danger:hover { color: var(--ct-error-strong); }
+.ct-plugin-note { max-width: 32rem; margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--ct-text-muted); }
+
+/* List ↔ detail swap cross-fades via the app-wide View Transitions rules in shell.css. */
+
+/* 插件列表 ↔ 详情：iOS 式 push / pop，只滑页面内容视口，侧栏不动。
+   ::view-transition-* 规则无法被 html 上的属性作用域限定，所以方向直接作为
+   view-transition-name（ct-plugin-push / ct-plugin-back）传进来，各自有对应关键帧。
+   两个坑：① 视口必须自己画出不透明的页面画布（和工作区同一套渐变），否则滑动快照是透明的，
+   滑入的那页盖不住旧页；② 滑动快照会溢出到侧栏上方，必须用 group 的 clip-path 裁到内容区。 */
+.ct-plugin-scroll { background: radial-gradient(48rem 26rem at 24% -14%, var(--ct-bg-glow), transparent 62%), var(--ct-bg); }
+::view-transition-group(ct-plugin-push),
+::view-transition-group(ct-plugin-back) { clip-path: inset(0); }
+::view-transition-old(ct-plugin-push) { animation: ct-plugin-push-out 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-new(ct-plugin-push) { animation: ct-plugin-push-in 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-old(ct-plugin-back) { animation: ct-plugin-pop-out 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+::view-transition-new(ct-plugin-back) { animation: ct-plugin-pop-in 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+/* 出去的一页让出 25%，进来的一页走满一屏；返回时原路反向。 */
+@keyframes ct-plugin-push-out { to { transform: translateX(-25%); } }
+@keyframes ct-plugin-push-in { from { transform: translateX(100%); } }
+@keyframes ct-plugin-pop-out { to { transform: translateX(100%); } }
+@keyframes ct-plugin-pop-in { from { transform: translateX(-25%); } }
+
+@media (max-width: 44rem) {
+  .ct-market { padding: 1.25rem 1.125rem 2rem; }
+  .ct-plugin-detail { --ct-detail-pad: 1.125rem; }
+}
+@media (max-width: 48rem) {
+  .ct-market-toolbar { flex-wrap: wrap; }
+  .ct-market-tabs { flex: 1; }
+  .ct-market-tabs button { flex: 1; }
+  .ct-market-tools { width: 100%; }
+  .ct-market-search { width: auto; }
+  .ct-plugin-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .ct-plugin-row-control.is-slider { flex: 1 1 auto; width: 100%; }
+  .ct-market-installation dl > div { flex-direction: column; gap: 0.25rem; }
+  .ct-market-installation dt { flex: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-market-spin { animation: none; }
+  .ct-market-card { transition: box-shadow 0.22s ease, border-color 0.18s ease; }
+  .ct-market-card:has(.ct-market-card-open:active) { transform: none; }
+  .ct-market-card.is-entering { animation: ct-market-card-fade 160ms ease-out both; }
+  .ct-market-card-main { transition: none; }
+  /* 详情导航条只保留「有/没有」两种状态，不做渐显 */
+  .ct-plugin-detail-nav,
+  .ct-plugin-detail-nav-title { transition: none; }
+  /* 降低动态效果：列表 ↔ 详情不做位移，直接切换 */
+  ::view-transition-old(ct-plugin-push),
+  ::view-transition-new(ct-plugin-push),
+  ::view-transition-old(ct-plugin-back),
+  ::view-transition-new(ct-plugin-back) { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ct-plugin-bg-btn { background: var(--ct-surface); backdrop-filter: none; }
+  .ct-plugin-detail-nav.is-scrolled { background: var(--ct-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .ct-market-card, .ct-plugin-group { border-color: var(--ct-text-muted); }
+  .ct-market-card-status, .ct-market-eyebrow { color: var(--ct-text-muted); }
+  .ct-market-card-flag { border: 1px solid currentColor; }
+  .ct-plugin-detail-nav.is-scrolled { border-bottom-color: var(--ct-text-muted); }
+}

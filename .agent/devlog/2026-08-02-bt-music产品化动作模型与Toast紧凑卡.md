@@ -21,7 +21,6 @@ bt-music 从演示轮询收成产品：事件监听、互斥连接/断开动作�
 
 | File | Change |
 |------|--------|
-| `tools/plugin-demo/bt-music/*` | 事件监听、动作、紧凑 UI |
 | `src-tauri/src/plugins.rs` | set_plugin_config 保 enabled；content_mtime_ms |
 | `src/views/toastWindows/ReminderToast.vue` | totalMs 不在 resume 时覆盖；reload 监听 |
 | `src/components/pluginHostCardCache.ts` | generation 热更 |

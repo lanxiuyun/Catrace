@@ -1,6 +1,6 @@
 # clawd-on-desk 的 Agent 通知机制
 
-> 参考项目：[clawd-on-desk](../../../clawd-on-desk)（Electron 桌面宠物）。本文记录它如何让 AI agent（Claude Code / Codex / Copilot / Gemini 等）把状态实时推到桌面端，Catrace 的 agent 通知功能即参考此机制简化而来。
+> 参考项目：clawd-on-desk（Electron 桌面宠物）。本文记录它如何让 AI agent（Claude Code / Codex / Copilot / Gemini 等）把状态实时推到桌面端，Catrace 的 agent 通知功能即参考此机制简化而来。
 > 配套文档：[agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md](agent-hook-integration-per-agent-claude-code-codex-gemini-kimi-opencode-openclaw-hermes.md)（各 agent 接入方式的源码级对比）。
 
 ## 整体链路
@@ -73,16 +73,4 @@ hook 脚本（Node.js，读 stdin JSON payload）
 - **Session HUD**：宠物旁的迷你会话列表（状态点、标题、上下文用量）
 - **Dashboard**：完整会话管理面板，按主机分组（本地 / WSL / SSH）
 
-## Catrace 的取舍
-
-Catrace 只复刻了最小子集，差异对照：
-
-| clawd-on-desk | Catrace |
-|---|---|
-| 端口 23333-23337 漂移 + runtime.json | 固定 23456（单例应用无端口竞争） |
-| /state + /permission 双端点 | 仅 /state，不做阻塞式权限批准 |
-| 8+ 种 agent 安装器 | Claude Code / Codex / Gemini / Kimi（命令 hook 派） |
-| 宠物动画 / 气泡 / HUD / Dashboard | 复用现有 Toast 窗口加一种卡片类型 |
-| 全量 payload 字段 | `event` / `state` / `session_id` / `cwd` / `transcript_path` / `prompt` |
-
-相关实现见 `src-tauri/src/agent_hook.rs`、[agent-notification](../features/agent-notification/README.md)、改造指南 [hook-install-development-guide.md](../features/agent-notification/hook-install-development-guide.md)。
+相关实现见 [Agent 通知](../features/agent-notification/README.md)和[接入指南](../features/agent-notification/hook-install-development-guide.md)。

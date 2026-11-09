@@ -1,0 +1,307 @@
+/* React 壳样式：macOS 风格透光侧边栏 + 工作区（无顶栏，侧边栏只保留导航分组）。 */
+
+.ct-app,
+.ct-app * {
+  box-sizing: border-box;
+}
+
+.ct-app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--ct-bg);
+}
+
+/* ---------- 侧边栏（macOS 透光材质） ----------
+   宽窗口是带文字的 10rem；窗口窄于 62rem 时收成 3.75rem 图标栏，
+   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。 */
+.ct-sidebar {
+  position: relative;
+  z-index: 2;
+  width: 10rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.875rem 0.5rem;
+  background: var(--ct-sidebar-bg);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-right: 0.0625rem solid var(--ct-sidebar-border);
+  /* 图标栏的悬停浮层要能飞出侧栏，所以不能用 hidden */
+  overflow: visible;
+}
+
+.ct-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ct-sidebar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  color: var(--ct-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+/* 图标尺寸按栏宽切换：带文字时 1rem，图标栏时 1.125rem（CSS 覆盖 svg 的 width 属性） */
+.ct-sidebar-item svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ct-sidebar-item:hover {
+  background: var(--ct-nav-hover);
+  color: var(--ct-text);
+}
+
+/* 选中态：白色胶囊 + 轻投影（暗色下是半透明白），图标点系统蓝。
+   强调色仍然只给图标，文字保持中性，整栏不至于花。 */
+.ct-sidebar-item.is-active {
+  background: var(--ct-nav-active);
+  color: var(--ct-text);
+  font-weight: 600;
+  box-shadow:
+    0 0.0625rem 0.125rem rgba(0, 0, 0, 0.06),
+    0 0 0 0.0625rem rgba(0, 0, 0, 0.03);
+}
+
+.ct-sidebar-item.is-active svg {
+  color: var(--ct-accent);
+}
+
+.ct-sidebar-item.is-active:hover {
+  background: var(--ct-nav-active);
+  color: var(--ct-text);
+}
+
+/* 暗色下白胶囊不存在，用内描边补一层轮廓 */
+[data-theme='dark'] .ct-sidebar-item.is-active {
+  box-shadow: inset 0 0 0 0.0625rem rgba(255, 255, 255, 0.06);
+}
+
+/* 窄窗口：收成 3.75rem 图标栏 */
+@media (max-width: 62rem) {
+  .ct-sidebar {
+    width: 3.75rem;
+    padding: 0.75rem 0.5rem;
+    align-items: center;
+  }
+
+  .ct-sidebar-nav {
+    align-items: center;
+    gap: 0.3125rem;
+    width: 100%;
+  }
+
+  .ct-sidebar-item {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: 0.625rem;
+  }
+
+  .ct-sidebar-item svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  /* 图标栏里文字不占位；名称仍由 aria-label 提供给读屏 */
+  .ct-sidebar-item span {
+    display: none;
+  }
+
+  /* 图标栏的悬停浮层：深色小胶囊，和分钟条的 tooltip 同一套材质 */
+  .ct-sidebar-item::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 0.875rem);
+    top: 50%;
+    transform: translate(-0.25rem, -50%);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    background: rgba(28, 28, 30, 0.86);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .ct-sidebar-item:hover::after,
+  .ct-sidebar-item:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+/* ---------- macOS 风格分段控件（灰轨道 + 白色滑块，无描边） ----------
+   Radix 的滑动指示器（.rt-SegmentedControlIndicator）自带 1px 灰描边，
+   并且它的宽度按「轨道总宽」算、比单个 item 宽 2px，右侧会漏一条灰边；
+   轨道外层 2px padding 又把 item 顶到上下边缘，看起来像卡片描边。
+   这里：轨道不留 padding，滑块靠 ::before inset 内缩 2px；白底和阴影都交给
+   指示器，切换就是滑动动画（时长从 Radix 的 100ms 放到 180ms，更接近原生手感）。 */
+.ct-segmented {
+  --segmented-control-transition-duration: 180ms;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.16);
+  border: 0;
+  box-shadow: none;
+}
+
+[data-theme='dark'] .ct-segmented {
+  background: rgba(120, 120, 128, 0.28);
+}
+
+.ct-segmented .rt-SegmentedControlItem {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  color: var(--ct-text-muted);
+  transition: color 0.15s ease;
+}
+
+.ct-segmented .rt-SegmentedControlItemSeparator {
+  display: none;
+}
+
+.ct-segmented .rt-SegmentedControlItem[data-state='on'] {
+  color: var(--ct-text);
+}
+
+/* 滑块本体：内缩 2px 的白色胶囊，只有柔和投影，没有 1px 描边 */
+.ct-segmented .rt-SegmentedControlIndicator::before {
+  inset: 0.125rem;
+  border-radius: 999px;
+  background: var(--ct-surface);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 1px 5px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] .ct-segmented .rt-SegmentedControlIndicator::before {
+  background: #636366;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* 两套叠加的 label 都跟随 item 的当前色，避免切换瞬间出现一深一浅 */
+.ct-segmented .rt-SegmentedControlItemLabelActive,
+.ct-segmented .rt-SegmentedControlItemLabelInactive {
+  color: inherit;
+}
+
+/* ---------- 工作区 ---------- */
+/* 顶部一层极淡的系统蓝柔光：白卡片才有「受光」的层次，而不是贴在平灰上。 */
+.ct-workspace {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(48rem 26rem at 24% -14%, var(--ct-bg-glow), transparent 62%),
+    var(--ct-bg);
+}
+
+/* ---------- 切页交叉淡入淡出（View Transitions API） ----------
+   一级导航和插件中心「列表 ↔ 详情」共用这一套：react-router 的 viewTransition
+   （或 PluginCenter 里的 runViewTransition）调用 document.startViewTransition，
+   浏览器给旧/新状态各拍一张快照再交叉淡化。旧页快退、新页稍慢淡入，
+   两处切换时长一致，动效语言不打架。
+   ::view-transition-* 是文档级伪元素，所以规则只写这一处，不写进页面样式；
+   WebView 没有这个 API 时没有过渡、直接瞬切，交互不受影响。 */
+::view-transition-old(root) {
+  animation: ct-view-out 140ms ease-out both;
+}
+
+::view-transition-new(root) {
+  animation: ct-view-in 200ms ease-out both;
+}
+
+@keyframes ct-view-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ct-view-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 减少动态效果：不做淡入淡出，保持瞬切。 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* 侧栏是固定图标栏，不再随窗口宽度在「文字栏 / 图标栏」之间切换。 */
+
+/* Toast 提示（替代 naive-ui message）：顶部居中，像系统横幅；操作栏短暂被盖住也能穿透点击 */
+.ct-toasts {
+  position: fixed;
+  left: 50%;
+  top: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.ct-toast {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.ct-toast.is-error {
+  background: rgba(255, 59, 48, 0.95);
+}
+
+.ct-toast.is-warning {
+  background: rgba(255, 149, 0, 0.95);
+}
+
+/* Toast / 提醒窗：壳只负责铺满，页面自己定位。 */
+.toast-window-shell {
+  height: 100%;
+  width: 100%;
+}

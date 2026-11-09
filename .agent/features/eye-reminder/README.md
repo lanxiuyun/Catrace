@@ -1,6 +1,6 @@
 # 护眼提醒
 
-护眼不再是内置模块，而是 **定时提醒插件（`timer`）** 的一条规则预设。  
+护眼是 **定时提醒插件（`timer`）** 的一条规则预设。
 产品路径：插件中心 → 定时提醒 → 预设「护眼」，或自建间隔规则并打开「休息重置」。
 
 ## 一句话
@@ -11,15 +11,15 @@
 
 | 路径 | 角色 |
 |------|------|
-| `tools/plugin-demo/timer/manifest.json` | 外部插件 id=`timer` |
-| `tools/plugin-demo/timer/background.mjs` | 分钟对齐调度；`reset_on_rest` + `plugin_get_last_real_rest` |
-| `tools/plugin-demo/timer/settings.mjs` | 规则 CRUD；护眼预设；卡片停留/常驻 |
-| `tools/plugin-demo/timer/ui.mjs` | Toast 卡 |
+| `catrace-plugin/timer/manifest.json` | 外部插件 id=`timer` |
+| `catrace-plugin/timer/background.mjs` | 分钟对齐调度；`reset_on_rest` + `plugin_get_last_real_rest` |
+| `catrace-plugin/timer/settings.mjs` | 规则 CRUD；护眼预设；卡片停留/常驻 |
+| `catrace-plugin/timer/ui.mjs` | Toast 卡 |
 | `src-tauri/src/plugin_commands.rs` | `plugin_get_last_real_rest`（阈值读久坐 `break_minutes`） |
 | `src-tauri/src/db.rs` | `get_last_real_rest_ts` |
 | `src/views/toastWindows/ReminderToast.vue` | 读 `payload.auto_hide_ms` / `event.sticky` 控制停留 |
 
-Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/timer`。详见 [[m10-external-plugins]] 与 `tools/plugin-demo/README.md`。
+安装：插件中心从仓库装到 `app_data/plugins/timer`。详见 [[m10-external-plugins]] 与插件仓库 `README.md`。
 
 ## 规则配置（护眼预设）
 
@@ -72,16 +72,11 @@ Debug 构建会把 `tools/plugin-demo/timer` junction 到 `app_data/plugins/time
 | 运行态 | SQLite `plugin_storage(timer, runtime)` → 每规则 `last_fired_at` / `last_daily_keys` |
 | 进程态 | background 内 snooze / 1s 去重 Map |
 
-## 与旧内置的关系
-
-旧 `eye.rs` / `EyeToastCard` / `EyeSettingsCard` / 设置页护眼卡已移除。  
-历史过程见 devlog：`2026-07-10-eye-reminder*.md`、`2026-07-11-eye-toast-snooze-skip-buttons.md`。
-
 ## 相关
 
 - [[timer-plugin]] — 定时提醒插件 UI/编辑/排序
 - [[toast-window]] — Toast 窗口与 auto-hide
 - [[reminder]] — 久坐插件；提供 `break_minutes` 给真休息判定
-- [[water-reminder]] — 同类「间隔提醒」产品叙事（实现路径可能仍独立或收敛到 timer）
+- [[water-reminder]] — 同为定时提醒插件的规则预设
 - [[m10-external-plugins]] — 外部插件加载与 Card 合同
-- `tools/plugin-demo/README.md` — timer 插件总说明
+- `catrace-plugin/README.md` — timer 插件总说明

@@ -1,48 +1,44 @@
 # 设置页
 
-卡片式设置容器，支持拖拽排序。
+系统设置是 React 卡片网格，支持拖拽排序。插件业务配置在功能插件页，Event SDK 管理在调试页。
 
-## 涉及文件
+## 核心卡与入口
 
-- `src/views/mainWindow/Settings.vue` — 页面容器
-- `src/components/settings/SettingRow.vue` — 通用设置行
-- `src/components/settings/SliderControl.vue` — 滑块+数值
-- `src/components/settings/MediaSettingsCard.vue` — 视频与音乐
-- `src/components/settings/SystemSettingsCard.vue` — 语言/自启/更新；macOS 辅助功能授权行
-- `src/components/AccessibilityBanner.vue` — macOS 未授权时主窗顶部横幅（不在设置网格里）
-- `src/components/settings/SignalSettingsCard.vue` — 行为采集
-- `src/components/settings/LinksSettingsCard.vue` — 相关链接
-- `src/components/plugins/AgentPluginPanel.vue` — Agent 功能插件详情
-- `src/components/plugins/RestPluginPanel.vue` — 久坐功能插件详情（节奏 / 方式 toast·fullscreen / 内容 / 测试；popup 下线）
+[Settings.tsx](../../../src/app/pages/Settings.tsx) 通过固定映射挂载五张核心卡，不从 plugin registry 动态挂载设置卡。
 
-## 卡片规范
+| 键 | 内容与组件 |
+|----|------------|
+| `media` | 视频与音乐检测、排除列表：[MediaSettingsCard.tsx](../../../src/app/pages/settings/MediaSettingsCard.tsx) |
+| `signal` | 行为采集：[SignalSettingsCard.tsx](../../../src/app/pages/settings/SignalSettingsCard.tsx) |
+| `system` | 语言、主题、自启、静默、轻量、更新：[SystemSettingsCard.tsx](../../../src/app/pages/settings/SystemSettingsCard.tsx) |
+| `sysNotify` | 系统通知转发：[SysNotifySettingsCard.tsx](../../../src/app/pages/settings/SysNotifySettingsCard.tsx) |
+| `links` | 项目链接、问题反馈、日志目录：[LinksSettingsCard.tsx](../../../src/app/pages/settings/LinksSettingsCard.tsx) |
 
-- 响应式网格布局，右上角拖拽把手，高度撑满 Grid 行
-- 拖拽排序持久化（Tauri Store 插件保存顺序）
-- 间距统一 rem 单位
-- MediaSettingsCard：排除列表 500ms 防抖自动保存，「重置为默认」按钮在标题右侧
+通用卡片与设置行是 [SettingsCard.tsx](../../../src/app/pages/settings/SettingsCard.tsx)、[SettingRow.tsx](../../../src/app/pages/settings/SettingRow.tsx)；布局在 [settings.css](../../../src/app/pages/settings.css)。
 
-## 系统设置 vs 功能插件
+## 排序与保存
 
-| 面 | 内容 |
-|----|------|
-| 系统设置 core | `media` / `signal` / `system` / `links`（macOS 辅助功能授权行在 system 卡） |
-| 主窗横幅 | macOS 未授权时 `AccessibilityBanner` 挂 `MainShell`，不进设置拖拽网格 |
-| 功能插件 `rest` | 多久提醒、提醒文案、toast/fullscreen、测试通知（popup 下线） |
-| 功能插件 `agent` | Hook / 事件模式 / 提示音 |
-| 调试页 | Event SDK（不进设置拖拽网格） |
+- SortableJS 用拖拽把手启动拖动，启用 `forceFallback`；输入框、按钮、滑块、开关和下拉控件不触发拖拽。
+- 顺序写入 Tauri Store 的 `settings_group_order`，Store 由 [settingsStore.ts](../../../src/app/lib/settingsStore.ts) 提供。读取时去重、移除未知键，并补齐缺少的核心卡。
+- 修改卡片集合时同步核心键与组件映射；保持排序归一化逻辑覆盖所有核心卡。
+- 媒体排除列表 500ms 防抖自动保存，「重置为默认」放在列表标题右侧。
+- 自动保存与开关切换以控件状态反馈成功；失败时才弹错误提示。共用自动保存逻辑见 [useAutoSaveSetting.ts](../../../src/app/pages/settings/useAutoSaveSetting.ts)。
 
-**久坐提醒的展示方式与内容不在系统设置**，统一在 `RestPluginPanel`。
+## 布局与控件约定
 
-带 `SettingsComponent` 且 `settingsSurface === 'settings'` 的插件由 `usePluginRegistry().getSettingsPlugins('settings')` 动态挂载。
+- 页面自己用 [PageScroll.tsx](../../../src/app/components/PageScroll.tsx) 承担滚动；主窗壳不加第二层纵向滚动条。
+- 页面标题只保留给读屏，视觉上用侧栏选中项表明当前位置。
+- 卡片是响应式网格，同一行等高；组名保持次级小字，不加装饰图标，右侧留给拖拽把手。
+- 设置卡保留瓦片阴影；概览/调试是平铺报告面板，两种卡片角色分别由各自样式管理。
+- 相邻设置行由 CSS 画分隔线，内容块使用 `.ct-settings-block` 接续分隔。文案列伸缩、控件列按内容定宽，避免控件挤压覆盖文字。
+- Radix 控件的 hover、光标和主题映射统一放在 [radix-theme.css](../../../src/app/radix-theme.css)，页面只定义自己的布局。
+- 颜色用于状态与链接图标，卡片表面保持中性；尺寸统一 rem。
 
-当前：
-- `rest` / `agent` → `settingsSurface: plugins`
-- 系统设置页暂无 registry 插件卡（架构保留）
+## 功能设置的归属
 
-注册入口：`src/plugins/registerBuiltins.ts`（主窗 `main.ts` mount 前调用）。
+- **久坐提醒**：节奏、提醒内容、Toast/全屏方式、全屏背景和测试提醒由 [Plugins.tsx](../../../src/app/pages/Plugins.tsx) 与 [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx) 管理，不进系统设置网格。
+- **外部插件**：在插件中心的详情中配置，启用后的 Vue 设置组件经 [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) → [VueIsland.tsx](../../../src/app/legacy/VueIsland.tsx) 挂载。安装后由用户授权启用，安装、授权和开关见 [插件中心](../plugin-center/README.md)。
+- **Vue 插件公共控件**：[SettingRow.vue](../../../src/components/settings/SettingRow.vue)、[SliderControl.vue](../../../src/components/settings/SliderControl.vue) 属于外部插件 UI 注入契约，不是系统设置卡。
+- **Event SDK**：管理面板挂在调试页，见 [Event SDK](../event-sdk/README.md)。
 
-## 子文档
-
-- [设置页按-plugin-registry-挂载插件设置卡.md](设置页按-plugin-registry-挂载插件设置卡.md) — registry 挂载与 settingsSurface
-- [久坐提醒配置从系统设置收敛到-RestPluginPanel.md](久坐提醒配置从系统设置收敛到-RestPluginPanel.md) — 久坐配置从系统设置迁出
+宿主主题、语言与 React/Vue 运行时协作见 [React 前端架构](../../architecture/react-migration/README.md)。

@@ -33,7 +33,7 @@ await plugin.audio.play(soundPath, { volume: rule.sound_volume })
 
 ## 默认音频
 
-`tools/plugin-demo/timer/assets/notify.wav`：偏低的两音门铃（G4 → C5）。整个插件目录会随 `scripts/sync-plugins.mjs` 打包，无需写进 `manifest.json`。
+`catrace-plugin/timer/assets/notify.wav`：偏低的两音门铃（G4 → C5）。音频随插件目录一起安装，无需写进 `manifest.json`。
 
 自定义支持 wav / mp3 / ogg / flac（rodio 默认解码）。路径存配置，不要把音频 base64 塞进 `plugin.config`。
 

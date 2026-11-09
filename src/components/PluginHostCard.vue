@@ -76,7 +76,11 @@ async function loadFromPluginId(id: string): Promise<Component> {
   const source = await getPluginUiSource(id)
   const blob = new Blob([wrapPluginSource(id, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
-  return loadFromBlobUrl(blobUrl)
+  try {
+    return await loadFromBlobUrl(blobUrl)
+  } finally {
+    URL.revokeObjectURL(blobUrl)
+  }
 }
 
 function pluginIdentity(): string {
@@ -102,6 +106,12 @@ function cacheKey(): string {
 
 function resolveCard(): Component {
   const key = cacheKey()
+  const handle = registry.getPlugin(pluginIdentity())
+  // Never reuse or import a module after its plugin is disabled or uninstalled.
+  if (!handle || (handle.external && handle.enabled !== true)) {
+    cardCache.delete(key)
+    return FallbackCard
+  }
   const cached = cardCache.get(key)
   if (cached) {
     console.info('[PluginHostCard] cache hit', { key, eventId: props.event.id, t: Date.now() })
@@ -137,8 +147,11 @@ function resolveCard(): Component {
       defineAsyncComponent({
         loader: async () => {
           try {
-            if (url) return await loadFromBlobUrl(url)
-            return await loadFromPluginId(pid as string)
+            const current = registry.getPlugin(pluginIdentity())
+            if (!current || (current.external && current.enabled !== true)) return FallbackCard
+            // Prefer a fresh enabled-gated source over a potentially revoked old URL.
+            if (pid) return await loadFromPluginId(pid)
+            return await loadFromBlobUrl(url as string)
           } catch (e) {
             console.warn('[PluginHostCard] load failed', e)
             throw e
@@ -201,7 +214,10 @@ onMounted(() => {
  * Remount when plugin identity or host cache generation changes.
  * Event id/revision alone must not thrash the card.
  */
-const cardKey = computed(() => `${cacheKey()}@g${cacheGen.value}`)
+const cardKey = computed(() => {
+  const handle = registry.getPlugin(pluginIdentity())
+  return `${cacheKey()}@g${cacheGen.value}:${handle?.enabled ? 1 : 0}:${handle?.CardComponent ? 1 : 0}`
+})
 
 watch(
   cardKey,

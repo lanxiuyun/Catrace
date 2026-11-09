@@ -1,0 +1,398 @@
+/* 系统设置页：多列分组卡 + 拖拽排序。与概览页同一套材质与字阶。
+ *
+ * 卡片 = 白色表面 + 轻描边 + 双层阴影；卡片头 = 图标块 + 12px 组名；
+ * 组内用 hairline 分隔行，行内左文案右控件，整卡不出现重描边。 */
+
+.ct-settings-page {
+  height: 100%;
+}
+
+.ct-settings {
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 2.5rem;
+}
+
+.ct-settings-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--ct-text);
+  font-optical-sizing: auto;
+}
+
+.ct-settings-subtitle {
+  margin: 0.4375rem 0 1.5rem;
+  font-size: 0.9375rem;
+  color: var(--ct-text-muted);
+}
+
+/* 多列：宽度够就并排（auto-fit），同一行卡片等高，内容少的卡底部留白。
+   这是明确的取舍——别改成 align-items: start（会高低错位），
+   也别改回单列（宽窗口浪费宽度）。 */
+.ct-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: 1rem;
+}
+
+.ct-settings-slot {
+  position: relative;
+  min-width: 0;
+}
+
+.ct-settings-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  padding: 1.125rem 1.25rem 1rem;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-border-card);
+  border-radius: 1.125rem;
+  box-shadow: var(--ct-shadow-card);
+  transition:
+    opacity 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* 卡片头：只有组名（h2）。设置页要安静，别再加图标块；右侧留 2rem 给拖拽把手。 */
+.ct-settings-card-label {
+  margin: 0 0 0.375rem;
+  padding-right: 2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ct-text-muted);
+}
+
+/* 卡内分组线：相邻两行之间自动画一条 hairline；从行切到内容块（白名单、更新详情）时给块加
+   .ct-settings-block，由块自己带上边线。不要再手插 <div class="ct-settings-divider" />——
+   手摆的线多一行就漏一条（语言/主题之间就漏过一条）。 */
+.ct-setting-row + .ct-setting-row,
+.ct-settings-block {
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+/* ---------- 设置行 ---------- */
+.ct-setting-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 0.75rem 0;
+}
+
+/* 文案列吃掉剩余宽度；控件列按内容定宽、不参与伸缩。
+   之前控件列写的是 flex: 1，会被压得比下拉框还窄，
+   下拉框于是从左边溢出、盖在描述文字上（见「序列保留时长」那行）。 */
+.ct-setting-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ct-setting-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+  overflow-wrap: break-word;
+}
+
+.ct-setting-desc {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+  overflow-wrap: break-word;
+}
+
+.ct-setting-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.ct-settings-side {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ct-settings-hint {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--ct-info-soft);
+  color: var(--ct-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.ct-settings-denied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 0.0625rem solid var(--ct-error);
+  border-radius: 0.75rem;
+  background: var(--ct-error-soft);
+  color: var(--ct-error-strong);
+  font-size: 0.75rem;
+}
+
+/* ---------- 媒体排除列表 ---------- */
+/* 白名单块：上边线由 .ct-settings-block 提供，间距放 padding-top，线的位置才贴着上一行 */
+.ct-whitelist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.5rem;
+  padding-top: 0.875rem;
+}
+
+.ct-whitelist-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-whitelist-desc {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+}
+
+/* 进程名列表用等宽字体：一行一个 exe，对齐后更好扫 */
+.ct-settings-card .rt-TextAreaInput {
+  font-family: var(--ct-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+/* ---------- 链接卡 ---------- */
+.ct-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.ct-link-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6875rem 0.875rem;
+  background: var(--ct-surface-2);
+  border: 0.0625rem solid transparent;
+  border-radius: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.16s ease;
+}
+
+.ct-link-item:hover {
+  border-color: var(--ct-border-card);
+  background: var(--ct-surface);
+  transform: translateY(-0.0625rem);
+  box-shadow: var(--ct-shadow-card);
+}
+
+.ct-link-item:active {
+  transform: translateY(0);
+}
+
+.ct-link-item:focus-visible {
+  outline: 0.125rem solid var(--ct-accent);
+  outline-offset: 0.125rem;
+}
+
+.ct-link-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  background: var(--ct-surface-2);
+  color: var(--ct-text);
+}
+
+.ct-link-icon.is-default {
+  background: var(--ct-surface-2);
+  color: var(--ct-text);
+}
+
+.ct-link-icon.is-info {
+  background: var(--ct-info-soft);
+  color: var(--ct-info);
+}
+
+.ct-link-icon.is-warning {
+  background: var(--ct-warning-soft);
+  color: var(--ct-warning-strong);
+}
+
+.ct-link-icon.is-accent {
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent);
+}
+
+.ct-link-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ct-link-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-link-desc {
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+}
+
+.ct-link-arrow {
+  flex-shrink: 0;
+  color: var(--ct-text-subtle);
+  transition: color 0.15s ease, transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.ct-link-item:hover .ct-link-arrow {
+  color: var(--ct-text-muted);
+  transform: translateX(0.125rem);
+}
+
+/* ---------- 拖拽手柄 ---------- */
+.ct-drag-handle {
+  position: absolute;
+  top: 1rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  color: var(--ct-text-subtle);
+  cursor: grab;
+  opacity: 0.8;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ct-drag-handle:hover {
+  opacity: 1;
+  background: var(--ct-surface-2);
+  color: var(--ct-text-muted);
+}
+
+.ct-drag-handle:active {
+  cursor: grabbing;
+}
+
+.ct-settings-slot.ct-dragging {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.ct-settings-slot.ct-dragging .ct-settings-card {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.ct-settings-slot.ct-drag-over {
+  opacity: 0.95;
+  transform: scale(1.015);
+  z-index: 1000;
+  filter: drop-shadow(0 1rem 2rem rgba(0, 0, 0, 0.18));
+  transition: none !important;
+}
+
+/* ---------- 软件更新 ---------- */
+.ct-settings-update {
+  padding: 0.875rem 0 0.25rem;
+}
+
+.ct-settings-update-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ct-settings-update-title {
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ct-text);
+}
+
+.ct-settings-update-body {
+  max-height: 10rem;
+  margin-bottom: 0.75rem;
+  padding-right: 0.5rem;
+  overflow-y: auto;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ct-text-muted);
+  white-space: pre-wrap;
+}
+
+.ct-settings-download {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.75rem;
+}
+
+.ct-settings-download .rt-ProgressRoot {
+  flex: 1;
+}
+
+.ct-settings-download-text {
+  min-width: 2.5em;
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 44rem) {
+  .ct-settings {
+    padding: 1.25rem 1.125rem 2rem;
+  }
+
+  .ct-settings-title {
+    font-size: 1.5rem;
+  }
+}

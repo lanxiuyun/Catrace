@@ -1,0 +1,392 @@
+/* 概览卡片：状态胶囊 → 时间范围 → 时长，点击/回车展开分钟明细。
+ *
+ * 结构：.card 只负责视觉表面，真正可聚焦/可点的是 .card-summary（button），
+ * 展开的明细是按钮的兄弟节点 —— 放进 button 里会被 ARIA 按 presentational 处理。
+ *
+ * 展开/收起用 grid-template-rows 0fr↔1fr 过渡，高度自然、双向可打断；
+ * 不用 max-height（大值会让过渡前 90% 的时间看不见变化）。 */
+
+.ct-timeline-windows .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15.625rem, 1fr));
+  gap: 0.875rem;
+}
+
+.ct-timeline-windows .card {
+  display: flex;
+  flex-direction: column;
+  background: var(--ct-surface);
+  border: 0.0625rem solid var(--ct-border-card);
+  border-radius: 1.125rem;
+  box-shadow: var(--ct-shadow-card);
+  user-select: none;
+  transition:
+    box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.18s ease,
+    transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* 悬停/按压只跟摘要按钮走：明细区不响应按压，避免「点了没反应却动了一下」。
+   悬停保留白底，只用阴影和描边给深度 —— 和插件卡片同一套语言。 */
+.ct-timeline-windows .card:has(.card-summary:hover) {
+  border-color: var(--ct-border-strong);
+  box-shadow: var(--ct-shadow-card-hover);
+}
+
+/* 进行中卡片的蓝色描边是状态信号，悬停时不能被普通描边盖掉 */
+.ct-timeline-windows .card.is-current:has(.card-summary:hover) {
+  border-color: var(--ct-accent-border);
+}
+
+.ct-timeline-windows .card:has(.card-summary:active) {
+  transform: scale(0.994);
+  transition-duration: 0.09s;
+}
+
+/* 摘要按钮自己吃下卡片内边距，「点卡片任何地方都能展开」才成立；
+   同时把 UA 可能给按钮的 gap / 最小高度 / 最大宽度一次性钉死
+   （Chromium 给 appearance:none 的按钮排成 inline-flex 并带 gap，
+   不清掉的话子行之间会凭空多出间距）。 */
+.ct-timeline-windows .card-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  min-block-size: 0;
+  max-inline-size: none;
+  margin: 0;
+  padding: 1rem 1.125rem 1.0625rem;
+  border: 0;
+  border-radius: 1.125rem;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 系统蓝描边 + 外扩，比 10% 透明度的 box-shadow 环更容易看见（高对比度模式也保留） */
+.ct-timeline-windows .card-summary:focus-visible {
+  outline: 0.125rem solid var(--ct-accent);
+  outline-offset: 0.125rem;
+  border-radius: 1.125rem;
+}
+
+/* 进行中：一层极淡的蓝色由顶部渗下来，配合脉冲圆点表示「还在长」 */
+.ct-timeline-windows .card.is-current {
+  border-color: var(--ct-accent-border);
+  background-image: linear-gradient(180deg, var(--ct-accent-softer), transparent 70%);
+}
+
+.ct-timeline-windows .card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 状态胶囊：颜色语义（蓝=活跃、绿=休息、灰=无记录）在胶囊里，胶囊本身就是图例 */
+.ct-timeline-windows .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.1875rem 0.5rem 0.1875rem 0.4375rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.ct-timeline-windows .badge-active,
+.ct-timeline-windows .badge-current {
+  background: var(--ct-accent-soft);
+  color: var(--ct-accent-hover);
+}
+
+.ct-timeline-windows .badge-rest {
+  background: var(--ct-success-soft);
+  color: var(--ct-success-strong);
+}
+
+.ct-timeline-windows .badge-null {
+  background: var(--ct-surface-2);
+  color: var(--ct-text-muted);
+}
+
+/* 暗色下把胶囊文字提亮一级：11px 的字压在 accent-soft 上容易糊 */
+[data-theme='dark'] .ct-timeline-windows .badge-active,
+[data-theme='dark'] .ct-timeline-windows .badge-current {
+  color: var(--ct-accent-strong);
+}
+
+.ct-timeline-windows .badge-dot {
+  position: relative;
+  flex-shrink: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+}
+
+.ct-timeline-windows .badge-dot.is-pulse {
+  animation: ct-dot-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes ct-dot-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+.ct-timeline-windows .card-chevron {
+  flex-shrink: 0;
+  /* chevron 是「可展开」的唯一视觉线索，不要再拿半透明压暗它 */
+  color: var(--ct-text-muted);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ct-timeline-windows .card-summary:hover .card-chevron {
+  color: var(--ct-text);
+}
+
+.ct-timeline-windows .card.is-open .card-chevron {
+  transform: rotate(180deg);
+}
+
+.ct-timeline-windows .card-time {
+  display: block;
+  font-family: var(--ct-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+  color: var(--ct-text);
+  margin-bottom: 0.5625rem;
+}
+
+.ct-timeline-windows .time-sep {
+  margin: 0 0.375rem;
+  font-weight: 500;
+  color: var(--ct-text-subtle);
+}
+
+/* 24 小时位置条已移除：没有刻度时它读起来像一根装饰线，不如让卡片安静下来 */
+
+.ct-timeline-windows .card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ct-timeline-windows .card-duration {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ct-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-timeline-windows .card-nested-active {
+  font-size: 0.6875rem;
+  color: var(--ct-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 展开详情 ---------- */
+.ct-timeline-windows .detail-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.22s ease;
+}
+
+.ct-timeline-windows .detail-wrap.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ct-timeline-windows .detail {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 分隔线和留白放在被裁剪的内层，收起时不会漏出一条线；
+   左右 1rem 让分隔线和明细跟摘要区左对齐。 */
+.ct-timeline-windows .detail-body {
+  margin: 0 1rem;
+  padding: 0.75rem 0 0.9375rem;
+  border-top: 0.0625rem solid var(--ct-border);
+}
+
+.ct-timeline-windows .minute-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ct-timeline-windows .minute-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.ct-timeline-windows .minute-row-bar {
+  display: flex;
+  height: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  gap: 0.0625rem;
+  border-radius: 0.125rem;
+  overflow: visible;
+}
+
+.ct-timeline-windows .m-seg {
+  height: 100%;
+  min-width: 0.0625rem;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.ct-timeline-windows .m-seg:hover {
+  filter: brightness(1.15);
+  transform: translateY(-0.0625rem);
+  z-index: 2;
+}
+
+.ct-timeline-windows .m-cells {
+  display: flex;
+  gap: 0.0625rem;
+  height: 100%;
+  min-width: 0;
+}
+
+.ct-timeline-windows .m-cell {
+  flex: 1;
+  min-width: 0.0625rem;
+  height: 100%;
+  border-radius: 0.0625rem;
+  position: relative;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.ct-timeline-windows .m-cell:hover {
+  filter: brightness(1.15);
+  transform: translateY(-0.0625rem);
+  z-index: 2;
+}
+
+.ct-timeline-windows .m-cell-active {
+  background: var(--ct-accent);
+}
+
+.ct-timeline-windows .m-cell-rest {
+  background: var(--ct-success);
+}
+
+.ct-timeline-windows .m-cell-null {
+  background: var(--ct-border);
+}
+
+.ct-timeline-windows .m-seg-active {
+  background: var(--ct-accent);
+}
+
+.ct-timeline-windows .m-seg-rest {
+  background: var(--ct-success);
+}
+
+.ct-timeline-windows .m-seg-null {
+  background: var(--ct-border);
+}
+
+.ct-timeline-windows .m-placeholder {
+  height: 100%;
+  border-radius: 0.0625rem;
+  min-width: 0.0625rem;
+}
+
+.ct-timeline-windows .minute-row-time {
+  font-size: 0.6875rem;
+  color: var(--ct-text-muted);
+  font-family: var(--ct-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 悬浮提示挂到 body（fixed），不参与卡片内部裁剪 —— 保证永远显示在色块上方。 */
+.ct-seg-tip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  padding: 0.1875rem 0.625rem;
+  background: rgba(28, 28, 30, 0.84);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: var(--ct-on-accent);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0.25rem 0.875rem rgba(0, 0, 0, 0.3);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .ct-seg-tip {
+    background: #18181b;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* 减弱动效：保留状态变化，去掉位移和循环动画 */
+@media (prefers-reduced-motion: reduce) {
+  /* 基础 .card 规则单独写：老 WebView2 不认 :has() 时，不会因为选择器列表里有 :has 而整条失效 */
+  .ct-timeline-windows .card {
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  .ct-timeline-windows .card:has(.card-summary:active) {
+    transform: none;
+  }
+
+  .ct-timeline-windows .card-chevron {
+    transition: none;
+  }
+
+  .ct-timeline-windows .detail-wrap {
+    transition: opacity 0.18s ease;
+  }
+
+  .ct-timeline-windows .badge-dot.is-pulse {
+    animation: none;
+  }
+
+  .ct-timeline-windows .m-seg,
+  .ct-timeline-windows .m-cell {
+    transition: filter 0.12s ease;
+  }
+
+  .ct-timeline-windows .m-seg:hover,
+  .ct-timeline-windows .m-cell:hover {
+    transform: none;
+  }
+}

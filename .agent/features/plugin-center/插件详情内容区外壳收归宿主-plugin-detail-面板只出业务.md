@@ -1,66 +1,26 @@
-# 插件详情内容区外壳收归宿主
+# 插件详情内容区边界
 
-## 结论
-
-- **边距 / 最大宽度 / section 间距**只由 `Plugins.vue` 的 `.plugin-detail` 提供。
-- **内置面板**（`RestPluginPanel` / `AgentPluginPanel`）与 **外部 `settings.mjs`** 只写业务 UI。
-- **不要**再引入 `PluginPanelShell` 或在面板里重复 `max-width: 64rem` + `padding: 1.5rem 2rem`。
-- **Section 卡片**仍可用 `PluginSection.vue`（标题 + 描述 + 白底卡片）。
+[PluginCenter.tsx](../../../src/app/pages/plugins/PluginCenter.tsx) 统一拥有整页详情外壳；内置 React 设置和外部 Vue 设置只提供业务内容。页面交互以[插件中心](README.md)为真源。
 
 ## 挂载结构
 
 ```text
-plugin-main                     # relative；缺 Node 时整页 node-runtime-gate
-├── PluginPanelHeader           # 固定顶栏：图标/标题/总开关
-└── n-scrollbar.plugin-scroll   # 详情区纵向滚动
-    └── plugin-detail-wrapper   # relative，供禁用 overlay
-        ├── plugin-detail-content  # 灰显目标
-        │   └── .plugin-detail     # 唯一内容外壳
-        │       └── ActiveDetail / 外部占位
-        └── disabled-overlay
+PageScroll.ct-plugin-scroll
+└── .ct-plugins-page
+    └── .ct-plugin-detail
+        ├── .ct-plugin-detail-nav       # 吸顶返回条
+        ├── .ct-plugin-detail-header    # 图标、名称、版本、总开关 / 安装
+        └── .ct-plugin-detail-body
+            ├── RestSettings           # 内置久坐提醒
+            └── ExternalPluginSettings # 已启用的外部插件 → VueIsland
 ```
 
-## 宿主 `.plugin-detail` 职责
+## 宿主与面板分工
 
-```css
-display: flex;
-flex-direction: column;
-gap: 1.25rem;
-max-width: 64rem;
-box-sizing: border-box;
-margin: 0 auto;
-padding: 1.5rem 2rem 2rem;
-```
+- 宿主负责页面 padding、内容列最大宽度、标题、总开关和唯一纵向滚动区。
+- 详情内容列 `max-width: 48.5rem`，导航与内容使用相同的左边缘算法；响应式边距只在宿主 [plugins.css](../../../src/app/pages/plugins.css) 调整。
+- 面板根节点吃满内容列，只写业务卡片、规则列表和控件内部的间距，不再叠加根 padding / max-width / 水平居中。
+- 总开关只在宿主标题行；外部插件未启用时不挂载设置模块。
+- 外部 Vue 浮层可以 teleport 到 body，样式应自包含，不依赖设置根节点选择器。
 
-窄屏（`max-width: 56.25rem` / 900px）宿主改为 `padding: 1.25rem`。**响应式边距只改宿主这一处。**
-
-内置、无 settings 的外部占位、有 `SettingsComponent` 的外部插件，共用同一路径。
-
-## 面板作者约定
-
-| 该做 | 不该做 |
-|------|--------|
-| 业务控件、规则列表、`PluginSection` | 再包一层 layout shell |
-| 依赖宿主 padding | 自己写 `max-width: 64rem` / 根上大块外 padding |
-| 卡片/列表**内部**间距 | 在 settings 根上再写与宿主同值的 `@media` padding（窄屏双倍缩进） |
-| 暴露 `headerEnabled` / `toggleEnabled` 给顶栏（内置） | 在面板内再画总开关顶栏 |
-
-外部示例：`tools/plugin-demo/timer/settings.mjs` 根节点只保留业务样式，注释标明边距归宿主。开发约定全文见 [[desktop-event-os]] [m10-external-plugins.md](../../architecture/desktop-event-os/m10-external-plugins.md)「settings.mjs 布局合同」。
-
-### 反例（已修）
-
-timer 曾在 `settings.mjs` 留下：
-
-```css
-@media (max-width: 56.25rem) {
-  .timer-settings { padding: 1.25rem; }
-}
-```
-
-宽屏几乎看不出，窄屏 = 宿主 `1.25rem` + 插件 `1.25rem`，外部插件比内置多一圈内缩。根因不是「外部走了另一条宿主路径」，而是插件 CSS 残留。
-
-## 历史
-
-曾抽 `PluginPanelShell.vue` 给 Rest/Agent 共用外壳，与宿主占位、外部 settings 三处重复。已删除；见旧笔记 [unify-plugin-panel-shell-and-section-for-agent-rest-panels.md](unify-plugin-panel-shell-and-section-for-agent-rest-panels.md)（仅作历史）。
-
-相关：[[app-shell]] 高度铺满与双层滚动约定。
+设置行与控件尺寸见[行语言与控件规范](插件详情页设置面板的行语言与控件尺寸规范.md)，外部模块合同见[外部插件加载](../../architecture/desktop-event-os/m10-external-plugins.md)。

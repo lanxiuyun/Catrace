@@ -4,13 +4,15 @@ window_manager 是 Tauri 插件形式的窗口管理模块，核心能力：**�
 
 ## 特性列表
 
+置顶样式按需恢复，不在每次 show 时推高 Z 序。首次可见与锁屏自愈见[TOPMOST 约定](../toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md)。
+
 ###  Windows 无焦点弹出
 
 - 利用 `WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE` 实现不夺焦弹出
 - 同时保持窗口置顶（`always_on_top(true)` 提供 `WS_EX_TOPMOST`）
 - 不会推高 Z 序，全屏独占模式游戏不受影响
 
-见 [Z 序约束](../architecture/window-manager/README.md#z-序约束重要)。
+见 [Z 序约束](../../architecture/window-manager/README.md#z-序约束重要)。
 
 ### 无焦点模式恢复（Popup 输入框 / Toast 复制）
 
@@ -21,73 +23,27 @@ window_manager 是 Tauri 插件形式的窗口管理模块，核心能力：**�
 3. 输入框 / Toast WebView 获得焦点
 4. 关闭窗口后，下次弹出重新应用 `WS_EX_NOACTIVATE`
 
-详见 [`set_window_active_mode_internal` 实现](../architecture/window-manager/README.md#无焦点模式恢复-popup-输入框)。
-
-### Z 序约束演变
-
-1. **初版**：`apply_no_activate_style` 和 `show_no_activate` 的 `SetWindowPos` 带了 `SWP_NOZORDER`，此时 `HWND_TOPMOST` 被忽略 → 不置顶（bug），但也不推高 Z 序
-2. **commit `3c9d0b3`**：去掉 `SWP_NOZORDER` 修复置顶 bug → `HWND_TOPMOST` 真正生效 → **每次 Toast 弹出把窗口推到 topmost 最顶层 → Windows 将全屏独占模式游戏切出全屏**
-3. **2026-07-14 后**：窗口已有 `always_on_top(true)` 的 `WS_EX_TOPMOST`，不需要额外推高。`apply_no_activate_style` 和 `restore_normal_style` 都带 `SWP_NOZORDER` 只改样式，`show_no_activate` 去掉每次 `SetWindowPos(HWND_TOPMOST)`。
-4. **2026-09-19**：锁屏/解锁会清掉复用 HWND 上的 `WS_EX_TOPMOST`。show / ensure 时**仅在该位缺失**才 `HWND_TOPMOST` + `SWP_NOACTIVATE`。见 [锁屏解锁后 TOPMOST 丢失](../toast-window/锁屏解锁后TOPMOST丢失需在show时按需自愈.md)。
+详见 [`set_window_active_mode_internal` 实现](../../architecture/window-manager/README.md#插件注册)。
 
 ### 隐藏复用
 
-- Toast/Popup 关闭时隐藏（`hide_window_internal`）而非销毁（`close()`）
+- 普通 Toast/Popup 关闭时隐藏复用；轻量模式在卡片清空后按生命周期销毁 Toast
 - 下次弹出直接显示，避免窗口重建带来的焦点抖动
 - Fullscreen 仍走 `close()` 销毁
 
 ### macOS / Linux 回退
 
-macOS/Linux 不实现无焦点逻辑，回退到 `shared_show_window`。详见 [跨平台 dispatch](../architecture/window-manager/README.md#跨平台-dispatch)。
-
-## 完整流程
-
-### Toast 弹出
-
-```
-show_notification (lib.rs)
-  → create_toast_window (reminder_toast.rs)
-    → window_manager::show_reminder_no_activate
-      → show_window_internal(no_activate: true)
-        → is_reminder_window → true
-        → show_no_activate (windows.rs)
-          → apply_no_activate_style: WS_EX_NOACTIVATE + SWP_NOZORDER
-          → ShowWindow(SW_SHOWNOACTIVATE)
-```
-
-### Toast 关闭
-
-```
-close_reminder_window (lib.rs)
-  → hide_window_internal
-    → shared_hide_window (window.hide())
-    → ShowWindow(SW_HIDE)
-    → 窗口保持 WS_EX_NOACTIVATE，下次直接 show_reminder_no_activate
-```
-
-### Popup 输入框恢复聚焦 / Toast 点击复制
-
-```
-用户点击 Popup「自定义」或 Toast 卡片正文
-  → ReminderPopup.vue / ReminderToast.vue: setWindowActiveMode(label, true)
-    → invoke('set_window_active_mode', ...)
-      → set_window_active_mode_internal(active: true)
-        → restore_normal_style: 去掉 WS_EX_NOACTIVATE + SWP_NOZORDER
-        → AttachThreadInput + SetForegroundWindow + SetActiveWindow + SetFocus
-  → 输入框 / Toast WebView 获得焦点
-```
-
-关闭后下次 `show_reminder_no_activate` 重新应用 `WS_EX_NOACTIVATE`。
+macOS/Linux 不实现无焦点逻辑，回退到 `shared_show_window`。详见 [跨平台 dispatch](../../architecture/window-manager/README.md#跨平台-dispatch)。
 
 ## 前端 API
 
 封装在 `src/api/tauri.ts`。`setWindowActiveMode` 现在是 app command，不再带插件前缀：
 
 ```ts
-invoke('set_window_active_mode', { label, active: true })
+invoke('set_window_active_mode', { active: true })
 ```
 
-> 历史版本曾用 `plugin:catrace-window|set_window_active_mode`，因 inline plugin 未配置 capability 权限导致前端调用被拒，已改为 app command。详见 [踩坑记录](#inline-plugin-命令必须配置-capability-权限)。
+命令操作调用方当前窗口，Rust 由 Tauri 注入 WebviewWindow，不依赖前端传入 label。
 
 ## 怎么给新窗口加上无焦点
 
@@ -102,18 +58,7 @@ invoke('set_window_active_mode', { label, active: true })
 
 `SetWindowPos` 传 `HWND_TOPMOST` 时不能同时带 `SWP_NOZORDER`，否则 Win32 会忽略层级参数，窗口不会置顶。但去掉 `SWP_NOZORDER` 又会在每次 Toast 弹出时推高 Z 序 → 全屏游戏被切出。最终方案：窗口已有 `always_on_top(true)` 的 `WS_EX_TOPMOST`，不再调用 `SetWindowPos(HWND_TOPMOST)`。
 
-详见上文的 [Z 序约束演变](#z-序约束演变)。
-
-### 插件命令必须带前缀
-
-Tauri 插件注册的命令，前端必须带 `plugin:catrace-window|` 前缀调用：
-
-```ts
-// ❌ 找不到命令
-invoke('set_window_active_mode', ...)
-// ✅ 正确
-invoke('plugin:catrace-window|set_window_active_mode', ...)
-```
+详见[窗口模块 Z 序约束](../../architecture/window-manager/README.md#z-序约束重要)。
 
 ### `generate_handler!` 宏作用域限制
 
@@ -136,7 +81,7 @@ let _ = window.hide(); // 防御：二次隐藏
 
 ### `cast_to_wry` 裸指针转换
 
-内部函数需要把泛型 `WebviewWindow<R>` 转为 `WebviewWindow<Wry>`（Win32 API 需要具体类型）。通过裸指针转换，详见 [architecture](../architecture/window-manager/README.md#cast_to_wry-类型擦除)。
+内部函数需要把泛型 `WebviewWindow<R>` 转为 `WebviewWindow<Wry>`（Win32 API 需要具体类型）。通过裸指针转换，详见 [architecture](../../architecture/window-manager/README.md#cast_to_wry-类型擦除)。
 
 ## 相关文件
 

@@ -13,7 +13,7 @@
 - `src-tauri/src/window_manager/` — 无焦点显示（Windows `WS_EX_NOACTIVATE`）、`set_window_active_mode`
 - `src-tauri/src/bus.rs` / `event.rs` — 事件协议与分发
 - `src/views/toastWindows/ReminderToast.vue` — listen bus + 栈生命周期；卡片内容下沉专用组件；尺寸上报 + 点击抢焦点
-- `src/views/toastWindows/ToastShell.vue` — Toast 路由外壳，强制透明背景
+- [ToastShell.tsx](../../../src/app/shell/ToastShell.tsx) — Toast 路由外壳，强制透明背景
 - `src/api/tauri.ts` — `setToastContentSize`、`setWindowActiveMode` 等 invoke 封装
 - `src/components/AgentToastCard.vue` — agent 通知专用卡片（详见 [[agent-notification]]）
 - `src/components/PluginHostCard.vue` / `pluginHostCardCache.ts` — 外部插件卡挂载与进程级缓存；热更靠 generation
@@ -25,13 +25,13 @@
 ## 窗口特性
 
 - 透明无边框 WebviewWindow，复用而非销毁
-- **右下角原生小窗（2026-08-27）**：不再铺满 work_area、不再点击穿透。窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
+- **右下角原生小窗**：窗宽固定约 392 CSS px（卡片 360 + 阴影出血），高度随卡片内容 resize，clamp 到光标所在屏 `work_area` 高度；超出内部滚动。详见 [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md)
 - Windows 不抢夺焦点（`WS_EX_NOACTIVATE` + `SW_SHOWNOACTIVATE`）
 - **Toast 必须排除在窗口状态插件之外（2026-10-21）**：`lib.rs` 注册 `tauri-plugin-window-state` 时用 `with_denylist` 排除 `TOAST_WINDOW_LABEL`。该插件默认在窗口 ready 时恢复可见性并调用 `show()` + `set_focus()`，即使 builder 已设置 `focused(false)` / `visible(false)` 也会抢焦点；轻量模式每次重建都会再次触发。Toast 的尺寸、位置和显示由 `reminder_toast.rs` / `window_manager` 管理，不应恢复历史状态。现有前台巡检仅为兜底，不能替代此排除规则。
 - Toast 默认无焦点；交互前需要从 `WS_EX_NOACTIVATE` 切换到可激活模式，**但分两步**（2026-09-30）：`pointerover` 只调 `prepareWindowActivation`（仅清 NOACTIVATE，不抢前台），`pointerdown` 才调 `setWindowActiveMode(true)`（接管焦点）。此前 hover 直接全套激活，弹窗后鼠标一划过就抢走正在输入应用的键盘焦点；只清样式不抢前台同样能让首次点击原生激活，绕开 NOACTIVATE 首击焦点时序问题
 - **重建后的前台巡检兜底（2026-09-30，2026-10-21 修正归因）**：重建前 `current_foreground()` 记下前台，show 后 ~0.15–4s 分六拍 `restore_foreground_if_taken(toast_hwnd, prev_fg)`，仅当前台仍是 Toast 本尊且用户没点卡接管（`TOAST_FOCUS_TAKEN_DELIBERATELY`）时归还。此前把创建期间的抢焦点归因于 WebView2 初始化，但窗口状态插件存在明确的 `set_focus()` 调用，必须先排除该路径；延迟归还仍可能丢失键击，不能视为不抢焦点的保证。
 - macOS Toast/Popup：`orderFrontRegardless` 显示、`orderOut` 隐藏，**不要** `set_focus` / `makeKeyAndOrderFront`。关最后一张卡时 AppKit 否则会把同进程主窗拉到前台（Claude Code 点 X 弹出 Catrace）
-- Z 序约束见 [window-manager 架构](../architecture/window-manager/README.md#z-序约束重要)
+- Z 序约束见 [window-manager 架构](../../architecture/window-manager/README.md#z-序约束重要)
 
 ## 卡片行为
 
@@ -39,7 +39,7 @@
 - 普通卡片 8 秒自动消失，hover 暂停，离开恢复
 - **Bus `dedupe_key`**：非空时 registry 内同 key active 会 `superseded`；FE 可原地刷新。真实 rest 用 `reminder.rest.due:{boundary}`；测试 `boundary=0` 默认不设 key
 - **久坐「发送测试」**：后端+按钮 **1s 限流**（防连点卡死，权宜）。无限制堆叠抗崩见子文档
-- 无 dedupe 的 kind 仍入栈，**当前没有数量上限**（代码里已无 `MAX_NOTIFICATIONS`，超出丢最旧的说法已过期）
+- 无 dedupe 的 kind 仍入栈，**当前没有数量上限**
 - `adjustWindowSize` 必须 single-flight，禁止每次 add 并发 `setSize`/`setPosition`
 - 内容超出窗高（`work_area` clamp）时 `.toast-stack` 内部滚动；栈内已贴底时新卡跟随滚到底，用户翻旧卡时不被拽走。**滚动依赖 `.toast-root` 是 `height: 100vh` 定高**（父高 auto 时栈的 `max-height: 100%` 会落到 `none`，见 [2026-09-29 bug](../../bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md)）
 
@@ -82,7 +82,7 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 
 ## 外部插件卡热更新（开发期）
 
-- 改磁盘 `ui.mjs` 后：插件页**刷新**或**测试** → emit `catrace:reload-external-plugins`。
+- 模块生命周期事件更新各窗口注册表；显式 `catrace:reload-external-plugins` 会按下述顺序强制重载。当前插件中心刷新仅重读目录，不发送该强制重载事件。
 - Toast：force `loadExternalPlugins` → 更新 live `uiUrl` → `clearPluginHostCardCache()`（generation++）→ 已挂载卡 remount。
 - 细节：[外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md)
 
@@ -97,10 +97,9 @@ Debug 页开启 `toast_debug_mode` → Toast 窗口背景变半透明黄色，�
 - 点击唤醒与 NOACTIVATE 输入焦点时序：[Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md](Toast首次点击唤醒NOACTIVATE窗口后输入控件需要重新获得焦点.md)
 
 ## 子文档
-- [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 2026-08-27 从全屏覆盖层改回右下角原生小窗的实现细节
+- [toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md](toast小窗化实现-右下角定位-内容尺寸上报-与去穿透.md) — 右下角原生小窗的定位与内容测量
 - [外部插件toast卡热更新-generation缓存与reload顺序.md](外部插件toast卡热更新-generation缓存与reload顺序.md) — 开发期 ui.mjs 热更：generation 缓存与 reload 顺序
 - [连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md](连点测试与-bus-dedupe-限流策略-以及无限制堆叠待做.md) — 测试限流、dedupe、ensure/resize 加固与无限制堆叠待做
 - [dedicated-card-renders-own-body-generic-template-must-exclude-it.md](dedicated-card-renders-own-body-generic-template-must-exclude-it.md) — 专用卡片自渲染正文时，外层通用模板要显式排除，否则正文会渲染两遍
 - [toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md](toast-卡片紧凑尺寸规范-和阴影防裁剪出血方案.md) — 卡片/字体/留白尺寸规范（对标 Win11 原生 toast），以及透明窗口里阴影被 overflow 裁剪的根治方案
 - [rest-timer-收敛到-event-bus-的-upsert-路径.md](rest-timer-收敛到-event-bus-的-upsert-路径.md) — rest-timer 经 Bus upsert，去掉 catrace-rest-timer 专用通道
-- [full-screen-click-through-overlay-windows-implementation.md](full-screen-click-through-overlay-windows-implementation.md) — **已废弃（2026-08-27）**：全屏覆盖 + 点击穿透实现笔记；现改为右下角原生小窗

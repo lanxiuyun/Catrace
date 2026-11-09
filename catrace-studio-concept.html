@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Catrace · 安静一点，专注一点</title>
+  <style>
+    :root {
+      --bg: #f5f7f7; --surface: #ffffff; --sidebar: #edf1f0; --text: #243d39;
+      --muted: #6c7c78; --line: #e1e8e5; --accent: #287768; --accent-hover: #1f6255;
+      --soft: #e5efea; --hero: #e5eeea; --hero-ink: #244e43; --rest: #b5cdbf;
+      --future: #e9eeec; --warning: #966a24; --warning-soft: #f8f0df;
+      --shadow: 0 .3rem 1.5rem #203d3305; --veil: #19352e55;
+      --body: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      --number: "Bahnschrift", "Aptos", "DIN Alternate", sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #182321; --surface: #202d29; --sidebar: #1c2824; --text: #e2eae5;
+        --muted: #a2b3aa; --line: #34453d; --accent: #88c9b0; --accent-hover: #abe0c9;
+        --soft: #2b4237; --hero: #2c4338; --hero-ink: #d4eadb; --rest: #587866;
+        --future: #2a3932; --warning: #e1bc7e; --warning-soft: #403a2a;
+        --shadow: 0 .3rem 1.5rem #0000000a; --veil: #050d0ab0;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #182321; --surface: #202d29; --sidebar: #1c2824; --text: #e2eae5;
+      --muted: #a2b3aa; --line: #34453d; --accent: #88c9b0; --accent-hover: #abe0c9;
+      --soft: #2b4237; --hero: #2c4338; --hero-ink: #d4eadb; --rest: #587866;
+      --future: #2a3932; --warning: #e1bc7e; --warning-soft: #403a2a;
+      --shadow: 0 .3rem 1.5rem #0000000a; --veil: #050d0ab0;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: .875rem/1.65 var(--body); -webkit-font-smoothing: antialiased; }
+    button, input, select, textarea { font: inherit; }
+    button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+    button, select { cursor: pointer; }
+    button { color: inherit; }
+    a { color: var(--accent); text-decoration: none; }
+    button { border: 0; background: none; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    :focus-visible { outline: .1875rem solid var(--accent); outline-offset: .25rem; }
+    h1, h2, h3, p { margin: 0; }
+    h1, h2, h3 { text-wrap: balance; }
+    h1 { font-size: 1.8rem; font-weight: 650; letter-spacing: -.06rem; line-height: 1.4; }
+    h2 { font-size: 1rem; font-weight: 650; }
+    h3 { font-size: .875rem; font-weight: 600; }
+    .icon { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .num { font-family: var(--number); font-variant-numeric: tabular-nums; }
+    .muted, .hint { color: var(--muted); }
+    .hint { font-size: .75rem; }
+    .row { display: flex; align-items: center; gap: .65rem; }
+    .between { justify-content: space-between; }
+    .stack { display: grid; gap: 1.5rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem; padding: .55rem 1rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--surface); font-size: .8125rem; font-weight: 550; transition: background .15s, border-color .15s; white-space: nowrap; }
+    .btn:hover { border-color: var(--rest); background: var(--soft); }
+    .btn.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+    .btn.primary:hover { background: var(--accent-hover); }
+    .icon-btn { width: 2.5rem; height: 2.5rem; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: .6rem; background: var(--surface); }
+    .icon-btn:hover { background: var(--soft); }
+    .text-btn { display: inline-flex; align-items: center; gap: .35rem; color: var(--accent); padding: .35rem 0; font-size: .8rem; }
+    .text-btn:hover { text-decoration: underline; text-underline-offset: .25rem; }
+    .tag { display: inline-flex; align-items: center; gap: .4rem; padding: .2rem .55rem; border-radius: .35rem; font-size: .6875rem; font-weight: 500; white-space: nowrap; color: var(--accent); background: var(--soft); }
+    .dot { width: .375rem; height: .375rem; flex: none; border-radius: 50%; background: var(--accent); }
+    .app { display: grid; grid-template-columns: 13rem minmax(0, 1fr); min-height: 100dvh; }
+    .sidebar { position: sticky; top: 0; height: 100dvh; background: var(--sidebar); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 2.1rem 1rem 1.1rem; }
+    .brand { display: flex; align-items: center; gap: .7rem; padding: 0 .6rem; }
+    .brand-mark { width: 2.25rem; height: 2.25rem; border-radius: .8rem; background: var(--accent); color: var(--surface); display: grid; place-items: center; }
+    .brand-mark .icon { width: 1.5rem; height: 1.5rem; stroke-width: 1.5; }
+    .wordmark { font: 600 1.5rem/1.2 var(--number); letter-spacing: -.06rem; }
+    .brand-sub { font-size: .62rem; color: var(--muted); letter-spacing: .12rem; margin-top: .2rem; }
+    .nav-label { padding: 0 .8rem; font-size: .625rem; letter-spacing: .13rem; color: var(--muted); margin-top: 3rem; }
+    .nav { display: grid; gap: .45rem; margin-top: .8rem; }
+    .nav-item { min-height: 2.9rem; padding: .7rem .85rem; display: flex; align-items: center; gap: .8rem; text-align: left; border-radius: .6rem; color: var(--muted); }
+    .nav-item:hover { background: var(--surface); color: var(--text); }
+    .nav-item[aria-current="page"] { background: var(--surface); color: var(--accent); box-shadow: 0 .15rem .5rem #19352e04; font-weight: 600; }
+    .nav-item[aria-current="page"]::after { content: ""; height: .35rem; width: .35rem; background: var(--accent); border-radius: 50%; margin-left: auto; }
+    .nav-count { font: .75rem var(--number); margin-left: auto; }
+    .sidebar-bottom { margin-top: auto; display: grid; gap: 1.25rem; }
+    .privacy-note { display: flex; gap: .55rem; align-items: center; border-top: 1px solid var(--line); padding: 1.2rem .65rem 0; }
+    .privacy-note .icon { color: var(--accent); width: 1rem; }
+    .privacy-note p { font-size: .7rem; }
+    .privacy-note small { color: var(--muted); font-size: .625rem; }
+    .version { display: flex; align-items: center; justify-content: space-between; padding: 0 .65rem; font-size: .625rem; color: var(--muted); }
+    .workspace { min-width: 0; }
+    .topbar { height: 4.9rem; display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: 0 2.75rem; border-bottom: 1px solid var(--line); }
+    .breadcrumb { display: flex; align-items: center; gap: .75rem; font-size: .75rem; color: var(--muted); }
+    .breadcrumb span:last-child { color: var(--text); }
+    .top-actions { display: flex; align-items: center; gap: 1rem; }
+    .demo-label { font-size: .6875rem; color: var(--muted); display: flex; align-items: center; gap: .4rem; }
+    .demo-label::before { content: ""; width: .3rem; height: .3rem; background: var(--muted); border-radius: 50%; }
+    main { max-width: 82rem; margin: 0 auto; padding: 2.2rem 2.75rem 1.75rem; }
+    .page-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.8rem; }
+    .page-head p { color: var(--muted); margin-top: .4rem; font-size: .8rem; }
+    .date-chip { display: flex; align-items: center; gap: .6rem; color: var(--muted); font-size: .75rem; white-space: nowrap; }
+    .date-chip .icon { width: 1rem; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: .9rem; box-shadow: var(--shadow); }
+    .hero-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.25rem; }
+    .session { background: var(--hero); color: var(--hero-ink); border: 1px solid var(--rest); border-radius: .9rem; padding: 1.6rem 1.75rem; position: relative; overflow: hidden; }
+    .session::after { content: ""; position: absolute; width: 17rem; height: 17rem; border: 1px solid var(--rest); border-radius: 50%; right: -10rem; top: -12rem; pointer-events: none; }
+    .session .tag { background: var(--surface); color: var(--accent); }
+    .session-body { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem 0 1.2rem; }
+    .session h2 { font-size: 1.4rem; line-height: 1.6; font-weight: 600; letter-spacing: -.04rem; }
+    .session p { font-size: .75rem; margin-top: .5rem; opacity: .8; }
+    .ring { width: 7.75rem; height: 7.75rem; border-radius: 50%; background: conic-gradient(from 0deg, var(--accent) var(--progress, 62.2%), var(--rest) 0); padding: .375rem; flex: none; }
+    .ring-inner { width: 100%; height: 100%; border-radius: 50%; background: var(--hero); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring strong { font: 3rem/1.15 var(--number); letter-spacing: -.12rem; }
+    .ring span { font-size: .625rem; opacity: .8; }
+    .session-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-top: 1px solid var(--rest); padding-top: 1rem; }
+    .session-footer .text-btn { color: var(--hero-ink); font-size: .75rem; }
+    .session-footer .btn { background: transparent; border-color: var(--rest); color: var(--hero-ink); min-height: 2.1rem; font-size: .75rem; padding: .3rem .7rem; }
+    .metrics { padding: 1.4rem 1.6rem; }
+    .section-caption { font-size: .75rem; font-weight: 500; color: var(--muted); }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; margin-top: .8rem; }
+    .metric { padding: .65rem 0; }
+    .metric:nth-child(even) { padding-left: 1.5rem; border-left: 1px solid var(--line); }
+    .metric:nth-child(n+3) { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: .35rem; }
+    .metric-label { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .75rem; }
+    .metric-label .icon { width: .9rem; height: .9rem; }
+    .metric-value { font: 2rem/1.4 var(--number); letter-spacing: -.06rem; margin-top: .35rem; }
+    .metric-value small { font: .6875rem var(--body); margin: 0 .25rem; color: var(--muted); letter-spacing: 0; }
+    .metric:first-child .metric-value { color: var(--accent); }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .section-sub { color: var(--muted); font-size: .7rem; margin-top: .2rem; }
+    .timeline { margin-top: 1.5rem; padding: 1.4rem 1.6rem 1.2rem; }
+    .segmented { display: flex; padding: .2rem; border-radius: .5rem; background: var(--bg); border: 1px solid var(--line); flex: none; }
+    .segmented button { padding: .3rem .8rem; border-radius: .35rem; font-size: .7rem; color: var(--muted); min-height: 1.8rem; }
+    .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 .1rem .35rem #19352e0a; }
+    .day-chart { padding-top: 2.6rem; }
+    .chart-track { position: relative; height: 2.75rem; border-radius: .4rem; background: repeating-linear-gradient(135deg, var(--future) 0, var(--future) .2rem, var(--bg) .2rem, var(--bg) .4rem); }
+    .chart-rest { position: absolute; inset: 0 auto 0 0; width: 68.0556%; background: var(--soft); border-radius: .4rem 0 0 .4rem; }
+    .chart-block { position: absolute; top: .35rem; bottom: .35rem; border-radius: .25rem; background: var(--accent); min-width: .2rem; }
+    .now-marker { position: absolute; top: -.5rem; bottom: -.4rem; left: 68.0556%; border-left: 1px dashed var(--accent); }
+    .now-marker span { position: absolute; bottom: calc(100% + .3rem); left: 0; transform: translateX(-50%); white-space: nowrap; background: var(--surface); color: var(--accent); border: 1px solid var(--line); border-radius: .3rem; font: .6875rem var(--number); padding: .2rem .4rem; }
+    .chart-axis { display: flex; justify-content: space-between; font: .65rem var(--number); color: var(--muted); padding-top: .85rem; }
+    .chart-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+    .legend { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; font-size: .65rem; color: var(--muted); }
+    .legend span { display: flex; align-items: center; gap: .4rem; }
+    .swatch { width: .5rem; height: .5rem; border-radius: .15rem; background: var(--accent); }
+    .swatch.rest { background: var(--rest); }
+    .swatch.future { background: var(--future); border: 1px solid var(--line); }
+    .heatmap { display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); gap: .2rem; padding-top: 1.4rem; }
+    .heatmap span { aspect-ratio: 1 / 1.7; background: var(--soft); border-radius: .125rem; }
+    .heatmap span.active { background: var(--accent); }
+    .heatmap span.future { background: var(--future); }
+    .lower-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.25rem; margin-top: 1.5rem; align-items: start; }
+    .records, .plugin-summary { padding: 1.3rem 1.6rem; }
+    .record-list { margin-top: .8rem; display: grid; }
+    .record { display: grid; grid-template-columns: 1.9rem 1fr auto; align-items: center; gap: .65rem; padding: .9rem 0; border-bottom: 1px solid var(--line); }
+    .record:last-child { border-bottom: 0; padding-bottom: .2rem; }
+    .record-icon { width: 1.8rem; height: 1.8rem; display: grid; place-items: center; color: var(--accent); background: var(--soft); border-radius: 50%; }
+    .record-icon .icon { width: .9rem; height: .9rem; }
+    .record-time { font: .85rem var(--number); }
+    .record-desc { font-size: .65rem; color: var(--muted); margin-top: .25rem; }
+    .record-duration { font-size: .7rem; white-space: nowrap; }
+    .quick-list { display: grid; margin-top: .65rem; }
+    .quick-plugin { display: flex; align-items: center; gap: .7rem; padding: .75rem 0; text-align: left; border-bottom: 1px solid var(--line); width: 100%; }
+    .quick-plugin:last-child { border: 0; }
+    .quick-plugin > .icon { color: var(--muted); width: .9rem; margin-left: auto; }
+    .plugin-icon { display: grid; place-items: center; width: 2.3rem; height: 2.3rem; border-radius: .65rem; background: var(--soft); color: var(--accent); flex: none; }
+    .plugin-icon.blue { color: #587ba1; background: #587ba115; }
+    .plugin-icon.amber { color: var(--warning); background: var(--warning-soft); }
+    .plugin-icon.graphite { color: var(--text); background: var(--bg); }
+    .quick-plugin b { font-size: .75rem; font-weight: 550; }
+    .quick-plugin p { color: var(--muted); font-size: .65rem; margin-top: .15rem; }
+    .page-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding-top: 1.4rem; color: var(--muted); font-size: .625rem; }
+    .page-footer .icon { width: .8rem; height: .8rem; }
+    .page { animation: appear .3s ease-out both; }
+    @keyframes appear { from { opacity: 0; transform: translateY(.3rem); } to { opacity: 1; transform: none; } }
+    .plugin-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .plugin-rail { display: grid; gap: 1rem; }
+    .search { display: flex; align-items: center; gap: .55rem; padding: .6rem .7rem; border: 1px solid var(--line); background: var(--surface); border-radius: .6rem; color: var(--muted); }
+    .search .icon { width: 1rem; }
+    .search input { border: 0; background: transparent; color: var(--text); width: 100%; min-width: 0; outline-offset: .4rem; font-size: .75rem; }
+    .plugin-filters { display: flex; gap: 1.1rem; }
+    .plugin-filters button { font-size: .7rem; padding: 0 0 .4rem; color: var(--muted); border-bottom: 2px solid transparent; }
+    .plugin-filters button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+    .plugin-list { display: grid; gap: .35rem; }
+    .plugin-item { display: flex; align-items: center; gap: .65rem; padding: .75rem .6rem; width: 100%; text-align: left; border: 1px solid transparent; border-radius: .6rem; min-width: 0; }
+    .plugin-item:hover { background: var(--surface); }
+    .plugin-item[aria-pressed="true"] { background: var(--surface); border-color: var(--rest); }
+    .plugin-copy { min-width: 0; flex: 1; }
+    .plugin-copy b { display: block; font-size: .75rem; font-weight: 550; }
+    .plugin-copy p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .625rem; color: var(--muted); margin-top: .2rem; }
+    .plugin-item .dot { margin-left: auto; }
+    .plugin-item .dot.off { background: var(--muted); opacity: .45; }
+    .detail { padding: 1.6rem 1.75rem; }
+    .detail-header { display: flex; align-items: center; gap: .85rem; border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
+    .detail-header .plugin-icon { width: 3rem; height: 3rem; border-radius: .8rem; }
+    .detail-header h2 { font-size: 1.2rem; }
+    .detail-header p { font-size: .7rem; color: var(--muted); margin-top: .3rem; }
+    .detail-header .switch-wrap { margin-left: auto; }
+    .switch-wrap { display: inline-flex; align-items: center; gap: .6rem; color: var(--muted); font-size: .7rem; white-space: nowrap; }
+    .switch { display: inline-block; position: relative; width: 2.25rem; height: 1.3rem; flex: none; cursor: pointer; }
+    .switch input { position: absolute; inset: 0; margin: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+    .switch i { position: absolute; inset: 0; border-radius: 2rem; background: var(--line); pointer-events: none; transition: background .15s; }
+    .switch i::after { content: ""; position: absolute; width: .95rem; height: .95rem; border-radius: 50%; top: .175rem; left: .175rem; background: var(--surface); box-shadow: 0 .1rem .25rem #0002; transition: transform .15s; }
+    .switch input:checked + i { background: var(--accent); }
+    .switch input:checked + i::after { transform: translateX(.95rem); }
+    .switch input:focus-visible + i { outline: .1875rem solid var(--accent); outline-offset: .25rem; }
+    fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+    fieldset:disabled { opacity: .5; }
+    .form-section { padding: 1.45rem 0; border-bottom: 1px solid var(--line); display: grid; gap: 1.25rem; }
+    .form-section:last-of-type { border-bottom: 0; }
+    .form-section h3 { font-size: .75rem; color: var(--muted); font-weight: 500; }
+    .form-row { display: flex; justify-content: space-between; align-items: center; gap: 1.75rem; }
+    .form-row .field-copy { flex: 1; }
+    .field-copy b, .field-label { display: block; font-size: .8rem; font-weight: 550; }
+    .field-copy p { font-size: .7rem; color: var(--muted); margin-top: .25rem; max-width: 35rem; }
+    .range-control { width: 48%; display: flex; align-items: center; gap: .8rem; flex: none; }
+    input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); height: 1.5rem; }
+    output { min-width: 4.25rem; background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; padding: .3rem .5rem; font: .875rem var(--number); white-space: nowrap; text-align: center; }
+    output small { font: .625rem var(--body); }
+    select, .field { min-height: 2.5rem; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: .5rem; padding: .55rem .7rem; font-size: .75rem; }
+    select { max-width: 100%; }
+    .field { width: 100%; }
+    textarea.field { resize: vertical; min-height: 5rem; line-height: 1.8; }
+    .input-group { display: grid; gap: .5rem; }
+    .save-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1.4rem; border-top: 1px solid var(--line); }
+    .empty { padding: 2rem .8rem; text-align: center; color: var(--muted); font-size: .75rem; }
+    .notice { display: flex; align-items: start; gap: .65rem; padding: .9rem 1rem; background: var(--soft); color: var(--accent); border-radius: .6rem; font-size: .75rem; }
+    .notice .icon { width: 1rem; margin-top: .1rem; }
+    .settings-tabs { display: flex; gap: 1.75rem; border-bottom: 1px solid var(--line); margin-bottom: 1.6rem; }
+    .settings-tabs button { color: var(--muted); padding: 0 0 .85rem; font-size: .8rem; border-bottom: 2px solid transparent; }
+    .settings-tabs button[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+    .settings-content { max-width: 55rem; }
+    .settings-section { padding: 1.3rem 1.6rem; }
+    .settings-section > h2 { margin-bottom: .35rem; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+    .setting-row:last-child { border-bottom: 0; padding-bottom: .25rem; }
+    .theme-options { display: flex; gap: .6rem; margin-top: 1.1rem; }
+    .theme-choice { flex: 1; position: relative; cursor: pointer; }
+    .theme-choice input { position: absolute; opacity: 0; }
+    .theme-choice > span { display: block; padding: .7rem; border: 1px solid var(--line); border-radius: .6rem; text-align: center; font-size: .7rem; }
+    .theme-choice input:checked + span { border-color: var(--accent); background: var(--soft); color: var(--accent); }
+    .theme-choice input:focus-visible + span { outline: .1875rem solid var(--accent); outline-offset: .25rem; }
+    .theme-mini { width: 100%; max-width: 8.5rem; height: 3.7rem; display: grid; grid-template-columns: 24% 1fr; border-radius: .3rem; overflow: hidden; border: 1px solid #c2cdc7; margin: 0 auto .6rem; background: #f5f7f7; }
+    .theme-mini i { background: #e0e8e3; border-right: 1px solid #c2cdc7; }
+    .theme-mini b { background: #ffffff; margin: .55rem; border-radius: .2rem; border: 1px solid #e1e8e5; }
+    .theme-mini.dark { background: #182321; border-color: #496153; }
+    .theme-mini.dark i { background: #2c4338; border-color: #496153; }
+    .theme-mini.dark b { background: #34453d; border-color: #496153; }
+    .theme-mini.system { background: linear-gradient(110deg, #f5f7f7 50%, #182321 50%); }
+    .theme-mini.system b { background: linear-gradient(110deg, #ffffff 50%, #34453d 50%); }
+    .about-brand { display: flex; align-items: center; gap: 1rem; padding: .5rem 0 1.5rem; }
+    .about-brand .brand-mark { width: 3.5rem; height: 3.5rem; border-radius: 1rem; }
+    .about-links { display: flex; gap: 1.3rem; flex-wrap: wrap; font-size: .75rem; padding: 1.2rem 0 .3rem; }
+    dialog { padding: 0; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 1rem; width: min(26rem, calc(100% - 2rem)); box-shadow: 0 1.5rem 6rem #0003; }
+    dialog::backdrop { background: var(--veil); backdrop-filter: blur(.25rem); }
+    .dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.3rem; border-bottom: 1px solid var(--line); }
+    .dialog-head h2 { font-size: .8rem; }
+    .dialog-head .icon-btn { width: 1.8rem; height: 1.8rem; border: 0; }
+    .dialog-body { padding: 1.5rem; display: grid; gap: 1.2rem; }
+    .reminder-symbol { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 1rem; background: var(--soft); color: var(--accent); }
+    .reminder-symbol .icon { width: 1.8rem; height: 1.8rem; }
+    .dialog-body h3 { font-size: 1.3rem; }
+    .dialog-body p { font-size: .8rem; color: var(--muted); line-height: 1.9; white-space: pre-line; overflow-wrap: anywhere; }
+    .toast { position: fixed; z-index: 10; bottom: 1.5rem; left: calc(50% + 6.5rem); transform: translate(-50%, 1rem); padding: .75rem 1.2rem; max-width: calc(100% - 2rem); border: 1px solid var(--rest); border-radius: .6rem; background: var(--surface); color: var(--text); box-shadow: 0 .5rem 2rem #19352e18; font-size: .75rem; opacity: 0; visibility: hidden; transition: opacity .2s, transform .2s, visibility .2s; }
+    .toast.visible { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    @media (min-width: 1600px) { main { padding-top: 3rem; } .hero-grid, .lower-grid { grid-template-columns: 1.4fr 1fr; } .session { padding: 1.8rem 2rem; } .session-body { padding: 1.8rem 0; } }
+    @media (max-width: 1160px) {
+      .app { grid-template-columns: 11rem minmax(0, 1fr); }
+      .sidebar { padding-left: .7rem; padding-right: .7rem; }
+      .topbar { padding: 0 1.75rem; }
+      main { padding: 1.8rem 1.75rem; }
+      .session { padding: 1.3rem; } .session h2 { font-size: 1.2rem; }
+      .ring { width: 6.5rem; height: 6.5rem; } .ring strong { font-size: 2.6rem; }
+      .metrics { padding: 1.2rem; } .metric-value { font-size: 1.75rem; }
+      .plugin-layout { grid-template-columns: 12.5rem minmax(0, 1fr); gap: 1rem; }
+      .detail { padding: 1.3rem; } .range-control { width: 44%; }
+      .form-row { gap: 1rem; } .toast { left: calc(50% + 5.5rem); }
+    }
+    @media (max-width: 940px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .session-body { padding: 1.1rem 0; } .session h2 br { display: none; }
+      .session { padding: 1.3rem 1.5rem; }
+      .metric-grid { grid-template-columns: repeat(4, 1fr); margin-top: .6rem; }
+      .metric { padding: .4rem .7rem !important; border: 0 !important; margin: 0 !important; }
+      .metric + .metric { border-left: 1px solid var(--line) !important; }
+      .metric:first-child { padding-left: 0 !important; }
+      .metric-value { font-size: 1.6rem; } .metric-value small { margin: 0 .1rem; font-size: .6rem; }
+      .lower-grid { grid-template-columns: 1fr; }
+      .plugin-layout { grid-template-columns: 1fr; }
+      .plugin-rail { gap: .75rem; }
+      .plugin-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .plugin-rail > .hint { display: none; }
+      .plugin-filters { margin-top: .2rem; }
+      .plugin-item { background: var(--sidebar); }
+    }
+    @media (max-width: 640px) {
+      .app { display: block; padding-bottom: 4.7rem; }
+      .sidebar { position: fixed; z-index: 5; top: auto; bottom: 0; width: 100%; height: 4.5rem; padding: .35rem .75rem max(.35rem, env(safe-area-inset-bottom)); border: 0; border-top: 1px solid var(--line); background: var(--surface); }
+      .brand, .nav-label, .sidebar-bottom { display: none; }
+      .nav { grid-template-columns: repeat(3, 1fr); margin: 0; gap: .5rem; }
+      .nav-item { min-height: 3.5rem; flex-direction: column; gap: .15rem; padding: .4rem; border-radius: .5rem; font-size: .625rem; justify-content: center; }
+      .nav-item[aria-current="page"] { background: var(--soft); box-shadow: none; }
+      .nav-item[aria-current="page"]::after, .nav-count { display: none; }
+      .nav-item .icon { width: 1.2rem; height: 1.2rem; }
+      .topbar { height: 3.8rem; padding: 0 1.2rem; }
+      .breadcrumb { gap: .5rem; } .breadcrumb > span:first-child { font: 600 1rem var(--number); color: var(--text); }
+      .top-actions { gap: .6rem; } .demo-label { font-size: .6rem; }
+      .topbar .icon-btn { width: 2.1rem; height: 2.1rem; }
+      main { padding: 1.5rem 1.1rem; }
+      h1 { font-size: 1.5rem; } .page-head { margin-bottom: 1.2rem; align-items: flex-start; flex-wrap: wrap; gap: .65rem; }
+      .page-head p { font-size: .7rem; } .date-chip { font-size: .65rem; }
+      .session { padding: 1.1rem 1.2rem; } .session-body { gap: .5rem; }
+      .session h2 { font-size: 1.05rem; } .session h2 br { display: block; }
+      .session p { font-size: .65rem; } .ring { width: 6rem; height: 6rem; }
+      .session-footer .text-btn { font-size: .65rem; } .session-footer .btn { font-size: .65rem; }
+      .metrics { padding: 1rem 1.2rem; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .metric { padding: .7rem 0 !important; }
+      .metric:nth-child(even) { padding-left: 1.2rem !important; }
+      .metric:nth-child(3) { border-left: 0 !important; }
+      .metric:nth-child(n+3) { border-top: 1px solid var(--line) !important; }
+      .metric-value { font-size: 2rem; }
+      .timeline, .records, .plugin-summary { padding: 1.1rem 1.2rem; }
+      .section-head { gap: .5rem; } .section-head h2 { font-size: .9rem; }
+      .segmented button { padding: .2rem .6rem; font-size: .65rem; }
+      .chart-footer { align-items: flex-start; flex-direction: column; gap: .6rem; }
+      .heatmap { gap: .15rem; grid-template-columns: repeat(24, minmax(0, 1fr)); }
+      .heatmap span { aspect-ratio: 1; }
+      .page-footer { align-items: flex-start; flex-direction: column; gap: .4rem; }
+      .page-footer > span:last-child { display: none; }
+      .detail { padding: 1.1rem; } .detail-header { gap: .6rem; flex-wrap: wrap; }
+      .detail-header .plugin-icon { width: 2.5rem; height: 2.5rem; }
+      .detail-header h2 { font-size: 1rem; } .detail-header p { max-width: 12rem; font-size: .625rem; }
+      .detail-header .switch-wrap { gap: .4rem; }
+      .form-row { flex-wrap: wrap; gap: .7rem; } .range-control { width: 100%; }
+      .form-section { gap: 1.2rem; } .save-bar { flex-wrap: wrap; }
+      .settings-tabs { gap: 1.2rem; } .settings-tabs button { font-size: .7rem; }
+      .settings-section { padding: 1.2rem; } .setting-row { gap: .8rem; }
+      .setting-row .field-copy p { font-size: .65rem; }
+      .theme-choice > span { padding: .5rem; } .theme-mini { height: 3rem; }
+      .toast { bottom: 5.3rem; left: 50%; width: max-content; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-cat" viewBox="0 0 24 24"><path d="M5 10 4 4l6 3h4l6-3-1 6a8 8 0 1 1-14 0Z"/><path d="m8 12 1 1m6-1-1 1m-4 4 2 1 2-1M2 14l4 1m12 0 4-1"/></symbol>
+    <symbol id="i-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5m6-5v5M6 8h12v4a6 6 0 0 1-12 0V8Zm6 10v4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--surface)"/><circle cx="16" cy="17" r="3" fill="var(--surface)"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 13a9 9 0 0 1-10-10A9 9 0 1 0 21 13Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C9 2 2 7 5 15c3 7 14 3 15-12ZM5 20 16 9"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4m0 16h17M9 16v-4m5 4V7m5 9v-6"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></symbol>
+    <symbol id="i-chair" viewBox="0 0 24 24"><path d="M6 12V6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v6M4 11a2 2 0 0 1 2 2v2h12v-2a2 2 0 0 1 4 0v5H2v-5a2 2 0 0 1 2-2ZM5 18v3m14-3v3"/></symbol>
+    <symbol id="i-robot" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M1 12v4m22-4v4M9 16h6m-7-5v1m8-1v1"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 21v-4c-4 1-4-2-6-2m12 6v-4c0-1-1-2-1-2 4 0 6-2 6-5 0-2-1-3-1-3s1-3 0-4c-2 0-4 2-4 2a14 14 0 0 0-6 0S7 3 5 3c-1 1 0 4 0 4s-1 1-1 3c0 3 2 5 6 5 0 0-1 1-1 2"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 17V5l11-2v12M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 12 12 0 0 1-4-1l-5 1 1-5a12 12 0 0 1-1-4 9 9 0 0 1 18 0Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-9 9v2a3 3 0 0 0 6 0v-2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  </defs></svg>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-cat"></use></svg></span><div><div class="wordmark">Catrace<span style="color:var(--accent)">.</span></div><div class="brand-sub">你的桌面，恰到好处</div></div></div>
+      <div class="nav-label">工作空间</div>
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-item" data-page="dashboard" aria-current="page"><svg class="icon"><use href="#i-overview"></use></svg><span>今日概览</span></button>
+        <button class="nav-item" data-page="plugins"><svg class="icon"><use href="#i-plug"></use></svg><span>功能插件</span><span class="nav-count">8</span></button>
+        <button class="nav-item" data-page="settings"><svg class="icon"><use href="#i-settings"></use></svg><span>系统设置</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-action="debug"><svg class="icon"><use href="#i-code"></use></svg><span>开发调试</span></button>
+        <div class="privacy-note"><svg class="icon"><use href="#i-shield"></use></svg><div><p>只在你的电脑上</p><small>数据本地保存，不上传</small></div></div>
+        <div class="version"><span>Catrace</span><span class="num">26.10.15</span></div>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><div class="breadcrumb"><span>Catrace</span><span aria-hidden="true">/</span><span id="breadcrumb">今日概览</span></div><div class="top-actions"><span class="demo-label">设计原型 · 演示数据</span><button class="icon-btn" id="theme-toggle" aria-label="切换深浅主题" title="切换深浅主题"><svg class="icon"><use href="#i-sun"></use></svg></button></div></header>
+      <main id="main"></main>
+    </div>
+  </div>
+  <dialog id="preview-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title">提醒外观预览</h2><button class="icon-btn" data-action="close-dialog" aria-label="关闭预览"><svg class="icon"><use href="#i-close"></use></svg></button></div><div class="dialog-body" id="dialog-body"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+    const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const plugins = [
+      { id: 'rest', name: '久坐提醒', desc: '让每一次休息，来得刚刚好', icon: 'chair', color: '', enabled: true, detail: '连续活跃后，温柔地提醒你离开屏幕。' },
+      { id: 'agent', name: 'Agent 通知', desc: '不错过 AI 助手的重要进展', icon: 'robot', color: 'blue', enabled: true, detail: '集中接收 Claude、Codex 等助手的任务进展。' },
+      { id: 'music', name: '蓝牙听歌', desc: '耳机连接，音乐就位', icon: 'music', color: 'amber', enabled: false, detail: '蓝牙耳机连接时弹出小窗，快捷打开音乐应用。' },
+      { id: 'dsh', name: 'DSH 对话小窗', desc: '把正在进行的对话留在桌面', icon: 'chat', color: 'blue', enabled: true, detail: '在桌面小窗中查看 DSH 对话，减少来回切换。' },
+      { id: 'github', name: 'GitHub 通知', desc: '关注项目，少一点来回刷新', icon: 'github', color: 'graphite', enabled: true, detail: '汇集 GitHub 动态与未读通知。' },
+      { id: 'review', name: '作息回顾', desc: '回看每天的活跃与休息', icon: 'calendar', color: '', enabled: false, detail: '通过日期查看过往的专注和休息记录。' },
+      { id: 'paste', name: 'PasteDrop 剪贴板存图', desc: '让剪贴板里的图片轻松落地', icon: 'copy', color: 'amber', enabled: true, detail: '在桌面或资源管理器中快速保存剪贴板图片。' },
+      { id: 'timer', name: '定时提醒', desc: '给重要的小事留一个提醒', icon: 'bell', color: '', enabled: false, detail: '按间隔或固定时刻提醒喝水、打卡和其他待办。' }
+    ];
+    const state = { page: 'dashboard', timeline: 'overview', allRecords: false, hideStats: false, plugin: 'rest', filter: 'all', query: '', settingTab: 'general', theme: 'system', windowMinutes: 45, breakMinutes: 5, repeatMinutes: 3, retention: '24', title: '该起来活动一下了', message: '放松肩膀，伸个懒腰，喝一口水。\n离开屏幕几分钟，也是在好好工作。', reminderMode: 'toast', prefs: { autostart: false, silent: false, light: true, audio: true, keys: false } };
+    let storageAvailable = true;
+    try { const saved = JSON.parse(localStorage.getItem('catrace-studio-preferences') || 'null'); if (saved && ['light', 'dark', 'system'].includes(saved.theme)) state.theme = saved.theme; } catch { storageAvailable = false; }
+    function persistTheme() { try { localStorage.setItem('catrace-studio-preferences', JSON.stringify({ theme: state.theme })); } catch { storageAvailable = false; } }
+    const mediaTheme = matchMedia('(prefers-color-scheme: dark)');
+    function applyTheme() {
+      if (state.theme === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = state.theme;
+      const dark = state.theme === 'dark' || (state.theme === 'system' && mediaTheme.matches);
+      $('#theme-toggle').innerHTML = icon(dark ? 'moon' : 'sun');
+      $('#theme-toggle').setAttribute('aria-label', dark ? '切换到亮色主题' : '切换到深色主题');
+      $('#theme-toggle').title = dark ? '切换到亮色主题' : '切换到深色主题';
+    }
+    mediaTheme.addEventListener('change', applyTheme);
+    applyTheme();
+    let toastTimer;
+    function toast(text) { clearTimeout(toastTimer); $('#toast').textContent = text; $('#toast').classList.add('visible'); toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 2800); }
+    function switchControl(label, checked, key, type = 'pref', disabled = false) { return `<label class="switch"><input type="checkbox" aria-label="${label}" data-${type}="${key}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><i></i></label>`; }
+    function pluginIcon(plugin) { return `<span class="plugin-icon ${plugin.color}">${icon(plugin.icon)}</span>`; }
+    function footer() { return `<footer class="page-footer"><span class="row">${icon('shield')}独立 HTML 原型，所有调整只作用于此页面</span><span>为不被打扰的工作方式而设计</span></footer>`; }
+    const activePeriods = [[540,600],[615,665],[680,725],[810,855],[870,914],[952,980]];
+    const records = [
+      ['15:52 — 16:20', '当前活跃时段', '28 分钟', true], ['15:14 — 15:52', '离开屏幕，休息一下', '38 分钟', false],
+      ['14:30 — 15:14', '活跃时段', '44 分钟', true], ['14:15 — 14:30', '休息时段', '15 分钟', false],
+      ['13:30 — 14:15', '活跃时段', '45 分钟', true], ['12:05 — 13:30', '休息时段', '1 小时 25 分钟', false],
+      ['11:20 — 12:05', '活跃时段', '45 分钟', true], ['11:05 — 11:20', '休息时段', '15 分钟', false],
+      ['10:15 — 11:05', '活跃时段', '50 分钟', true], ['10:00 — 10:15', '休息时段', '15 分钟', false],
+      ['09:00 — 10:00', '活跃时段', '1 小时', true], ['00:00 — 09:00', '休息时段（含夜间）', '9 小时', false]
+    ];
+    function renderDashboard() {
+      const restEnabled = plugins[0].enabled;
+      const metric = (name, glyph, value) => `<div class="metric"><div class="metric-label">${icon(glyph)}${name}</div><div class="metric-value">${value}</div></div>`;
+      const chart = state.timeline === 'overview' ? `<div class="day-chart"><div class="chart-track" role="img" aria-label="今日 0 点到 24 点时间轴；当前 16 点 20 分，活跃 4 小时 32 分，共 6 个活跃时段"><div class="chart-rest"></div>${activePeriods.map(([a,b]) => `<span class="chart-block" style="left:${a/14.4}%;width:${(b-a)/14.4}%" title="${Math.floor(a/60)}:${String(a%60).padStart(2,'0')} 至 ${Math.floor(b/60)}:${String(b%60).padStart(2,'0')}"></span>`).join('')}<div class="now-marker"><span>现在 16:20</span></div></div><div class="chart-axis"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span></div></div>` : `<div class="heatmap" role="img" aria-label="全天活动网格，每格 15 分钟；深色为活跃，浅色为休息，灰色为未发生">${Array.from({length:96}, (_,i) => { const start = i * 15; const active = activePeriods.some(([a,b]) => Math.min(b,start+15) - Math.max(a,start) > 0); const text = `${String(Math.floor(start/60)).padStart(2,'0')}:${String(start%60).padStart(2,'0')}`; return `<span class="${start >= 980 ? 'future' : active ? 'active' : ''}" title="${text} · ${start >= 980 ? '未发生' : active ? '含活跃记录' : '休息'}"></span>`; }).join('')}</div><p class="hint" style="margin-top:.8rem">每格 15 分钟 · 深色表示该时间段内有活跃记录</p>`;
+      return `<section class="page" aria-label="今日概览"><header class="page-head"><div><h1>今日概览</h1><p>把专注留给工作，把休息还给自己。</p></div><div class="date-chip">${icon('calendar')}2026 年 11 月 3 日<span style="color:var(--line)">/</span>星期二</div></header>
+        <div class="hero-grid"><section class="session"><div class="row between"><span class="tag"><i class="dot"></i>正在活跃</span><span class="hint num" style="color:inherit">15:52 开始</span></div><div class="session-body"><div><h2>专注当下，<br>也别忘了休息。</h2><p>${restEnabled ? `距离下次休息提醒还有 <b class="num">${Math.max(0,state.windowMinutes-28)}</b> 分钟` : '久坐提醒已关闭，活动记录不受影响'}</p></div><div class="ring" style="--progress:${Math.min(100,28/state.windowMinutes*100)}%" aria-label="当前已活跃 28 分钟"><div class="ring-inner"><strong>28</strong><span>本次活跃 / 分钟</span></div></div></div><div class="session-footer"><button class="text-btn" data-plugin="rest">${icon('settings')}提醒节奏 · <span class="num">${state.windowMinutes} / ${state.breakMinutes}</span> 分钟</button><button class="btn" data-action="preview">${icon('leaf')}预览休息提醒</button></div></section>
+        <section class="panel metrics"><div class="row between"><h2 class="section-caption">今天，时间去了哪里</h2><button class="text-btn" data-action="hide-stats" aria-label="${state.hideStats ? '显示' : '隐藏'}统计" aria-pressed="${state.hideStats}" title="${state.hideStats ? '显示' : '隐藏'}统计">${icon('eye')}</button></div><div class="metric-grid">${metric('累计活跃','activity',state.hideStats?'—':`4<small>小时</small>32<small>分</small>`)}${metric('累计休息','leaf',state.hideStats?'—':`11<small>小时</small>48<small>分</small>`)}${metric('活跃占比','chart',state.hideStats?'—':`28<small>%</small>`)}${metric('活跃时段','clock',state.hideStats?'—':`6<small>个时段</small>`)}</div><p class="hint" style="margin-top:.75rem">休息时长包含夜间未操作电脑的时间</p></section></div>
+        <section class="panel timeline"><div class="section-head"><div><h2>一天的节奏</h2><p class="section-sub">专注与休息，交替发生。</p></div><div class="segmented" aria-label="时间轴展示方式"><button data-timeline="overview" aria-pressed="${state.timeline==='overview'}">时间轴</button><button data-timeline="detail" aria-pressed="${state.timeline==='detail'}">活动网格</button></div></div>${chart}<div class="chart-footer"><div class="legend"><span><i class="swatch"></i>活跃</span><span><i class="swatch rest"></i>休息</span><span><i class="swatch future"></i>未发生</span></div><span class="hint">演示快照固定于 <span class="num">16:20</span>，非实时采集</span></div></section>
+        <div class="lower-grid"><section class="panel records"><div class="section-head"><h2>活动记录 <span class="hint num" style="margin-left:.4rem">12</span></h2><button class="text-btn" data-action="records" aria-expanded="${state.allRecords}">${state.allRecords?'收起记录':'查看全部'}${icon('arrow')}</button></div><div class="record-list">${records.slice(0,state.allRecords?12:3).map(([time,desc,duration,active],i) => `<div class="record"><span class="record-icon">${icon(active?'activity':'leaf')}</span><div><p class="record-time">${time}</p><p class="record-desc">${desc}</p></div><span class="record-duration">${i===0?'<span class="tag">进行中</span>':duration}</span></div>`).join('')}</div></section>
+        <section class="panel plugin-summary"><div class="section-head"><h2>桌面小帮手</h2><button class="text-btn" data-page="plugins">管理插件${icon('arrow')}</button></div><div class="quick-list">${['rest','agent','github'].map(id => {const p=plugins.find(p=>p.id===id); return `<button class="quick-plugin" data-plugin="${id}">${pluginIcon(p)}<div><b>${p.name}</b><p>${p.enabled ? id==='rest'?`每 ${state.windowMinutes} 分钟，提醒休息` : id==='agent'?'安静等待下一条重要进展':'有新动态时通知你' : '已停用'}</p></div>${icon('chevron')}</button>`;}).join('')}</div><div class="row hint" style="margin-top:.7rem"><i class="dot"></i>${plugins.filter(p=>p.enabled).length} 个插件已启用 · 演示状态</div></section></div>${footer()}</section>`;
+    }
+    function renderPluginList() {
+      const found = plugins.filter(p => (state.filter==='all' || p.enabled) && (p.name+' '+p.desc).toLowerCase().includes(state.query.toLowerCase()));
+      return found.length ? found.map(p=>`<button class="plugin-item" data-select-plugin="${p.id}" aria-pressed="${p.id===state.plugin}">${pluginIcon(p)}<div class="plugin-copy"><b>${p.name}</b><p>${p.desc}</p></div><i class="dot ${p.enabled?'':'off'}" aria-label="${p.enabled?'已启用':'已停用'}"></i></button>`).join('') : `<div class="empty">没有找到匹配的插件<br><span class="hint">试试其他关键词或切换到「全部」</span></div>`;
+    }
+    function rangeField(id,label,description,value,min,max,step) { return `<div class="form-row"><div class="field-copy"><label class="field-label" for="${id}">${label}</label><p>${description}</p></div><div class="range-control"><input type="range" id="${id}" name="${id}" min="${min}" max="${max}" step="${step}" value="${value}"><output for="${id}" id="${id}-output">${value} <small>分钟</small></output></div></div>`; }
+    function restSettings(p) { return `<form id="rest-form"><fieldset ${p.enabled?'':'disabled'}><legend class="sr-only">久坐提醒偏好</legend><div class="form-section"><h3>找到舒服的工作节奏</h3>${rangeField('windowMinutes','连续活跃时长','活跃多久后，提醒你起来走走',state.windowMinutes,30,120,5)}${rangeField('breakMinutes','有效休息时长','离开电脑多久后，重新开始计时',state.breakMinutes,1,20,1)}${rangeField('repeatMinutes','重复提醒间隔','未响应提醒时，间隔多久再次提醒',state.repeatMinutes,1,15,1)}</div><div class="form-section"><h3>用你喜欢的方式提醒</h3><div class="form-row"><div class="field-copy"><label class="field-label" for="reminderMode">提醒方式</label><p>轻量小窗，不打断你的工作流</p></div><select id="reminderMode" name="reminderMode"><option value="toast" ${state.reminderMode==='toast'?'selected':''}>桌面小窗</option></select></div><div class="input-group"><label class="field-label" for="reminderTitle">提醒标题</label><input class="field" id="reminderTitle" name="title" maxlength="60" value="${escapeHtml(state.title)}" required></div><div class="input-group"><label class="field-label" for="reminderMessage">提醒内容</label><textarea class="field" id="reminderMessage" name="message" maxlength="500" required>${escapeHtml(state.message)}</textarea></div></div><div class="save-bar"><button class="text-btn" type="button" data-action="preview-draft">${icon('eye')}预览提醒样式</button><button class="btn primary" type="submit">${icon('check')}应用到原型</button></div></fieldset></form>`; }
+    function pluginDetail() {
+      const p=plugins.find(p=>p.id===state.plugin);
+      return `<header class="detail-header">${pluginIcon(p)}<div><div class="row"><h2>${p.name}</h2>${p.id==='rest'?'<span class="tag">内置</span>':''}</div><p>${p.detail}</p></div><span class="switch-wrap"><span>${p.enabled?'已启用':'已停用'}</span>${switchControl(`启用${p.name}`,p.enabled,p.id,'plugin-toggle')}</span></header>${p.id==='rest'?restSettings(p):`<div class="stack" style="padding-top:1.5rem"><div class="notice">${icon('plug')}此处展示插件管理的统一视觉。真实接入和业务配置，请在 Catrace 桌面端完成。</div><div class="form-row"><div class="field-copy"><b>运行方式</b><p>由 Catrace 桌面端管理插件生命周期</p></div><span class="tag">本地插件</span></div><div class="form-row"><div class="field-copy"><b>通知呈现</b><p>重要进展通过桌面小窗呈现</p></div><span class="hint">统一小窗样式</span></div><div class="hint">当前启停操作仅改变原型中的演示状态，不会启动任何进程或连接外部服务。</div></div>`}`;
+    }
+    function renderPlugins() { return `<section class="page" aria-label="功能插件"><header class="page-head"><div><h1>功能插件</h1><p>按需开启小帮手，让桌面更合你的心意。</p></div><span class="tag">${plugins.filter(p=>p.enabled).length} 个已启用 / ${plugins.length} 个插件</span></header><div class="plugin-layout"><aside class="plugin-rail" aria-label="插件列表"><label class="search">${icon('search')}<input id="plugin-search" type="search" aria-label="搜索插件" placeholder="搜索插件…" value="${escapeHtml(state.query)}"></label><div class="plugin-filters"><button data-filter="all" aria-pressed="${state.filter==='all'}">全部 <span class="num">8</span></button><button data-filter="enabled" aria-pressed="${state.filter==='enabled'}">已启用 <span class="num">${plugins.filter(p=>p.enabled).length}</span></button></div><div class="plugin-list" id="plugin-list">${renderPluginList()}</div><p class="hint">本地安装与真实插件运行<br>需在 Catrace 桌面端完成。</p></aside><section class="panel detail" id="plugin-detail" aria-label="插件详情">${pluginDetail()}</section></div>${footer()}</section>`; }
+    function settingRow(title,desc,control) { return `<div class="setting-row"><div class="field-copy"><b>${title}</b><p>${desc}</p></div>${control}</div>`; }
+    function settingsContent() {
+      if (state.settingTab==='general') return `<div class="stack"><section class="panel settings-section"><h2>外观</h2><p class="hint">选一种让眼睛放松的配色。</p><fieldset><legend class="sr-only">外观主题</legend><div class="theme-options">${[['light','亮色'],['dark','深色'],['system','跟随系统']].map(([id,name])=>`<label class="theme-choice"><input type="radio" name="theme" value="${id}" ${state.theme===id?'checked':''}><span><span class="theme-mini ${id}"><i></i><b></b></span>${name}</span></label>`).join('')}</div></fieldset></section><section class="panel settings-section"><h2>启动与运行</h2>${settingRow('开机自启','下次开机，让 Catrace 自动在身边',switchControl('开机自启',state.prefs.autostart,'autostart'))}${settingRow('静默启动',state.prefs.autostart?'启动后不打开主窗口，只在托盘运行':'先开启「开机自启」后才能设置',switchControl('静默启动',state.prefs.silent,'silent','pref',!state.prefs.autostart))}${settingRow('轻量模式','关闭主窗口后释放界面资源',switchControl('轻量模式',state.prefs.light,'light'))}</section><p class="hint">此处仅演示偏好设置的交互，不会更改系统开机项或桌面应用设置。</p></div>`;
+      if (state.settingTab==='privacy') return `<div class="stack"><div class="notice">${icon('shield')}你的行为数据属于你。Catrace 的记录保存在本地，不上传。</div><section class="panel settings-section"><h2>活跃检测</h2>${settingRow('视频 / 音乐也算活跃','播放声音时，即使没有键鼠操作，也视为活跃',switchControl('视频音乐也算活跃',state.prefs.audio,'audio'))}<details style="padding-top:1rem"><summary style="cursor:pointer;font-size:.75rem;color:var(--accent)">查看排除的系统进程</summary><p class="hint" style="margin-top:.75rem;line-height:2;font-family:var(--number)">svchost.exe · explorer.exe · shellexperiencehost.exe<br>audiodg.exe · dwm.exe · csrss.exe</p><p class="hint" style="margin-top:.6rem">演示列表；真实排除配置请在桌面端编辑。</p></details></section><section class="panel settings-section"><h2>行为采集</h2>${settingRow('记录按键序列','高敏感选项，默认关闭。记录逻辑键名，不等同于输入文本。',switchControl('记录按键序列',state.prefs.keys,'keys'))}${settingRow('序列保留时长','超时清除序列明细，保留按键次数统计',`<label><span class="sr-only">序列保留时长</span><select id="retention" ${state.prefs.keys?'':'disabled'}>${['24','12','1'].map(value=>`<option value="${value}" ${state.retention===value?'selected':''}>${value} 小时</option>`).join('')}</select></label>`)}</section><p class="hint">原型没有接入键鼠监听，不会采集或删除任何行为数据。</p></div>`;
+      return `<section class="panel settings-section"><div class="about-brand"><span class="brand-mark">${icon('cat')}</span><div><h2 class="wordmark">Catrace.</h2><p class="hint">桌面小窗系统 · <span class="num">26.10.15</span></p></div></div><div class="stack" style="gap:.8rem"><p>小窗承载信息，插件提供可能。</p><p class="hint">休息提醒、AI 助手进展、消息通知。让需要知道的事情出现在身边，而不是占据整个屏幕。</p><div class="notice">${icon('code')}这是独立的界面改版概念，不代表已发布版本。提醒、启停、启动偏好均为交互演示。</div></div><div class="about-links"><a href="https://github.com/lanxiuyun/Catrace" target="_blank" rel="noreferrer">GitHub 源码 ↗</a><a href="https://github.com/lanxiuyun/Catrace/issues" target="_blank" rel="noreferrer">问题反馈 ↗</a><a href="https://github.com/lanxiuyun/catrace-plugin" target="_blank" rel="noreferrer">插件仓库 ↗</a></div></section>`;
+    }
+    function renderSettings() { return `<section class="page" aria-label="系统设置"><header class="page-head"><div><h1>系统设置</h1><p>少一点设置负担，多一点恰到好处。</p></div><span class="hint">调整只作用于此原型</span></header><nav class="settings-tabs" aria-label="设置分类">${[['general','通用与外观'],['privacy','感知与隐私'],['about','关于 Catrace']].map(([id,name])=>`<button data-setting-tab="${id}" aria-pressed="${state.settingTab===id}">${name}</button>`).join('')}</nav><div class="settings-content">${settingsContent()}</div>${footer()}</section>`; }
+    function render() {
+      const names = {dashboard:'今日概览',plugins:'功能插件',settings:'系统设置'};
+      $('#breadcrumb').textContent = names[state.page];
+      document.querySelectorAll('.nav [data-page]').forEach(el=> { if (el.dataset.page===state.page) el.setAttribute('aria-current','page'); else el.removeAttribute('aria-current'); });
+      $('#main').innerHTML = state.page==='dashboard'?renderDashboard():state.page==='plugins'?renderPlugins():renderSettings();
+    }
+    function navigate(page) { state.page=page; render(); window.scrollTo({top:0,behavior:'instant'}); }
+    let dialogOpener;
+    function openDialog(title,body) { dialogOpener=document.activeElement; $('#dialog-title').textContent=title; $('#dialog-body').innerHTML=body; $('#preview-dialog').showModal(); }
+    function preview(draft=false) {
+      const title=draft?$('#reminderTitle').value:state.title;
+      const message=draft?$('#reminderMessage').value:state.message;
+      openDialog('提醒外观预览',`<div class="row between"><span class="reminder-symbol">${icon('leaf')}</span><span class="tag">Catrace · 久坐提醒</span></div><div><h3>${escapeHtml(title.trim()||'该起来活动一下了')}</h3><p style="margin-top:.6rem">${escapeHtml(message.trim()||'离开屏幕，放松一下。')}</p></div><p class="hint">仅预览样式，不会发送系统通知或开始休息计时。</p><button class="btn primary" data-action="close-dialog">知道了，照顾好自己</button>`);
+    }
+    $('#preview-dialog').addEventListener('close',()=> { if(dialogOpener?.isConnected) dialogOpener.focus(); });
+    document.addEventListener('click',(event)=> {
+      const target=event.target.closest('button'); if(!target) return;
+      if(target.id==='theme-toggle') { state.theme=(state.theme==='dark'||(state.theme==='system'&&mediaTheme.matches))?'light':'dark'; applyTheme(); persistTheme(); if(state.page==='settings') render(); return; }
+      if(target.dataset.page) { navigate(target.dataset.page); return; }
+      if(target.dataset.plugin) { state.plugin=target.dataset.plugin; navigate('plugins'); return; }
+      if(target.dataset.selectPlugin) { state.plugin=target.dataset.selectPlugin; $('#plugin-list').innerHTML=renderPluginList(); $('#plugin-detail').innerHTML=pluginDetail(); $('#plugin-detail').setAttribute('tabindex','-1'); $('#plugin-detail').focus({preventScroll:true}); return; }
+      if(target.dataset.timeline) { state.timeline=target.dataset.timeline; render(); $(`[data-timeline="${state.timeline}"]`).focus({preventScroll:true}); return; }
+      if(target.dataset.filter) { state.filter=target.dataset.filter; render(); $(`[data-filter="${state.filter}"]`).focus({preventScroll:true}); return; }
+      if(target.dataset.settingTab) { state.settingTab=target.dataset.settingTab; render(); $(`[data-setting-tab="${state.settingTab}"]`).focus({preventScroll:true}); return; }
+      switch(target.dataset.action) {
+        case 'preview': preview(); break;
+        case 'preview-draft': preview(true); break;
+        case 'close-dialog': $('#preview-dialog').close(); break;
+        case 'hide-stats': state.hideStats=!state.hideStats; render(); $('[data-action="hide-stats"]').focus({preventScroll:true}); break;
+        case 'records': state.allRecords=!state.allRecords; render(); $('[data-action="records"]').focus({preventScroll:true}); break;
+        case 'debug': openDialog('开发调试',`<span class="reminder-symbol">${icon('code')}</span><h3>让日常界面保持安静</h3><p>开发调试收在这里，不占据日常工作空间。\n此原型没有连接事件总线、运行日志或插件进程；真实诊断需在桌面端完成。</p><button class="btn" data-action="close-dialog">返回工作空间</button>`); break;
+      }
+    });
+    document.addEventListener('input',(event)=> {
+      const el=event.target;
+      if(el.id==='plugin-search') { state.query=el.value; $('#plugin-list').innerHTML=renderPluginList(); }
+      if(el.type==='range') $(`#${el.id}-output`).innerHTML=`${el.value} <small>分钟</small>`;
+    });
+    document.addEventListener('change',(event)=> {
+      const el=event.target;
+      if(el.name==='theme') { state.theme=el.value; applyTheme(); persistTheme(); toast(storageAvailable?'主题已记住，下次打开仍然生效':'主题已切换；当前浏览器不支持保存偏好'); }
+      if(el.dataset.pluginToggle) { const p=plugins.find(p=>p.id===el.dataset.pluginToggle); p.enabled=el.checked; render(); $(`[data-plugin-toggle="${p.id}"]`).focus({preventScroll:true}); toast(`${p.name}已${p.enabled?'启用':'停用'}（仅原型）`); }
+      if(el.dataset.pref) { state.prefs[el.dataset.pref]=el.checked; if(el.dataset.pref==='autostart'&&!el.checked) state.prefs.silent=false; render(); $(`[data-pref="${el.dataset.pref}"]`).focus({preventScroll:true}); toast(el.dataset.pref==='keys'?'仅切换演示状态，不会开始采集按键':'偏好已更新，仅作用于此原型'); }
+      if(el.id==='retention') { state.retention=el.value; toast('保留时长已切换（仅演示，不影响本地记录）'); }
+    });
+    document.addEventListener('submit',(event)=> {
+      if(event.target.id!=='rest-form') return;
+      event.preventDefault(); const form=new FormData(event.target);
+      const title=String(form.get('title')).trim(), message=String(form.get('message')).trim();
+      if(!title||!message) { toast('标题和内容不能只包含空格'); (!title?$('#reminderTitle'):$('#reminderMessage')).focus(); return; }
+      for(const key of ['windowMinutes','breakMinutes','repeatMinutes']) state[key]=Number(form.get(key));
+      state.title=title; state.message=message; state.reminderMode=String(form.get('reminderMode')); toast('提醒偏好已应用到原型，可返回概览查看');
+    });
+    render();
+  </script>
+</body>
+</html>

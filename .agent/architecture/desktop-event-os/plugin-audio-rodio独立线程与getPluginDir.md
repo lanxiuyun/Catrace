@@ -28,8 +28,7 @@ plugin.path.getPluginDir() // 插件安装目录，用来拼 assets/
 ## 资源路径
 
 - `plugin.path.getPluginDir()` 来自 `PluginManager::plugin_dir`，即 `<app_data>/plugins/<id>/`。
-- Debug：该目录 junction 到 `tools/plugin-demo/<id>/`，改 wav 立刻可见。
-- Release：`sync-plugins.mjs` 整目录复制（只排除 `.git`），`assets/` 会进包。
+- 插件中心安装完整插件目录，音频资源随插件保存在该目录的 `assets/` 中。
 
 卡片 UI 以 Blob 加载，**相对路径 `./assets/x.wav` 解析不到**。播放必须用绝对路径 + `plugin.audio.play`。
 

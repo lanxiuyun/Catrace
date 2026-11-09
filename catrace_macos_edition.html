@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catrace - macOS Native Experience</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            sf: {
+              bg: '#F6F6F6',
+              card: '#FFFFFF',
+              sidebar: 'rgba(240, 240, 243, 0.75)',
+              accent: '#007AFF', // Apple Standard System Blue
+              purple: '#5E5CE6', // macOS System Purple
+              green: '#34C759',  // macOS System Green
+              orange: '#FF9500', // macOS System Orange
+              gray: '#8E8E93',
+              darkBg: '#1E1E1E',
+              darkSidebar: 'rgba(32, 32, 36, 0.75)',
+              darkCard: '#2C2C2E'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'sans-serif'],
+            mono: ['SF Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace']
+          },
+          boxShadow: {
+            'window': '0 20px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.08)',
+            'apple-card': '0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02)',
+            'apple-float': '0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 严格开启等宽数字，确保时间跳动时不抖动 */
+    body {
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* 隐藏默认滚动条，保留流畅滚动 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* macOS 特有的透明模糊背景 */
+    .mac-blur {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+    }
+
+    /* 苹果微边框 */
+    .sf-border {
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .dark .sf-border {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-[#E5E5E7] dark:bg-[#121212] text-[#1C1C1E] dark:text-[#F2F2F7] font-sans h-full flex items-center justify-center p-2 sm:p-6 transition-colors duration-200 select-none overflow-hidden">
+
+  <!-- macOS Window Container (模拟 Mac 应用窗口) -->
+  <div class="w-full max-w-6xl h-[92vh] max-h-[900px] bg-sf-bg dark:bg-sf-darkBg rounded-2xl shadow-window flex flex-col overflow-hidden sf-border transition-all duration-300">
+
+    <!-- macOS Title Bar (标题栏 + 交通灯按钮) -->
+    <header class="h-12 bg-slate-200/40 dark:bg-slate-800/40 border-b border-black/5 dark:border-white/10 px-4 flex items-center justify-between mac-blur shrink-0 z-40">
+      <!-- 左侧：红黄绿交通灯 + 页面标题 -->
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 group cursor-pointer">
+          <span class="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E] flex items-center justify-center">
+            <i data-lucide="x" class="w-2 h-2 text-[#4C0000] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+          </span>
+          <span class="w-3 h-3 rounded-full bg-[#FEBC2E] border border-[#DEA123] flex items-center justify-center">
+            <i data-lucide="minus" class="w-2 h-2 text-[#5C4000] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+          </span>
+          <span class="w-3 h-3 rounded-full bg-[#28C840] border border-[#1AAB29] flex items-center justify-center">
+            <i data-lucide="maximize-2" class="w-2 h-2 text-[#0A4700] opacity-0 group-hover:opacity-100 transition-opacity"></i>
+          </span>
+        </div>
+
+        <!-- 分割线 -->
+        <div class="h-4 w-[1px] bg-black/10 dark:bg-white/10 hidden sm:block"></div>
+
+        <!-- 窗口标题区 -->
+        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <i data-lucide="sidebar" class="w-3.5 h-3.5 cursor-pointer hover:text-slate-800 dark:hover:text-white transition-colors"></i>
+          <span>Catrace Workstation</span>
+          <span>/</span>
+          <span class="text-slate-800 dark:text-slate-200 font-semibold">屏幕与精力时间轴</span>
+        </div>
+      </div>
+
+      <!-- 中间：搜索栏 / Cmd+K 快捷提示 -->
+      <div class="hidden md:flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/10 rounded-lg text-xs text-slate-400 w-64 hover:bg-black/10 transition-colors cursor-pointer">
+        <i data-lucide="search" class="w-3.5 h-3.5"></i>
+        <span class="flex-1">搜索活动、标签或应用...</span>
+        <kbd class="px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-700 rounded border border-black/10 dark:border-white/10 font-mono text-slate-500">⌘K</kbd>
+      </div>
+
+      <!-- 右侧：全局控制与模式切换 -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-xs text-slate-500 font-mono bg-black/5 dark:bg-white/10 px-2.5 py-1 rounded-md">
+          <span class="w-2 h-2 rounded-full bg-sf-green animate-pulse"></span>
+          <span>实时同步</span>
+        </div>
+        <button id="themeToggle" class="p-1.5 rounded-lg text-slate-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主体窗口（Sidebar + Main Content） -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- macOS 透光侧边栏 (Sidebar) -->
+      <aside class="w-56 bg-sf-sidebar dark:bg-sf-darkSidebar mac-blur border-r border-black/5 dark:border-white/10 flex flex-col justify-between p-3 shrink-0 hidden md:flex">
+        <div class="space-y-4">
+          <!-- 用户 Profile -->
+          <div class="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors">
+            <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-sf-purple to-sf-accent flex items-center justify-center text-white text-xs font-bold shadow-sm">
+              C
+            </div>
+            <div class="flex flex-col overflow-hidden">
+              <span class="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">Alex's MacBook</span>
+              <span class="text-[10px] text-slate-400 truncate">Catrace Pro v26.10</span>
+            </div>
+          </div>
+
+          <!-- 侧边导航栏分组 1 -->
+          <div>
+            <div class="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">分析面板</div>
+            <nav class="space-y-0.5">
+              <a href="#" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-sf-accent text-white font-medium text-xs shadow-sm">
+                <i data-lucide="clock" class="w-4 h-4"></i>
+                <span>今日时间轴</span>
+              </a>
+              <a href="#" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 font-medium text-xs transition-colors">
+                <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                <span>精力与效率</span>
+              </a>
+              <a href="#" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 font-medium text-xs transition-colors">
+                <i data-lucide="calendar" class="w-4 h-4"></i>
+                <span>周度趋势</span>
+              </a>
+            </nav>
+          </div>
+
+          <!-- 侧边导航栏分组 2 -->
+          <div>
+            <div class="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">个人分类</div>
+            <nav class="space-y-0.5">
+              <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 font-medium text-xs transition-colors">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-2 h-2 rounded-full bg-sf-purple"></span>
+                  <span>深度工作</span>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400">5h 30m</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 font-medium text-xs transition-colors">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-2 h-2 rounded-full bg-sf-green"></span>
+                  <span>休整与放松</span>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400">11h 29m</span>
+              </a>
+            </nav>
+          </div>
+        </div>
+
+        <!-- 侧边栏底部设置 -->
+        <div class="pt-2 border-t border-black/5 dark:border-white/10 flex items-center justify-between px-2 text-slate-400 text-xs">
+          <button class="flex items-center gap-1.5 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+            <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+            <span>偏好设置</span>
+          </button>
+          <i data-lucide="info" class="w-3.5 h-3.5 cursor-pointer hover:text-slate-700"></i>
+        </div>
+      </aside>
+
+      <!-- 主视图区 (Main Canvas) -->
+      <main class="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
+
+        <!-- 页面顶部 Heading -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">10月25日 星期日</h1>
+            <p class="text-xs text-slate-500 mt-0.5">自动收集并归纳自全设备行为事件</p>
+          </div>
+
+          <!-- 分段控制器 (Segmented Control - Apple 经典原生控件) -->
+          <div class="bg-black/5 dark:bg-white/10 p-1 rounded-xl flex items-center text-xs self-start sm:self-auto">
+            <button class="px-3 py-1 rounded-lg bg-white dark:bg-sf-darkCard text-slate-900 dark:text-white font-medium shadow-sm transition-all">全天轨</button>
+            <button class="px-3 py-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all">列表模式</button>
+            <button class="px-3 py-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all">热力图</button>
+          </div>
+        </div>
+
+        <!-- Apple 风格 Live Activity (实时活动置顶浮动卡) -->
+        <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 shadow-apple-float flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden border border-white/10">
+          <div class="flex items-center gap-3.5 z-10">
+            <div class="w-9 h-9 rounded-full bg-sf-purple/20 border border-sf-purple/50 flex items-center justify-center shrink-0">
+              <span class="w-2.5 h-2.5 rounded-full bg-sf-purple animate-ping"></span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-sf-purple">macOS 实时活动</span>
+                <span class="text-slate-400">•</span>
+                <span class="text-xs text-slate-300">Xcode / 研发设计</span>
+              </div>
+              <div class="text-lg font-bold font-mono tracking-tight text-white mt-0.5">
+                21:10 <span class="text-slate-500 text-xs font-sans">至</span> 21:28
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-5 z-10 self-end sm:self-auto">
+            <div class="text-right">
+              <div class="text-[10px] text-slate-400">已进行时长</div>
+              <div class="text-xl font-mono font-bold text-sf-green">18m 42s</div>
+            </div>
+            <button class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium backdrop-blur transition-colors flex items-center gap-1.5">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-sf-green"></i>
+              <span>结束此段</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 核心指标 (Apple Health 风格精细小卡) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          
+          <div class="bg-sf-card dark:bg-sf-darkCard rounded-xl p-4 shadow-apple-card sf-border flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="text-xs font-medium">专注时长</span>
+              <i data-lucide="flame" class="w-4 h-4 text-sf-purple"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white">10</span>
+              <span class="text-xs text-slate-500">小时</span>
+            </div>
+            <div class="mt-2 text-[10px] text-sf-green font-medium flex items-center gap-1">
+              <i data-lucide="arrow-up-right" class="w-3 h-3"></i> 较昨日提高 12%
+            </div>
+          </div>
+
+          <div class="bg-sf-card dark:bg-sf-darkCard rounded-xl p-4 shadow-apple-card sf-border flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="text-xs font-medium">休整与放松</span>
+              <i data-lucide="coffee" class="w-4 h-4 text-sf-green"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1 font-mono">
+              <span class="text-2xl font-bold text-slate-900 dark:text-white">11</span>
+              <span class="text-xs text-slate-500 font-sans">h</span>
+              <span class="text-2xl font-bold text-slate-900 dark:text-white">29</span>
+              <span class="text-xs text-slate-500 font-sans">m</span>
+            </div>
+            <div class="mt-2 text-[10px] text-slate-400">节奏良好，保护精力</div>
+          </div>
+
+          <div class="bg-sf-card dark:bg-sf-darkCard rounded-xl p-4 shadow-apple-card sf-border flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="text-xs font-medium">转换转化率</span>
+              <i data-lucide="pie-chart" class="w-4 h-4 text-sf-accent"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1 font-mono">
+              <span class="text-2xl font-bold text-slate-900 dark:text-white">47</span>
+              <span class="text-xs text-slate-500">%</span>
+            </div>
+            <!-- Apple 风格平滑进度条 -->
+            <div class="w-full bg-black/5 dark:bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div class="bg-sf-accent h-full rounded-full" style="width: 47%"></div>
+            </div>
+          </div>
+
+          <div class="bg-sf-card dark:bg-sf-darkCard rounded-xl p-4 shadow-apple-card sf-border flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="text-xs font-medium">活跃频次</span>
+              <i data-lucide="zap" class="w-4 h-4 text-sf-orange"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white">11</span>
+              <span class="text-xs text-slate-500">次时段</span>
+            </div>
+            <div class="mt-2 text-[10px] text-slate-400">平均专注 54 分钟</div>
+          </div>
+
+        </div>
+
+        <!-- 24H 屏幕使用时间风格分段轨道 (Apple Screen Time / Fitness Style) -->
+        <div class="bg-sf-card dark:bg-sf-darkCard rounded-2xl p-5 shadow-apple-card sf-border space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-sf-purple"></i>
+              <h2 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">24小时 时间分布胶囊</h2>
+            </div>
+            <div class="flex items-center gap-4 text-[11px] text-slate-400">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sf-purple"></span> 专注</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sf-green"></span> 休息</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-black/10 dark:bg-white/10"></span> 睡眠</span>
+            </div>
+          </div>
+
+          <!-- 时间轴控制轨 -->
+          <div class="space-y-1 pt-1">
+            <div class="flex justify-between text-[10px] font-mono text-slate-400 px-1">
+              <span>00:00</span>
+              <span>06:00</span>
+              <span>12:00</span>
+              <span>18:00</span>
+              <span>24:00</span>
+            </div>
+
+            <!-- Apple 圆角胶囊拼接轨 -->
+            <div class="w-full h-7 bg-black/5 dark:bg-white/5 rounded-xl p-1 flex gap-1 items-center">
+              <div class="h-full bg-black/10 dark:bg-white/10 rounded-lg" style="width: 25%" title="睡眠"></div>
+              <div class="h-full bg-sf-green/80 hover:bg-sf-green rounded-lg cursor-pointer transition-all" style="width: 8%" title="晨间休息"></div>
+              <div class="h-full bg-sf-purple hover:bg-sf-purple/90 rounded-lg cursor-pointer transition-all" style="width: 15%" title="上午专注"></div>
+              <div class="h-full bg-sf-green/80 hover:bg-sf-green rounded-lg cursor-pointer transition-all" style="width: 6%" title="午休"></div>
+              <div class="h-full bg-sf-purple hover:bg-sf-purple/90 rounded-lg cursor-pointer transition-all" style="width: 22%" title="下午工作"></div>
+              <div class="h-full bg-sf-green/80 hover:bg-sf-green rounded-lg cursor-pointer transition-all" style="width: 8%" title="晚餐休整"></div>
+              <div class="h-full bg-sf-purple rounded-lg cursor-pointer transition-all relative" style="width: 16%" title="进行中">
+                <span class="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动明细组列表 (macOS Grouped List View) -->
+        <div class="bg-sf-card dark:bg-sf-darkCard rounded-2xl shadow-apple-card sf-border overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">本日记录序列 (12)</h3>
+            <span class="text-xs text-sf-accent cursor-pointer hover:underline">导出 CSV</span>
+          </div>
+
+          <div class="divide-y divide-black/5 dark:divide-white/5 text-xs font-mono">
+            
+            <!-- Item 1 -->
+            <div class="px-5 py-3 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full bg-sf-green"></span>
+                <span class="font-bold text-slate-800 dark:text-slate-200">20:17 → 21:10</span>
+                <span class="px-2 py-0.5 rounded-md bg-sf-green/10 text-sf-green font-sans font-medium text-[11px]">休息与休整</span>
+              </div>
+              <div class="flex items-center gap-4 text-slate-400">
+                <span>时长: 53m</span>
+                <span class="text-sf-purple font-sans">间歇活跃 18m</span>
+              </div>
+            </div>
+
+            <!-- Item 2 -->
+            <div class="px-5 py-3 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full bg-sf-purple"></span>
+                <span class="font-bold text-slate-800 dark:text-slate-200">19:32 → 20:17</span>
+                <span class="px-2 py-0.5 rounded-md bg-sf-purple/10 text-sf-purple font-sans font-medium text-[11px]">深度工作</span>
+              </div>
+              <div class="text-slate-400">
+                <span>时长: 45m</span>
+              </div>
+            </div>
+
+            <!-- Item 3 -->
+            <div class="px-5 py-3 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+              <div class="flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full bg-sf-purple"></span>
+                <span class="font-bold text-slate-800 dark:text-slate-200">18:47 → 19:32</span>
+                <span class="px-2 py-0.5 rounded-md bg-sf-purple/10 text-sf-purple font-sans font-medium text-[11px]">深度工作</span>
+              </div>
+              <div class="text-slate-400">
+                <span>时长: 45m</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+  </div>
+
+  <script>
+    // 初始化 Lucide 图标
+    lucide.createIcons();
+
+    // 暗黑模式切换脚本
+    const themeToggleBtn = document.getElementById('themeToggle');
+    themeToggleBtn.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
