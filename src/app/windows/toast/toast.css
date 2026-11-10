@@ -181,3 +181,28 @@ html.reminder-transparent #app { background: transparent !important; }
   pointer-events: none;
   box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.15);
 }
+
+
+/* HeroUI 的 .header / .progress-bar 是组件根类的全局样式，会和 Toast 卡片里
+   同名的 DOM class 撞车（header 被塞 padding/字号，progress-bar 被改成 grid）。
+   卡片自己的规则已经写全，这里把 HeroUI 那层多出来的属性显式归零。 */
+.ct-rest-toast-card .header,
+.ct-sdk-toast-card .header,
+.ct-notification-toast-card .header,
+.ct-update-toast-card .header,
+.ct-rest-timer-toast-card .header {
+  width: auto;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+.ct-rest-toast-card .progress-bar,
+.ct-sdk-toast-card .progress-bar,
+.ct-notification-toast-card .progress-bar {
+  display: block;
+  gap: 0;
+}

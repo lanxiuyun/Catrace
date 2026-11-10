@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Moon } from 'lucide-react'
-import { Switch, ToggleButton, ToggleButtonGroup } from '@heroui/react'
+import { Switch, Tabs } from '@heroui/react'
 import { getConfig, getHideStats, getTodayRecords, setHideStats } from '../../api/tauri'
-import { computeTimeBlocks } from '../../utils/timeBlocks'
+import { computeTimeBlocks, mergeRestBlocks } from '../../utils/timeBlocks'
 import type { MinuteData } from '../../types/minute'
 import { useT } from '../i18n'
 import { useShellStore } from '../store'
@@ -150,6 +150,10 @@ export function Dashboard() {
     return computeTimeBlocks(allMinutes, config.window_minutes, config.break_minutes, nowIdx)
   }, [allMinutes, config, dayStart, records])
 
+  // 卡片会把相邻的休息 block 合并展示，标题计数必须用同一份合并结果，
+  // 否则会出现「标题 7 段、下面只有 5 张卡」。
+  const mergedBlockCount = useMemo(() => mergeRestBlocks(blocks).length, [blocks])
+
   // 活跃 block 全部时长算活跃；休息 block 里逐分钟拆活跃/休息。
   const blockStats = useMemo(() => {
     let activeMinutes = 0
@@ -293,26 +297,30 @@ export function Dashboard() {
               <div className="activity-title-row">
                 <h2 className="activity-title">{t('dashboard.activity.title')}</h2>
                 <span className="activity-count">
-                  {t('dashboard.activity.count', { n: blocks.length })}
+                  {t('dashboard.activity.count', { n: mergedBlockCount })}
                 </span>
               </div>
               {hasRecords && (
-                <ToggleButtonGroup
-                  selectionMode="single"
-                  selectedKeys={[timelineMode]}
-                  onSelectionChange={(keys) => {
-                    const next = keys.values().next().value
-                    setTimelineMode(next === 'grid' ? 'grid' : 'segments')
+                <Tabs
+                  className="ct-activity-tabs"
+                  selectedKey={timelineMode}
+                  onSelectionChange={(key) => {
+                    setTimelineMode(key === 'grid' ? 'grid' : 'segments')
                   }}
                 >
-                  <ToggleButton id="segments">
-                    {t('dashboard.activity.overview')}
-                  </ToggleButton>
-                  <ToggleButton id="grid">
-                    <ToggleButtonGroup.Separator />
-                    {t('dashboard.activity.detailed')}
-                  </ToggleButton>
-                </ToggleButtonGroup>
+                  <Tabs.ListContainer>
+                    <Tabs.List aria-label={t('dashboard.activity.title')}>
+                      <Tabs.Tab id="segments">
+                        {t('dashboard.activity.overview')}
+                        <Tabs.Indicator />
+                      </Tabs.Tab>
+                      <Tabs.Tab id="grid">
+                        {t('dashboard.activity.detailed')}
+                        <Tabs.Indicator />
+                      </Tabs.Tab>
+                    </Tabs.List>
+                  </Tabs.ListContainer>
+                </Tabs>
               )}
             </div>
 

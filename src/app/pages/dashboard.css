@@ -302,6 +302,19 @@
   gap: 0.5rem 0.75rem;
 }
 
+/* HeroUI Tabs 默认 32px 高、14px 字，塞进活动区标题行偏大；
+   压成 28px 胶囊（24px 标签 + 上下各 2px 轨道内边距）。 */
+.ct-dashboard .ct-activity-tabs .tabs__list {
+  padding: 0.125rem;
+}
+
+.ct-dashboard .ct-activity-tabs .tabs__tab {
+  height: 1.5rem;
+  min-width: 3.5rem;
+  padding-inline: 0.625rem;
+  font-size: 0.75rem;
+}
+
 .ct-dashboard .activity-title-row {
   display: flex;
   align-items: center;

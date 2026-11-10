@@ -30,7 +30,7 @@ export default {
     },
     activity: {
       title: "Today's Activity Log",
-      count: '{n} entries',
+      count: '{n} periods',
       overview: 'Overview',
       detailed: 'Detailed',
       empty: 'No data yet. Records will appear after the app runs for a while.',
