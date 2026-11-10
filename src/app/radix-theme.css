@@ -73,6 +73,16 @@
   --text-field-focus-color: var(--ct-accent);
 }
 
+/* 文本框聚焦：Radix 默认是 2px 实心 outline 贴着边框，宽输入框上会读成一大块蓝边。
+   macOS 的聚焦是「细实线 + 很淡的一圈光晕」：1px 系统蓝描边 + 3px 22% 蓝光晕，
+   既有清晰的焦点边界，又不会把整条输入框涂成色块。 */
+.radix-themes .rt-TextFieldRoot:where(:has(.rt-TextFieldInput:focus)),
+.radix-themes .rt-TextAreaRoot:where(:focus-within) {
+  outline: 1px solid var(--ct-accent);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--ct-accent) 22%, transparent);
+}
+
 /* ---------- Radix 控件的悬停与光标 ----------
    Radix Themes 自带的 hover 只有一档很淡的透明黑：soft 按钮 --accent-a3 → --accent-a4
    （白底上约 6% → 9%，肉眼几乎看不出），Select 触发器只把 1px 内描边从 gray-a7 提到 a8；
@@ -107,6 +117,13 @@
     background-color 0.14s ease,
     box-shadow 0.14s ease,
     color 0.14s ease;
+}
+
+/* 文本框聚焦时不走过渡：0.14s 的 box-shadow 过渡会把蓝色光晕淡入，点进去像是「过了一会儿」才亮。
+   失焦时恢复过渡，光晕仍然平滑淡出。 */
+.radix-themes .rt-TextFieldRoot:focus-within,
+.radix-themes .rt-TextAreaRoot:focus-within {
+  transition: none;
 }
 
 .radix-themes .rt-SwitchRoot::before {
@@ -154,9 +171,10 @@
       0 0.0625rem 0.125rem rgba(0, 0, 0, 0.05);
   }
 
-  /* 输入框 / 多行输入：Radix 只有聚焦态，鼠标悬停时把描边加一档。 */
-  .radix-themes .rt-TextFieldRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):hover,
-  .radix-themes .rt-TextAreaRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):hover {
+  /* 输入框 / 多行输入：Radix 只有聚焦态，鼠标悬停时把描边加一档。
+     聚焦时让位给下面的蓝色焦点光晕，避免 hover 的阴影把光晕顶掉。 */
+  .radix-themes .rt-TextFieldRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):not(:focus-within):hover,
+  .radix-themes .rt-TextAreaRoot:where(.rt-variant-surface):where(:not(:has(:disabled))):not(:focus-within):hover {
     box-shadow: inset 0 0 0 1px var(--gray-a8);
   }
 

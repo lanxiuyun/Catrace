@@ -246,7 +246,7 @@ export function RestSettings({
             <TextArea
               size="2"
               rows={3}
-              resize="vertical"
+              resize="none"
               value={text.body}
               placeholder={t('plugins.rest.previewDefaultBody')}
               aria-label={t('plugins.rest.customBody')}
