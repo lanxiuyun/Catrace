@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertDialog, Button, SearchField, Switch, Tabs } from '@heroui/react'
+import { Tooltip, AlertDialog, Button, SearchField, Switch, Tabs } from '@heroui/react'
 import {
   Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
   FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
@@ -360,7 +360,10 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   <FolderOpen size={15} aria-hidden="true" />
                   <span>{t('plugins.external.openDir')}</span>
                 </Button>
-                <Button isIconOnly variant="ghost" size="sm" className="ct-market-toolbar-icon" aria-label={t('pluginMarket.refresh')} isDisabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></Button>
+                <Tooltip delay={300}>
+                  <Button isIconOnly variant="ghost" size="sm" className="ct-market-toolbar-icon" aria-label={t('pluginMarket.refresh')} isDisabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></Button>
+                  <Tooltip.Content>{t('pluginMarket.refresh')}</Tooltip.Content>
+                </Tooltip>
               </div>
             </div>
           </div>
