@@ -76,9 +76,11 @@
 /* ---------- Radix 控件的悬停与光标 ----------
    Radix Themes 自带的 hover 只有一档很淡的透明黑：soft 按钮 --accent-a3 → --accent-a4
    （白底上约 6% → 9%，肉眼几乎看不出），Select 触发器只把 1px 内描边从 gray-a7 提到 a8；
-   TextField / TextArea / Switch 干脆没有 hover 状态。光标也是 macOS 约定（--cursor-button:
-   default），鼠标移上去不变手指。设置页几乎全是这些原生控件、页面自己只给链接卡和拖拽把手
-   写了 hover，所以整页看起来「没有悬停反馈」。
+   TextField / TextArea / Switch 干脆没有 hover 状态；滑块更彻底——thumb 的
+   --cursor-slider-thumb 是 default，只有 hover/active 都没有的白色圆钮，鼠标移上去
+   光标和外观都不变。光标也是 macOS 约定（--cursor-button: default），鼠标移上去不变手指。
+   设置页几乎全是这些原生控件、页面自己只给链接卡和拖拽把手写了 hover，所以整页看起来
+   「没有悬停反馈」。
    这里补一层和 Catrace 自家组件（侧栏导航项、插件工具栏按钮、链接卡）一致的悬停语言：
    只加深底色/描边、给一点投影，不位移。门控用 any-hover 而不是 hover——触屏笔记本上
    hover: hover 可能不成立，但鼠标移上去照样会触发 :hover。 */
@@ -89,6 +91,11 @@
   --cursor-radio: pointer;
   --cursor-switch: pointer;
   --cursor-menu-item: pointer;
+  /* 滑块是输入控件，不是可拖拽的物件：光标与按钮 / 开关一致用 pointer。
+     grab / grabbing 留给画布、面板这类「抓住整体挪动」的对象，滑块上用会读成
+     「可以把整条轨道拽走」。 */
+  --cursor-slider-thumb: pointer;
+  --cursor-slider-thumb-active: pointer;
 }
 
 /* hover 变化给个短过渡，避免开关/按钮在鼠标划过时硬跳（Radix 自己没写 transition）。 */
@@ -106,6 +113,20 @@
   transition:
     background-color 0.14s ease,
     box-shadow 0.14s ease;
+}
+
+/* 悬停只让圆钮「渐渐放大」：只过渡 transform，不动宽高和颜色，轨道和右侧数值都不抖。
+   圆钮位置由 Radix 自己写 left，和这里的 transform 无关，所以不影响拖拽。 */
+.radix-themes .rt-SliderThumb::after {
+  transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Radix 的拇指命中区是 ::before 的 3 倍宽（15px 拇指 → 45px 方块），那是给手指触摸留的
+   余量；桌面鼠标有精确指针，离圆钮 20px 就开始放大反而显得脏。收到 1.4 倍（约 21px），
+   命中区略大于圆钮本身（::after 17px），点中和拖拽贴着圆点又不至于太难点。 */
+.radix-themes .rt-SliderThumb::before {
+  width: calc(var(--slider-thumb-size) * 1.4);
+  height: calc(var(--slider-thumb-size) * 1.4);
 }
 
 @media (any-hover: hover) {
@@ -145,6 +166,17 @@
       inset 0 0 0 1px var(--gray-a7),
       0 0 0 0.125rem var(--gray-a4);
   }
+
+  /* 滑块：悬停只让圆钮平滑放大，不加光环、不改已选段颜色。
+     命中区是拇指 ::before 的 1.4 倍宽，贴着圆钮就能触发，不用压在 15px 的小圆点上。 */
+  .radix-themes .rt-SliderThumb:where(:not([data-disabled])):hover::after {
+    transform: scale(1.08);
+  }
+}
+
+/* 滑块的按下反馈不放 any-hover 里：触屏拖拽也要有。按住拖动期间 :active 一直成立。 */
+.radix-themes .rt-SliderThumb:where(:not([data-disabled])):active::after {
+  transform: scale(1.14);
 }
 
 /* 按压：软色按钮再深一档。不放在 any-hover 里——触屏点按也要有反馈。 */
@@ -158,7 +190,8 @@
   .radix-themes .rt-SelectTrigger,
   .radix-themes .rt-TextFieldRoot,
   .radix-themes .rt-TextAreaRoot,
-  .radix-themes .rt-SwitchRoot::before {
+  .radix-themes .rt-SwitchRoot::before,
+  .radix-themes .rt-SliderThumb::after {
     transition: none;
   }
 }

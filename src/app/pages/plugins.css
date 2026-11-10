@@ -239,8 +239,12 @@
    4px 高的轨道上那圈深边会把蓝色切出一道边。 */
 .ct-plugins-page .rt-SliderTrack, .ct-plugin-detail .rt-SliderTrack { background-color: var(--ct-surface-2); }
 .ct-plugins-page .rt-SliderRange, .ct-plugin-detail .rt-SliderRange { background-color: var(--ct-accent); box-shadow: none; }
-.ct-plugins-page .rt-SliderThumb, .ct-plugin-detail .rt-SliderThumb { background-color: var(--ct-surface); box-shadow: 0 0.0625rem 0.1875rem #0003, 0 0.03125rem 0.0625rem #0000001a; }
-[data-theme='dark'] .ct-plugins-page .rt-SliderThumb, [data-theme='dark'] .ct-plugin-detail .rt-SliderThumb { background-color: #e5e5ea; }
+/* 圆钮 = 白底圆 + 主题蓝描边（参考 macOS 蓝色滑块），不用灰色投影。
+   描边用 inset box-shadow 画在圆钮内侧：外径保持 17px 不变，1px 蓝圈吃进白圆里，
+   不会像外描边那样把视觉直径撑大。圆钮本体是 Radix 的 ::after；
+   之前写在 .rt-SliderThumb（15px 方块父元素）上会漏出方框。 */
+.ct-plugins-page .rt-SliderThumb::after, .ct-plugin-detail .rt-SliderThumb::after { background-color: var(--ct-surface); box-shadow: inset 0 0 0 0.0625rem var(--ct-accent); }
+[data-theme='dark'] .ct-plugins-page .rt-SliderThumb::after, [data-theme='dark'] .ct-plugin-detail .rt-SliderThumb::after { background-color: #e5e5ea; }
 .ct-plugin-bg-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; width: 100%; min-height: 5rem; padding: 0.75rem; border: 1px dashed var(--ct-border-strong); border-radius: 0.75rem; background: var(--ct-bg); color: var(--ct-text-muted); font-size: 0.75rem; text-align: center; cursor: pointer; }
 .ct-plugin-bg-empty:hover { border-color: var(--ct-accent-border); color: var(--ct-text); }
 .ct-plugin-bg-empty:focus-within { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.125rem; }
