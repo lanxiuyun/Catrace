@@ -22,10 +22,9 @@
 .ct-market-source-note { margin: 0; padding: 0 0.5rem 0.625rem 2.125rem; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
 .ct-market-source-custom p { margin: 0; color: var(--ct-text-muted); font-size: 0.75rem; line-height: 1.6; }
 .ct-market-source-form > .ct-market-source-error { color: var(--ct-error); overflow-wrap: anywhere; user-select: text; }
-.ct-market-tabs { display: flex; gap: 0.1875rem; padding: 0.1875rem; border: 1px solid var(--ct-border); border-radius: 0.625rem; background: var(--ct-surface-2); }
-.ct-market-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; min-height: 2rem; padding: 0.3125rem 0.9375rem; border: 1px solid transparent; border-radius: 0.4375rem; background: transparent; font: inherit; font-size: 0.8125rem; font-weight: 550; white-space: nowrap; color: var(--ct-text-muted); cursor: pointer; }
-.ct-market-tabs button.is-active { border-color: var(--ct-border-card); background: var(--ct-surface); color: var(--ct-text); box-shadow: 0 0.0625rem 0.125rem #00000006; }
-.ct-market-tabs button span { padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: var(--ct-surface-2); font-size: 0.625rem; font-variant-numeric: tabular-nums; }
+.ct-market-tabs .tabs__list { padding: 0.125rem; }
+.ct-market-tabs .tabs__tab { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; width: auto; height: 2rem; min-width: 5.5rem; padding-inline: 0.75rem; font-size: 0.8125rem; white-space: nowrap; }
+.ct-market-tabs .tabs__tab .ct-market-tab-count { padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; background: var(--ct-surface-2); font-size: 0.625rem; font-variant-numeric: tabular-nums; }
 .ct-plugin-search { position: relative; display: flex; align-items: center; }
 .ct-plugin-search svg { position: absolute; left: 0.6875rem; color: var(--ct-text-subtle); pointer-events: none; }
 .ct-plugin-search:focus-within svg { color: var(--ct-accent); }
@@ -284,7 +283,7 @@
 @media (max-width: 48rem) {
   .ct-market-toolbar { flex-wrap: wrap; }
   .ct-market-tabs { flex: 1; }
-  .ct-market-tabs button { flex: 1; }
+  .ct-market-tabs .tabs__list { width: 100%; }
   .ct-market-tools { width: 100%; }
   .ct-market-search { width: auto; }
   .ct-plugin-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }

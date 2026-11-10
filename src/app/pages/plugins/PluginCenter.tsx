@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertDialog, Button, Switch } from '@radix-ui/themes'
+import { AlertDialog, Button, Switch, Tabs } from '@heroui/react'
 import {
   Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
   FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
@@ -105,7 +105,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const seenIds = useRef<Record<'discover' | 'installed', Set<string>>>({ discover: new Set(), installed: new Set() })
   const primedTabs = useRef<Record<'discover' | 'installed', boolean>>({ discover: false, installed: false })
   const detailOpener = useRef<HTMLButtonElement | null>(null)
-  const alertOpener = useRef<HTMLElement | null>(null)
   const detailHeading = useRef<HTMLHeadingElement | null>(null)
   const detailSection = useRef<HTMLElement | null>(null)
   const listScroll = useRef(0)
@@ -137,7 +136,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     }
     // After an uninstall the card that opened the detail is gone: keep keyboard focus inside the
     // page (the active tab) instead of dropping it on <body>.
-    document.querySelector<HTMLElement>('.ct-market-tabs button[aria-pressed="true"]')?.focus({ preventScroll: true })
+    document.querySelector<HTMLElement>('.ct-market-tabs .tabs__tab[aria-selected="true"]')?.focus({ preventScroll: true })
   }
   const openDetails = (id: string, opener: HTMLButtonElement) => {
     detailOpener.current = opener
@@ -189,10 +188,6 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     // Deliberately keyed on history movement only: the UI paths update `selectedId` and the entry
     // in step, so re-running this on `selectedId` would replay its own transition.
   }, [historyDetailId])
-  const restoreAlertFocus = (event: Event) => {
-    event.preventDefault()
-    alertOpener.current?.focus()
-  }
   // Uninstall removes the very thing the detail is about: leave it the way the back button does
   // instead of parking the reader on a now-uninstalled plugin. A failed attempt keeps the detail
   // so the error stays in context; a detail that is already gone is a no-op.
@@ -311,7 +306,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const icon = (item: PluginItem) => item.builtin ? <Armchair aria-hidden="true" /> : item.installed?.iconDataUrl
     ? <img src={item.installed.iconDataUrl} alt="" /> : <Plug aria-hidden="true" />
   const installButton = (item: PluginItem) => (
-    <Button size="2" variant="soft" disabled={busy || data.loadingLocal || !!data.localError} onClick={() => void data.install(item.id)}>
+    <Button size="sm" variant="tertiary" isDisabled={busy || data.loadingLocal || !!data.localError} onClick={() => void data.install(item.id)}>
       {data.busyId === item.id ? <LoaderCircle className="ct-market-spin" size={14} aria-hidden="true" /> : <ArrowDownToLine size={14} aria-hidden="true" />}
       {t(data.busyId === item.id ? 'pluginMarket.installing' : 'pluginMarket.install')}
     </Button>
@@ -327,10 +322,25 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
       <RadixPage className="ct-plugins-page">
         <main className="ct-market" hidden={!!selected} aria-label={t('pluginMarket.title')}>
           <div className="ct-market-toolbar">
-            <div className="ct-market-tabs" role="group" aria-label={t('pluginMarket.filter')}>
-              <button type="button" aria-pressed={tab === 'installed'} className={tab === 'installed' ? 'is-active' : ''} onClick={() => setTab('installed')}>{t('pluginMarket.myPlugins')}<span>{data.loadingLocal ? '—' : installedItems.length}</span></button>
-              <button type="button" aria-pressed={tab === 'discover'} className={tab === 'discover' ? 'is-active' : ''} onClick={() => setTab('discover')}>{t('pluginMarket.discover')}</button>
-            </div>
+            <Tabs
+              className="ct-market-tabs"
+              selectedKey={tab}
+              onSelectionChange={(key) => setTab(key === 'discover' ? 'discover' : 'installed')}
+            >
+              <Tabs.ListContainer>
+                <Tabs.List aria-label={t('pluginMarket.filter')}>
+                  <Tabs.Tab id="installed">
+                    {t('pluginMarket.myPlugins')}
+                    <span className="ct-market-tab-count">{data.loadingLocal ? '—' : installedItems.length}</span>
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                  <Tabs.Tab id="discover">
+                    {t('pluginMarket.discover')}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                </Tabs.List>
+              </Tabs.ListContainer>
+            </Tabs>
             <div className="ct-market-tools">
               <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
               <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={data.sourceBusy} onChange={data.changeSource} />
@@ -344,8 +354,8 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </div>
           </div>
 
-          {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="1" variant="soft" onClick={() => void data.refreshLocal()} disabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
-          {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p>{!data.mirror && !data.source.startsWith('https://gitee.com/') && <p>{t('pluginMarket.mirrorSuggestion')}</p>}</div><Button size="1" variant="soft" onClick={() => void data.refreshRemote()} disabled={busy || data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
+          {data.localError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.localFailed')}</strong><p>{data.localError}</p></div><Button size="sm" variant="tertiary" onClick={() => void data.refreshLocal()} isDisabled={data.loadingLocal}>{t('pluginMarket.retry')}</Button></div>}
+          {tab === 'discover' && data.remoteError && <div className="ct-market-error" role="alert"><CircleAlert size={18} aria-hidden="true" /><div><strong>{t('pluginMarket.remoteFailed')}</strong><p>{data.remoteError}</p><p>{t('pluginMarket.offlineHint')}</p>{!data.mirror && !data.source.startsWith('https://gitee.com/') && <p>{t('pluginMarket.mirrorSuggestion')}</p>}</div><Button size="sm" variant="tertiary" onClick={() => void data.refreshRemote()} isDisabled={busy || data.loadingRemote}>{t('pluginMarket.retry')}</Button></div>}
 
           <section className="ct-market-grid" aria-label={t(tab === 'discover' ? 'pluginMarket.discover' : 'pluginMarket.myPlugins')} aria-busy={tab === 'discover' ? data.loadingRemote : data.loadingLocal}>
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
@@ -360,7 +370,11 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   {tab !== 'installed' && <ChevronRight size={15} className="ct-market-card-arrow" aria-hidden="true" />}
                   <p>{item.description || t('plugins.external.noDescription')}</p>
                 </div>
-                {tab === 'installed' && <div className="ct-market-card-toggle"><Switch size="2" checked={isEnabled(item)} disabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onCheckedChange={(value) => toggleCard(item, value)} /></div>}
+                {tab === 'installed' && <div className="ct-market-card-toggle"><Switch size="sm" isSelected={isEnabled(item)} isDisabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onChange={(value) => toggleCard(item, value)}>
+                  <Switch.Content>
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                  </Switch.Content>
+                </Switch></div>}
                 {(statusLabel(item) || !isInstalled(item)) && <div className="ct-market-card-footer">
                   {statusLabel(item) && <span className={`ct-market-card-status${item.installed?.info.error ? ' is-error' : ''}`}>
                     {item.installed?.info.error ? <CircleAlert size={12} aria-hidden="true" /> : <Check size={12} aria-hidden="true" />}
@@ -369,7 +383,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   {!isInstalled(item) && installButton(item)}
                 </div>}
               </article>
-            )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="soft" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
+            )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="tertiary" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
           </section>
 
         </main>
@@ -381,20 +395,43 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                 <span className="ct-plugin-detail-nav-title" aria-hidden="true">{selected.name}</span>
               </div>
               <header className="ct-plugin-detail-header">
-                <div className="ct-plugin-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div className="ct-plugin-detail-titles"><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div>{isInstalled(selected) ? <Switch checked={selectedEnabled} disabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onCheckedChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }} /> : installButton(selected)}</div>
+                <div className="ct-plugin-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div className="ct-plugin-detail-titles"><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div>{isInstalled(selected) ? <Switch size="sm" isSelected={selectedEnabled} isDisabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }}>
+                  <Switch.Content>
+                    <Switch.Control><Switch.Thumb /></Switch.Control>
+                  </Switch.Content>
+                </Switch> : installButton(selected)}</div>
                 <p className="ct-plugin-detail-description">{selected.description || t('plugins.external.noDescription')}</p>
               </header>
               {selectedError && <div className="ct-market-error" role="alert"><CircleAlert size={17} aria-hidden="true" /><div><strong>{t('pluginMarket.needsAttention')}</strong><p>{selectedError}</p></div></div>}
               <div className="ct-plugin-detail-body" key={selected.id}>
                 {selected.builtin ? children : selected.installed ? <>
                   {selectedEnabled && !selectedError && <ExternalPluginSettings id={selected.id} hasSettings={selected.installed.info.hasSettings} contentMtimeMs={selected.installed.info.contentMtimeMs} />}
-                  <section className="ct-plugin-group ct-market-installation"><h3 className="ct-plugin-group-title">{t('pluginMarket.installation')}</h3><dl><div><dt>{t('pluginMarket.identifier')}</dt><dd>{selected.id}</dd></div><div><dt>{t('pluginMarket.source')}</dt><dd>{selected.installed.info.sourceRepository ?? t('pluginMarket.sourceUnknown')}</dd></div>{selected.installed.info.sourceCommit && <div><dt>{t('pluginMarket.sourceCommit')}</dt><dd><code>{selected.installed.info.sourceCommit}</code></dd></div>}<div><dt>{t('plugins.external.dir')}</dt><dd><code>{selected.installed.info.dir}</code></dd></div></dl><div className="ct-market-remove-row"><p>{t('pluginMarket.uninstallHint')}</p><Button variant="soft" color="red" disabled={busy} onClick={(event) => { alertOpener.current = event.currentTarget; setRemoveId(selected.id) }}><Trash2 size={14} aria-hidden="true" />{t('pluginMarket.uninstall')}</Button></div></section>
+                  <section className="ct-plugin-group ct-market-installation"><h3 className="ct-plugin-group-title">{t('pluginMarket.installation')}</h3><dl><div><dt>{t('pluginMarket.identifier')}</dt><dd>{selected.id}</dd></div><div><dt>{t('pluginMarket.source')}</dt><dd>{selected.installed.info.sourceRepository ?? t('pluginMarket.sourceUnknown')}</dd></div>{selected.installed.info.sourceCommit && <div><dt>{t('pluginMarket.sourceCommit')}</dt><dd><code>{selected.installed.info.sourceCommit}</code></dd></div>}<div><dt>{t('plugins.external.dir')}</dt><dd><code>{selected.installed.info.dir}</code></dd></div></dl><div className="ct-market-remove-row"><p>{t('pluginMarket.uninstallHint')}</p><Button variant="danger-soft" isDisabled={busy} onClick={() => setRemoveId(selected.id)}><Trash2 size={14} aria-hidden="true" />{t('pluginMarket.uninstall')}</Button></div></section>
                 </> : null}
               </div>
             </>}
         </section>
 
-        <AlertDialog.Root open={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}><AlertDialog.Content maxWidth="28rem" onCloseAutoFocus={restoreAlertFocus}><AlertDialog.Title>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Title><AlertDialog.Description>{t('pluginMarket.uninstallDescription')}</AlertDialog.Description><div className="ct-market-confirm-actions"><AlertDialog.Cancel><Button variant="soft" color="gray">{t('pluginMarket.cancel')}</Button></AlertDialog.Cancel><AlertDialog.Action><Button color="red" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button></AlertDialog.Action></div></AlertDialog.Content></AlertDialog.Root>
+        <AlertDialog isOpen={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}>
+          <AlertDialog.Backdrop>
+            <AlertDialog.Container>
+              <AlertDialog.Dialog>
+                <AlertDialog.CloseTrigger />
+                <AlertDialog.Header>
+                  <AlertDialog.Icon status="danger" />
+                  <AlertDialog.Heading>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Heading>
+                </AlertDialog.Header>
+                <AlertDialog.Body>
+                  <p>{t('pluginMarket.uninstallDescription')}</p>
+                </AlertDialog.Body>
+                <AlertDialog.Footer>
+                  <Button slot="close" variant="tertiary">{t('pluginMarket.cancel')}</Button>
+                  <Button slot="close" variant="danger" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button>
+                </AlertDialog.Footer>
+              </AlertDialog.Dialog>
+            </AlertDialog.Container>
+          </AlertDialog.Backdrop>
+        </AlertDialog>
       </RadixPage>
     </PageScroll>
   )
