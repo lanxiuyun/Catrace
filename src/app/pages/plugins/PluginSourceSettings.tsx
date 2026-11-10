@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
-import { Input, Popover } from '@heroui/react'
+import { Input, Popover, Button } from '@heroui/react'
 import { ChevronDown, GitBranch, LoaderCircle } from 'lucide-react'
 import { DEFAULT_PLUGIN_REPOSITORY } from '../../../api/tauri'
 import { useT } from '../../i18n'
@@ -58,11 +58,11 @@ export function PluginSourceSettings({ source, mirror, saving, disabled, onChang
       setOpen(value)
     }}>
       <Popover.Trigger>
-        <button type="button" className="ct-plugin-icon-btn ct-market-label-btn ct-market-popup-btn" disabled={disabled}>
+        <Button variant="outline" size="sm" className="ct-market-toolbar-btn" isDisabled={disabled}>
           {saving ? <LoaderCircle size={15} className="ct-market-spin" aria-hidden="true" /> : <GitBranch size={15} aria-hidden="true" />}
           <span>{t('pluginMarket.source')} · {t(labels[currentOption])}</span>
           <ChevronDown size={12} aria-hidden="true" />
-        </button>
+        </Button>
       </Popover.Trigger>
       <Popover.Content className="ct-market-source-popover" placement="bottom end">
         <Popover.Dialog aria-labelledby={`${id}-title`}>

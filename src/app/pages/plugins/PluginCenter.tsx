@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertDialog, Button, Switch, Tabs } from '@heroui/react'
+import { AlertDialog, Button, SearchField, Switch, Tabs } from '@heroui/react'
 import {
   Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
   FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
@@ -342,14 +342,25 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
               </Tabs.ListContainer>
             </Tabs>
             <div className="ct-market-tools">
-              <label className="ct-plugin-search ct-market-search"><Search size={14} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('pluginsCenter.searchPlaceholder')} aria-label={t('pluginsCenter.searchPlaceholder')} spellCheck={false} /></label>
+              <SearchField
+                className="ct-market-search"
+                value={query}
+                onChange={setQuery}
+                aria-label={t('pluginsCenter.searchPlaceholder')}
+              >
+                <SearchField.Group>
+                  <SearchField.SearchIcon><Search size={14} /></SearchField.SearchIcon>
+                  <SearchField.Input placeholder={t('pluginsCenter.searchPlaceholder')} spellCheck={false} />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
               <PluginSourceSettings source={data.source} mirror={data.mirror} saving={data.sourceBusy} disabled={data.sourceBusy} onChange={data.changeSource} />
               <div className="ct-market-tool-group">
-                <button type="button" className="ct-plugin-icon-btn ct-market-label-btn" onClick={openDirectory}>
+                <Button variant="ghost" size="sm" className="ct-market-toolbar-btn" onClick={openDirectory}>
                   <FolderOpen size={15} aria-hidden="true" />
                   <span>{t('plugins.external.openDir')}</span>
-                </button>
-                <button type="button" className="ct-plugin-icon-btn" aria-label={t('pluginMarket.refresh')} disabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></button>
+                </Button>
+                <Button isIconOnly variant="ghost" size="sm" className="ct-market-toolbar-icon" aria-label={t('pluginMarket.refresh')} isDisabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></Button>
               </div>
             </div>
           </div>
