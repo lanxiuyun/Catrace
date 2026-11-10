@@ -24,6 +24,7 @@
 - `src/app/radix-theme.css`：把 Radix Themes 的颜色变量（`--gray-*` / `--accent-*`）接到 `--ct-*` 上，Radix 组件自动跟随主题
 - **Radix 强调色要整组映射**：Radix 的 accent 是 iris（偏紫），只改 `--accent-9/10/11` 三档实心色是不够的——聚焦环（`--focus-8` → `accent-8`）、soft 底（`accent-a3/a4/a5`）、透明描边（`a7/a8`）、开关/滑块轨道（`--accent-track`）取的还是 iris，于是设置页输入框聚焦会出现紫圈。现在 `radix-theme.css` 把 iris 色阶整组接到系统蓝：1–7 / 12 与 `a1–a12` 借 Radix blue 色阶（明暗主题自动跟随），**8（聚焦环 / 强描边）和 9/10/11（实心填充）用 `--ct-accent*` token**。8 档别再改回 `blue-8` 的浅天蓝，会和页面里自定义的 `:focus-visible` 对不上
 - 字体跟随系统（macOS = SF Pro、Windows = Segoe UI），等宽用 `ui-monospace`
+- Toast / 提醒窗里的 Radix 按钮由各自卡片的 CSS 补紧凑皮肤（高度、字号、胶囊色按卡片语义定），全局 `radix-theme.css` 只负责 token 映射、hover、焦点环与光标，不写单卡尺寸
 - [useTheme.ts](../../../src/composables/useTheme.ts) 的 `initTheme` / `setThemeMode` 管理 Store 键 `theme.mode`、系统 matchMedia 与跨窗 `catrace-theme-changed`；React `useTheme()` 返回普通 mode/resolved 值，真源在 zustand shell store。
 - 每个 WebView 的根 Radix Theme 订阅 resolvedTheme；插件使用相同 CSS token，样式文本可经 `plugin.theme.css(cssText)` 转换后赋给 style 节点。
 

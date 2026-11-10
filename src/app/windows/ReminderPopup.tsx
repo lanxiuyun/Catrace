@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi'
+import { Button, Input } from '@heroui/react'
+import { X } from 'lucide-react'
 import {
   getReminderData, snoozeReminder, skipReminder, setWindowActiveMode, closeReminderWindow,
 } from '../../api/tauri'
@@ -101,20 +103,31 @@ export default function ReminderPopup() {
           <div className="reminder-popup-pulse-dot" />
           <h2 className="reminder-popup-title">{title}</h2>
         </div>
-        <button type="button" className="reminder-popup-close-btn" onClick={() => { void closeReminderWindow(WINDOW_LABEL) }} aria-label={locale === 'zh-CN' ? '关闭' : 'Close'}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-        </button>
+        <Button type="button" isIconOnly variant="ghost" size="md" onClick={() => { void closeReminderWindow(WINDOW_LABEL) }} aria-label={locale === 'zh-CN' ? '关闭' : 'Close'}>
+          <X size={16} />
+        </Button>
       </div>
       <p className="reminder-popup-body-text">{body}</p>
       <div className="reminder-popup-snooze-grid">
-        {[5, 10, 15, 30].map((minutes) => <button type="button" key={minutes} className="reminder-popup-pill" onClick={() => { void handleSnooze(minutes) }}>{minutes} {t('common.minutes')}</button>)}
-        <button type="button" className={`reminder-popup-pill${showCustomInput ? ' reminder-popup-pill-active' : ''}`} onClick={() => { void toggleCustomInput() }}>{locale === 'zh-CN' ? '自定义' : 'Custom'}</button>
+        {[5, 10, 15, 30].map((minutes) => <Button type="button" key={minutes} variant="tertiary" size="md" onClick={() => { void handleSnooze(minutes) }}>{minutes} {t('common.minutes')}</Button>)}
+        <Button type="button" variant={showCustomInput ? 'primary' : 'tertiary'} size="md" onClick={() => { void toggleCustomInput() }}>{locale === 'zh-CN' ? '自定义' : 'Custom'}</Button>
       </div>
       {showCustomInput && <div className="reminder-popup-custom-row">
-        <input ref={inputRef} type="number" min="1" max="120" className="reminder-popup-custom-input" placeholder={t('common.minutes')} value={customMinutes} onChange={(event) => setCustomMinutes(event.target.value)} onKeyUp={(event) => { if (event.key === 'Enter') void handleCustomSnooze() }} />
-        <button type="button" className="reminder-popup-btn reminder-popup-btn-primary reminder-popup-btn-small" onClick={() => { void handleCustomSnooze() }}>{locale === 'zh-CN' ? '确定' : 'Confirm'}</button>
+        <Input
+          ref={inputRef}
+          variant="secondary"
+          type="number"
+          min="1"
+          max="120"
+          placeholder={t('common.minutes')}
+          value={customMinutes}
+          onChange={(event) => setCustomMinutes(event.target.value)}
+          onKeyUp={(event) => { if (event.key === 'Enter') void handleCustomSnooze() }}
+          style={{ flex: 1 }}
+        />
+        <Button type="button" variant="primary" size="md" onClick={() => { void handleCustomSnooze() }}>{locale === 'zh-CN' ? '确定' : 'Confirm'}</Button>
       </div>}
-      <button type="button" className="reminder-popup-btn reminder-popup-btn-skip" onClick={() => { void handleSkip() }}>{t('reminder.skip')}</button>
+      <Button type="button" variant="tertiary" size="md" style={{ width: '100%', marginTop: 'auto' }} onClick={() => { void handleSkip() }}>{t('reminder.skip')}</Button>
     </div>
   </div>
 }

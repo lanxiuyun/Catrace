@@ -30,22 +30,24 @@
   z-index: 100;
 }
 
-.reminder-fullscreen-lock-btn {
+/* 编辑锁按钮回到改造前的半透明玻璃圆钮（Radix ghost 默认只是一个透明图标，
+   叠在照片背景上会看不清）。 */
+.radix-themes .reminder-fullscreen-edit-toggle .rt-IconButton {
   width: 2.75rem;
   height: 2.75rem;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   border-radius: 50%;
-  border: none;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(0.5rem);
   color: var(--ct-on-accent);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
 }
 
-.reminder-fullscreen-lock-btn:hover {
+.radix-themes .reminder-fullscreen-edit-toggle .rt-IconButton:hover {
   background: rgba(255, 255, 255, 0.35);
   transform: scale(1.1);
 }
@@ -95,13 +97,13 @@
 }
 
 .reminder-fullscreen-editable-element.edit-mode:hover {
-  border-color: rgba(124, 58, 237, 0.6);
-  background: rgba(124, 58, 237, 0.1);
+  border-color: color-mix(in srgb, var(--ct-accent) 60%, transparent);
+  background: var(--ct-accent-soft);
 }
 
 .reminder-fullscreen-editable-element.selected {
   border: 0.125rem solid var(--ct-accent);
-  background: rgba(124, 58, 237, 0.15);
+  background: color-mix(in srgb, var(--ct-accent) 15%, transparent);
 }
 
 .reminder-fullscreen-editable-element.dragging {
@@ -168,33 +170,6 @@
   justify-content: center;
 }
 
-.reminder-fullscreen-btn {
-  padding: 0.75rem 1.75rem;
-  border-radius: 0.625rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s ease;
-}
-
-.reminder-fullscreen-btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--ct-on-accent);
-  backdrop-filter: blur(0.5rem);
-}
-.reminder-fullscreen-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.reminder-fullscreen-btn-primary {
-  background: var(--ct-accent);
-  color: var(--ct-on-accent);
-}
-.reminder-fullscreen-btn-primary:hover {
-  background: var(--ct-accent-hover);
-}
-
 /* Element controls */
 .reminder-fullscreen-element-controls {
   position: fixed;
@@ -222,34 +197,59 @@
   margin-bottom: 1rem;
 }
 
-.reminder-fullscreen-control-row label {
+.reminder-fullscreen-control-row .reminder-fullscreen-control-label {
   min-width: 3.125rem;
   font-weight: 600;
+  text-align: left;
 }
 
-.reminder-fullscreen-control-row input[type="range"] {
-  flex: 1;
-  accent-color: var(--ct-accent);
-}
-
-.reminder-fullscreen-control-row span {
+.reminder-fullscreen-control-row .reminder-fullscreen-control-value {
   min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.reminder-fullscreen-reset-btn {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  color: var(--ct-on-accent);
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s;
+/* ---------- Radix 控件皮肤：全屏提醒的玻璃按钮 ----------
+   全屏页永远叠在照片/桌面上，原来三个动作按钮是「半透明白玻璃 + 系统蓝实心」；
+   Radix 的 soft/solid 在暗色主题下会带一层蓝紫底，和背景图抢色。这里按改造前
+   的尺寸与材质重写，只改本窗口。 */
+.radix-themes .reminder-fullscreen-actions .rt-Button {
+  height: 2.625rem;
+  padding: 0 1.75rem;
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
-.reminder-fullscreen-reset-btn:hover {
+.radix-themes .reminder-fullscreen-actions .rt-Button.rt-variant-soft {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--ct-on-accent);
+  backdrop-filter: blur(0.5rem);
+}
+
+.radix-themes .reminder-fullscreen-actions .rt-Button.rt-variant-soft:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.radix-themes .reminder-fullscreen-actions .rt-Button.rt-variant-solid {
+  background: var(--ct-accent);
+  color: var(--ct-on-accent);
+}
+
+.radix-themes .reminder-fullscreen-actions .rt-Button.rt-variant-solid:hover {
+  background: var(--ct-accent-hover);
+}
+
+/* 编辑面板里的“重置”按钮同样是半透明小玻璃条 */
+.radix-themes .reminder-fullscreen-element-controls > .rt-Button {
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--ct-on-accent);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.radix-themes .reminder-fullscreen-element-controls > .rt-Button:hover {
   background: rgba(255, 255, 255, 0.3);
 }

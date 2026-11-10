@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Switch, TextArea } from '@radix-ui/themes'
+import { Button, Switch, TextArea } from '@heroui/react'
 import {
   getMediaActiveEnabled,
   getMediaWhitelistText,
@@ -60,10 +60,14 @@ export function MediaSettingsCard() {
     <SettingsCard label={t('settings.groups.media')}>
       <SettingRow title={t('settings.media.enabledTitle')} desc={t('settings.media.enabledDesc')}>
         <Switch
-          checked={enabled.value}
-          onCheckedChange={(value) => enabled.setValue(value)}
-          disabled={!enabled.ready}
-        />
+          isSelected={enabled.value}
+          isDisabled={!enabled.ready}
+          onChange={(value) => enabled.setValue(value)}
+        >
+          <Switch.Content>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+          </Switch.Content>
+        </Switch>
       </SettingRow>
 
       {isWindows && enabled.value && (
@@ -74,9 +78,8 @@ export function MediaSettingsCard() {
               <div className="ct-whitelist-desc">{t('mediaWhitelist.desc')}</div>
             </div>
             <Button
-              variant="soft"
-              color="gray"
-              disabled={saving}
+              variant="tertiary"
+              isDisabled={saving}
               onClick={() => void resetWhitelist()}
             >
               {t('mediaWhitelist.resetDefault')}
@@ -84,10 +87,11 @@ export function MediaSettingsCard() {
           </div>
           <TextArea
             rows={6}
+            variant="secondary"
+            className="ct-whitelist-textarea"
             placeholder={t('mediaWhitelist.placeholder')}
             value={whitelist.value}
             onChange={(event) => whitelist.setValue(event.target.value)}
-            resize="vertical"
           />
         </>
       )}

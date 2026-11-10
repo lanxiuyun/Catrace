@@ -1,3 +1,5 @@
+import { Button } from '@heroui/react'
+import { X } from 'lucide-react'
 import { useT } from '../app/i18n'
 import './SpecialDayToastCard.css'
 
@@ -52,9 +54,9 @@ export default function SpecialDayToastCard({ title, body, tag, icon, category, 
           </span>
           <div className="special-titles"><h2 className="title" style={{ color: theme.title }}>{title}</h2><span className="special-tag" style={{ background: theme.tagBg, color: theme.tagFg }}>{tag}</span></div>
         </div>
-        <button type="button" className="close-btn" style={{ color: theme.close }} aria-label={t('common.close')} onClick={onClose}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-        </button>
+        <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} style={{ color: theme.close }} onClick={onClose}>
+          <X size={16} />
+        </Button>
       </div>
       <div className="special-divider" style={{ background: theme.divider }} />
       <p className="body-text" style={{ color: theme.body }}>{body}</p>

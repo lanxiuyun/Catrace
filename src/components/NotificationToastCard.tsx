@@ -1,3 +1,5 @@
+import { Button } from '@heroui/react'
+import { X } from 'lucide-react'
 import { useT } from '../app/i18n'
 import type { EventAction } from '../types/event'
 import './NotificationToastCard.css'
@@ -24,15 +26,15 @@ export default function NotificationToastCard({ appName, icon, title, body, isHo
       <div className="header">
         {icon ? <img className="app-icon" src={icon} alt="" /> : <div className="app-icon app-icon-fallback">{displayName.slice(0, 1).toUpperCase()}</div>}
         <span className="app-name">{displayName}</span>
-        <button type="button" className="close-btn" aria-label={t('common.close')} onClick={(event) => { event.stopPropagation(); onClose?.() }}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-        </button>
+        <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} onClick={(event) => { event.stopPropagation(); onClose?.() }}>
+          <X size={14} />
+        </Button>
       </div>
       {/* Keep the same progress element mounted so CSS and host lifetime resume together. */}
       <div className={`progress-bar${isHovered ? ' paused' : ''}`} />
       {title && <p className="notif-title">{title}</p>}
       {body && body !== title && <p className="notif-body">{body}</p>}
-      {!!actions?.length && <div className="notif-actions">{actions.map((action) => <button type="button" key={action.id} className="notif-action-btn" onClick={(event) => { event.stopPropagation(); onAction?.(action) }}>{action.label}</button>)}</div>}
+      {!!actions?.length && <div className="notif-actions">{actions.map((action) => <Button key={action.id} size="sm" variant="tertiary" onClick={(event) => { event.stopPropagation(); onAction?.(action) }}>{action.label}</Button>)}</div>}
     </div>
   )
 }

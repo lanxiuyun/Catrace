@@ -73,30 +73,6 @@
   letter-spacing: 0.01em;
 }
 
-.ct-special-day-toast-card .close-btn {
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  padding: 0;
-  flex-shrink: 0;
-  opacity: 0.65;
-  transition: all 0.2s ease;
-}
-
-.ct-special-day-toast-card .close-btn:hover {
-  opacity: 1;
-}
-
-.ct-special-day-toast-card .close-btn:active {
-  transform: scale(0.95);
-}
-
 .ct-special-day-toast-card .special-divider {
   height: 0.0625rem;
   margin: 0.625rem 0 0.5rem;
@@ -109,4 +85,17 @@
   margin: 0;
   word-break: break-word;
   letter-spacing: 0.01em;
+}
+
+/* 节日卡关闭键的颜色由 theme.close 内联决定，这里只还原「低调、悬停变亮」的反馈，
+   不让 Radix ghost 的灰底盖住卡片自己的配色。 */
+.radix-themes .ct-special-day-toast-card .rt-IconButton {
+  margin: 0;
+  opacity: 0.65;
+  transition: opacity 0.16s ease;
+}
+
+.radix-themes .ct-special-day-toast-card .rt-IconButton:hover {
+  background-color: transparent;
+  opacity: 1;
 }

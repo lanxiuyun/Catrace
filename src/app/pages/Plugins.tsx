@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { Button } from '@radix-ui/themes'
+import { Button } from '@heroui/react'
 import {
   getConfig, getFullscreenSettings, getReminderMode, getReminderText, setConfig,
   setFullscreenSettings, setReminderMode, setReminderText, setRestPluginEnabled,
@@ -157,7 +157,7 @@ export function Plugins() {
     <PluginCenter restEnabled={enabled} restBusy={restBusy} restReady={restReady} onToggleRest={(value) => void toggleRest(value)}>
       {!restReady ? <div className="ct-market-settings-status" role={loadError ? 'alert' : 'status'}>
         <p>{t(loadError ? 'settings.messages.loadFailed' : 'pluginMarket.loadingSettings')}</p>
-        {loadError && <Button variant="soft" onClick={() => setLoadAttempt((value) => value + 1)}>{t('pluginMarket.retry')}</Button>}
+        {loadError && <Button variant="tertiary" onClick={() => setLoadAttempt((value) => value + 1)}>{t('pluginMarket.retry')}</Button>}
       </div> : <RestSettings
         enabled={enabled} config={config} mode={mode} fullscreen={fullscreen} text={text}
         testing={testing} onUpdateConfig={updateConfig} onUpdateFullscreen={updateFullscreen}

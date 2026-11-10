@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Switch, TextField } from '@radix-ui/themes'
+import { Button, Input, Switch } from '@heroui/react'
 import {
   getEventSdkStatus,
   rotateEventSdkToken,
@@ -95,11 +95,15 @@ export function EventSdkCard() {
         </div>
         <div className="ct-debug-row-control">
           <Switch
-            checked={enabled}
-            disabled={loading || !ready}
+            isSelected={enabled}
+            isDisabled={loading || !ready}
             aria-label={t('settings.eventSdk.enableTitle')}
-            onCheckedChange={(value) => void toggleEnabled(value)}
-          />
+            onChange={(value) => void toggleEnabled(value)}
+          >
+            <Switch.Content>
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch.Content>
+          </Switch>
         </div>
       </div>
 
@@ -119,25 +123,25 @@ export function EventSdkCard() {
           <span className="ct-debug-row-desc">{t('settings.eventSdk.tokenDesc')}</span>
         </div>
         <div className="ct-debug-row-control">
-          <TextField.Root
+          <Input
             className="ct-debug-token-input"
-            size="1"
+            variant="secondary"
+            fullWidth
             readOnly
             value={showToken ? token : maskedToken}
             aria-label={t('settings.eventSdk.tokenTitle')}
           />
           <Button
-            size="1"
-            variant="soft"
-            color="gray"
+            size="sm"
+            variant="tertiary"
             onClick={() => setShowToken((value) => !value)}
           >
             {showToken ? t('settings.eventSdk.hide') : t('settings.eventSdk.show')}
           </Button>
-          <Button size="1" onClick={() => void copyToken()}>
+          <Button size="sm" onClick={() => void copyToken()}>
             {t('settings.eventSdk.copy')}
           </Button>
-          <Button size="1" variant="soft" color="gray" disabled={loading} onClick={rotateToken}>
+          <Button size="sm" variant="tertiary" isDisabled={loading} onClick={rotateToken}>
             {t('settings.eventSdk.rotate')}
           </Button>
         </div>

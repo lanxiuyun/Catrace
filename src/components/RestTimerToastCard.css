@@ -50,31 +50,6 @@
   text-overflow: ellipsis;
 }
 
-.ct-rest-timer-toast-card .close-btn {
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--ct-text-subtle);
-  cursor: pointer;
-  border-radius: 0.375rem;
-  padding: 0;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-
-.ct-rest-timer-toast-card .close-btn:hover {
-  background: var(--ct-success-soft);
-  color: var(--ct-success);
-}
-
-.ct-rest-timer-toast-card .close-btn:active {
-  transform: scale(0.95);
-}
-
 .ct-rest-timer-toast-card .rest-timer-visual {
   display: flex;
   justify-content: center;
@@ -119,4 +94,20 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* 关闭键取休息卡的绿色悬停，和改造前一致 */
+.radix-themes .ct-rest-timer-toast-card .rt-IconButton {
+  margin: 0;
+  color: var(--ct-text-subtle);
+  border-radius: 0.375rem;
+}
+
+.radix-themes .ct-rest-timer-toast-card .rt-IconButton:hover {
+  background-color: var(--ct-success-soft);
+  color: var(--ct-success);
+}
+
+.radix-themes .ct-rest-timer-toast-card .rt-IconButton:active {
+  transform: scale(0.95);
 }

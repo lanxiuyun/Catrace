@@ -1,9 +1,44 @@
 import type { ChangeEvent } from 'react'
-import { Button, Select, Slider, TextArea, TextField } from '@radix-ui/themes'
+import { Button, Input, ListBox, Select, Slider, TextArea } from '@heroui/react'
 import { ImagePlus, Send } from 'lucide-react'
 import type { AppConfig } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { PluginSettingRow } from './PluginSettingRow'
+
+function SettingSlider({
+  value,
+  min,
+  max,
+  step,
+  label,
+  onChange,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  label: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <Slider
+      className="w-full"
+      value={value}
+      minValue={min}
+      maxValue={max}
+      step={step}
+      aria-label={label}
+      onChange={(next) => {
+        if (typeof next === 'number') onChange(next)
+      }}
+    >
+      <Slider.Track>
+        <Slider.Fill />
+        <Slider.Thumb />
+      </Slider.Track>
+    </Slider>
+  )
+}
 
 export type ReminderMode = 'toast' | 'fullscreen'
 
@@ -64,14 +99,13 @@ export function RestSettings({
           controlClassName="is-slider"
           control={
             <>
-              <Slider
-                size="2"
+              <SettingSlider
+                value={config.window_minutes}
                 min={15}
                 max={120}
                 step={5}
-                value={[config.window_minutes]}
-                aria-label={t('plugins.rest.windowTitle')}
-                onValueChange={(value) => onUpdateConfig({ window_minutes: value[0] })}
+                label={t('plugins.rest.windowTitle')}
+                onChange={(value) => onUpdateConfig({ window_minutes: value })}
               />
               <span className="ct-plugin-value">
                 {config.window_minutes} {t('common.minutes')}
@@ -86,14 +120,13 @@ export function RestSettings({
           controlClassName="is-slider"
           control={
             <>
-              <Slider
-                size="2"
+              <SettingSlider
+                value={config.break_minutes}
                 min={1}
                 max={20}
                 step={1}
-                value={[config.break_minutes]}
-                aria-label={t('plugins.rest.breakTitle')}
-                onValueChange={(value) => onUpdateConfig({ break_minutes: value[0] })}
+                label={t('plugins.rest.breakTitle')}
+                onChange={(value) => onUpdateConfig({ break_minutes: value })}
               />
               <span className="ct-plugin-value">
                 {config.break_minutes} {t('common.minutes')}
@@ -108,14 +141,13 @@ export function RestSettings({
           controlClassName="is-slider"
           control={
             <>
-              <Slider
-                size="2"
+              <SettingSlider
+                value={config.snooze_interval_minutes}
                 min={1}
                 max={10}
                 step={1}
-                value={[config.snooze_interval_minutes]}
-                aria-label={t('plugins.rest.snoozeTitle')}
-                onValueChange={(value) => onUpdateConfig({ snooze_interval_minutes: value[0] })}
+                label={t('plugins.rest.snoozeTitle')}
+                onChange={(value) => onUpdateConfig({ snooze_interval_minutes: value })}
               />
               <span className="ct-plugin-value">
                 {config.snooze_interval_minutes} {t('common.minutes')}
@@ -132,13 +164,29 @@ export function RestSettings({
           title={t('plugins.rest.modeTitle')}
           description={t('plugins.rest.modeDesc')}
           control={
-            <Select.Root value={mode} onValueChange={(value) => onChangeMode(value as ReminderMode)}>
-              <Select.Trigger className="ct-plugin-select" aria-label={t('plugins.rest.modeTitle')} />
-              <Select.Content>
-                <Select.Item value="toast">{t('plugins.rest.modeToast')}</Select.Item>
-                <Select.Item value="fullscreen">{t('plugins.rest.modeFullscreen')}</Select.Item>
-              </Select.Content>
-            </Select.Root>
+            <Select
+              className="ct-plugin-select"
+              variant="secondary"
+              value={mode}
+              onChange={(value) => { if (value != null) onChangeMode(String(value) as ReminderMode) }}
+            >
+              <Select.Trigger aria-label={t('plugins.rest.modeTitle')}>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="toast" textValue={t('plugins.rest.modeToast')}>
+                    {t('plugins.rest.modeToast')}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                  <ListBox.Item id="fullscreen" textValue={t('plugins.rest.modeFullscreen')}>
+                    {t('plugins.rest.modeFullscreen')}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           }
         />
 
@@ -182,14 +230,13 @@ export function RestSettings({
               controlClassName="is-slider"
               control={
                 <>
-                  <Slider
-                    size="2"
+                  <SettingSlider
+                    value={fullscreen.opacity}
                     min={0}
                     max={100}
                     step={5}
-                    value={[fullscreen.opacity]}
-                    aria-label={t('plugins.rest.fullscreenOpacityTitle')}
-                    onValueChange={(value) => onUpdateFullscreen({ opacity: value[0] })}
+                    label={t('plugins.rest.fullscreenOpacityTitle')}
+                    onChange={(value) => onUpdateFullscreen({ opacity: value })}
                   />
                   <span className="ct-plugin-value">{fullscreen.opacity}%</span>
                 </>
@@ -200,20 +247,33 @@ export function RestSettings({
               title={t('plugins.rest.fullscreenFitModeTitle')}
               description={t('plugins.rest.fullscreenFitModeDesc')}
               control={
-                <Select.Root
+                <Select
+                  className="ct-plugin-select"
+                  variant="secondary"
                   value={fullscreen.fitMode}
-                  onValueChange={(value) => onUpdateFullscreen({ fitMode: value })}
+                  onChange={(value) => { if (value != null) onUpdateFullscreen({ fitMode: String(value) }) }}
                 >
-                  <Select.Trigger
-                    className="ct-plugin-select"
-                    aria-label={t('plugins.rest.fullscreenFitModeTitle')}
-                  />
-                  <Select.Content>
-                    <Select.Item value="contain">{t('plugins.rest.fitContain')}</Select.Item>
-                    <Select.Item value="cover">{t('plugins.rest.fitCover')}</Select.Item>
-                    <Select.Item value="fill">{t('plugins.rest.fitFill')}</Select.Item>
-                  </Select.Content>
-                </Select.Root>
+                  <Select.Trigger aria-label={t('plugins.rest.fullscreenFitModeTitle')}>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="contain" textValue={t('plugins.rest.fitContain')}>
+                        {t('plugins.rest.fitContain')}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                      <ListBox.Item id="cover" textValue={t('plugins.rest.fitCover')}>
+                        {t('plugins.rest.fitCover')}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                      <ListBox.Item id="fill" textValue={t('plugins.rest.fitFill')}>
+                        {t('plugins.rest.fitFill')}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
               }
             />
           </>
@@ -228,8 +288,9 @@ export function RestSettings({
           description={t('plugins.rest.customTitleDesc')}
           stack
           control={
-            <TextField.Root
-              size="2"
+            <Input
+              fullWidth
+              variant="secondary"
               value={text.title}
               placeholder={t('plugins.rest.previewDefaultTitle')}
               aria-label={t('plugins.rest.customTitle')}
@@ -244,9 +305,9 @@ export function RestSettings({
           stack
           control={
             <TextArea
-              size="2"
+              fullWidth
+              variant="secondary"
               rows={3}
-              resize="none"
               value={text.body}
               placeholder={t('plugins.rest.previewDefaultBody')}
               aria-label={t('plugins.rest.customBody')}
@@ -262,10 +323,9 @@ export function RestSettings({
           description={t('settings.reminder.testNotifyDesc')}
           control={
             <Button
-              size="2"
-              variant="soft"
-              color="gray"
-              disabled={!enabled || testing}
+              size="sm"
+              variant="tertiary"
+              isDisabled={!enabled || testing}
               onClick={onTest}
             >
               <Send size={14} aria-hidden="true" />

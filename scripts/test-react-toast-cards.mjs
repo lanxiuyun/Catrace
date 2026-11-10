@@ -9,6 +9,29 @@ import ts from 'typescript'
 
 // Execute the real TSX and shared validator. Only host I/O, hook scheduling and time
 // are controlled: no browser, network, AppData, dev server or extra dependencies.
+// Radix Themes / lucide stand-ins: the cards now compose Radix components. Rendering the real
+// package would hand this harness' hooks to another React copy, so keep DOM-shaped stand-ins.
+const Radix = {
+  Theme: ({ children }) => children,
+  Button: ({ variant, children, ...rest }) => React.createElement('button', { ...rest, className: `rt-Button rt-variant-${variant ?? 'solid'}` }, children),
+  IconButton: ({ variant, children, ...rest }) => React.createElement('button', { ...rest, className: 'rt-IconButton' }, children),
+  TextField: { Root: rest => React.createElement('input', rest) },
+  Select: {
+    Root: ({ value, onValueChange, disabled, children }) => React.createElement('select', { value, disabled, onChange: event => onValueChange?.(event.currentTarget.value) }, children),
+    Trigger: () => null,
+    Content: ({ children }) => React.createElement(React.Fragment, null, children),
+    Item: ({ value, children }) => React.createElement('option', { value }, children),
+  },
+}
+
+// HeroUI v3 stand-ins for the cards. HeroUI's Select is a compound tree, so the stub keeps
+// the root component shape and exposes value/onChange directly for the tests.
+const HeroUI = {
+  Button: ({ variant, children, ...rest }) => React.createElement('button', { ...rest, className: `button button--${variant ?? 'primary'}` }, children),
+  Select: ({ value, onChange, isDisabled, className }) => React.createElement('div', { className, 'data-value': value, 'data-disabled': isDisabled, onChange }),
+  ListBox: { Item: ({ children }) => React.createElement('div', null, children), ItemIndicator: () => null },
+}
+
 const sources = new Map()
 function compiled(relative) {
   if (sources.has(relative)) return sources.get(relative)
@@ -124,6 +147,9 @@ function harness() {
     '@tauri-apps/plugin-opener': { openUrl: async url => { state.opened.push(url) } },
     '../plugins/pluginRuntime': { ensurePluginRuntime() {} },
     '../plugins/pluginApi': { wrapPluginSource: (_id, source) => source },
+    '@radix-ui/themes': Radix,
+    '@heroui/react': HeroUI,
+    'lucide-react': { X: () => React.createElement('span', { 'data-icon': 'x' }) },
   }
   function evaluate(relative) {
     if (modules.has(relative)) return modules.get(relative)
@@ -176,8 +202,10 @@ function descendants(node) {
   if (!React.isValidElement(node)) return []
   return [node, ...React.Children.toArray(node.props.children).flatMap(descendants)]
 }
-const buttons = node => descendants(node).filter(item => item.type === 'button')
+const radixButtonTypes = new Set([Radix.Button, Radix.IconButton, HeroUI.Button])
+const buttons = node => descendants(node).filter(item => item.type === 'button' || radixButtonTypes.has(item.type))
 const byClass = (node, name) => descendants(node).find(item => item.props.className?.split(' ').includes(name))
+const byText = (node, text) => descendants(node).find(item => item.props.children === text)
 const pluginEvent = {
   id: 'event-1', kind: 'test', event_type: 'test.tick', source: { type: 'plugin', name: 'test' },
   title: 'Plugin', body: '', level: 'info', sticky: false, actions: [{ id: 'ack', label: 'Done' }],
@@ -203,7 +231,7 @@ test('SDK card preserves sticky mode, bounded progress and action IDs', () => {
   const html = renderToStaticMarkup(tree)
   assert.match(html, /width:100%/)
   assert.doesNotMatch(html, /class="progress-bar/)
-  assert.equal(buttons(tree).at(-1).props.className, 'btn btn-primary')
+  assert.equal(buttons(tree).at(-1).props.variant, 'primary')
 })
 
 test('notification card keeps body activation separate from close and full action payloads', () => {
@@ -246,20 +274,20 @@ test('update card preserves source persistence, install, details, resize and bus
   h.render('UpdateToastCard', props)
   await flush()
   let tree = h.render('UpdateToastCard', props)
-  assert.equal(descendants(tree).find(item => item.type === 'select').props.value, 'github')
+  assert.equal(descendants(tree).find(item => item.type === HeroUI.Select).props.value, 'github')
   buttons(tree).at(-1).props.onClick()
   buttons(tree).at(-2).props.onClick()
   assert.equal(installed, 'github')
   assert.equal(toggled, 1)
   assert.equal(resized, 1)
-  descendants(tree).find(item => item.type === 'select').props.onChange({ currentTarget: { value: 'ghfast' } })
+  descendants(tree).find(item => item.type === HeroUI.Select).props.onChange('ghfast')
   await flush()
   assert.deepEqual(h.state.savedSources, ['ghfast'])
   assert.equal(sourceChanged, 'ghfast')
   tree = h.render('UpdateToastCard', { ...props, updateInstalling: true, downloadProgress: 42 })
-  assert.doesNotMatch(renderToStaticMarkup(tree), /class="close-btn"/)
+  assert.equal(buttons(tree).filter(item => item.props['aria-label'] === 'Close').length, 0)
   assert.match(renderToStaticMarkup(tree), /42%/)
-  assert.equal(buttons(tree).at(-1).props.disabled, true)
+  assert.equal(buttons(tree).at(-1).props.isDisabled, true)
   h.unmount('UpdateToastCard')
   assert.equal(h.listeners.size, 0)
 })
@@ -268,7 +296,7 @@ test('update notes load on request and its timeout, fallback and browser link re
   const h = harness(), props = { showUpdateBody: true, updateBody: 'Fallback notes' }
   let tree = h.render('UpdateToastCard', props)
   assert.equal(descendants(tree).some(item => item.type === 'iframe'), false)
-  byClass(tree, 'notes-link').props.onClick()
+  byText(tree, '加载官网最新说明').props.onClick()
   tree = h.render('UpdateToastCard', props)
   const frame = descendants(tree).find(item => item.type === 'iframe')
   assert.equal(frame.props.sandbox, 'allow-same-origin allow-scripts')
@@ -281,7 +309,7 @@ test('update notes load on request and its timeout, fallback and browser link re
   // A subsequent explicit request which never loads must expose retry and fallback text.
   frame.props.onError()
   tree = h.render('UpdateToastCard', props)
-  byClass(tree, 'notes-link').props.onClick()
+  byText(tree, '重试加载').props.onClick()
   h.time.advance(8000)
   tree = h.render('UpdateToastCard', props)
   assert.match(renderToStaticMarkup(tree), /Fallback notes/)

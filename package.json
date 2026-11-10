@@ -14,7 +14,12 @@
     "version:set": "node scripts/set-version.mjs"
   },
   "dependencies": {
+    "@heroui/react": "3.2.7",
+    "@heroui/styles": "3.2.7",
+    "@internationalized/date": "^3.12.4",
     "@radix-ui/themes": "3.3.0",
+    "@react-aria/ssr": "^3.10.1",
+    "@react-aria/utils": "^3.34.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
@@ -24,6 +29,8 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "lucide-react": "0.468.0",
     "react": "19.0.0",
+    "react-aria": "^3.53.1",
+    "react-aria-components": "^1.22.1",
     "react-dom": "19.0.0",
     "react-router-dom": "^7.18.4",
     "sortablejs": "^1.15.7",
@@ -31,12 +38,14 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@tailwindcss/vite": "^4.3.5",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-react": "4.3.4",
     "playwright": "^1.61.1",
+    "tailwindcss": "^4.3.5",
     "typescript": "~5.6.2",
     "vite": "^6.0.3"
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Moon } from 'lucide-react'
-import { SegmentedControl, Switch } from '@radix-ui/themes'
+import { Switch, ToggleButton, ToggleButtonGroup } from '@heroui/react'
 import { getConfig, getHideStats, getTodayRecords, setHideStats } from '../../api/tauri'
 import { computeTimeBlocks } from '../../utils/timeBlocks'
 import type { MinuteData } from '../../types/minute'
@@ -217,13 +217,17 @@ export function Dashboard() {
               </label>
               <Switch
                 id="ct-hide-stats"
-                checked={hideStats}
-                size="1"
+                size="sm"
+                isSelected={hideStats}
                 aria-label={t('dashboard.hideStats.label')}
-                onCheckedChange={(value) => {
+                onChange={(value) => {
                   void toggleHideStats(value)
                 }}
-              />
+              >
+                <Switch.Content>
+                  <Switch.Control><Switch.Thumb /></Switch.Control>
+                </Switch.Content>
+              </Switch>
             </div>
           </header>
 
@@ -293,21 +297,22 @@ export function Dashboard() {
                 </span>
               </div>
               {hasRecords && (
-                <SegmentedControl.Root
-                  className="ct-segmented"
-                  value={timelineMode}
-                  size="1"
-                  onValueChange={(value) =>
-                    setTimelineMode(value === 'grid' ? 'grid' : 'segments')
-                  }
+                <ToggleButtonGroup
+                  selectionMode="single"
+                  selectedKeys={[timelineMode]}
+                  onSelectionChange={(keys) => {
+                    const next = keys.values().next().value
+                    setTimelineMode(next === 'grid' ? 'grid' : 'segments')
+                  }}
                 >
-                  <SegmentedControl.Item value="segments">
+                  <ToggleButton id="segments">
                     {t('dashboard.activity.overview')}
-                  </SegmentedControl.Item>
-                  <SegmentedControl.Item value="grid">
+                  </ToggleButton>
+                  <ToggleButton id="grid">
+                    <ToggleButtonGroup.Separator />
                     {t('dashboard.activity.detailed')}
-                  </SegmentedControl.Item>
-                </SegmentedControl.Root>
+                  </ToggleButton>
+                </ToggleButtonGroup>
               )}
             </div>
 

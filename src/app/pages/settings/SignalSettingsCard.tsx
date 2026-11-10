@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Select, Switch } from '@radix-ui/themes'
+import { Button, ListBox, Select, Switch } from '@heroui/react'
 import {
   getSignalRuntimeConfig,
   purgeKeySequences,
@@ -110,31 +110,45 @@ export function SignalSettingsCard() {
     <SettingsCard label={t('settings.groups.signal')}>
       <SettingRow title={t('settings.signal.keySeqTitle')} desc={t('settings.signal.keySeqDesc')}>
         <Switch
-          checked={enabled}
-          disabled={loading || !ready}
-          onCheckedChange={onToggle}
-          color="orange"
-        />
+          isSelected={enabled}
+          isDisabled={loading || !ready}
+          onChange={onToggle}
+        >
+          <Switch.Content>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+          </Switch.Content>
+        </Switch>
       </SettingRow>
 
       <SettingRow
         title={t('settings.signal.retentionTitle')}
         desc={t('settings.signal.retentionDesc')}
       >
-        <Select.Root value={String(retentionHours)} onValueChange={(value) => void applyRetention(value)}>
-          <Select.Trigger style={{ width: '7rem' }} />
-          <Select.Content>
-            {RETENTION_OPTIONS.map((option) => (
-              <Select.Item key={option.value} value={option.value}>
-                {option.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
+        <Select
+          className="w-28"
+          variant="secondary"
+          value={String(retentionHours)}
+          onChange={(value) => { if (value != null) void applyRetention(String(value)) }}
+        >
+          <Select.Trigger aria-label={t('settings.signal.retentionTitle')}>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {RETENTION_OPTIONS.map((option) => (
+                <ListBox.Item key={option.value} id={option.value} textValue={option.label}>
+                  {option.label}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
       </SettingRow>
 
       <SettingRow title={t('settings.signal.purgeTitle')} desc={t('settings.signal.purgeDesc')}>
-        <Button variant="soft" color="orange" onClick={onPurge}>
+        <Button variant="danger-soft" onClick={onPurge}>
           {t('settings.signal.purgeBtn')}
         </Button>
       </SettingRow>

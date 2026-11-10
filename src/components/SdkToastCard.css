@@ -16,8 +16,6 @@
 .ct-sdk-toast-card .pulse-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent); animation: ct-sdk-toast-card-pulse 1.5s ease-in-out infinite; flex-shrink: 0; }
 @keyframes ct-sdk-toast-card-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
 .ct-sdk-toast-card .title { margin: 0; font-size: 0.9375rem; font-weight: 600; color: var(--title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ct-sdk-toast-card .close-btn { flex-shrink: 0; width: 1.5rem; height: 1.5rem; border: none; background: transparent; border-radius: 0.25rem; color: var(--ct-text-subtle); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
-.ct-sdk-toast-card .close-btn:hover { background: var(--light-bg); color: var(--accent); }
 .ct-sdk-toast-card .progress-bar { height: 0.125rem; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--light-bg)); transform-origin: left center; animation: ct-sdk-toast-card-shrink var(--toast-auto-hide-ms, 8000ms) linear forwards; margin: 0.25rem 0 0.5rem; }
 .ct-sdk-toast-card .progress-bar.paused { animation-play-state: paused; }
 @keyframes ct-sdk-toast-card-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
@@ -27,7 +25,44 @@
 .ct-sdk-toast-card .sdk-progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.2s ease; }
 .ct-sdk-toast-card .sdk-progress-text { margin-top: 0.25rem; font-size: 0.75rem; color: var(--body); }
 .ct-sdk-toast-card .actions { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.625rem; }
-.ct-sdk-toast-card .btn { border: none; border-radius: 0.375rem; padding: 0.375rem 0.625rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
-.ct-sdk-toast-card .btn-secondary { background: var(--light-bg); color: var(--title); }
-.ct-sdk-toast-card .btn-primary { background: var(--accent); color: var(--ct-on-accent); }
-.ct-sdk-toast-card .btn:hover { filter: brightness(0.97); }
+
+/* ---------- Radix 控件皮肤：跟随卡片自己的 level 强调色 ----------
+   Radix 默认按钮吃全局 accent（系统蓝），但 SDK 卡会按 success / warning / error
+   切换 --accent 与 --light-bg；按钮必须跟着 level 走，否则蓝/紫按钮配绿标题。
+   尺寸压回改造前的紧凑档（12px 字、28px 高）。 */
+.radix-themes .ct-sdk-toast-card .actions .rt-Button {
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.radix-themes .ct-sdk-toast-card .actions .rt-Button.rt-variant-soft {
+  background-color: var(--light-bg);
+  color: var(--title);
+}
+
+.radix-themes .ct-sdk-toast-card .actions .rt-Button.rt-variant-solid {
+  background-color: var(--accent);
+  color: var(--ct-on-accent);
+}
+
+.radix-themes .ct-sdk-toast-card .actions .rt-Button:hover {
+  filter: brightness(0.97);
+}
+
+.radix-themes .ct-sdk-toast-card .rt-IconButton {
+  margin: 0;
+  color: var(--ct-text-subtle);
+  border-radius: 0.375rem;
+}
+
+.radix-themes .ct-sdk-toast-card .rt-IconButton:hover {
+  background-color: var(--light-bg);
+  color: var(--accent);
+}
+
+.radix-themes .ct-sdk-toast-card .rt-IconButton:active {
+  transform: scale(0.95);
+}

@@ -58,28 +58,6 @@
   margin: 0;
 }
 
-.reminder-popup-close-btn {
-  width: 2rem;
-  height: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--ct-text-subtle);
-  cursor: pointer;
-  border-radius: 0.5rem;
-  padding: 0;
-  transition: all 0.2s ease;
-}
-.reminder-popup-close-btn:hover {
-  background: var(--ct-accent-softer);
-  color: var(--ct-accent);
-}
-.reminder-popup-close-btn:active {
-  transform: scale(0.95);
-}
-
 /* Body */
 .reminder-popup-body-text {
   font-size: 0.875rem;
@@ -99,29 +77,6 @@
   margin-bottom: 0.75rem;
 }
 
-.reminder-popup-pill {
-  height: 2rem;
-  border-radius: 0.625rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  background: var(--ct-surface-2);
-  color: var(--ct-accent);
-  transition: all 0.2s ease;
-}
-.reminder-popup-pill:hover {
-  background: var(--ct-accent-soft);
-}
-.reminder-popup-pill:active {
-  transform: scale(0.96);
-}
-
-.reminder-popup-pill-active {
-  background: var(--ct-accent);
-  color: var(--ct-on-accent);
-}
-
 /* Custom Row */
 .reminder-popup-custom-row {
   display: flex;
@@ -135,74 +90,90 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.reminder-popup-custom-input {
-  flex: 1;
-  height: 2.25rem;
-  border: 0.0938rem solid var(--ct-accent-soft);
-  border-radius: 0.625rem;
-  padding: 0 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ct-text);
-  outline: none;
-  background: var(--ct-bg);
-  transition: all 0.2s ease;
-}
-.reminder-popup-custom-input:focus {
-  border-color: var(--ct-accent);
-  background: var(--ct-surface);
-  box-shadow: 0 0 0 0.1875rem rgba(124,58,237,0.08);
-}
-.reminder-popup-custom-input::-webkit-outer-spin-button,
-.reminder-popup-custom-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+/* ---------- Radix 控件皮肤：恢复提醒弹窗的 macOS 控件语言 ----------
+   这个窗口原来是自绘按钮：2rem 胶囊、10px 圆角、13px 半粗字；Radix 默认的
+   size=2 是 32px / 14px / 6px 圆角，放进 440px 的弹窗里偏大偏方。这里统一压回
+   改造前的尺寸，soft 用中性底 + 系统蓝字，solid 用系统蓝实心。 */
+.radix-themes .reminder-popup-header .rt-IconButton {
+  width: 2rem;
+  height: 2rem;
   margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  color: var(--ct-text-subtle);
+  border-radius: 0.5rem;
 }
 
-/* Buttons */
-.reminder-popup-btn {
+.radix-themes .reminder-popup-header .rt-IconButton:hover {
+  background-color: var(--ct-accent-softer);
+  color: var(--ct-accent);
+}
+
+.radix-themes .reminder-popup-header .rt-IconButton:active {
+  transform: scale(0.95);
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button {
+  height: 2rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button.rt-variant-soft {
+  background-color: var(--ct-surface-2);
+  color: var(--ct-accent);
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button.rt-variant-soft:hover {
+  background-color: var(--ct-accent-soft);
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button.rt-variant-solid {
+  background-color: var(--ct-accent);
+  color: var(--ct-on-accent);
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button.rt-variant-solid:hover {
+  background-color: var(--ct-accent-hover);
+}
+
+.radix-themes .reminder-popup-snooze-grid .rt-Button:active,
+.radix-themes .reminder-popup-custom-row .rt-Button:active {
+  transform: scale(0.96);
+}
+
+/* 自定义分钟数输入：Radix 默认 32px 高，压回改造前的 36px 圆角输入框。 */
+.radix-themes .reminder-popup-custom-row .rt-TextFieldRoot {
+  --text-field-height: 2.25rem;
+  --text-field-border-radius: 0.625rem;
+}
+
+.radix-themes .reminder-popup-custom-row .rt-TextFieldInput {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.radix-themes .reminder-popup-custom-row .rt-Button {
   height: 2.25rem;
   border-radius: 0.625rem;
   font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.reminder-popup-btn-primary {
-  background: var(--ct-accent);
-  color: var(--ct-on-accent);
-  padding: 0 1.25rem;
-}
-.reminder-popup-btn-primary:hover {
-  background: var(--ct-accent-hover);
-}
-.reminder-popup-btn-primary:active {
-  transform: scale(0.97);
-}
-
-.reminder-popup-btn-small {
+/* “跳过这次”是弹窗底部的次级动作：透明描边，压住整卡最下方。 */
+.radix-themes .reminder-popup-card > .rt-Button {
   height: 2.25rem;
-  padding: 0 1rem;
-  font-size: 0.8125rem;
+  border-radius: 0.625rem;
+  background-color: transparent;
+  color: var(--ct-text-muted);
+  box-shadow: inset 0 0 0 1px var(--ct-accent-soft);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
-.reminder-popup-btn-skip {
-  width: 100%;
-  margin-top: auto;
-  background: transparent;
-  color: var(--ct-text-muted);
-  border: 0.0938rem solid var(--ct-accent-soft);
-}
-.reminder-popup-btn-skip:hover {
-  background: var(--ct-bg);
-  border-color: var(--ct-accent-soft);
+.radix-themes .reminder-popup-card > .rt-Button:hover {
+  background-color: var(--ct-bg);
   color: var(--ct-accent);
-}
-.reminder-popup-btn-skip:active {
-  transform: scale(0.98);
+  box-shadow: inset 0 0 0 1px var(--ct-accent-border);
 }

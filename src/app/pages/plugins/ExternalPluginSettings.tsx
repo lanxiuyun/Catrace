@@ -1,5 +1,5 @@
 import { Component, useEffect, useState, type ReactNode } from 'react'
-import { Button } from '@radix-ui/themes'
+import { Button } from '@heroui/react'
 import { LoaderCircle } from 'lucide-react'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { usePluginRegistry } from '../../../stores/pluginRegistry'
@@ -61,7 +61,7 @@ export function ExternalPluginSettings({ id, hasSettings, contentMtimeMs }: {
     return () => { disposed = true; for (const unlisten of unlisteners) unlisten() }
   }, [id, t])
 
-  const failure = <div className="ct-market-settings-status" role="alert"><p>{t('pluginMarket.settingsFailed')}</p><Button size="1" variant="soft" onClick={() => setAttempt((value) => value + 1)}>{t('pluginMarket.retry')}</Button></div>
+  const failure = <div className="ct-market-settings-status" role="alert"><p>{t('pluginMarket.settingsFailed')}</p><Button size="sm" variant="tertiary" onClick={() => setAttempt((value) => value + 1)}>{t('pluginMarket.retry')}</Button></div>
   if (!hasSettings) return <p className="ct-plugin-note">{t('pluginMarket.noSettings')}</p>
   if (loading) return <div className="ct-market-settings-status" role="status"><LoaderCircle size={16} className="ct-market-spin" aria-hidden="true" />{t('pluginMarket.loadingSettings')}</div>
   if (error || !handle?.enabled || !handle.SettingsComponent) return failure

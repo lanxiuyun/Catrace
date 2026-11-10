@@ -153,11 +153,6 @@ html.reminder-transparent #app { background: transparent !important; }
   color: var(--title);
 }
 
-.toast-root .toast-card-agent .close-btn:hover {
-  background: var(--light-bg);
-  color: var(--accent);
-}
-
 .toast-root .toast-card-agent .body-text {
   color: var(--body);
 }

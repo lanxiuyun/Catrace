@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Callout, Switch } from '@radix-ui/themes'
+import { Alert, Switch } from '@heroui/react'
 import { TriangleAlert } from 'lucide-react'
 import {
   getMediaDebugInfo,
@@ -99,11 +99,15 @@ export function Debug() {
     <div className="ct-debug-toggle">
       <span className="ct-debug-toggle-label">{t('debug.toastDebugMode')}</span>
       <Switch
-        size="1"
-        checked={toastDebug}
+        size="sm"
+        isSelected={toastDebug}
         aria-label={t('debug.toastDebugMode')}
-        onCheckedChange={(value) => void toggleToastDebug(value)}
-      />
+        onChange={(value) => void toggleToastDebug(value)}
+      >
+        <Switch.Content>
+          <Switch.Control><Switch.Thumb /></Switch.Control>
+        </Switch.Content>
+      </Switch>
     </div>
   )
 
@@ -114,12 +118,14 @@ export function Debug() {
           <h1 className="ct-visually-hidden">{t('debug.title')}</h1>
 
           {errorMsg && (
-            <Callout.Root color="red" size="1">
-              <Callout.Icon>
+            <Alert status="danger">
+              <Alert.Indicator>
                 <TriangleAlert size={16} aria-hidden="true" />
-              </Callout.Icon>
-              <Callout.Text>{errorMsg}</Callout.Text>
-            </Callout.Root>
+              </Alert.Indicator>
+              <Alert.Content>
+                <Alert.Description>{errorMsg}</Alert.Description>
+              </Alert.Content>
+            </Alert>
           )}
 
           <StatusOverview data={data} runtime={signalRuntime} action={toastDebugToggle} />

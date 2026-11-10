@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Badge, Button, Switch } from '@radix-ui/themes'
+import { Button, Chip, Switch } from '@heroui/react'
 import {
   getNotificationForwardStatus,
   openNotificationPermissionSettings,
@@ -94,13 +94,13 @@ export function SysNotifySettingsCard() {
   const accessView = (() => {
     switch (access) {
       case 'granted':
-        return { color: 'green' as const, label: t('settings.sysNotify.accessGranted') }
+        return { color: 'success' as const, label: t('settings.sysNotify.accessGranted') }
       case 'denied':
-        return { color: 'orange' as const, label: t('settings.sysNotify.accessDenied') }
+        return { color: 'warning' as const, label: t('settings.sysNotify.accessDenied') }
       case 'unavailable':
-        return { color: 'gray' as const, label: t('settings.sysNotify.accessUnavailable') }
+        return { color: 'default' as const, label: t('settings.sysNotify.accessUnavailable') }
       default:
-        return { color: 'gray' as const, label: t('settings.sysNotify.accessUnspecified') }
+        return { color: 'default' as const, label: t('settings.sysNotify.accessUnspecified') }
     }
   })()
 
@@ -108,14 +108,18 @@ export function SysNotifySettingsCard() {
     <SettingsCard label={t('settings.groups.sysNotify')}>
       <SettingRow title={t('settings.sysNotify.forwardTitle')} desc={t('settings.sysNotify.forwardDesc')}>
         <div className="ct-settings-side">
-          <Badge color={accessView.color} size="1" variant="soft">
+          <Chip color={accessView.color} size="sm" variant="soft">
             {accessView.label}
-          </Badge>
+          </Chip>
           <Switch
-            checked={enabled}
-            disabled={!supported || loading || !ready}
-            onCheckedChange={(value) => void onToggle(value)}
-          />
+            isSelected={enabled}
+            isDisabled={!supported || loading || !ready}
+            onChange={(value) => void onToggle(value)}
+          >
+            <Switch.Content>
+              <Switch.Control><Switch.Thumb /></Switch.Control>
+            </Switch.Content>
+          </Switch>
         </div>
       </SettingRow>
 
@@ -125,7 +129,11 @@ export function SysNotifySettingsCard() {
             title={t('settings.sysNotify.takeoverTitle')}
             desc={t('settings.sysNotify.takeoverDesc')}
           >
-            <Switch checked={takeover} onCheckedChange={onTakeoverToggle} />
+            <Switch isSelected={takeover} onChange={onTakeoverToggle}>
+              <Switch.Content>
+                <Switch.Control><Switch.Thumb /></Switch.Control>
+              </Switch.Content>
+            </Switch>
           </SettingRow>
         </>
       )}
@@ -135,8 +143,8 @@ export function SysNotifySettingsCard() {
           <div className="ct-settings-denied">
             <span>{t('settings.sysNotify.deniedHint')}</span>
             <Button
-              size="1"
-              variant="soft"
+              size="sm"
+              variant="tertiary"
               onClick={() => {
                 void openNotificationPermissionSettings().catch(() => {})
               }}

@@ -52,32 +52,6 @@
   min-width: 0;
 }
 
-.ct-update-toast-card .close-btn {
-  width: 1.5rem;
-  height: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--ct-text-subtle);
-  cursor: pointer;
-  border-radius: 0.375rem;
-  padding: 0;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-
-.ct-update-toast-card .close-btn:hover {
-  background: var(--ct-warning-soft);
-  color: var(--ct-warning);
-  transform: rotate(4deg);
-}
-
-.ct-update-toast-card .close-btn:active {
-  transform: scale(0.95);
-}
-
 .ct-update-toast-card .release-notes {
   display: flex;
   flex-direction: column;
@@ -124,36 +98,6 @@
   font-size: 0.6875rem;
 }
 
-.ct-update-toast-card .notes-link {
-  flex-shrink: 0;
-  padding: 0.2rem 0.35rem;
-  border: 0;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
-}
-
-.ct-update-toast-card .notes-link:hover {
-  background: color-mix(in srgb, var(--ct-warning) 12%, transparent);
-  color: var(--ct-warning);
-}
-
-.ct-update-toast-card .notes-link:active {
-  transform: scale(0.96);
-}
-
-.ct-update-toast-card .notes-link:focus-visible,
-.ct-update-toast-card .source-select:focus-visible,
-.ct-update-toast-card .btn:focus-visible,
-.ct-update-toast-card .close-btn:focus-visible {
-  outline: 2px solid var(--ct-warning);
-  outline-offset: 2px;
-}
-
 .ct-update-toast-card .update-progress {
   display: flex;
   align-items: center;
@@ -184,32 +128,29 @@
   text-align: right;
 }
 
-.ct-update-toast-card .source-select {
-  flex-shrink: 0;
-  width: 7.5rem;
+.ct-update-toast-card .header .rt-SelectTrigger {
+  min-width: 7.5rem;
+}
+
+/* 更新源的 Radix Select 触发器：回到改造前的橙色小胶囊，而不是白底带投影的
+   默认 surface 触发器——它跟左边的橙色标题、脉冲点完全不是一套语言。 */
+.radix-themes .ct-update-toast-card .header .rt-SelectTrigger {
   height: 1.5rem;
+  padding: 0 0.25rem;
   border-radius: 0.375rem;
-  border: 1px solid var(--ct-warning-soft);
-  background: var(--ct-warning-soft);
+  background-color: var(--ct-warning-soft);
   color: var(--ct-warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 8%, transparent);
   font-size: 0.6875rem;
   font-weight: 600;
-  padding: 0 0.25rem;
-  cursor: pointer;
-  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.ct-update-toast-card .source-select:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ct-warning) 12%, var(--ct-warning-soft));
-  border-color: color-mix(in srgb, var(--ct-warning) 38%, transparent);
+.radix-themes .ct-update-toast-card .header .rt-SelectTrigger:hover {
+  background-color: color-mix(in srgb, var(--ct-warning) 12%, var(--ct-warning-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 38%, transparent);
 }
 
-.ct-update-toast-card .source-select:active:not(:disabled) {
-  background: color-mix(in srgb, var(--ct-warning) 18%, var(--ct-warning-soft));
-}
-
-.ct-update-toast-card .source-select:disabled {
-  cursor: not-allowed;
+.radix-themes .ct-update-toast-card .header .rt-SelectTrigger[data-disabled] {
   opacity: 0.7;
 }
 
@@ -219,53 +160,90 @@
   margin-top: auto;
 }
 
-.ct-update-toast-card .btn {
-  flex: 1;
+/* 两个操作按钮等宽铺满，保持改造前的操作区占位 */
+.ct-update-toast-card .actions .rt-Button {
+  flex: 1 1 0;
+}
+
+/* ---------- Radix 控件皮肤：更新卡自己的橙色语言 ----------
+   Radix 默认 soft / solid 吃全局系统蓝，但更新卡是橙色主题；
+   这里把两种按钮接回 --ct-warning*，并按改造前的 28px 高度收尺寸。 */
+.radix-themes .ct-update-toast-card .actions .rt-Button {
   height: 1.75rem;
   border-radius: 0.375rem;
   font-size: 0.75rem;
   font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
 }
 
-.ct-update-toast-card .btn-secondary {
-  background: var(--ct-warning-soft);
+.radix-themes .ct-update-toast-card .actions .rt-Button.rt-variant-soft {
+  background-color: var(--ct-warning-soft);
   color: var(--ct-warning);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 8%, transparent);
 }
 
-.ct-update-toast-card .btn-secondary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ct-warning) 14%, var(--ct-warning-soft));
+.radix-themes .ct-update-toast-card .actions .rt-Button.rt-variant-soft:hover {
+  background-color: color-mix(in srgb, var(--ct-warning) 14%, var(--ct-warning-soft));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct-warning) 24%, transparent);
-  transform: translateY(-1px);
 }
 
-.ct-update-toast-card .btn-primary {
-  background: var(--ct-warning);
+.radix-themes .ct-update-toast-card .actions .rt-Button.rt-variant-solid {
+  background-color: var(--ct-warning);
   color: var(--ct-on-accent);
   box-shadow: 0 0.2rem 0.55rem color-mix(in srgb, var(--ct-warning) 22%, transparent);
 }
 
-.ct-update-toast-card .btn-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ct-warning) 88%, white);
+.radix-themes .ct-update-toast-card .actions .rt-Button.rt-variant-solid:hover {
+  background-color: color-mix(in srgb, var(--ct-warning) 88%, white);
   box-shadow: 0 0.3rem 0.75rem color-mix(in srgb, var(--ct-warning) 34%, transparent);
-  transform: translateY(-1px);
 }
 
-.ct-update-toast-card .btn-primary:disabled {
-  background: var(--ct-warning-soft);
-  cursor: not-allowed;
+.radix-themes .ct-update-toast-card .actions .rt-Button:active {
+  transform: scale(0.98);
   box-shadow: none;
+}
+
+.radix-themes .ct-update-toast-card .actions .rt-Button:disabled {
+  background-color: var(--ct-warning-soft);
+  box-shadow: none;
+  cursor: not-allowed;
   opacity: 0.72;
 }
 
-.ct-update-toast-card .btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-  box-shadow: none;
+/* 更新说明底部的“加载官网说明 / 浏览器打开”改成了 Radix ghost 按钮，
+   还原成改造前的下划线链接式样。 */
+.radix-themes .ct-update-toast-card .release-notes-footer .rt-Button {
+  height: auto;
+  margin: 0;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.25rem;
+  color: inherit;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.radix-themes .ct-update-toast-card .release-notes-footer .rt-Button:hover {
+  background-color: color-mix(in srgb, var(--ct-warning) 12%, transparent);
+  color: var(--ct-warning);
+}
+
+.radix-themes .ct-update-toast-card .release-notes-footer .rt-Button:active {
+  transform: scale(0.96);
+}
+
+/* 关闭键：橙色悬停 + 轻微旋转，和改造前一致 */
+.radix-themes .ct-update-toast-card .rt-IconButton {
+  margin: 0;
+  color: var(--ct-text-subtle);
+  border-radius: 0.375rem;
+}
+
+.radix-themes .ct-update-toast-card .rt-IconButton:hover {
+  background-color: var(--ct-warning-soft);
+  color: var(--ct-warning);
+  transform: rotate(4deg);
+}
+
+.radix-themes .ct-update-toast-card .rt-IconButton:active {
+  transform: scale(0.95);
 }

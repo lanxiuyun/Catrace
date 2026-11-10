@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Progress, Select, Switch } from '@radix-ui/themes'
+import { Button, ListBox, ProgressBar, Select, Switch } from '@heroui/react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -232,36 +232,52 @@ export function SystemSettingsCard() {
   return (
     <SettingsCard label={t('settings.groups.system')}>
       <SettingRow title={t('settings.language.title')} desc={t('settings.language.desc')}>
-        <Select.Root
+        <Select
+          className="w-40"
+          variant="secondary"
           value={locale}
-          disabled={localeLoading || !ready}
-          onValueChange={(value) => void changeLocale(value)}
+          isDisabled={localeLoading || !ready}
+          onChange={(value) => { if (value != null) void changeLocale(String(value)) }}
         >
-          <Select.Trigger
-            style={{ width: '10rem' }}
-            aria-label={t('settings.language.title')}
-          />
-          <Select.Content>
-            {localeOptions.map((option) => (
-              <Select.Item key={option.value} value={option.value}>
-                {option.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
+          <Select.Trigger aria-label={t('settings.language.title')}>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {localeOptions.map((option) => (
+                <ListBox.Item key={option.value} id={option.value} textValue={option.label}>
+                  {option.label}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
       </SettingRow>
 
       <SettingRow title={t('settings.theme.title')} desc={t('settings.theme.desc')}>
-        <Select.Root value={themeMode} onValueChange={changeTheme}>
-          <Select.Trigger style={{ width: '10rem' }} aria-label={t('settings.theme.title')} />
-          <Select.Content>
-            {themeOptions.map((option) => (
-              <Select.Item key={option.value} value={option.value}>
-                {option.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
+        <Select
+          className="w-40"
+          variant="secondary"
+          value={themeMode}
+          onChange={(value) => { if (value != null) changeTheme(String(value)) }}
+        >
+          <Select.Trigger aria-label={t('settings.theme.title')}>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {themeOptions.map((option) => (
+                <ListBox.Item key={option.value} id={option.value} textValue={option.label}>
+                  {option.label}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
       </SettingRow>
 
       <SettingRow
@@ -269,11 +285,15 @@ export function SystemSettingsCard() {
         desc={t('settings.startup.autostartDesc')}
       >
         <Switch
-          checked={autostart}
-          disabled={autostartLoading || !ready}
+          isSelected={autostart}
+          isDisabled={autostartLoading || !ready}
           aria-label={t('settings.startup.autostartTitle')}
-          onCheckedChange={(value) => void toggleAutostart(value)}
-        />
+          onChange={(value) => void toggleAutostart(value)}
+        >
+          <Switch.Content>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+          </Switch.Content>
+        </Switch>
       </SettingRow>
 
       <SettingRow
@@ -281,28 +301,35 @@ export function SystemSettingsCard() {
         desc={t('settings.startup.silentStartDesc')}
       >
         <Switch
-          checked={silentStart}
-          disabled={!autostart || silentLoading || !ready}
+          isSelected={silentStart}
+          isDisabled={!autostart || silentLoading || !ready}
           aria-label={t('settings.startup.silentStartTitle')}
-          onCheckedChange={(value) => void toggleSilentStart(value)}
-        />
+          onChange={(value) => void toggleSilentStart(value)}
+        >
+          <Switch.Content>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+          </Switch.Content>
+        </Switch>
       </SettingRow>
 
       <SettingRow title={t('settings.lightweight.title')} desc={t('settings.lightweight.desc')}>
         <Switch
-          checked={lightweightMode}
-          disabled={lightweightLoading || !ready}
+          isSelected={lightweightMode}
+          isDisabled={lightweightLoading || !ready}
           aria-label={t('settings.lightweight.title')}
-          onCheckedChange={(value) => void toggleLightweight(value)}
-        />
+          onChange={(value) => void toggleLightweight(value)}
+        >
+          <Switch.Content>
+            <Switch.Control><Switch.Thumb /></Switch.Control>
+          </Switch.Content>
+        </Switch>
       </SettingRow>
 
       <SettingRow title={t('settings.update.softwareVersion')} desc={appVersion || '...'}>
         <Button
-          size="2"
-          variant="soft"
-          color="gray"
-          disabled={updateLoading || updateInstalling}
+          size="sm"
+          variant="tertiary"
+          isDisabled={updateLoading || updateInstalling}
           onClick={() => void checkUpdate()}
         >
           {t('settings.update.checkUpdate')}
@@ -316,28 +343,33 @@ export function SystemSettingsCard() {
               <div className="ct-settings-update-title">
                 {t('settings.update.newVersion', { version: updateInfo.version ?? '' })}
               </div>
-              <Select.Root
+              <Select
+                className="w-36"
+                variant="secondary"
                 value={updateSource}
-                disabled={updateInstalling || updateSourceLoading}
-                onValueChange={(value) => void changeUpdateSource(value)}
+                isDisabled={updateInstalling || updateSourceLoading}
+                onChange={(value) => { if (value != null) void changeUpdateSource(String(value)) }}
               >
-                <Select.Trigger
-                  style={{ width: '8.75rem' }}
-                  aria-label={t('settings.update.sourceTitle')}
-                />
-                <Select.Content>
-                  {updateSourceOptions.map((option) => (
-                    <Select.Item key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+                <Select.Trigger aria-label={t('settings.update.sourceTitle')}>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {updateSourceOptions.map((option) => (
+                      <ListBox.Item key={option.value} id={option.value} textValue={option.label}>
+                        {option.label}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
 
             {updateInfo.body && <div className="ct-settings-update-body">{updateInfo.body}</div>}
 
-            <Button disabled={updateInstalling} onClick={() => void installUpdate()}>
+            <Button isDisabled={updateInstalling} onClick={() => void installUpdate()}>
               {updateInstalling
                 ? t('settings.update.downloading')
                 : t('settings.update.updateNow')}
@@ -345,7 +377,9 @@ export function SystemSettingsCard() {
 
             {updateInstalling && (
               <div className="ct-settings-download">
-                <Progress value={downloadProgress} size="1" />
+                <ProgressBar value={downloadProgress}>
+                  <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
+                </ProgressBar>
                 <span className="ct-settings-download-text">{downloadProgress}%</span>
               </div>
             )}

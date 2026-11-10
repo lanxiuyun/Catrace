@@ -1,3 +1,4 @@
+import { Button } from '@heroui/react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { openLogsDir } from '../../../api/tauri'
 import { useT } from '../../i18n'
@@ -62,9 +63,11 @@ export function LinksSettingsCard() {
     <SettingsCard label={t('settings.groups.links')}>
       <div className="ct-link-list">
         {links.map((link) => (
-          <button
+          <Button
             key={link.title}
             type="button"
+            variant="secondary"
+            fullWidth
             className="ct-link-item"
             onClick={() => handleClick(link)}
           >
@@ -91,7 +94,7 @@ export function LinksSettingsCard() {
             >
               <polyline points="9 18 15 12 9 6" />
             </svg>
-          </button>
+          </Button>
         ))}
       </div>
     </SettingsCard>

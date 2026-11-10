@@ -194,31 +194,12 @@
 .ct-link-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.75rem;
-  padding: 0.6875rem 0.875rem;
-  background: var(--ct-surface-2);
-  border: 0.0625rem solid transparent;
-  border-radius: 0.875rem;
-  cursor: pointer;
+  height: auto;
+  padding: 0.75rem 0.875rem;
   text-align: left;
-  font-family: inherit;
-  color: inherit;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    transform 0.16s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.16s ease;
-}
-
-.ct-link-item:hover {
-  border-color: var(--ct-border-card);
-  background: var(--ct-surface);
-  transform: translateY(-0.0625rem);
-  box-shadow: var(--ct-shadow-card);
-}
-
-.ct-link-item:active {
-  transform: translateY(0);
+  white-space: normal;
 }
 
 .ct-link-item:focus-visible {

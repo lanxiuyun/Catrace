@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { Button, Slider } from '@heroui/react'
+import { Lock, Unlock } from 'lucide-react'
 import {
   getReminderData, snoozeReminder, skipReminder, setFullscreenSettings,
   DEFAULT_ELEMENT_TRANSFORMS, type ElementTransforms,
@@ -22,6 +24,41 @@ function defaultTransforms(): ElementTransforms {
 
 function formatTime(seconds: number): string {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+function ElementSlider({
+  value,
+  min,
+  max,
+  step,
+  label,
+  onChange,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  label: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <Slider
+      className="w-full"
+      value={value}
+      minValue={min}
+      maxValue={max}
+      step={step}
+      aria-label={label}
+      onChange={(next) => {
+        if (typeof next === 'number') onChange(next)
+      }}
+    >
+      <Slider.Track>
+        <Slider.Fill />
+        <Slider.Thumb />
+      </Slider.Track>
+    </Slider>
+  )
 }
 
 const INITIAL_DATA = {
@@ -210,18 +247,17 @@ export default function ReminderFullscreen() {
     </div>
   }
 
-  return <div ref={rootRef} className="reminder-fullscreen-root" onMouseMove={onMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag} onClick={() => select(null)}>
+  // 全屏提醒永远叠在背景图/桌面上：Radix 控件局部用深色外观，避免浅色主题下按钮和滑块
+  // 跟暗色控制条、白色文案对不上。这里只覆盖本窗口，不动全局主题。
+  const content = <div ref={rootRef} data-theme="dark" className="reminder-fullscreen-root" onMouseMove={onMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag} onClick={() => select(null)}>
     {data.bgImage && <>
       <div className="reminder-fullscreen-bg" style={{ backgroundImage: `url(${data.bgImage})`, opacity: data.opacity / 100 }} />
       <div className="reminder-fullscreen-sharp" style={{ backgroundImage: `url(${data.bgImage})`, backgroundSize: data.fitMode === 'fill' ? '100% 100%' : data.fitMode, opacity: data.opacity / 100 }} />
     </>}
     <div className="reminder-fullscreen-edit-toggle" onClick={(event) => { event.stopPropagation(); toggleEditMode() }}>
-      <button type="button" className="reminder-fullscreen-lock-btn" title={t(isEditMode ? 'reminder.lock' : 'reminder.unlock')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d={isEditMode ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4'} />
-        </svg>
-      </button>
+      <Button type="button" isIconOnly variant="ghost" size="lg" aria-label={t(isEditMode ? 'reminder.lock' : 'reminder.unlock')}>
+        {isEditMode ? <Unlock size={20} /> : <Lock size={20} />}
+      </Button>
     </div>
     {isEditMode && <div className="reminder-fullscreen-edit-toolbar">
       <div className="reminder-fullscreen-toolbar-title">{t('reminder.editMode')}</div>
@@ -234,22 +270,24 @@ export default function ReminderFullscreen() {
       <div className="reminder-fullscreen-countdown-time">{formatTime(remainingSeconds)}</div>
     </div>)}
     {editable('actions', <div className="reminder-fullscreen-actions">
-      <button type="button" className="reminder-fullscreen-btn reminder-fullscreen-btn-secondary" onClick={(event) => { event.stopPropagation(); void handleSnooze(5) }}>{t('reminder.snooze5')}</button>
-      <button type="button" className="reminder-fullscreen-btn reminder-fullscreen-btn-secondary" onClick={(event) => { event.stopPropagation(); void handleSnooze(10) }}>{t('reminder.snooze10')}</button>
-      <button type="button" className="reminder-fullscreen-btn reminder-fullscreen-btn-primary" onClick={(event) => { event.stopPropagation(); void handleSkip() }}>{t('reminder.skip')}</button>
+      <Button type="button" variant="tertiary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSnooze(5) }}>{t('reminder.snooze5')}</Button>
+      <Button type="button" variant="tertiary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSnooze(10) }}>{t('reminder.snooze10')}</Button>
+      <Button type="button" variant="primary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSkip() }}>{t('reminder.skip')}</Button>
     </div>)}
     {isEditMode && selectedElement && <div className="reminder-fullscreen-element-controls" onClick={(event) => event.stopPropagation()}>
       <div className="reminder-fullscreen-control-row">
-        <label htmlFor="fullscreen-scale">{t('reminder.scale')}</label>
-        <input id="fullscreen-scale" type="range" min={0.3} max={3} step={0.05} value={elementTransforms[selectedElement].scale} onChange={(event) => updateSelected('scale', Number(event.target.value))} />
-        <span>{Math.round(elementTransforms[selectedElement].scale * 100)}%</span>
+        <span className="reminder-fullscreen-control-label">{t('reminder.scale')}</span>
+        <ElementSlider value={elementTransforms[selectedElement].scale} min={0.3} max={3} step={0.05} label={t('reminder.scale')} onChange={(value) => updateSelected('scale', value)} />
+        <span className="reminder-fullscreen-control-value">{Math.round(elementTransforms[selectedElement].scale * 100)}%</span>
       </div>
       <div className="reminder-fullscreen-control-row">
-        <label htmlFor="fullscreen-rotate">{t('reminder.rotate')}</label>
-        <input id="fullscreen-rotate" type="range" min={-180} max={180} step={1} value={elementTransforms[selectedElement].rotate} onChange={(event) => updateSelected('rotate', Number(event.target.value))} />
-        <span>{elementTransforms[selectedElement].rotate}°</span>
+        <span className="reminder-fullscreen-control-label">{t('reminder.rotate')}</span>
+        <ElementSlider value={elementTransforms[selectedElement].rotate} min={-180} max={180} step={1} label={t('reminder.rotate')} onChange={(value) => updateSelected('rotate', value)} />
+        <span className="reminder-fullscreen-control-value">{elementTransforms[selectedElement].rotate}°</span>
       </div>
-      <button type="button" className="reminder-fullscreen-reset-btn" onClick={() => updateTransforms({ ...transformsRef.current, [selectedElement]: { ...DEFAULT_ELEMENT_TRANSFORMS[selectedElement] } })}>{t('reminder.resetElement')}</button>
+      <Button type="button" variant="tertiary" size="sm" fullWidth onClick={() => updateTransforms({ ...transformsRef.current, [selectedElement]: { ...DEFAULT_ELEMENT_TRANSFORMS[selectedElement] } })}>{t('reminder.resetElement')}</Button>
     </div>}
   </div>
+
+  return content
 }
