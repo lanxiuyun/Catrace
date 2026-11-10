@@ -100,13 +100,11 @@
   background: rgba(120, 120, 128, 0.26);
 }
 
-.ct-dashboard .hide-stats-label {
+.ct-dashboard .header-actions .switch__content {
+  gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--ct-text-muted);
-  white-space: nowrap;
-  user-select: none;
-  cursor: pointer;
 }
 
 /* Radix 开关默认跟 iris 强调色（偏紫）。这里压成 macOS 系统蓝，

@@ -54,10 +54,11 @@
   background: rgba(120, 120, 128, 0.26);
 }
 
-.ct-debug-toggle-label {
+.ct-debug-toggle .switch__content {
+  gap: 0.4375rem;
   font-size: 0.75rem;
+  font-weight: 400;
   color: var(--ct-text-muted);
-  white-space: nowrap;
 }
 
 /* ---------- 面板 ---------- */

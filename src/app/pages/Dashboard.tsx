@@ -215,20 +215,16 @@ export function Dashboard() {
               )}
             </h1>
             <div className="header-actions">
-              {/* label + for 让「隐藏统计」这行文字也能点，点完开关会跟着切 */}
-              <label className="hide-stats-label" htmlFor="ct-hide-stats">
-                {t('dashboard.hideStats.label')}
-              </label>
               <Switch
                 id="ct-hide-stats"
                 size="sm"
                 isSelected={hideStats}
-                aria-label={t('dashboard.hideStats.label')}
                 onChange={(value) => {
                   void toggleHideStats(value)
                 }}
               >
                 <Switch.Content>
+                  {t('dashboard.hideStats.label')}
                   <Switch.Control><Switch.Thumb /></Switch.Control>
                 </Switch.Content>
               </Switch>

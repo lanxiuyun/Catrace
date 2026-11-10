@@ -97,14 +97,13 @@ export function Debug() {
   // 页面级唯一的开关：挂在实时状态面板标题右侧，不再单独占一条页头
   const toastDebugToggle = (
     <div className="ct-debug-toggle">
-      <span className="ct-debug-toggle-label">{t('debug.toastDebugMode')}</span>
       <Switch
         size="sm"
         isSelected={toastDebug}
-        aria-label={t('debug.toastDebugMode')}
         onChange={(value) => void toggleToastDebug(value)}
       >
         <Switch.Content>
+          {t('debug.toastDebugMode')}
           <Switch.Control><Switch.Thumb /></Switch.Control>
         </Switch.Content>
       </Switch>
