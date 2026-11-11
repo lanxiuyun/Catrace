@@ -228,8 +228,15 @@ export default function ReminderFullscreen() {
   // 全屏提醒永远叠在背景图/桌面上：HeroUI 控件局部用深色外观，避免浅色主题下按钮和滑块
   // 跟暗色控制条、白色文案对不上。这里只覆盖本窗口，不动全局主题。
   const content = <div ref={rootRef} data-theme="dark" className="reminder-fullscreen-root" onMouseMove={onMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag} onClick={() => select(null)}>
-    <div className="reminder-fullscreen-edit-toggle" onClick={(event) => { event.stopPropagation(); toggleEditMode() }}>
-      <Button type="button" isIconOnly variant="ghost" size="lg" aria-label={t(isEditMode ? 'reminder.lock' : 'reminder.unlock')}>
+    <div className="reminder-fullscreen-edit-toggle" onClick={(event) => event.stopPropagation()}>
+      <Button
+        type="button"
+        isIconOnly
+        variant="ghost"
+        size="lg"
+        aria-label={t(isEditMode ? 'reminder.lock' : 'reminder.unlock')}
+        onPress={toggleEditMode}
+      >
         {isEditMode ? <Unlock size={20} /> : <Lock size={20} />}
       </Button>
     </div>
