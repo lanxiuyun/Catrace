@@ -167,9 +167,8 @@
 .ct-plugin-detail-titles { flex: 1 1 auto; min-width: 0; }
 .ct-plugin-detail-identity > .rt-Button,
 .ct-plugin-detail-identity > .rt-SwitchRoot { flex-shrink: 0; }
-/* The detail header keeps a plate so the hero icon stays grounded; list cards show icons bare. */
-.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; border-radius: 1.0625rem; background: var(--ct-surface-2); }
-.ct-market-plugin-icon.is-large.is-builtin { background: var(--ct-accent-soft); }
+/* 详情页大图标与列表卡一致：裸图标，不加底板。 */
+.ct-market-plugin-icon.is-large { width: 3.75rem; height: 3.75rem; }
 .ct-market-plugin-icon.is-large > svg { width: 1.75rem; height: 1.75rem; }
 .ct-market-plugin-icon.is-large > img { width: 2.5rem; height: 2.5rem; }
 .ct-plugin-detail-identity h2 { margin: 0 0 0.375rem; color: var(--ct-text); font-weight: 700; line-height: 1.25; letter-spacing: -0.025em; font-size: 1.5rem; overflow-wrap: anywhere; }
