@@ -53,6 +53,11 @@ export function createSettingsCardSorting(
     physicalPoint = point
   }
 
+  function getCards() {
+    return Array.from(grid.querySelectorAll<HTMLElement>(':scope > .ct-settings-slot'))
+      .filter(card => card !== Sortable.ghost && card !== Sortable.clone)
+  }
+
   function reset() {
     document.removeEventListener('pointermove', trackPointer, true)
     originalCards = []
@@ -65,7 +70,9 @@ export function createSettingsCardSorting(
   const sortable = Sortable.create(grid, {
     draggable: '.ct-settings-slot',
     forceFallback: true,
-    fallbackOnBody: true,
+    // Keep the fallback inside the page's Radix Theme so controls inherit tokens
+    // and scoped styles. Its fixed positioning keeps it out of the grid layout.
+    fallbackOnBody: false,
     animation: 200,
     ghostClass: 'ct-dragging',
     dragClass: 'ct-drag-over',
@@ -74,7 +81,7 @@ export function createSettingsCardSorting(
     preventOnFilter: false,
     onStart: (event: Sortable.SortableEvent & { originalEvent?: Event }) => {
       reset()
-      originalCards = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .ct-settings-slot'))
+      originalCards = getCards()
       physicalPoint = directionAnchor = eventPoint(event.originalEvent)
       document.addEventListener('pointermove', trackPointer, { capture: true, passive: true })
     },
@@ -82,7 +89,7 @@ export function createSettingsCardSorting(
       pendingSwap = null
       const point = eventPoint(originalEvent)
       if (!point) return false
-      const cards = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .ct-settings-slot'))
+      const cards = getCards()
       const from = cards.indexOf(event.dragged)
       const related = cards.indexOf(event.related)
       if (from < 0 || related < 0) return false
@@ -113,7 +120,7 @@ export function createSettingsCardSorting(
       pendingSwap = null
     },
     onEnd: () => {
-      const cards = Array.from(grid.querySelectorAll<HTMLElement>(':scope > .ct-settings-slot'))
+      const cards = getCards()
       const keys = cards.map((card) => card.dataset.groupKey!)
       const changed = cards.some((card, index) => card !== originalCards[index])
       // React still owns the old keyed order: undo Sortable's DOM mutations before

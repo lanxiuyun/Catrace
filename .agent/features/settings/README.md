@@ -26,13 +26,14 @@
 
 ### 拖拽约束与回归验证
 
-- 拖拽控制在 [settingsCardSorting.ts](../../../src/app/lib/settingsCardSorting.ts)。保留 Sortable 实时换位与 200ms 动画；fallback 副本挂到 body，不参与网格。不使用松手才换位的蓝框预览。
+- 拖拽控制在 [settingsCardSorting.ts](../../../src/app/lib/settingsCardSorting.ts)。保留 Sortable 实时换位与 200ms 动画；`fallbackOnBody: false` 让浮动副本留在设置页的 Radix Theme 内，继承主题变量和作用域样式。副本采用 fixed 定位，不参与网格布局；排序收集必须排除 `Sortable.ghost` 和 `Sortable.clone`，避免重复的 group key 混入排序。
+- 将副本放到 body 会丢失 Radix Theme：隔离浏览器复现中 Switch 从 35×20 CSS px 缩成 0×0，Select / Button 丢失主题尺寸、颜色与圆角变量。保留主题祖先可恢复；主题回归覆盖浅色/深色下副本与原卡片的控件计算样式一致，且其他卡片几何位置不变。本次通过浏览器请求拦截加载生产构建运行全部 18 个场景通过；随后连接已运行的开发应用 `http://localhost:1420`，18 个场景也全部通过。验证由独立 Edge 浏览器执行，未自动操控原生 WebView。
 - 根因不仅是占位卡片的 `pointer-events: none`：不同高度卡片跨行移动时，CSS Grid 会重新计算整行高度，静止鼠标下的目标也随之变化，从而不断反向重排。真实设置页可复现 1→3、1→4；关闭动画也不能解决。只修点击穿透仅能缓解同一行的交换。
 - `onMove` 只允许真实指针移动驱动插入；`onChange` 在实际插入后消费本次移动。距离上次换位不足 8 CSS px 时禁止再次换位，防止 fallback 定时命中检测在鼠标静止时继续重排。反向插入还要求真实反向手势或明显转弯，防止持续正向移动时因行高变化自动回跳。
 - 用捕获阶段的 `pointermove` 跟踪真实手势转向；不能把“距上次换位位置的位移”当作当前移动方向，否则指针越过换位位置后回拖会被误判。不要同时注册 mousemove：其取整坐标与 pointermove 的小数坐标可能被误认为微小反向移动。8px 是手势防抖阈值，不是布局尺寸。
 - 原占位卡片不设置点击穿透，浮动副本由 Sortable 自行设置。松手后先恢复拖动前 DOM 顺序，再让 React 按新顺序提交并保存，保留输入框及卡片实例；离页/松手清理指针监听。移出网格保留已经完成的换位，与原实时排序语义一致。
 - Sortable 1.15 的 `destroy()` 调用无事件参数的 `_onDrop()`，会跳过 fallback 副本清理。销毁前捕获本实例的 `Sortable.ghost` / `Sortable.clone`，销毁后显式移除，避免拖动中离页残留浮动卡片。
-- [settings-card-sorting.spec.ts](../../../e2e/settings-card-sorting.spec.ts) 连接运行中的设置页，16 个场景验证两列 1→3（顶部/中部）、1→4、4→1、左右、单列、三列、移出网格，以及换位后主动回拖/横向转弯、同页连续排序、拖动中离页再进入、点击手柄不拖动。断言松手前已换位、直线手势不反向、静止与 ±2px 抖动不新增换位、松手后保留顺序及 React 卡片实例。原贡献者报告全套重复两次共 32 项通过；浏览器环境未验证原生 Tauri Store 持久化，本次移植未重跑界面测试。
+- [settings-card-sorting.spec.ts](../../../e2e/settings-card-sorting.spec.ts) 连接运行中的设置页，18 个场景（含新增浅色/深色拖动副本主题检查）验证两列 1→3（顶部/中部）、1→4、4→1、左右、单列、三列、移出网格，以及换位后主动回拖/横向转弯、同页连续排序、拖动中离页再进入、点击手柄不拖动。断言松手前已换位、直线手势不反向、静止与 ±2px 抖动不新增换位、松手后保留顺序及 React 卡片实例。原防闪修复的 16 个场景曾重复两次共 32 项通过；本次补充主题场景后，生产构建与开发页均为 18 项通过。以上浏览器验证不包含原生 Tauri Store 持久化。
 - 修复来自 [YHQY-Dev 的原提交 2f0fb91](https://github.com/YHQY-Dev/Catrace/commit/2f0fb916b42262d5b9c465616d5c91d481fbef7b)，对应 [PR #104](https://github.com/lanxiuyun/Catrace/pull/104)。
 
 ## 布局与控件约定
