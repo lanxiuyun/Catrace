@@ -37,7 +37,7 @@ for (const scenario of cases) {
     await page.setViewportSize({ width: scenario.width, height: 2400 })
     await page.goto('/#/settings')
     const grid = page.locator('.ct-settings-grid')
-    const cards = grid.locator(':scope > .ct-settings-slot')
+    const cards = grid.locator(':scope > .ct-settings-slot:not(.sortable-fallback)')
     const getOrder = () => cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-group-key')))
     await expect.poll(getOrder).toEqual(initial)
     await page.waitForTimeout(500)
@@ -109,7 +109,7 @@ for (const scenario of cases) {
 test('设置卡片：同一页面连续两次排序，保留卡片实例', async ({ page }) => {
   await page.setViewportSize({ width: 1050, height: 2400 })
   await page.goto('/#/settings')
-  const cards = page.locator('.ct-settings-grid > .ct-settings-slot')
+  const cards = page.locator('.ct-settings-grid > .ct-settings-slot:not(.sortable-fallback)')
   const getOrder = () => cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-group-key')))
   await expect.poll(getOrder).toEqual(initial)
   await page.waitForTimeout(500)
@@ -163,9 +163,57 @@ test('设置卡片：拖动中离页清除浮动副本，再进入可以正常�
   await expect(page.locator('.sortable-fallback')).toHaveCount(0)
 })
 
+for (const appearance of ['light', 'dark'] as const) {
+  test(`设置卡片：${appearance} 主题下拖动副本保持控件样式`, async ({ page }) => {
+    await page.setViewportSize({ width: 1050, height: 2400 })
+    await page.goto('/#/settings')
+    const source = page.locator('[data-group-key="system"]:not(.sortable-fallback)')
+    await source.locator('.ct-drag-handle').waitFor()
+    await page.waitForTimeout(500)
+    await source.evaluate((el, mode) => {
+      const theme = el.closest('.radix-themes')!
+      theme.classList.toggle('dark', mode === 'dark')
+      theme.classList.toggle('light', mode === 'light')
+      document.documentElement.setAttribute('data-theme', mode)
+    }, appearance)
+    // Let existing controls finish the theme-change color transition before cloning.
+    await page.waitForTimeout(300)
+    const getGeometry = () => page.locator('.ct-settings-grid > .ct-settings-slot:not(.sortable-fallback)')
+      .evaluateAll(elements => elements.map(el => {
+        const rect = el.getBoundingClientRect()
+        return [rect.x, rect.y, rect.width, rect.height]
+      }))
+    const before = await getGeometry()
+    const handle = await source.locator('.ct-drag-handle').boundingBox()
+    if (!handle) throw new Error('Drag handle is not visible')
+    await page.mouse.move(handle.x + 12, handle.y + 12)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + 6, handle.y + 12)
+    const ghost = page.locator('.sortable-fallback')
+    await expect(ghost).toHaveCount(1)
+    expect(await ghost.evaluate(el => el.closest('.radix-themes') === document.querySelector('.ct-settings-page'))).toBe(true)
+    const comparison = await source.evaluate(el => {
+      const ghost = document.querySelector('.sortable-fallback')!
+      const selectors = '.rt-SwitchRoot, .rt-SelectTrigger, .rt-Button'
+      const properties = ['width', 'height', 'font-size', 'color', 'background-color', 'border-radius', '--accent-9', '--radius-2']
+      const snapshot = (root: Element) => Array.from(root.querySelectorAll(selectors), control => {
+        const style = getComputedStyle(control)
+        return properties.map(property => style.getPropertyValue(property))
+      })
+      return { original: snapshot(el), fallback: snapshot(ghost) }
+    })
+    expect(comparison.original.length).toBeGreaterThan(1)
+    expect(comparison.fallback).toEqual(comparison.original)
+    // The fixed-position fallback must not add a grid row or resize other cards.
+    expect(await getGeometry()).toEqual(before)
+    await page.mouse.up()
+    await expect(ghost).toHaveCount(0)
+  })
+}
+
 test('设置卡片：点击手柄但不拖动，不改变顺序', async ({ page }) => {
   await page.goto('/#/settings')
-  const cards = page.locator('.ct-settings-grid > .ct-settings-slot')
+  const cards = page.locator('.ct-settings-grid > .ct-settings-slot:not(.sortable-fallback)')
   const getOrder = () => cards.evaluateAll(elements => elements.map(el => el.getAttribute('data-group-key')))
   await expect.poll(getOrder).toEqual(initial)
   await page.waitForTimeout(500)
