@@ -25,8 +25,8 @@ export default function RestToastCard({ title, body, isHovered, onClose, onSnooz
       <div className={`progress-bar${isHovered ? ' paused' : ''}`} />
       <p className="body-text">{body}</p>
       <div className="actions">
-        <Button size="sm" variant="tertiary" className="ct-toast-action" onClick={() => onSnooze?.(5)}>{t('reminder.snooze5')}</Button>
-        <Button size="sm" variant="tertiary" className="ct-toast-action" onClick={() => onSnooze?.(10)}>{t('reminder.snooze10')}</Button>
+        <Button size="sm" variant="secondary" className="ct-toast-action" onClick={() => onSnooze?.(5)}>{t('reminder.snooze5')}</Button>
+        <Button size="sm" variant="secondary" className="ct-toast-action" onClick={() => onSnooze?.(10)}>{t('reminder.snooze10')}</Button>
         <Button size="sm" variant="primary" className="ct-toast-action" onClick={onSkip}>{t('reminder.skip')}</Button>
       </div>
     </div>
