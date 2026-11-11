@@ -197,7 +197,7 @@
 .ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
 
 /* Built-in reminder settings: muted group titles above white setting cards. */
-.ct-rest-settings { display: flex; flex-direction: column; gap: 1.75rem; margin-top: 1.5rem; }
+.ct-rest-settings { display: flex; flex-direction: column; gap: 1.75rem; }
 .ct-rest-section { min-width: 0; }
 .ct-rest-section-head { margin: 0 0 0.625rem; padding-inline: 0.625rem; }
 .ct-rest-section-head h3 { margin: 0; color: var(--ct-text-muted); font-size: 0.8125rem; font-weight: 600; line-height: 1.5; }
