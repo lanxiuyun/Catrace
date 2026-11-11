@@ -1,9 +1,11 @@
-import { useRef, type ChangeEvent } from 'react'
+import { useMemo, useRef, type ChangeEvent } from 'react'
 import { Button, Input, ListBox, Select, Slider, TextArea } from '@heroui/react'
-import { ImagePlus, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import type { AppConfig } from '../../../api/tauri'
 import { useT } from '../../i18n'
 import { PluginSettingRow } from './PluginSettingRow'
+import { FullscreenReminderPreview } from '../../../components/FullscreenReminderPreview'
+import { readFullscreenTransforms } from '../../../components/fullscreenReminderModel'
 
 function SettingSlider({
   value,
@@ -46,6 +48,7 @@ export interface FullscreenState {
   bg: string
   opacity: number
   fitMode: string
+  elementTransforms: string
 }
 
 export interface ReminderText {
@@ -83,6 +86,10 @@ export function RestSettings({
 }) {
   const t = useT()
   const backgroundInput = useRef<HTMLInputElement>(null)
+  const previewTransforms = useMemo(
+    () => readFullscreenTransforms(fullscreen.elementTransforms),
+    [fullscreen.elementTransforms],
+  )
 
   return (
     <div className="ct-rest-settings">
@@ -213,16 +220,15 @@ export function RestSettings({
                   </div>
                 </div>
                 <div className="ct-plugin-row-control">
-                  {fullscreen.bg ? (
-                    <div className="ct-plugin-bg-preview">
-                      <img src={fullscreen.bg} alt="" />
-                    </div>
-                  ) : (
-                    <button type="button" className="ct-plugin-bg-empty" onClick={() => backgroundInput.current?.click()}>
-                      <ImagePlus size={18} aria-hidden="true" />
-                      <span>{t('plugins.rest.fullscreenBgDesc')}</span>
-                    </button>
-                  )}
+                  <FullscreenReminderPreview
+                    title={text.title || t('reminder.defaultTitle')}
+                    body={text.body || t('reminder.defaultBody')}
+                    bgImage={fullscreen.bg}
+                    opacity={fullscreen.opacity}
+                    fitMode={fullscreen.fitMode}
+                    remainingSeconds={config.break_minutes * 60}
+                    elementTransforms={previewTransforms}
+                  />
                 </div>
               </div>
 
@@ -296,7 +302,7 @@ export function RestSettings({
                 fullWidth
                 variant="primary"
                 value={text.title}
-                placeholder={t('plugins.rest.previewDefaultTitle')}
+                placeholder={t('reminder.defaultTitle')}
                 aria-label={t('plugins.rest.customTitle')}
                 onChange={(event) => onUpdateText({ title: event.target.value })}
               />
@@ -312,7 +318,7 @@ export function RestSettings({
                 variant="primary"
                 rows={3}
                 value={text.body}
-                placeholder={t('plugins.rest.previewDefaultBody')}
+                placeholder={t('reminder.defaultBody')}
                 aria-label={t('plugins.rest.customBody')}
                 onChange={(event) => onUpdateText({ body: event.target.value })}
               />

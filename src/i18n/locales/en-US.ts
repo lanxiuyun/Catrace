@@ -125,6 +125,8 @@ export default {
       customBodyDesc: 'Leave empty to use the default',
       fullscreenBgTitle: 'Fullscreen Background',
       fullscreenBgDesc: 'Choose an image as the fullscreen background',
+      fullscreenPreviewLabel: 'Fullscreen reminder preview',
+      fullscreenPreviewHint: '16:9 preview · Checkerboard illustrates transparency only',
       fullscreenOpacityTitle: 'Background Opacity',
       fullscreenOpacityDesc: 'Adjust the fullscreen overlay opacity',
       fullscreenFitModeTitle: 'Background Fit Mode',
@@ -337,6 +339,8 @@ export default {
     disabled: 'Disabled',
   },
   reminder: {
+    defaultTitle: 'Rest Reminder',
+    defaultBody: 'Stand up and take a break.',
     snooze5: '5 min',
     snooze10: '10 min',
     skip: 'Skip',

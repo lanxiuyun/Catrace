@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { Button, Slider } from '@heroui/react'
 import { Lock, Unlock } from 'lucide-react'
@@ -8,24 +8,13 @@ import {
 } from '../../api/tauri'
 import { useT } from '../i18n'
 import { useShellStore } from '../store'
+import { FullscreenReminderScene } from '../../components/FullscreenReminderScene'
+import {
+  fullscreenElementStyle, readFullscreenTransforms,
+} from '../../components/fullscreenReminderModel'
 import './reminder-fullscreen.css'
 
 type ElementName = keyof ElementTransforms
-const ELEMENT_NAMES: ElementName[] = ['title', 'body', 'countdown', 'actions']
-
-function defaultTransforms(): ElementTransforms {
-  return {
-    title: { ...DEFAULT_ELEMENT_TRANSFORMS.title },
-    body: { ...DEFAULT_ELEMENT_TRANSFORMS.body },
-    countdown: { ...DEFAULT_ELEMENT_TRANSFORMS.countdown },
-    actions: { ...DEFAULT_ELEMENT_TRANSFORMS.actions },
-  }
-}
-
-function formatTime(seconds: number): string {
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-}
-
 function ElementSlider({
   value,
   min,
@@ -70,7 +59,7 @@ export default function ReminderFullscreen() {
   const t = useT()
   const locale = useShellStore((state) => state.locale)
   const [data, setData] = useState(INITIAL_DATA)
-  const [elementTransforms, setElementTransforms] = useState(defaultTransforms)
+  const [elementTransforms, setElementTransforms] = useState(() => readFullscreenTransforms())
   const [isEditMode, setEditMode] = useState(false)
   const [selectedElement, setSelectedElement] = useState<ElementName | null>(null)
   const [dragElement, setDragElement] = useState<ElementName | null>(null)
@@ -139,15 +128,7 @@ export default function ReminderFullscreen() {
             bgImage: reminder.fullscreen_bg ?? '', opacity: reminder.fullscreen_opacity ?? 80,
             fitMode: reminder.fullscreen_fit_mode ?? 'contain',
           }
-          const transforms = defaultTransforms()
-          if (reminder.fullscreen_element_transforms) {
-            try {
-              const parsed = JSON.parse(reminder.fullscreen_element_transforms) as ElementTransforms
-              for (const name of ELEMENT_NAMES) {
-                if (parsed[name]) transforms[name] = { ...DEFAULT_ELEMENT_TRANSFORMS[name], ...parsed[name] }
-              }
-            } catch (error) { console.error('[FS] Failed to parse element transforms:', error) }
-          }
+          const transforms = readFullscreenTransforms(reminder.fullscreen_element_transforms)
           dataRef.current = next
           setData(next)
           ready.current = true
@@ -232,10 +213,7 @@ export default function ReminderFullscreen() {
   }
   const editable = (name: ElementName, children: ReactNode) => {
     const transform = elementTransforms[name]
-    const style: CSSProperties = {
-      left: `${transform.x}%`, top: `${transform.y}%`,
-      transform: `translate(-50%, -50%) scale(${transform.scale}) rotate(${transform.rotate}deg)`,
-    }
+    const style = fullscreenElementStyle(transform)
     return <div
       className={`reminder-fullscreen-editable-element${isEditMode ? ' edit-mode' : ''}${selectedElement === name ? ' selected' : ''}${dragElement === name ? ' dragging' : ''}`}
       style={style}
@@ -247,13 +225,9 @@ export default function ReminderFullscreen() {
     </div>
   }
 
-  // 全屏提醒永远叠在背景图/桌面上：Radix 控件局部用深色外观，避免浅色主题下按钮和滑块
+  // 全屏提醒永远叠在背景图/桌面上：HeroUI 控件局部用深色外观，避免浅色主题下按钮和滑块
   // 跟暗色控制条、白色文案对不上。这里只覆盖本窗口，不动全局主题。
   const content = <div ref={rootRef} data-theme="dark" className="reminder-fullscreen-root" onMouseMove={onMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag} onClick={() => select(null)}>
-    {data.bgImage && <>
-      <div className="reminder-fullscreen-bg" style={{ backgroundImage: `url(${data.bgImage})`, opacity: data.opacity / 100 }} />
-      <div className="reminder-fullscreen-sharp" style={{ backgroundImage: `url(${data.bgImage})`, backgroundSize: data.fitMode === 'fill' ? '100% 100%' : data.fitMode, opacity: data.opacity / 100 }} />
-    </>}
     <div className="reminder-fullscreen-edit-toggle" onClick={(event) => { event.stopPropagation(); toggleEditMode() }}>
       <Button type="button" isIconOnly variant="ghost" size="lg" aria-label={t(isEditMode ? 'reminder.lock' : 'reminder.unlock')}>
         {isEditMode ? <Unlock size={20} /> : <Lock size={20} />}
@@ -263,17 +237,18 @@ export default function ReminderFullscreen() {
       <div className="reminder-fullscreen-toolbar-title">{t('reminder.editMode')}</div>
       <div className="reminder-fullscreen-toolbar-hint">{selectedElement ? `${t('reminder.scale')} / ${t('reminder.rotate')}` : locale === 'zh-CN' ? '点击元素以选中' : 'Click element to select'}</div>
     </div>}
-    {editable('title', <h1 className="reminder-fullscreen-title">{data.title}</h1>)}
-    {editable('body', <p className="reminder-fullscreen-subtitle">{data.body}</p>)}
-    {editable('countdown', <div className="reminder-fullscreen-countdown">
-      <div className="reminder-fullscreen-countdown-label">{t('reminder.countdown')}</div>
-      <div className="reminder-fullscreen-countdown-time">{formatTime(remainingSeconds)}</div>
-    </div>)}
-    {editable('actions', <div className="reminder-fullscreen-actions">
-      <Button type="button" variant="tertiary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSnooze(5) }}>{t('reminder.snooze5')}</Button>
-      <Button type="button" variant="tertiary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSnooze(10) }}>{t('reminder.snooze10')}</Button>
-      <Button type="button" variant="primary" size="lg" onClick={(event) => { event.stopPropagation(); void handleSkip() }}>{t('reminder.skip')}</Button>
-    </div>)}
+    <FullscreenReminderScene
+      title={data.title}
+      body={data.body}
+      bgImage={data.bgImage}
+      opacity={data.opacity}
+      fitMode={data.fitMode}
+      remainingSeconds={remainingSeconds}
+      elementTransforms={elementTransforms}
+      renderElement={editable}
+      onSnooze={(minutes) => { void handleSnooze(minutes) }}
+      onSkip={() => { void handleSkip() }}
+    />
     {isEditMode && selectedElement && <div className="reminder-fullscreen-element-controls" onClick={(event) => event.stopPropagation()}>
       <div className="reminder-fullscreen-control-row">
         <span className="reminder-fullscreen-control-label">{t('reminder.scale')}</span>

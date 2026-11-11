@@ -17,7 +17,7 @@ const SAVE_DEBOUNCE_MS = 500
 const DEFAULT_CONFIG: AppConfig = {
   enabled: true, window_minutes: 45, break_minutes: 5, snooze_interval_minutes: 3,
 }
-const DEFAULT_FULLSCREEN: FullscreenState = { bg: '', opacity: 80, fitMode: 'contain' }
+const DEFAULT_FULLSCREEN: FullscreenState = { bg: '', opacity: 80, fitMode: 'contain', elementTransforms: '' }
 const DEFAULT_TEXT: ReminderText = { title: '', body: '' }
 
 /** The built-in reminder keeps its native React settings inside the plugin center. */
@@ -60,8 +60,9 @@ export function Plugins() {
         setModeState(nextMode === 'fullscreen' ? 'fullscreen' : 'toast')
         setFullscreenState({
           bg: nextFullscreen.bg_image || '',
-          opacity: Number(nextFullscreen.opacity) || 80,
+          opacity: nextFullscreen.opacity ?? 80,
           fitMode: nextFullscreen.fit_mode || 'contain',
+          elementTransforms: nextFullscreen.element_transforms || '',
         })
         setTextState({ title: nextText.title || '', body: nextText.body || '' })
         setRestReady(true)
@@ -107,7 +108,15 @@ export function Plugins() {
     setFullscreenState(next)
     debounceSave('fullscreen', async () => {
       try {
+        // Empty transforms means preserve the layout edited in the real fullscreen window.
         await setFullscreenSettings(next.bg, next.opacity, next.fitMode, '')
+        if (!next.bg) {
+          // Clearing the image restores the bundled default on the backend.
+          const saved = await getFullscreenSettings()
+          setFullscreenState((current) => current === next
+            ? { ...current, bg: saved.bg_image || '' }
+            : current)
+        }
       } catch { showToast(t('settings.messages.saveFailed'), 'error') }
     })
   }

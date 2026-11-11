@@ -6,6 +6,12 @@
   overflow: hidden;
 }
 
+.reminder-fullscreen-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
 .reminder-fullscreen-bg {
   position: absolute;
   inset: 2.5rem;

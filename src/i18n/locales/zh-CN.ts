@@ -125,6 +125,8 @@ export default {
       customBodyDesc: '留空则使用默认内容',
       fullscreenBgTitle: '全屏背景图',
       fullscreenBgDesc: '选择一张图片作为全屏提醒背景',
+      fullscreenPreviewLabel: '全屏提醒预览',
+      fullscreenPreviewHint: '16:9 预览 · 底纹仅用于示意透明度',
       fullscreenOpacityTitle: '背景透明度',
       fullscreenOpacityDesc: '调整全屏背景遮罩的透明度',
       fullscreenFitModeTitle: '背景填充模式',
@@ -337,6 +339,8 @@ export default {
     disabled: '已禁用',
   },
   reminder: {
+    defaultTitle: '休息提醒',
+    defaultBody: '站起来休息一下吧。',
     snooze5: '稍后5分钟',
     snooze10: '稍后10分钟',
     skip: '跳过本次',

@@ -101,6 +101,7 @@ features:
     related:
       - reminder
       - theme
+      - plugin-center
   dashboard:
     docs:
       - .agent/features/dashboard/README.md

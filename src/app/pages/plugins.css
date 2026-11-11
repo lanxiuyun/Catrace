@@ -212,9 +212,7 @@
 .ct-rest-settings .slider[data-orientation="horizontal"] .slider__track { height: 0.25rem; border-inline-width: 0.5rem; }
 .ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb { width: 1rem; height: 1rem; border-radius: 50%; }
 .ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb::after { width: 0.625rem; height: 0.625rem; border-radius: 50%; }
-/* Background actions sit above the full-width preview inside their setting row. */
-.ct-rest-settings .ct-plugin-bg-preview { display: flex; flex-direction: column; align-items: stretch; gap: 0.75rem; height: auto; border: 0; border-radius: 0; overflow: visible; }
-.ct-rest-settings .ct-plugin-bg-preview img { width: 100%; height: auto; max-height: 14rem; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 0.625rem; background: var(--ct-surface-2); }
+/* Image selection actions remain above the live preview. */
 .ct-rest-background-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; }
 .ct-rest-background-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 0.5rem; }
 @media (max-width: 48rem) {
