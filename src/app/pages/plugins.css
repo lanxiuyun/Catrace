@@ -196,7 +196,33 @@
 .ct-market button:focus-visible, .ct-plugin-detail button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
 .ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
 
-/* Native React reminder settings, shared with the detail sheet. */
+/* Built-in reminder settings: muted group titles above white setting cards. */
+.ct-rest-settings { display: flex; flex-direction: column; gap: 1.75rem; margin-top: 1.5rem; }
+.ct-rest-section { min-width: 0; }
+.ct-rest-section-head { margin: 0 0 0.625rem; padding-inline: 0.625rem; }
+.ct-rest-section-head h3 { margin: 0; color: var(--ct-text-muted); font-size: 0.8125rem; font-weight: 600; line-height: 1.5; }
+.ct-rest-section-body { min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1rem; background: var(--ct-surface); }
+.ct-rest-section-body > .ct-plugin-row { align-items: center; padding: 1rem 1.25rem; }
+.ct-rest-section-body > .ct-plugin-row:first-of-type { padding-top: 1rem; }
+.ct-rest-section-body > .ct-plugin-row + .ct-plugin-row { border-top: 1px solid var(--ct-border); }
+.ct-rest-section-body > .ct-plugin-row.is-stack { align-items: stretch; gap: 0.75rem; }
+.ct-rest-settings .ct-plugin-value { min-width: 3.75rem; padding: 0; background: transparent; font-weight: 500; }
+/* Keep HeroUI's drag/focus behavior, but use a slim track on this settings page. */
+.ct-rest-settings .slider { padding-block: 0.5rem; }
+.ct-rest-settings .slider[data-orientation="horizontal"] .slider__track { height: 0.25rem; border-inline-width: 0.5rem; }
+.ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb { width: 1rem; height: 1rem; border-radius: 50%; }
+.ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb::after { width: 0.625rem; height: 0.625rem; border-radius: 50%; }
+/* Background actions sit above the full-width preview inside their setting row. */
+.ct-rest-settings .ct-plugin-bg-preview { display: flex; flex-direction: column; align-items: stretch; gap: 0.75rem; height: auto; border: 0; border-radius: 0; overflow: visible; }
+.ct-rest-settings .ct-plugin-bg-preview img { width: 100%; height: auto; max-height: 14rem; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 0.625rem; background: var(--ct-surface-2); }
+.ct-rest-background-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; }
+.ct-rest-background-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 0.5rem; }
+@media (max-width: 48rem) {
+  .ct-rest-section-body > .ct-plugin-row { align-items: stretch; }
+  .ct-rest-section-body .ct-plugin-row-control.is-slider { flex: none; width: 100%; }
+}
+
+/* Shared setting rows. */
 .ct-plugin-groups { display: flex; flex-direction: column; gap: 1rem; }
 .ct-plugin-group { padding: 1.125rem 1.25rem 1rem; background: var(--ct-surface); border: 1px solid var(--ct-border-card); border-radius: 1.125rem; }
 .ct-plugin-group-title { margin: 0 0 0.375rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ct-text-muted); }
