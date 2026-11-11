@@ -268,6 +268,12 @@ export default {
   debug: {
     title: '媒体检测调试',
     toastDebugMode: 'Toast 调试背景',
+    specialDayPreview: {
+      title: '节日卡片预览',
+      show: '显示全部节日卡片',
+      hide: '收起预览',
+      hint: '12 个固定日期 · history / life 两种配色',
+    },
     openLogsDir: '日志目录',
     status: {
       title: '实时状态',

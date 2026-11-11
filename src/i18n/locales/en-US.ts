@@ -268,6 +268,12 @@ export default {
   debug: {
     title: 'Media Detection Debug',
     toastDebugMode: 'Toast debug background',
+    specialDayPreview: {
+      title: 'Special-day card preview',
+      show: 'Show all special-day cards',
+      hide: 'Hide preview',
+      hint: '12 fixed dates · history / life palettes',
+    },
     openLogsDir: 'Logs Folder',
     status: {
       title: 'Live Status',

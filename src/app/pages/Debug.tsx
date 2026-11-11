@@ -17,6 +17,7 @@ import { RadixPage } from '../components/RadixPage'
 import { AudioPanel } from './debug/AudioPanel'
 import { EventSdkCard } from './debug/EventSdkCard'
 import { SignalPanel } from './debug/SignalPanel'
+import { SpecialDayPreview } from './debug/SpecialDayPreview'
 import { StatusOverview } from './debug/StatusOverview'
 import './debug.css'
 
@@ -134,6 +135,8 @@ export function Debug() {
           <AudioPanel data={data} />
 
           <EventSdkCard />
+
+          {import.meta.env.DEV && <SpecialDayPreview />}
         </div>
       </RadixPage>
     </PageScroll>
