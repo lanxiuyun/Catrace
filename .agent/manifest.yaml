@@ -249,8 +249,11 @@ architecture:
   theme:
     docs:
       - .agent/architecture/theme/README.md
+      - .agent/architecture/theme/HeroUI组件全局类名和Catrace通用类名撞车的处理约定.md
     related:
       - dashboard
+      - settings
+      - plugin-center
   database:
     docs:
       - .agent/architecture/database/README.md
@@ -347,6 +350,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-11-11-宿主界面迁到HeroUI-3并把Radix限定到插件UI.md
   - .agent/devlog/2026-11-05-插件详情页头部间距与设置面板UI收口.md
   - .agent/devlog/2026-09-29-轻量模式落地与插件后台WebView下线sidecar.md
   - .agent/devlog/2026-09-20-便携Node安装补上macOS与Linux.md

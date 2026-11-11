@@ -20,13 +20,17 @@
 
 ## 实现
 
-- `src/styles/theme.css`：`--ct-*` token 亮/暗两套，改配色只改这里
-- `src/app/radix-theme.css`：把 Radix Themes 的颜色变量（`--gray-*` / `--accent-*`）接到 `--ct-*` 上，Radix 组件自动跟随主题
-- **Radix 强调色要整组映射**：Radix 的 accent 是 iris（偏紫），只改 `--accent-9/10/11` 三档实心色是不够的——聚焦环（`--focus-8` → `accent-8`）、soft 底（`accent-a3/a4/a5`）、透明描边（`a7/a8`）、开关/滑块轨道（`--accent-track`）取的还是 iris，于是设置页输入框聚焦会出现紫圈。现在 `radix-theme.css` 把 iris 色阶整组接到系统蓝：1–7 / 12 与 `a1–a12` 借 Radix blue 色阶（明暗主题自动跟随），**8（聚焦环 / 强描边）和 9/10/11（实心填充）用 `--ct-accent*` token**。8 档别再改回 `blue-8` 的浅天蓝，会和页面里自定义的 `:focus-visible` 对不上
+- 宿主 UI 已切到 **HeroUI v3 + Tailwind 4**：`src/styles/heroui.css` 引入 `@heroui/styles`，Vite 用 `@tailwindcss/vite` 处理；`main.tsx` 在 Radix 样式之后加载它
+- HeroUI 的主色暂用其默认 accent（蓝），没有强行映射到 `--ct-accent`；Catrace 自有样式（时间线、卡片、Toast 外壳）仍只读 `--ct-*`
+- 主题模式由 `useTheme` 写到 `html[data-theme='dark']`，HeroUI 原生识别；[theme.css](../../../src/styles/theme.css) 的 `--ct-*` 仍是 Catrace 自有样式（卡片、时间线、Toast 卡）的颜色真源
+- 白色卡片上的输入框 / 下拉统一用 HeroUI 内置的 `variant="secondary"`（浅灰底），不要再覆写 `--field-*` token；二级按钮、链接 tile 也用 `secondary` / `tertiary`
+- 外部插件 UI 仍使用注入的 **Radix** 运行时；`radix-theme.css` 继续把 Radix 色阶（`--gray-*` / `--accent-*`）接到 `--ct-*`，让插件的颜色、焦点环、开关轨道跟随应用主题
+- Radix 强调色仍要**整组映射**：不能只改 `--accent-9/10/11`，聚焦环（`--focus-8`）、soft 底（`accent-a3/a4/a5`）和 `--accent-track` 也要一起接系统蓝，否则插件 UI 的输入框聚焦会出现 iris 紫圈
+- 宿主页面已经没有 Radix 控件；`main.tsx` 的根 `<Theme>` 暂时保留，作为插件 UI 的主题边界。移除它之前要先在插件挂载处补上独立的 Radix Theme
 - 字体跟随系统（macOS = SF Pro、Windows = Segoe UI），等宽用 `ui-monospace`
-- Toast / 提醒窗里的 Radix 按钮由各自卡片的 CSS 补紧凑皮肤（高度、字号、胶囊色按卡片语义定），全局 `radix-theme.css` 只负责 token 映射、hover、焦点环与光标，不写单卡尺寸
+- Toast / 提醒窗的 HeroUI 控件由各自卡片 CSS 按语义补紧凑尺寸；全局 `heroui.css` 只负责引入和字段变体约定，不写单卡尺寸
 - [useTheme.ts](../../../src/composables/useTheme.ts) 的 `initTheme` / `setThemeMode` 管理 Store 键 `theme.mode`、系统 matchMedia 与跨窗 `catrace-theme-changed`；React `useTheme()` 返回普通 mode/resolved 值，真源在 zustand shell store。
-- 每个 WebView 的根 Radix Theme 订阅 resolvedTheme；插件使用相同 CSS token，样式文本可经 `plugin.theme.css(cssText)` 转换后赋给 style 节点。
+- 每个 WebView 的根 Theme 订阅 resolvedTheme；插件使用相同 CSS token，样式文本可经 `plugin.theme.css(cssText)` 转换后赋给 style 节点。
 
 ## 设计约定
 
@@ -35,3 +39,7 @@
 - **材质**：侧边栏透光 + 细分隔线；窗口背景带一层极淡柔光，避免整页平灰
 - **尺寸**：1rem = 16px，间距/字号一律 rem；只有 1px 边框、blur、SVG viewBox 用 px
 - **动效**：默认 `cubic-bezier(0.2, 0, 0, 1)`；展开/收起用 `grid-template-rows` 过渡；`prefers-reduced-motion` 下关掉位移与循环动画（见 `timeline-windows.css`）
+
+## 子文档
+
+- [HeroUI组件全局类名和Catrace通用类名撞车的处理约定.md](HeroUI组件全局类名和Catrace通用类名撞车的处理约定.md)：`.card` / `.badge` / `.header` / `.progress-bar` 等全局类撞车后的排查与修复规则。

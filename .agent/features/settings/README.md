@@ -42,13 +42,13 @@
 - 卡片是响应式网格，同一行等高；组名保持次级小字，不加装饰图标，右侧留给拖拽把手。
 - 设置卡保留瓦片阴影；概览/调试是平铺报告面板，两种卡片角色分别由各自样式管理。
 - 相邻设置行由 CSS 画分隔线，内容块使用 `.ct-settings-block` 接续分隔。文案列伸缩、控件列按内容定宽，避免控件挤压覆盖文字。
-- Radix 控件的 hover、光标和主题映射统一放在 [radix-theme.css](../../../src/app/radix-theme.css)，页面只定义自己的布局。
+- 宿主设置控件统一用 HeroUI（`Button` / `Switch` / `Select` / `Input` / `TextArea` / `Slider` / `Chip`）；白色卡片里的输入框与下拉用 `variant="secondary"`，不要再覆写 HeroUI 的 `--field-*` token。链接卡是 HeroUI `Button variant="secondary"`，不再是自定义 `<button>`。
 - 颜色用于状态与链接图标，卡片表面保持中性；尺寸统一 rem。
 
 ## 功能设置的归属
 
 - **久坐提醒**：节奏、提醒内容、Toast/全屏方式、全屏背景和测试提醒由 [Plugins.tsx](../../../src/app/pages/Plugins.tsx) 与 [RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx) 管理，不进系统设置网格。
-- **外部插件**：启用后的 React SettingsComponent 由 [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载，使用宿主共享 React 与 Radix。安装与信任见[插件中心](../plugin-center/README.md)。
+- **外部插件**：启用后的 React SettingsComponent 由 [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载，使用宿主共享 React 与 **Radix**（插件 UI 尚未迁移到 HeroUI）。安装与信任见[插件中心](../plugin-center/README.md)。
 - **Event SDK**：管理面板挂在调试页，见 [Event SDK](../event-sdk/README.md)。
 
 宿主主题、语言与 zustand 状态协作见 [React 前端架构](../../architecture/react-migration/README.md)。

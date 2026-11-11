@@ -29,7 +29,7 @@
 6. Toast 内容只走 bus；hub **不**渲第二张卡
 7. sdk 同 `event.id` / `dedupe_key` **原地 PATCH 更新**（勿被 `seenBusEventIds` 挡掉）
 8. Action 点击本地 resolve；**无** webhook 回调
-9. 管理 UI 在 **调试页**，使用 React `DebugPanel` 与 Radix 控件，不进设置拖拽网格
+9. 管理 UI 在 **调试页**，使用 React `DebugPanel` 与 HeroUI 控件，不进设置拖拽网格
 
 ## API 速查
 

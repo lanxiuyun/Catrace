@@ -6,7 +6,7 @@
 
 Catrace 是一款桌面端事件 OS：以统一事件协议承载休息提醒、通知聚合与自定义插件，后台静默监听键鼠感知行为信号。所有信息保存在本地，不上传数据。
 
-架构：[Desktop Event OS](.agent/architecture/desktop-event-os/README.md)。所有窗口与外部插件 UI 使用 React + Radix Themes，共享状态使用 zustand，详见[前端架构](.agent/architecture/react-migration/README.md)。
+架构：[Desktop Event OS](.agent/architecture/desktop-event-os/README.md)。宿主窗口 UI 使用 React + HeroUI v3 + Tailwind 4，外部插件 UI 使用宿主注入的 React + Radix Themes；共享状态使用 zustand，详见[前端架构](.agent/architecture/react-migration/README.md)。
 
 **插件生态**：外部插件在独立仓库 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin) 维护。插件中心按固定 commit 下载到 `app_data/plugins/`，安装后默认停用，用户通过开关启用。
 

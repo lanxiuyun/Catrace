@@ -5,10 +5,11 @@
 | 层 | 选型 |
 |---|---|
 | 桌面宿主 | Tauri 2 + Rust |
-| 所有窗口与插件 UI | React 19 + TypeScript + React Router + Radix Themes |
+| 宿主窗口 UI | React 19 + TypeScript + React Router + HeroUI v3 + Tailwind 4 |
+| 插件 UI | 宿主注入的 React + Radix Themes |
 | 共享前端状态 | zustand，React selector / 框架外 `.getState()` |
 | 国际化 | 纯 TypeScript 词条与翻译函数，语言状态在 shell store |
-| 构建 | Vite + React 插件 |
+| 构建 | Vite + React 插件 + `@tailwindcss/vite` |
 | 本地数据与系统能力 | SQLite、Tauri Store、键鼠／焦点窗口采集、平台音频、Event Bus、插件 WebView／sidecar |
 
 依赖、命令以 [package.json](../../../package.json)、[Cargo.toml](../../../src-tauri/Cargo.toml)、[vite.config.ts](../../../vite.config.ts) 为准。
@@ -25,7 +26,7 @@ src/
     windows/                                Toast / Popup / Fullscreen / PluginHost
       toast/                                controller、Bus、尺寸、计时、滚动、激活
     store.ts / i18n.ts                       语言主题真源与翻译
-    base.css / radix-theme.css              全窗口基础样式与控件主题
+    base.css / heroui.css / radix-theme.css  全窗口基础样式、HeroUI 入口与插件 UI 的 Radix 主题
   components/                               React Toast 卡片与插件卡宿主
   plugins/                                  Blob 加载、React/Radix 注入与宿主 API
   stores/                                   zustand Event Hub / plugin registry
@@ -33,6 +34,7 @@ src/
   api/tauri.ts                              Tauri 调用
   i18n/locales/                             中文 / 英文词条
   styles/theme.css                          共享 --ct-* token
+  styles/heroui.css                         HeroUI 样式入口（Tailwind 4 + @heroui/styles）
 src-tauri/src/
   main.rs / lib.rs                          宿主启动与命令组合
   event.rs / bus.rs / event_http.rs          协议、Bus、外部 Event HTTP

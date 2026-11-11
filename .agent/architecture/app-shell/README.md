@@ -5,8 +5,8 @@
 ## 组件边界
 
 ```text
-main.tsx → Radix Theme → RouterProvider
-├── MainShell
+main.tsx → Radix Theme（插件 UI 边界）→ RouterProvider
+├── MainShell（HeroUI 宿主 UI）
 │   ├── 侧栏 NavLink
 │   ├── Outlet → Dashboard / Plugins / Settings / Debug
 │   │              └── PluginCenter → RestSettings / ExternalPluginSettings
@@ -15,7 +15,7 @@ main.tsx → Radix Theme → RouterProvider
     └── ReminderToast / ReminderPopup / ReminderFullscreen / PluginHost
 ```
 
-路由真源是 [router.tsx](../../../src/app/router.tsx)，主窗页面在 [pages/](../../../src/app/pages/)，独立窗口在 [windows/](../../../src/app/windows/)。每个 WebView 只有一个 Radix 根主题；[base.css](../../../src/app/base.css) 的透明背景与根高度不能撑大提醒窗口。
+路由真源是 [router.tsx](../../../src/app/router.tsx)，主窗页面在 [pages/](../../../src/app/pages/)，独立窗口在 [windows/](../../../src/app/windows/)。宿主页面与 Toast 卡片使用 HeroUI；根 Radix `Theme` 暂时保留（插件 UI 依赖它），[base.css](../../../src/app/base.css) 的透明背景与根高度不能撑大提醒窗口。
 
 ## 布局与滚动
 
