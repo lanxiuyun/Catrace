@@ -54,7 +54,7 @@ export default function SpecialDayToastCard({ title, body, tag, icon, category, 
           </span>
           <div className="special-titles"><h2 className="title" style={{ color: theme.title }}>{title}</h2><span className="special-tag" style={{ background: theme.tagBg, color: theme.tagFg }}>{tag}</span></div>
         </div>
-        <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} style={{ color: theme.close }} onClick={onClose}>
+        <Button isIconOnly size="sm" variant="ghost" className="ct-toast-card-close" aria-label={t('common.close')} style={{ color: theme.close }} onClick={onClose}>
           <X size={16} />
         </Button>
       </div>

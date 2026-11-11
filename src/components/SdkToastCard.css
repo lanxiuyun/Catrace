@@ -52,17 +52,17 @@
   filter: brightness(0.97);
 }
 
-.radix-themes .ct-sdk-toast-card .rt-IconButton {
+.ct-sdk-toast-card .button--icon-only {
   margin: 0;
   color: var(--ct-text-subtle);
   border-radius: 0.375rem;
 }
 
-.radix-themes .ct-sdk-toast-card .rt-IconButton:hover {
+.ct-sdk-toast-card .button--icon-only:hover {
   background-color: var(--light-bg);
   color: var(--accent);
 }
 
-.radix-themes .ct-sdk-toast-card .rt-IconButton:active {
+.ct-sdk-toast-card .button--icon-only:active {
   transform: scale(0.95);
 }

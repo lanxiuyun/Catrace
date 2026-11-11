@@ -232,18 +232,18 @@
 }
 
 /* 关闭键：橙色悬停 + 轻微旋转，和改造前一致 */
-.radix-themes .ct-update-toast-card .rt-IconButton {
+.ct-update-toast-card .button--icon-only {
   margin: 0;
   color: var(--ct-text-subtle);
   border-radius: 0.375rem;
 }
 
-.radix-themes .ct-update-toast-card .rt-IconButton:hover {
+.ct-update-toast-card .button--icon-only:hover {
   background-color: var(--ct-warning-soft);
   color: var(--ct-warning);
   transform: rotate(4deg);
 }
 
-.radix-themes .ct-update-toast-card .rt-IconButton:active {
+.ct-update-toast-card .button--icon-only:active {
   transform: scale(0.95);
 }

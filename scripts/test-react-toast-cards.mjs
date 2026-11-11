@@ -179,6 +179,7 @@ function harness() {
       async __testImport(url) { state.imports.push(url); return state.importer ? state.importer(url) : state.module },
     }, { filename: relative })
     modules.set(relative, exports)
+    if (relative.endsWith('ToastCardHeader.tsx')) expandable.add(exports.ToastCardHeader)
     return exports
   }
   const component = name => evaluate(`../src/components/${name}.tsx`).default
@@ -198,9 +199,11 @@ function harness() {
   }
 }
 
+const expandable = new WeakSet()
 function descendants(node) {
   if (!React.isValidElement(node)) return []
-  return [node, ...React.Children.toArray(node.props.children).flatMap(descendants)]
+  const rendered = expandable.has(node.type) ? [node.type(node.props)] : React.Children.toArray(node.props.children)
+  return [node, ...rendered.flatMap(descendants)]
 }
 const radixButtonTypes = new Set([Radix.Button, Radix.IconButton, HeroUI.Button])
 const buttons = node => descendants(node).filter(item => item.type === 'button' || radixButtonTypes.has(item.type))

@@ -88,14 +88,14 @@
 }
 
 /* 节日卡关闭键的颜色由 theme.close 内联决定，这里只还原「低调、悬停变亮」的反馈，
-   不让 Radix ghost 的灰底盖住卡片自己的配色。 */
-.radix-themes .ct-special-day-toast-card .rt-IconButton {
+   不让 HeroUI ghost 的灰底盖住卡片自己的配色。 */
+.ct-special-day-toast-card .button--icon-only {
   margin: 0;
   opacity: 0.65;
   transition: opacity 0.16s ease;
 }
 
-.radix-themes .ct-special-day-toast-card .rt-IconButton:hover {
+.ct-special-day-toast-card .button--icon-only:hover {
   background-color: transparent;
   opacity: 1;
 }

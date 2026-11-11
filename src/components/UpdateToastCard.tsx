@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button, ListBox, Select } from '@heroui/react'
-import { X } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { getUpdateSource, setUpdateSource, type UpdateSourceId } from '../api/tauri'
 import { useT } from '../app/i18n'
+import { ToastCardHeader } from './ToastCardHeader'
 import './UpdateToastCard.css'
 
 export interface UpdateToastCardProps {
@@ -87,30 +87,29 @@ export default function UpdateToastCard({ version, updateBody, showUpdateBody, u
 
   return (
     <div className="ct-update-toast-card">
-      <div className="header">
-        <div className="header-left">
-          <div className="pulse-dot" /><h2 className="title">{t('settings.update.newVersion', { version: version || '' })}</h2>
-          <Select className="ct-toast-select" variant="secondary" value={source} isDisabled={!!updateInstalling} onChange={(value) => { if (value != null) void changeSource(String(value) as UpdateSourceId) }}>
-            <Select.Trigger aria-label={t('settings.update.source')}>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                {SOURCE_OPTIONS.map((option) => (
-                  <ListBox.Item key={option.id} id={option.id} textValue={t(option.labelKey)}>
-                    {t(option.labelKey)}
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-        </div>
-        {!updateInstalling && <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} onClick={onClose}>
-          <X size={16} />
-        </Button>}
-      </div>
+      <ToastCardHeader
+        title={t('settings.update.newVersion', { version: version || '' })}
+        leading={<div className="pulse-dot" />}
+        onClose={onClose}
+        showClose={!updateInstalling}
+      >
+        <Select className="ct-toast-select" variant="secondary" value={source} isDisabled={!!updateInstalling} onChange={(value) => { if (value != null) void changeSource(String(value) as UpdateSourceId) }}>
+          <Select.Trigger aria-label={t('settings.update.source')}>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {SOURCE_OPTIONS.map((option) => (
+                <ListBox.Item key={option.id} id={option.id} textValue={t(option.labelKey)}>
+                  {t(option.labelKey)}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      </ToastCardHeader>
       {showUpdateBody && <section className="release-notes" aria-label="最新版本更新说明">
         {notesFrameVisible && !notesFrameFailed && <iframe ref={frameRef} className="release-notes-frame" src={NOTES_URL} title="Catrace 最新版本更新说明" loading="eager" sandbox={LOCAL_PREVIEW ? undefined : 'allow-same-origin allow-scripts'} referrerPolicy="no-referrer" style={{ height: `${notesFrameHeight / 16}rem`, maxHeight: `${NOTES_MAX_HEIGHT / 16}rem` }} onLoad={onNotesFrameLoad} onError={() => setNotesFrameFailed(true)} />}
         {notesFrameFailed && <div className="release-notes-fallback"><p>{updateBody || '暂时无法加载官网更新说明，请检查网络后重试。'}</p></div>}

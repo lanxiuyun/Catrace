@@ -1,7 +1,6 @@
 import { Button } from '@heroui/react'
-import { X } from 'lucide-react'
-import { useT } from '../app/i18n'
 import type { EventAction, EventLevel, EventProgress } from '../types/event'
+import { ToastCardHeader } from './ToastCardHeader'
 import './SdkToastCard.css'
 
 export interface SdkToastCardProps {
@@ -17,16 +16,10 @@ export interface SdkToastCardProps {
 }
 
 export default function SdkToastCard({ title, body, level, isHovered, sticky, progress, actions, onClose, onAction }: SdkToastCardProps) {
-  const t = useT()
   const levelClass = level === 'success' || level === 'warning' || level === 'error' ? `level-${level}` : 'level-info'
   return (
     <div className={`ct-sdk-toast-card ${levelClass}`}>
-      <div className="header">
-        <div className="header-left"><div className="pulse-dot" /><h2 className="title">{title}</h2></div>
-        <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} onClick={onClose}>
-          <X size={16} />
-        </Button>
-      </div>
+      <ToastCardHeader title={title} leading={<div className="pulse-dot" />} onClose={onClose} />
       {!sticky && <div className={`progress-bar${isHovered ? ' paused' : ''}`} />}
       {body && <p className="body-text">{body}</p>}
       {progress && progress.total > 0 && <div className="sdk-progress">

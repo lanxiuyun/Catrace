@@ -1,6 +1,6 @@
 import { Button } from '@heroui/react'
-import { X } from 'lucide-react'
 import { useT } from '../app/i18n'
+import { ToastCardHeader } from './ToastCardHeader'
 import './RestToastCard.css'
 
 export interface RestToastCardProps {
@@ -16,12 +16,7 @@ export default function RestToastCard({ title, body, isHovered, onClose, onSnooz
   const t = useT()
   return (
     <div className="ct-rest-toast-card">
-      <div className="header">
-        <div className="header-left"><div className="pulse-dot" /><h2 className="title">{title}</h2></div>
-        <Button isIconOnly size="sm" variant="ghost" aria-label={t('common.close')} onClick={onClose}>
-          <X size={16} />
-        </Button>
-      </div>
+      <ToastCardHeader title={title} leading={<div className="pulse-dot" />} onClose={onClose} />
       <div className={`progress-bar${isHovered ? ' paused' : ''}`} />
       <p className="body-text">{body}</p>
       <div className="actions">
