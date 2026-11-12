@@ -175,7 +175,7 @@ export function RestSettings({
             control={
               <Select
                 className="ct-plugin-select"
-                variant="primary"
+                variant="secondary"
                 value={mode}
                 onChange={(value) => { if (value != null) onChangeMode(String(value) as ReminderMode) }}
               >
@@ -257,7 +257,7 @@ export function RestSettings({
                 control={
                   <Select
                     className="ct-plugin-select"
-                    variant="primary"
+                    variant="secondary"
                     value={fullscreen.fitMode}
                     onChange={(value) => { if (value != null) onUpdateFullscreen({ fitMode: String(value) }) }}
                   >
@@ -300,7 +300,7 @@ export function RestSettings({
             control={
               <Input
                 fullWidth
-                variant="primary"
+                variant="secondary"
                 value={text.title}
                 placeholder={t('reminder.defaultTitle')}
                 aria-label={t('plugins.rest.customTitle')}
@@ -315,7 +315,7 @@ export function RestSettings({
             control={
               <TextArea
                 fullWidth
-                variant="primary"
+                variant="secondary"
                 rows={3}
                 value={text.body}
                 placeholder={t('reminder.defaultBody')}
