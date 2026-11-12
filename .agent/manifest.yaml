@@ -3,6 +3,7 @@ features:
     docs:
       - .agent/features/plugin-center/README.md
       - .agent/features/plugin-center/插件详情页设置面板的行语言与控件尺寸规范.md
+      - .agent/features/plugin-center/外部插件设置页统一用HeroUI组件.md
       - .agent/features/plugin-center/插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md
       - .agent/features/plugin-center/plugin-activity-getRecords-历史分钟记录.md
       - .agent/features/plugin-center/Node运行环境与便携安装接口.md
@@ -351,6 +352,7 @@ skills:
       - event-sdk
 
 devlog:
+  - .agent/devlog/2026-11-11-外部插件设置页迁到HeroUI.md
   - .agent/devlog/2026-11-11-宿主界面迁到HeroUI-3并把Radix限定到插件UI.md
   - .agent/devlog/2026-11-05-插件详情页头部间距与设置面板UI收口.md
   - .agent/devlog/2026-09-29-轻量模式落地与插件后台WebView下线sidecar.md

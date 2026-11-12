@@ -19,6 +19,7 @@ import { runInNewContext } from 'node:vm'
 import { test } from 'node:test'
 import * as React from 'react'
 import * as RadixThemes from '@radix-ui/themes'
+import * as HeroUI from '@heroui/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
 
@@ -67,6 +68,7 @@ const { isPluginComponent } = hostModule('src/plugins/pluginComponent.ts')
 const runtime = hostModule('src/plugins/pluginRuntime.ts', {
   react: React,
   '@radix-ui/themes': RadixThemes,
+  '@heroui/react': HeroUI,
   './pluginApi': apiModule,
 })
 
@@ -102,7 +104,7 @@ function memoryFacade(id) {
 }
 
 async function withRuntime(run) {
-  const keys = ['__CATRACE_REACT__', '__CATRACE_RADIX__', '__CATRACE_CREATE_PLUGIN_API__', 'fetch']
+  const keys = ['__CATRACE_REACT__', '__CATRACE_RADIX__', '__CATRACE_HEROUI__', '__CATRACE_CREATE_PLUGIN_API__', 'fetch']
   const descriptors = new Map(keys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
   const memory = new Map()
   const get = (id) => {
@@ -112,6 +114,7 @@ async function withRuntime(run) {
   Object.defineProperties(globalThis, {
     __CATRACE_REACT__: { configurable: true, writable: true, value: React },
     __CATRACE_RADIX__: { configurable: true, writable: true, value: RadixThemes },
+    __CATRACE_HEROUI__: { configurable: true, writable: true, value: HeroUI },
     __CATRACE_CREATE_PLUGIN_API__: { configurable: true, writable: true, value: (id) => get(id).facade },
     fetch: { configurable: true, writable: true, value: () => { throw new Error('Network is forbidden in React package contract tests') } },
   })
@@ -245,16 +248,39 @@ test('host accepts real React exports, rejects Vue options and renders without a
   })
 })
 
-test('real host runtime installs React and Radix namespaces without invoking Tauri', async () => {
+test('real host runtime installs React, Radix and HeroUI namespaces without invoking Tauri', async () => {
   await withRuntime(async () => {
     globalThis.__CATRACE_REACT__ = undefined
     globalThis.__CATRACE_RADIX__ = undefined
+    globalThis.__CATRACE_HEROUI__ = undefined
     globalThis.__CATRACE_CREATE_PLUGIN_API__ = undefined
     runtime.ensurePluginRuntime()
     assert.equal(globalThis.__CATRACE_REACT__, React)
     assert.equal(globalThis.__CATRACE_RADIX__, RadixThemes)
+    assert.equal(globalThis.__CATRACE_HEROUI__, HeroUI)
     assert.equal(globalThis.__CATRACE_CREATE_PLUGIN_API__, apiModule.createPluginApi)
     assert.equal(typeof apiModule.createPluginApi('memory-only').config.get, 'function')
+  })
+})
+
+test('self-contained plugin modules can render injected HeroUI components', async () => {
+  await withRuntime(async () => {
+    const { default: Settings } = await importPlugin('hero-probe', `
+      const { createElement: h, useState } = globalThis.__CATRACE_REACT__;
+      const { Button, Input, Switch } = globalThis.__CATRACE_HEROUI__;
+      export default function Settings() {
+        const [selected] = useState(true);
+        return h('section', null,
+          h(Input, { variant: 'secondary', value: 'hero', onChange() {}, 'aria-label': 'hero-input' }),
+          h(Switch, { isSelected: selected, onChange() {} },
+            h(Switch.Content, null, h(Switch.Control, null, h(Switch.Thumb)))),
+          h(Button, { size: 'sm', variant: 'tertiary' }, 'Hero action'));
+      }`)
+    const captured = renderCaptured(Settings)
+    assert.match(captured.html, /class="input/, 'HeroUI Input markup is missing')
+    assert.match(captured.html, /class="switch/, 'HeroUI Switch markup is missing')
+    assert.match(captured.html, /class="button/, 'HeroUI Button markup is missing')
+    assert.match(captured.html, /Hero action/)
   })
 })
 
@@ -284,7 +310,7 @@ test('all external plugin packages use the React contract', { skip: SOURCE ? fal
   for (const { id, manifest } of list) await t.test(id, async () => {
     assert.equal(manifest.id, id)
     assert.equal(manifest.uiFramework, 'react')
-    assert.equal(manifest.version, '2026.11.09')
+    assert.match(manifest.version, /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/, `${id}: manifest.version must be a release date`)
     await withRuntime(async (get) => {
       for (const field of ['main', 'settings', 'background']) {
         if (!manifest[field]) continue

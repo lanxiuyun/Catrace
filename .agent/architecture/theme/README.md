@@ -24,7 +24,7 @@
 - HeroUI 的主色暂用其默认 accent（蓝），没有强行映射到 `--ct-accent`；Catrace 自有样式（时间线、卡片、Toast 外壳）仍只读 `--ct-*`
 - 主题模式由 `useTheme` 写到 `html[data-theme='dark']`，HeroUI 原生识别；[theme.css](../../../src/styles/theme.css) 的 `--ct-*` 仍是 Catrace 自有样式（卡片、时间线、Toast 卡）的颜色真源
 - 白色卡片上的输入框 / 下拉统一用 HeroUI 内置的 `variant="secondary"`（浅灰底），不要再覆写 `--field-*` token；二级按钮、链接 tile 也用 `secondary` / `tertiary`
-- 外部插件 UI 仍使用注入的 **Radix** 运行时；`radix-theme.css` 继续把 Radix 色阶（`--gray-*` / `--accent-*`）接到 `--ct-*`，让插件的颜色、焦点环、开关轨道跟随应用主题
+- 外部插件 UI：设置页已统一改用注入的 **HeroUI**（[外部插件设置页统一用HeroUI组件](../../features/plugin-center/外部插件设置页统一用HeroUI组件.md)），尚未迁移的 Card / 旧设置页仍用注入的 **Radix** 运行时；`radix-theme.css` 继续把 Radix 色阶（`--gray-*` / `--accent-*`）接到 `--ct-*`，让插件颜色、焦点环、开关轨道跟随应用主题
 - Radix 强调色仍要**整组映射**：不能只改 `--accent-9/10/11`，聚焦环（`--focus-8`）、soft 底（`accent-a3/a4/a5`）和 `--accent-track` 也要一起接系统蓝，否则插件 UI 的输入框聚焦会出现 iris 紫圈
 - 宿主页面已经没有 Radix 控件；`main.tsx` 的根 `<Theme>` 暂时保留，作为插件 UI 的主题边界。移除它之前要先在插件挂载处补上独立的 Radix Theme
 - 字体跟随系统（macOS = SF Pro、Windows = Segoe UI），等宽用 `ui-monospace`

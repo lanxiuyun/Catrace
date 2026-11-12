@@ -1,6 +1,6 @@
 # 插件中心
 
-React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**。默认打开「已安装」，包含内置久坐提醒和本机外部插件。插件按仓库固定 commit 下载到 AppData，安装默认停用，用户通过开关启用；切换插件源不影响已有安装。宿主页面控件已改用 HeroUI；外部插件导出的 Card / Settings UI 仍使用宿主注入的 Radix。
+React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**。默认打开「已安装」，包含内置久坐提醒和本机外部插件。插件按仓库固定 commit 下载到 AppData，安装默认停用，用户通过开关启用；切换插件源不影响已有安装。宿主页面控件已改用 HeroUI；外部插件设置页也已统一迁到注入的 HeroUI，尚未迁移的 Card / 旧设置页仍用注入的 Radix。
 
 ## 实现入口
 
@@ -53,10 +53,11 @@ React 主窗中的插件管理页：**已安装 / 发现插件 + 整页详情**�
 ## 子文档
 
 - [详情布局边界](插件详情内容区外壳收归宿主-plugin-detail-面板只出业务.md)：宿主外壳与业务面板的分工。
-- [设置行与控件尺寸](插件详情页设置面板的行语言与控件尺寸规范.md)：内置设置面板的 HeroUI 控件规范，以及外部插件 UI 的 Radix 类名参考。
+- [设置行与控件尺寸](插件详情页设置面板的行语言与控件尺寸规范.md)：内置设置面板的 HeroUI 控件规范；外部插件设置页已同步迁到 HeroUI，Radix 只剩旧 UI。
+- [外部插件设置页统一用 HeroUI](外部插件设置页统一用HeroUI组件.md)：宿主注入 `__CATRACE_HEROUI__`、迁移范围、控件映射与验证。
 - [启停与列表同步](插件开关必须在持久化成功后再刷新列表.md)：持久化后更新。
 - [sidecar 生命周期](sidecar启停与目录刷新边界.md)：单插件开关与后台同步边界。
 - [插件活动记录](plugin-activity-getRecords-历史分钟记录.md)：读取过往分钟记录。
 - [Node 运行环境](Node运行环境与便携安装接口.md)：命令解析、便携安装 API 与当前界面边界。
 - [资源异常观测](插件异常标签如何判定和保持不拦截.md)：诊断阈值与不拦截原则。
-- [外部插件 UI 合同](../../architecture/desktop-event-os/m10-external-plugins.md)：React 模块、共享运行时与 callbacks。
+- [外部插件 UI 合同](../../architecture/desktop-event-os/m10-external-plugins.md)：React 模块、注入的 HeroUI / Radix 运行时与 callbacks。

@@ -6,7 +6,7 @@
 |---|---|
 | 桌面宿主 | Tauri 2 + Rust |
 | 宿主窗口 UI | React 19 + TypeScript + React Router + HeroUI v3 + Tailwind 4 |
-| 插件 UI | 宿主注入的 React + Radix Themes |
+| 插件 UI | 宿主注入的 React + HeroUI（设置页）/ Radix Themes（旧卡片与未迁移设置页） |
 | 共享前端状态 | zustand，React selector / 框架外 `.getState()` |
 | 国际化 | 纯 TypeScript 词条与翻译函数，语言状态在 shell store |
 | 构建 | Vite + React 插件 + `@tailwindcss/vite` |
@@ -28,7 +28,7 @@ src/
     store.ts / i18n.ts                       语言主题真源与翻译
     base.css / heroui.css / radix-theme.css  全窗口基础样式、HeroUI 入口与插件 UI 的 Radix 主题
   components/                               React Toast 卡片与插件卡宿主
-  plugins/                                  Blob 加载、React/Radix 注入与宿主 API
+  plugins/                                  Blob 加载、React/HeroUI/Radix 注入与宿主 API
   stores/                                   zustand Event Hub / plugin registry
   composables/useTheme.ts                    主题持久化、系统偏好与跨窗同步
   api/tauri.ts                              Tauri 调用

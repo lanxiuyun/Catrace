@@ -21,18 +21,21 @@
 UI 与设置是预编译 ESM，导出 React 组件。Blob 模块使用宿主共享实例，不直接 import bare package：
 
 ```js
-const React = globalThis.__CATRACE_REACT__
-const { Button } = globalThis.__CATRACE_RADIX__
-export default function Card({ event, onClose, onAction }) {
-  return React.createElement('section', null,
-    React.createElement('strong', null, event.title),
-    React.createElement(Button, { onClick: () => onAction?.('done') }, '完成'),
-    React.createElement(Button, { onClick: onClose }, '关闭'))
+const { createElement: h, useState } = globalThis.__CATRACE_REACT__
+const { Button, Input } = globalThis.__CATRACE_HEROUI__
+
+export default function Settings() {
+  const [token, setToken] = useState('')
+  return h('section', null,
+    h(Input, { variant: 'secondary', value: token, onChange: (event) => setToken(event.target.value), 'aria-label': 'Token' }),
+    h(Button, { size: 'sm', variant: 'primary', onClick: () => save(token) }, '保存'))
 }
 ```
 
-[pluginRuntime.ts](../../../src/plugins/pluginRuntime.ts) 注入 `__CATRACE_REACT__`、`__CATRACE_RADIX__` 与 `__CATRACE_CREATE_PLUGIN_API__`。源码 wrapper 为模块绑定本插件 `plugin` facade。
+[pluginRuntime.ts](../../../src/plugins/pluginRuntime.ts) 注入 `__CATRACE_REACT__`、`__CATRACE_HEROUI__`、`__CATRACE_RADIX__` 与 `__CATRACE_CREATE_PLUGIN_API__`。源码 wrapper 为模块绑定本插件 `plugin` facade。
 
+- `__CATRACE_HEROUI__` 是宿主自己的 HeroUI v3 组件库，控件样式、字段变体与深浅色随宿主页面；**设置页控件统一用它**，插件不用自带控件皮肤。约定见[外部插件 HeroUI 设置页约定](../../features/plugin-center/外部插件设置页统一用HeroUI组件.md)，插件侧说明见 catrace-plugin 仓库 `.agent/features/shared-ui/hero-ui-settings.md`。
+- `__CATRACE_RADIX__` 仍注入给尚未迁移的插件 UI（目前是多数插件的 Card 与部分旧设置页），新设置页不要再新增 Radix 控件；宿主没有 `__CATRACE_HEROUI__` 时插件设置页应显式抛错。
 - Card 可导出 `default` / `Card` / `card`；设置可导出 `default` / `Settings` / `settings`。
 - [PluginCardProps](../../../src/stores/pluginRegistry.ts) 包含 `event`、`isHovered`、`remainingMs`、`totalMs`、`onClose`、`onAction(actionId, payload?)`；SettingsComponent 是普通 React ComponentType。
 - 组件使用 props callbacks，而非自建宿主事件监听来关闭／操作卡片；业务动作由插件后台／sidecar 完成。

@@ -1,6 +1,6 @@
 # React 前端架构
 
-宿主 UI 使用 React 19、React Router、HeroUI v3 + Tailwind 4 与 zustand；外部插件 UI 仍使用宿主注入的 React + Radix Themes。Vite 使用 React 插件与 `@tailwindcss/vite`；各原生窗口共用 [index.html](../../../index.html) 与 [main.tsx](../../../src/app/main.tsx)，由 hash 路由选择页面。
+宿主 UI 使用 React 19、React Router、HeroUI v3 + Tailwind 4 与 zustand；外部插件 UI 使用宿主注入的 React，设置页统一走 HeroUI、尚未迁移的卡片与旧设置页仍走 Radix Themes。Vite 使用 React 插件与 `@tailwindcss/vite`；各原生窗口共用 [index.html](../../../index.html) 与 [main.tsx](../../../src/app/main.tsx)，由 hash 路由选择页面。
 
 ## 入口与窗口
 
@@ -39,6 +39,6 @@
 
 ## 插件与组件边界
 
-外部插件导出 React Card / Settings 组件，使用宿主注入的 React 与 **Radix** 运行时，见[外部插件合同](../desktop-event-os/m10-external-plugins.md)；宿主自己的插件管理页与设置面板已经改用 HeroUI。[ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载已启用的 React 设置组件，并负责跨窗口配置事件转发与渲染失败反馈；Toast 卡由 [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) 管理。
+外部插件导出 React Card / Settings 组件，使用宿主注入的 React、HeroUI（设置页）与 Radix（旧卡片），见[外部插件合同](../desktop-event-os/m10-external-plugins.md)；宿主自己的插件管理页与设置面板已经改用 HeroUI，外部插件设置页也于 2026-11 迁移（[说明](../features/plugin-center/外部插件设置页统一用HeroUI组件.md)）。[ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) 直接挂载已启用的 React 设置组件，并负责跨窗口配置事件转发与渲染失败反馈；Toast 卡由 [PluginHostCard.tsx](../../../src/components/PluginHostCard.tsx) 管理。
 
 修改窗口布局读[应用外壳](../app-shell/README.md)；修改安装、启停与信任读[插件中心](../../features/plugin-center/README.md)；修改窗口显示、层级或尺寸必须同时核对 Rust 与 Toast controller，不能只改卡片 JSX。
