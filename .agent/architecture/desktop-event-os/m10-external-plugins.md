@@ -53,7 +53,7 @@ export default function Settings() {
 
 ## 事件与能力
 
-外部 HTTP 使用 :23457 Bearer API，校验 source、kind 和事件声明，见 [Event API](m9-event-http-api.md)。Card 收完整 BusEvent；close 对应 dismiss，action 对应生命周期 resolve。superseded 保留可见卡，后续 active 按 id／dedupe key 原地更新。
+外部 HTTP 使用 :26526 Bearer API，校验 source、kind 和事件声明，见 [Event API](m9-event-http-api.md)。Card 收完整 BusEvent；close 对应 dismiss，action 对应生命周期 resolve。superseded 保留可见卡，后续 active 按 id／dedupe key 原地更新。
 
 后台 WebView 身份由 `plugin-bg-<id>` label 推导；sidecar 身份由 manager 推导。宿主强制启用、事件所有权与 storage namespace 边界，不做逐项权限弹窗。完整能力见[宿主 API](外部插件-settings调用宿主桌面能力-demo.md)与[sidecar 协议](plugin-native-sidecar-runtime.md)。
 

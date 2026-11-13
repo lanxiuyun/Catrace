@@ -7,7 +7,7 @@ Catrace 以统一 **Event Protocol + Bus + Toast 渲染**承载桌面通知，�
 ```text
 src-tauri/src/
 ├── event.rs / bus.rs       # 协议、Registry、publish/update/resolve
-├── event_http.rs           # 外部 Event API 127.0.0.1:23457
+├── event_http.rs           # 外部 Event API 127.0.0.1:26526
 ├── plugins.rs             # 插件清单、扫描、启停、源码读取
 ├── plugin_repository.rs   # 仓库目录、固定 commit 下载与安装
 ├── plugin_sidecar.rs      # sidecar 进程与 stdio JSONL
@@ -40,7 +40,7 @@ src/
 1. **内容只走 Bus**：rest / timer / update / SDK / plugin 均 publish；主窗 Hub 不渲染第二张卡。
 2. **窗口与内容分离**：`ensure_toast_window_visible` 管窗口，Toast listen 后用 `get_active_events` 水合。
 3. **生命周期与业务分离**：action resolve 记录生命周期；snooze 等宿主业务由对应 command 处理，插件业务由其后台或 sidecar 处理。
-4. **外部写入走 :23457**：SDK / plugin 源校验身份与 kind，管理入口在调试页。
+4. **外部写入走 :26526**：SDK / plugin 源校验身份与 kind，管理入口在调试页。
 5. **插件启用即信任**：安装默认停用。启用后可执行 WebView / sidecar 代码；宿主按插件 id 强制启用状态、Event 所有权和 storage namespace。
 6. **后台身份不可自报**：WebView 从 `plugin-bg-<id>` label 推导；sidecar 从 manager running map 推导。
 7. **后台逻辑优先 sidecar**：只有需要 DOM / 页面能力时使用 `background`，避免每插件创建隐藏 WebView。

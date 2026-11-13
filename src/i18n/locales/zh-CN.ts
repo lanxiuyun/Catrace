@@ -70,7 +70,7 @@ export default {
     },
     eventSdk: {
       enableTitle: '启用外部 Event API',
-      enableDesc: '本机 HTTP（127.0.0.1:23457）。关闭后拒绝写入，health 仍可探活。',
+      enableDesc: '本机 HTTP（127.0.0.1:26526）。关闭后拒绝写入，health 仍可探活。',
       endpointTitle: 'API 地址',
       endpointDesc: '仅监听本机回环；Bearer token 鉴权',
       tokenTitle: '访问令牌',

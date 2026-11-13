@@ -70,7 +70,7 @@ export default {
     },
     eventSdk: {
       enableTitle: 'Enable external Event API',
-      enableDesc: 'Localhost HTTP on 127.0.0.1:23457. When off, writes are rejected; health still works.',
+      enableDesc: 'Localhost HTTP on 127.0.0.1:26526. When off, writes are rejected; health still works.',
       endpointTitle: 'API base',
       endpointDesc: 'Loopback only; Bearer token required',
       tokenTitle: 'Access token',

@@ -4,7 +4,7 @@ Local-only HTTP API for external scripts to publish Toast events into Catrace.
 
 | Item | Value |
 |------|--------|
-| Base URL | `http://127.0.0.1:23457` |
+| Base URL | `http://127.0.0.1:26526` |
 | Auth | `Authorization: Bearer <token>` |
 | Default | **Enabled** on app start |
 | Scope | Loopback only; no CORS; no SSE/webhook in M9 |
@@ -61,27 +61,27 @@ Action clicks in the Toast call the same resolve path locally (no webhook callba
 
 ```bash
 # health (no token)
-curl -s http://127.0.0.1:23457/v1/health
+curl -s http://127.0.0.1:26526/v1/health
 
 export TOKEN='paste-from-debug'
 export H="Authorization: Bearer $TOKEN"
 
 # publish
-curl -s -X POST http://127.0.0.1:23457/v1/events \
+curl -s -X POST http://127.0.0.1:26526/v1/events \
   -H "$H" -H "Content-Type: application/json" \
   -d '{"title":"Hello from curl","body":"M9 demo","level":"info"}'
 
 # list
-curl -s http://127.0.0.1:23457/v1/events -H "$H"
+curl -s http://127.0.0.1:26526/v1/events -H "$H"
 ```
 
 PowerShell:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:23457/v1/health
+Invoke-RestMethod http://127.0.0.1:26526/v1/health
 $token = "paste-from-debug"
 $h = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:23457/v1/events -Headers $h -Body '{"title":"Hello","body":"PS demo","level":"info"}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:26526/v1/events -Headers $h -Body '{"title":"Hello","body":"PS demo","level":"info"}'
 ```
 
 ## Scripts in this folder
@@ -92,7 +92,7 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:23457/v1/events -Headers $h
 | `publish.py` | `python publish.py --token <t> --title "..."` |
 | `progress.mjs` | Demo sticky progress bar + resolve |
 
-Environment: `CATRACE_EVENT_TOKEN`, optional `CATRACE_EVENT_BASE` (default `http://127.0.0.1:23457`).
+Environment: `CATRACE_EVENT_TOKEN`, optional `CATRACE_EVENT_BASE` (default `http://127.0.0.1:26526`).
 
 ## Manual acceptance
 

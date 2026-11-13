@@ -20,7 +20,7 @@ export function EventSdkCard() {
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState(false)
   const [enabled, setEnabled] = useState(true)
-  const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:23457')
+  const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:26526')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
 

@@ -9,7 +9,7 @@
 ## 探活（无需 token）
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:23457/v1/health
+Invoke-RestMethod http://127.0.0.1:26526/v1/health
 ```
 
 ## 发布一条 Toast
@@ -17,7 +17,7 @@ Invoke-RestMethod http://127.0.0.1:23457/v1/health
 ```powershell
 $token = "从调试页复制"
 $h = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:23457/v1/events -Headers $h `
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:26526/v1/events -Headers $h `
   -Body '{"title":"Hello M9","body":"from script","level":"info"}'
 ```
 

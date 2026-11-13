@@ -11,7 +11,7 @@ function flag(name, fallback) {
   if (i >= 0 && args[i + 1] != null) return args[i + 1];
   return fallback;
 }
-const base = (flag("base", process.env.CATRACE_EVENT_BASE || "http://127.0.0.1:23457")).replace(/\/$/, "");
+const base = (flag("base", process.env.CATRACE_EVENT_BASE || "http://127.0.0.1:26526")).replace(/\/$/, "");
 const token = flag("token", process.env.CATRACE_EVENT_TOKEN || "");
 const title = flag("title", "Hello from Event SDK");
 const body = flag("body", "");

@@ -18,7 +18,7 @@ use crate::event::{
 use crate::plugins::{PluginManager, RESERVED_KINDS as PLUGIN_RESERVED};
 use crate::{log_error, log_info};
 
-pub const EVENT_HTTP_PORT: u16 = 23457;
+pub const EVENT_HTTP_PORT: u16 = 26526;
 const ENABLED_SETTING_KEY: &str = "event_sdk_enabled";
 const TOKEN_SETTING_KEY: &str = "event_sdk_token";
 const MAX_BODY_BYTES: usize = 128 * 1024;
@@ -131,7 +131,7 @@ fn is_external_source(source: &EventSource) -> bool {
     matches!(source, EventSource::Sdk | EventSource::Plugin { .. })
 }
 
-/// Start localhost Event HTTP API (127.0.0.1:23457). Safe to call once per process.
+/// Start localhost Event HTTP API (127.0.0.1:26526). Safe to call once per process.
 pub fn start_server(bus: EventBus, db: Db, plugins: PluginManager) {
     if SERVER_STARTED.swap(true, Ordering::SeqCst) {
         return;

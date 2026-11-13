@@ -4,7 +4,7 @@
 
 ## 一句话
 
-`127.0.0.1:23457` + Bearer token → `source=sdk` / `kind=sdk` / `display_mode=toast` → `SdkToastCard`。
+`127.0.0.1:26526` + Bearer token → `source=sdk` / `kind=sdk` / `display_mode=toast` → `SdkToastCard`。
 
 ## 涉及文件
 

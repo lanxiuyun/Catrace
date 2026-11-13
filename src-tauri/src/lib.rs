@@ -1084,7 +1084,7 @@ pub fn run() {
                 reminder_toast::prepare_toast_window(app.app_handle());
             }
 
-            // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
+            // Event SDK HTTP API (127.0.0.1:26526) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
             event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
