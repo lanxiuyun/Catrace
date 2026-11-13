@@ -234,7 +234,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
       window.removeEventListener('resize', requestMeasure)
     }
   }, [selectedId])
-  const busy = data.busyId !== null || restBusy || data.sourceBusy
+  const busy = data.busyId !== null || restBusy || data.sourceBusy || data.reloadingLocal
   const installedById = new Map(data.installed.map((entry) => [entry.info.id, entry]))
   const availableById = new Map(data.repository?.plugins.map((entry) => [entry.id, entry]) ?? [])
   const builtin: PluginItem = {
@@ -316,6 +316,20 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     if (item.builtin) { onToggleRest(value); return }
     void data.toggle(item.id, value)
   }
+  // One toolbar button, two jobs: the installed tab reloads local plugins (restart enabled
+  // sidecars + rebuild frontend modules, the old reload), the discover tab re-fetches the
+  // repository. Each tab only waits on its own operation, so a slow repository never blocks
+  // reloading installed plugins.
+  const refreshRepository = tab === 'discover'
+  const refreshLabel = t(refreshRepository ? 'pluginMarket.refreshRepository' : 'pluginMarket.refreshInstalled')
+  // `refreshRemote` ignores a request while an install/toggle runs, so the button is busy then too.
+  const refreshing = refreshRepository
+    ? data.loadingRemote || data.sourceBusy || data.busyId !== null
+    : data.loadingLocal || data.busyId !== null || data.sourceBusy
+  const refreshActiveTab = () => {
+    if (refreshRepository) void data.refreshRemote()
+    else void data.reloadLocal()
+  }
 
   return (
     <PageScroll className="ct-plugin-scroll">
@@ -361,8 +375,8 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   <span>{t('plugins.external.openDir')}</span>
                 </Button>
                 <Tooltip delay={300}>
-                  <Button isIconOnly variant="ghost" size="sm" className="ct-market-toolbar-icon" aria-label={t('pluginMarket.refresh')} isDisabled={data.loadingRemote || data.loadingLocal} onClick={() => { void data.refreshLocal(); void data.refreshRemote() }}><RefreshCw size={15} aria-hidden="true" /></Button>
-                  <Tooltip.Content>{t('pluginMarket.refresh')}</Tooltip.Content>
+                  <Button isIconOnly variant="ghost" size="sm" className="ct-market-toolbar-icon" aria-label={refreshLabel} isDisabled={refreshing} onClick={refreshActiveTab}><RefreshCw size={15} className={refreshing ? 'ct-market-spin' : undefined} aria-hidden="true" /></Button>
+                  <Tooltip.Content>{refreshLabel}</Tooltip.Content>
                 </Tooltip>
               </div>
             </div>

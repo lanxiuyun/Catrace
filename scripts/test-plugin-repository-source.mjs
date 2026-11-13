@@ -89,6 +89,7 @@ function harness(stored) {
   const api = {
     DEFAULT_PLUGIN_REPOSITORY: OFFICIAL,
     listPluginCatalog: async () => [],
+    listExternalPlugins: async () => [],
     listRepositoryPlugins: async repository => {
       state.lists.push(repository)
       return state.onList(repository)
@@ -125,8 +126,10 @@ function harness(stored) {
         state.listeners.push(listener)
         return () => { listener.disposed = true }
       },
+      emit: async () => {},
     },
     '../../../api/tauri': api,
+    '../../../plugins/loadExternalPlugins': { loadExternalPlugins: async () => [] },
     '../../i18n': { useT: () => translate },
     '../../ui/toast': { showToast: (...args) => state.toasts.push(args) },
     './pluginRepositorySource': settings,

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event'
 import {
-  DEFAULT_PLUGIN_REPOSITORY, installRepositoryPlugin, listPluginCatalog,
+  DEFAULT_PLUGIN_REPOSITORY, installRepositoryPlugin, listExternalPlugins, listPluginCatalog,
   listRepositoryPlugins, setExternalPluginEnabled, uninstallExternalPlugin,
   type PluginCatalogEntry, type RepositoryPluginCatalog,
 } from '../../../api/tauri'
+import { loadExternalPlugins } from '../../../plugins/loadExternalPlugins'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
 import { readGithubMirror, readPluginRepository, savePluginRepository } from './pluginRepositorySource'
@@ -18,6 +19,9 @@ export function usePluginCatalog() {
   const [sourceBusy, setSourceBusy] = useState(false)
   const [loadingLocal, setLoadingLocal] = useState(true)
   const [loadingRemote, setLoadingRemote] = useState(true)
+  // A reload bounces running sidecars, so the UI distinguishes it from a read-only rescan.
+  const [reloadingLocal, setReloadingLocal] = useState(false)
+  const reloadingLocalRef = useRef(false)
   const [localError, setLocalError] = useState('')
   const [remoteError, setRemoteError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -52,6 +56,37 @@ export function usePluginCatalog() {
       if (mounted.current && request === localRequest.current) setLocalError(String(error))
     } finally {
       if (!silent && mounted.current && request === localRequest.current) setLoadingLocal(false)
+    }
+  }, [])
+
+  // The explicit "reload" the installed tab asks for (the old reload button): restart every
+  // enabled sidecar so changed runtime scripts / replaced packages really run, rebuild the
+  // frontend Blob modules from disk, and ask the Toast window to rebuild its own cards. The
+  // catalog read afterwards also reflects plugins dropped or edited by hand.
+  const reloadLocal = useCallback(async () => {
+    if (operation.current || reloadingLocalRef.current) return
+    reloadingLocalRef.current = true
+    const request = ++localRequest.current
+    setReloadingLocal(true)
+    setLoadingLocal(true)
+    setLocalError('')
+    try {
+      await listExternalPlugins({ restartSidecars: true })
+      await loadExternalPlugins({ force: true })
+      // The Toast window has its own plugin registry, so it needs its own reload.
+      await emit('catrace:reload-external-plugins').catch(() => {})
+      const entries = await listPluginCatalog()
+      if (!mounted.current || request !== localRequest.current) return
+      setInstalled(entries)
+    } catch (error) {
+      if (mounted.current && request === localRequest.current) setLocalError(String(error))
+    } finally {
+      reloadingLocalRef.current = false
+      if (mounted.current) {
+        setReloadingLocal(false)
+        // A newer request owns the loading flag from here on.
+        if (request === localRequest.current) setLoadingLocal(false)
+      }
     }
   }, [])
 
@@ -180,7 +215,7 @@ export function usePluginCatalog() {
 
   return {
     installed, repository, source, mirror, sourceBusy, changeSource,
-    loadingLocal, loadingRemote, localError, remoteError,
-    busyId, refreshLocal, refreshRemote, install, toggle, uninstall,
+    loadingLocal, loadingRemote, reloadingLocal, localError, remoteError,
+    busyId, refreshLocal, reloadLocal, refreshRemote, install, toggle, uninstall,
   }
 }
