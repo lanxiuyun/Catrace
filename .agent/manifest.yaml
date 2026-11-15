@@ -312,6 +312,7 @@ reference:
   - .agent/reference/windows-PowerShell控制台GBK码页导致UTF8字节误判.md
 
 bugs:
+  - .agent/bugs/2026-11-15-linux-webkitgtk-view-transition-段错误.md
   - .agent/bugs/2026-11-05-插件设置多行输入框缩成一百多像素因选错-radix-根类名.md
   - .agent/bugs/2026-11-03-详细热力图hover重渲染1440格导致鼠标事件卡死.md
   - .agent/bugs/2026-09-29-toast卡片堆超过work-area无法滚动-百分比max-height落到none.md

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { Bug, ChartPie, Plug, Settings } from 'lucide-react'
 import { useT } from '../i18n'
+import { canUseViewTransition } from '../lib/viewTransition'
 import { Toaster } from '../ui/toast'
 import './shell.css'
 
@@ -20,9 +21,12 @@ const NAV_ITEMS = [
  * 选中态、键盘焦点和 <Toaster /> 都留在原地。导航项带 viewTransition，
  * 切页由 react-router 交给 document.startViewTransition 做交叉淡入淡出，
  * 动效规则统一在 shell.css；WebView 不支持该 API 时退化成瞬切，不影响交互。
+ * Linux 的 WebKitGTK 实现了该 API 但一调用就段错误，所以按内核一并排除，
+ * 判断收在 lib/viewTransition.ts。
  */
 export function MainShell() {
   const t = useT()
+  const viewTransition = canUseViewTransition()
 
   return (
     <div className="ct-app">
@@ -32,7 +36,7 @@ export function MainShell() {
             <NavLink
               key={to}
               to={to}
-              viewTransition
+              viewTransition={viewTransition}
               aria-label={t(labelKey)}
               data-label={t(labelKey)}
               className={({ isActive }) => `ct-sidebar-item${isActive ? ' is-active' : ''}`}
