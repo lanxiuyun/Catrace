@@ -28,7 +28,9 @@
 - 锁定源（`ghfast` / `ghddlc` / `ghproxy` / `github`）只打该源；下载 URL 会剥掉 CI 的 ghproxy 前缀再按所选源重包
 - `auto` 下载失败会按同一顺序换源重试安装包 URL
 - 有新版本 → 右下角橙色更新 Toast；卡片不自动关；详情默认收起，点击可展开/收起
-- 展开详情后显示官网 `/latest/` 的 iframe 内容；iframe 通过约定 `postMessage` 上报文档高度，客户端只接受固定官网 origin 且来源为本 iframe 的高度消息，并钳制高度上限（当前 440px）
+- 展开详情后先只显示「加载官网最新说明 / 浏览器打开」入口；点击加载后说明区直接按高度上限（440px）撑开并显示加载提示，收到官网页面上报的高度后再收放到真实高度——不再先塞一个 160px 的深色 iframe、等内容消息回来才跳高
+- iframe 通过约定 `postMessage` 上报文档高度，客户端只接受固定官网 origin 且来源为本 iframe 的高度消息，并钳制高度上限（当前 440px）
+- 官网页 `website/latest/` 自带与宿主一致的内部滚动条样式（细分滑块、透明轨道、无原生箭头）：iframe 是独立文档，宿主的全局滚动条样式进不去，超出上限后的滚动条只能由说明页自己声明
 - iframe 加载超时显示 updater body/通用兜底文案，可重试或系统浏览器打开官网说明；说明加载不影响更新安装
 - 本地开发模式 iframe 加载 `website/latest/preview.html`，用于官网发布前预览；生产模式才使用 GitHub Pages `/latest/`
 - 下载中有进度条；`auto` 下载走 latest.json 里的 url
@@ -66,7 +68,7 @@
 - **发布次序不可倒置：先官网 `/latest/`，再改客户端版本号并发布**，避免新客户端提示已出现但官网说明尚未就绪。
 - **时间线只增不删**：每次发版在最上方插一条新节点，旧节点内容不改、不合并、不删除；已经发布出去的历史说明对用户可见，改动它等于改写历史。
 - `/latest/` 是累积时间线，不做按版本号路由；客户端展示的说明可能比当前可安装目标版本更新，符合当前产品规则。
-- iframe 页面发送高度消息时使用固定消息类型；宿主必须校验 origin、`event.source` 和 payload 类型，并设置最大高度；超出上限后由 iframe 自身滚动。
+- iframe 页面发送高度消息时使用固定消息类型；宿主必须校验 origin、`event.source` 和 payload 类型，并设置最大高度；超出上限后由 iframe 自身滚动，滚动条样式必须写在 `website/latest/` 页面里（宿主 CSS 作用不到 iframe 文档）。
 - iframe 不加载时必须保留 updater body/通用提示和外链，且不得阻塞更新流程。
 - 本地预览文件仅用于本地开发验证；确认内容后再同步官网线上页，避免线上与本地版本分叉。
 - `rewrite-latest-json` **必须等全部平台构建完成**：各 matrix job 会陆续覆盖 latest.json，提前改写会被后续平台覆盖回直链版本（见 [竞态记录](../../bugs/2026-07-12-latest-json-rewrite-race-with-platform-builds.md)）。

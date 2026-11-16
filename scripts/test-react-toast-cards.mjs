@@ -321,6 +321,28 @@ test('update notes load on request and its timeout, fallback and browser link re
   assert.equal(h.time.pending, 0)
 })
 
+test('update notes open at the full height first and settle on the height the site reports', () => {
+  const h = harness(), props = { showUpdateBody: true, updateBody: 'Fallback notes' }
+  const collapsed = h.render('UpdateToastCard', props)
+  assert.equal(descendants(collapsed).some(item => item.type === 'iframe'), false)
+  byText(collapsed, '加载官网最新说明').props.onClick()
+  let tree = h.render('UpdateToastCard', props)
+  let frame = descendants(tree).find(item => item.type === 'iframe')
+  // 点击后说明区直接按上限撑开并给出加载提示，不能先塞一个矮的深色 iframe。
+  assert.equal(frame.props.style.height, '27.5rem')
+  assert.match(renderToStaticMarkup(tree), /正在加载官网最新说明…/)
+  assert.doesNotMatch(readFileSync(new URL('../src/components/UpdateToastCard.css', import.meta.url), 'utf8'), /#11100f/)
+  const contentWindow = {}
+  frame.props.ref.current = { contentWindow }
+  h.listeners.get('message')({ origin: 'https://lanxiuyun.github.io', source: contentWindow, data: { type: 'catrace-release-notes-height', height: 300 } })
+  tree = h.render('UpdateToastCard', props)
+  frame = descendants(tree).find(item => item.type === 'iframe')
+  assert.equal(frame.props.style.height, '18.75rem')
+  assert.doesNotMatch(renderToStaticMarkup(tree), /正在加载官网最新说明…/)
+  assert.equal(h.time.pending, 0)
+  h.unmount('UpdateToastCard')
+})
+
 for (const [kind, make] of [
   ['function', () => props => React.createElement('span', null, `${props.event.title}:function`)],
   ['memo', () => React.memo(props => React.createElement('span', null, `${props.event.title}:memo`))],
