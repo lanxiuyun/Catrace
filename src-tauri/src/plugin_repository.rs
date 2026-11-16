@@ -22,7 +22,11 @@ const MAX_PACKAGE_FILES: usize = 5_000;
 const MAX_PLUGINS: usize = 128;
 /// Keep only the few API documents a catalog read needs; entries are replaced per URL.
 const MAX_CACHED_API_RESPONSES: usize = 8;
+/// In-process catalogs per repository/mirror pair; a catalog read costs one request per plugin.
+const MAX_CACHED_CATALOGS: usize = 4;
 const SOURCE_FILE: &str = ".catrace-source.json";
+/// Marker understood by the plugin center: the file host (raw CDN or its mirror) answered HTTP 429.
+const SOURCE_RATE_LIMITED: &str = "source_rate_limited";
 
 /// A public repository host whose endpoints, file layout and archive naming are known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,7 +260,7 @@ pub(crate) fn read_installed_source(dir: &Path) -> Option<InstalledPluginSource>
     InstalledPluginSource::new(&repository, &source.commit).ok()
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryPluginInfo {
     id: String,
@@ -269,7 +273,7 @@ pub struct RepositoryPluginInfo {
     has_sidecar: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryCatalog {
     repository: String,
@@ -343,6 +347,9 @@ async fn fetch_bytes(client: &reqwest::Client, url: &str, limit: usize) -> Resul
         .send()
         .await
         .map_err(|e| format!("repository request failed: {e}"))?;
+    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return Err(SOURCE_RATE_LIMITED.into());
+    }
     if !response.status().is_success() {
         return Err(format!(
             "repository request returned HTTP {} (the source host may be unavailable or rate-limited)",
@@ -536,7 +543,7 @@ async fn catalog_at(
 ) -> Result<RepositoryCatalog, String> {
     let ids = repository_tree(client, repository, &commit).await?;
     let mut entries = Vec::new();
-    for batch in ids.chunks(4) {
+    for batch in ids.chunks(8) {
         let mut requests = tokio::task::JoinSet::new();
         for id in batch {
             let (client, repository, commit, id) = (
@@ -545,7 +552,7 @@ async fn catalog_at(
                 commit.clone(),
                 id.clone(),
             );
-            requests.spawn(async move { fetch_manifest(&client, &repository, &commit, &id).await });
+            requests.spawn(async move { fetch_manifest_retry(&client, &repository, &commit, &id).await });
         }
         while let Some(result) = requests.join_next().await {
             let manifest = result.map_err(|e| format!("repository catalog task failed: {e}"))??;
@@ -590,6 +597,34 @@ async fn fetch_manifest(
     Ok(manifest)
 }
 
+/// 目录读取要连续拉多个 manifest；镜像线路偶发限流 / 5xx 时单个失败不该让整份目录报错。
+/// 最多 3 次尝试（退避 400ms / 800ms），最后一次错误原样返回，前端才能识别限流标记。
+async fn fetch_manifest_retry(
+    client: &reqwest::Client,
+    repository: &RepositorySource,
+    commit: &str,
+    id: &str,
+) -> Result<PluginManifestFile, String> {
+    const MAX_ATTEMPTS: u32 = 3;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match fetch_manifest(client, repository, commit, id).await {
+            Ok(manifest) => return Ok(manifest),
+            Err(error) if attempt < MAX_ATTEMPTS && retryable_repository_error(&error) => {
+                tokio::time::sleep(Duration::from_millis(400 * u64::from(attempt))).await;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    unreachable!("manifest retry loop always returns")
+}
+
+fn retryable_repository_error(error: &str) -> bool {
+    error == SOURCE_RATE_LIMITED
+        || error.contains("HTTP 5")
+        || error.contains("repository request failed")
+        || error.contains("repository download failed")
+}
+
 #[tauri::command]
 pub async fn list_repository_plugins(
     window: tauri::WebviewWindow,
@@ -605,7 +640,30 @@ pub async fn list_repository_plugins(
 async fn current_catalog(repository: &RepositorySource) -> Result<RepositoryCatalog, String> {
     let client = client()?;
     let commit = fetch_head_commit(&client, repository).await?;
-    catalog_at(&client, repository, commit).await
+    // 仓库 commit 没变时直接复用上次目录：一次目录读取要拉每个插件的 manifest（官方源约 20 个），
+    // 镜像线路和免认证接口都很容易被这些重复请求打成 429。
+    let key = format!("{}|{}", repository.canonical(), repository.mirror);
+    if let Some(cached) = catalog_cache()
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(&key).filter(|entry| entry.commit == commit).cloned())
+    {
+        return Ok(cached);
+    }
+    let catalog = catalog_at(&client, repository, commit).await?;
+    if let Ok(mut cache) = catalog_cache().lock() {
+        if cache.len() >= MAX_CACHED_CATALOGS && !cache.contains_key(&key) {
+            cache.clear();
+        }
+        cache.insert(key, catalog.clone());
+    }
+    Ok(catalog)
+}
+
+/// 进程内目录缓存，按「仓库 + 是否走镜像」区分；进程重启后由前端 Store 缓存兜底。
+fn catalog_cache() -> &'static Mutex<HashMap<String, RepositoryCatalog>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, RepositoryCatalog>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// GitHub returns the HEAD commit as an object; Gitee returns the default branch's
@@ -644,16 +702,45 @@ pub async fn install_repository_plugin(
     repository: Option<String>,
     mirror: Option<bool>,
 ) -> Result<PluginInstallResult, String> {
+    install_from_repository(app, window, id, commit, repository, mirror, false).await
+}
+
+/// 更新已安装插件：按仓库快照覆盖安装，插件配置与启用状态保留（启用中的 sidecar 用新代码重启）。
+#[tauri::command]
+pub async fn update_repository_plugin(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    id: String,
+    commit: String,
+    repository: Option<String>,
+    mirror: Option<bool>,
+) -> Result<PluginInstallResult, String> {
+    install_from_repository(app, window, id, commit, repository, mirror, true).await
+}
+
+/// `replace=false` 只安装未安装的插件；`replace=true` 只更新已安装的插件（覆盖文件、
+/// 保留配置与启用状态）。安装器在 mutation lock 内会再核对一次本地状态。
+async fn install_from_repository(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    id: String,
+    commit: String,
+    repository: Option<String>,
+    mirror: Option<bool>,
+    replace: bool,
+) -> Result<PluginInstallResult, String> {
     plugins::ensure_management_window(&window)?;
     let repository =
         RepositorySource::parse(repository.as_deref())?.with_mirror(mirror.unwrap_or(false));
     plugins::validate_id(&id)?;
     let source = InstalledPluginSource::new(&repository, &commit)?;
     let commit = source.commit.clone();
-    // Reject duplicates before downloading. The installer repeats this under its
-    // mutation lock so another window or repository can never overwrite this ID.
     let root = plugins::mutation_root(&app)?;
-    ensure_not_installed(&root, &id)?;
+    if replace {
+        ensure_installed(&root, &id)?;
+    } else {
+        ensure_not_installed(&root, &id)?;
+    }
     let client = client()?;
     if !repository_tree(&client, &repository, &commit)
         .await?
@@ -683,7 +770,7 @@ pub async fn install_repository_plugin(
                         .map_err(|e| format!("create extraction staging: {e}"))?;
                     plugins::unpack_plugin_zip(&archive, &unpacked)?;
                     let package = repository_package(&unpacked, &repository, &commit, &id)?;
-                    install_package(&app, &package, &id, &source)
+                    install_package(&app, &package, &id, &source, replace)
                 })
                 .await
                 .map_err(|e| format!("repository install task failed: {e}"))?
@@ -693,7 +780,7 @@ pub async fn install_repository_plugin(
                 fs::create_dir(&package).map_err(|e| format!("create package staging: {e}"))?;
                 download_raw_package(&client, &repository, &commit, &id, &package).await?;
                 tauri::async_runtime::spawn_blocking(move || {
-                    install_package(&app, &package, &id, &source)
+                    install_package(&app, &package, &id, &source, replace)
                 })
                 .await
                 .map_err(|e| format!("repository install task failed: {e}"))?
@@ -719,6 +806,7 @@ fn install_package(
     package: &Path,
     id: &str,
     source: &InstalledPluginSource,
+    replace: bool,
 ) -> Result<PluginInstallResult, String> {
     let mgr = app.state::<PluginManager>();
     let windows = app.state::<crate::plugin_window::PluginWindowManager>();
@@ -729,9 +817,10 @@ fn install_package(
         &windows,
         &sidecars,
         package,
-        false,
+        replace,
         Some(id),
         source,
+        replace,
     )
 }
 
@@ -816,6 +905,17 @@ fn ensure_not_installed(root: &Path, id: &str) -> Result<(), String> {
             "插件 ID「{id}」已安装，请先卸载再从其他仓库安装；不会覆盖已有插件。"
         )),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("inspect installed plugin {id}: {error}")),
+    }
+}
+
+/// 更新只作用于本机已安装的插件；更新流程会覆盖安装目录，所以这里必须先确认它存在。
+fn ensure_installed(root: &Path, id: &str) -> Result<(), String> {
+    match fs::symlink_metadata(root.join(id)) {
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Err(format!("插件「{id}」未安装，无法更新；请先安装。"))
+        }
         Err(error) => Err(format!("inspect installed plugin {id}: {error}")),
     }
 }

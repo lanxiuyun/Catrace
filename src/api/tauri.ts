@@ -521,6 +521,13 @@ export async function installRepositoryPlugin(
   return invoke('install_repository_plugin', { id, commit, repository, mirror })
 }
 
+/** Replace an installed plugin with the repository snapshot; settings and enabled state are kept. */
+export async function updateRepositoryPlugin(
+  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
+): Promise<PluginInstallResult> {
+  return invoke('update_repository_plugin', { id, commit, repository, mirror })
+}
+
 /** Stop the plugin, remove its installation, and retain its saved configuration. */
 export async function uninstallExternalPlugin(id: string): Promise<void> {
   return invoke('uninstall_external_plugin', { id })

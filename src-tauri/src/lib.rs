@@ -1319,6 +1319,7 @@ pub fn run() {
             plugins::list_plugin_catalog,
             plugin_repository::list_repository_plugins,
             plugin_repository::install_repository_plugin,
+            plugin_repository::update_repository_plugin,
             plugins::uninstall_external_plugin,
             plugins::set_external_plugin_enabled,
             plugins::get_plugin_ui_url,

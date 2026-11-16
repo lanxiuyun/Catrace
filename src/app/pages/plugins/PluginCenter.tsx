@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Tooltip, AlertDialog, Button, SearchField, Switch, Tabs } from '@heroui/react'
 import {
-  Armchair, ArrowDownToLine, Check, ChevronLeft, ChevronRight, CircleAlert,
+  Armchair, ArrowDownToLine, ArrowUpCircle, Check, ChevronLeft, ChevronRight, CircleAlert,
   FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
 } from 'lucide-react'
 import { openPluginsDir, type PluginCatalogEntry, type RepositoryPluginInfo } from '../../../api/tauri'
@@ -14,6 +14,7 @@ import { viewTransitionDocument } from '../../lib/viewTransition'
 import { showToast } from '../../ui/toast'
 import { ExternalPluginSettings } from './ExternalPluginSettings'
 import { usePluginCatalog } from './usePluginCatalog'
+import { availablePluginUpdate } from './pluginUpdate'
 import { PluginSourceSettings } from './PluginSourceSettings'
 
 type PluginItem = {
@@ -292,6 +293,18 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
   const openDirectory = () => void openPluginsDir().catch(reportError)
   const hasOtherSource = (item: PluginItem) => !!item.available && !!item.installed?.info.sourceRepository
     && item.installed.info.sourceRepository !== data.source
+  // 仓库 HEAD 的版本比本机安装的版本新 → 可更新。同 ID 从其他源安装时当前源的版本不可比，
+  // 沿用「来源不同」的例外状态，不显示更新标签。
+  const updateVersion = (item: PluginItem) => item.installed && item.available && !hasOtherSource(item)
+    ? availablePluginUpdate(item.installed.info.version, item.available.version)
+    : ''
+  // 有更新时把版本行写成「本机 → 仓库」：信息留在原来那一行字里分层，不再叠一枚实心标签。
+  const updateCue = (item: PluginItem) => {
+    const version = updateVersion(item)
+    return version
+      ? <><span className="ct-market-version-arrow">→</span><span className="ct-market-version-next">{version}</span></>
+      : null
+  }
   // Discover answers "do I have it"; the installed tab shows the switch itself instead of
   // repeating the state in a badge. Only exception states need a footer line.
   const statusLabel = (item: PluginItem) => {
@@ -308,6 +321,13 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     <Button size="sm" variant="tertiary" isDisabled={busy || data.loadingLocal || !!data.localError} onClick={() => void data.install(item.id)}>
       {data.busyId === item.id ? <LoaderCircle className="ct-market-spin" size={14} aria-hidden="true" /> : <ArrowDownToLine size={14} aria-hidden="true" />}
       {t(data.busyId === item.id ? 'pluginMarket.installing' : 'pluginMarket.install')}
+    </Button>
+  )
+  // 已安装列表的更新动作：放在卡片底部右侧，和发现页「安装」共用同一个动作槽（App Store 式行内按钮）。
+  const updateButton = (item: PluginItem) => (
+    <Button size="sm" variant="tertiary" isDisabled={busy || data.loadingLocal} onClick={() => void data.update(item.id)}>
+      {data.busyId === item.id ? <LoaderCircle className="ct-market-spin" size={14} aria-hidden="true" /> : <ArrowUpCircle size={14} aria-hidden="true" />}
+      {t(data.busyId === item.id ? 'pluginMarket.updating' : 'pluginMarket.update')}
     </Button>
   )
   // The switch is the whole action: no confirmation sheet, both directions apply directly.
@@ -393,7 +413,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">
                   <span className={`ct-market-plugin-icon${item.builtin ? ' is-builtin' : ''}`}>{icon(item)}</span>
-                  <div className="ct-market-card-copy"><h3>{item.name}</h3><span className="ct-market-card-meta">{item.builtin ? t('pluginsCenter.builtinTag') : `v${item.version}`}{installedBadge(item)}</span></div>
+                  <div className="ct-market-card-copy"><h3>{item.name}</h3><span className="ct-market-card-meta">{item.builtin ? t('pluginsCenter.builtinTag') : <span className="ct-market-version">{item.version}{tab === 'installed' && updateCue(item)}</span>}{installedBadge(item)}</span></div>
                   {tab !== 'installed' && <ChevronRight size={15} className="ct-market-card-arrow" aria-hidden="true" />}
                   <p>{item.description || t('plugins.external.noDescription')}</p>
                 </div>
@@ -402,12 +422,13 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                     <Switch.Control><Switch.Thumb /></Switch.Control>
                   </Switch.Content>
                 </Switch></div>}
-                {(statusLabel(item) || !isInstalled(item)) && <div className="ct-market-card-footer">
+                {(statusLabel(item) || !isInstalled(item) || (tab === 'installed' && !!updateVersion(item))) && <div className="ct-market-card-footer">
                   {statusLabel(item) && <span className={`ct-market-card-status${item.installed?.info.error ? ' is-error' : ''}`}>
                     {item.installed?.info.error ? <CircleAlert size={12} aria-hidden="true" /> : <Check size={12} aria-hidden="true" />}
                     {statusLabel(item)}
                   </span>}
                   {!isInstalled(item) && installButton(item)}
+                  {tab === 'installed' && updateVersion(item) && updateButton(item)}
                 </div>}
               </article>
             )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="tertiary" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
@@ -422,7 +443,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                 <span className="ct-plugin-detail-nav-title" aria-hidden="true">{selected.name}</span>
               </div>
               <header className="ct-plugin-detail-header">
-                <div className="ct-plugin-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div className="ct-plugin-detail-titles"><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : `v${selected.installed?.info.version ?? selected.version}`}</span></div>{isInstalled(selected) ? <Switch size="sm" isSelected={selectedEnabled} isDisabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }}>
+                <div className="ct-plugin-detail-identity"><span className={`ct-market-plugin-icon is-large${selected.builtin ? ' is-builtin' : ''}`}>{icon(selected)}</span><div className="ct-plugin-detail-titles"><h2 id="ct-plugin-detail-title" ref={detailHeading} tabIndex={-1}>{selected.name}</h2><span className="ct-plugin-tag">{selected.builtin ? t('pluginsCenter.builtinTag') : <>{selected.installed?.info.version ?? selected.version}{updateCue(selected)}</>}</span></div>{isInstalled(selected) ? <Switch size="sm" isSelected={selectedEnabled} isDisabled={busy || !!selectedError || (!!selected.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: selected.name })} onChange={(value) => { if (selected.builtin) onToggleRest(value); else void data.toggle(selected.id, value) }}>
                   <Switch.Content>
                     <Switch.Control><Switch.Thumb /></Switch.Control>
                   </Switch.Content>
