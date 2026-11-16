@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import ts from 'typescript'
 import * as React from 'react'
 import * as Radix from '@radix-ui/themes'
+import * as HeroUI from '@heroui/react'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const src = join(root, 'src')
@@ -51,18 +52,24 @@ test('dependencies and Vite no longer include a second component framework', () 
   assert.equal(pkg.scripts.typecheck, 'tsc --noEmit')
 })
 
-test('plugin modules receive exactly the host React instance, Radix namespace and scoped API factory', () => {
+test('plugin modules receive exactly the host React instance, Radix and HeroUI namespaces and scoped API factory', () => {
   const source = readFileSync(join(src, 'plugins/pluginRuntime.ts'), 'utf8')
   const compiled = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
   } }).outputText
   const api = (id) => ({ id })
-  const dependencies = { react: React, '@radix-ui/themes': Radix, './pluginApi': { createPluginApi: api } }
+  const dependencies = {
+    react: React,
+    '@radix-ui/themes': Radix,
+    '@heroui/react': HeroUI,
+    './pluginApi': { createPluginApi: api },
+  }
   const context = { exports: {}, require(name) { assert.ok(name in dependencies); return dependencies[name] } }
   runInNewContext(compiled, context)
   context.exports.ensurePluginRuntime()
   assert.equal(context.__CATRACE_REACT__, React)
   assert.equal(context.__CATRACE_RADIX__, Radix)
+  assert.equal(context.__CATRACE_HEROUI__, HeroUI)
   assert.equal(context.__CATRACE_CREATE_PLUGIN_API__, api)
   assert.deepEqual(context.__CATRACE_CREATE_PLUGIN_API__('timer'), { id: 'timer' })
   context.exports.ensurePluginRuntime()
