@@ -323,7 +323,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
       {t(data.busyId === item.id ? 'pluginMarket.installing' : 'pluginMarket.install')}
     </Button>
   )
-  // 已安装列表的更新动作：放在卡片底部右侧，和发现页「安装」共用同一个动作槽（App Store 式行内按钮）。
+  // 已安装列表的更新动作：放在标题行启动开关左侧，和开关共用同一块浮层（App Store 式行内按钮）。
   const updateButton = (item: PluginItem) => (
     <Button size="sm" variant="tertiary" isDisabled={busy || data.loadingLocal} onClick={() => void data.update(item.id)}>
       {data.busyId === item.id ? <LoaderCircle className="ct-market-spin" size={14} aria-hidden="true" /> : <ArrowUpCircle size={14} aria-hidden="true" />}
@@ -408,7 +408,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
             ) : visibleItems.length ? visibleItems.map((item) => (
-              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
+              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${tab === 'installed' && updateVersion(item) ? ' has-update' : ''}${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
                 {/* One hit area for the whole card; the switch and install button paint above it. */}
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">
@@ -417,18 +417,17 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   {tab !== 'installed' && <ChevronRight size={15} className="ct-market-card-arrow" aria-hidden="true" />}
                   <p>{item.description || t('plugins.external.noDescription')}</p>
                 </div>
-                {tab === 'installed' && <div className="ct-market-card-toggle"><Switch size="sm" isSelected={isEnabled(item)} isDisabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onChange={(value) => toggleCard(item, value)}>
+                {tab === 'installed' && <div className="ct-market-card-toggle">{updateVersion(item) && updateButton(item)}<Switch size="sm" isSelected={isEnabled(item)} isDisabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onChange={(value) => toggleCard(item, value)}>
                   <Switch.Content>
                     <Switch.Control><Switch.Thumb /></Switch.Control>
                   </Switch.Content>
                 </Switch></div>}
-                {(statusLabel(item) || !isInstalled(item) || (tab === 'installed' && !!updateVersion(item))) && <div className="ct-market-card-footer">
+                {(statusLabel(item) || !isInstalled(item)) && <div className="ct-market-card-footer">
                   {statusLabel(item) && <span className={`ct-market-card-status${item.installed?.info.error ? ' is-error' : ''}`}>
                     {item.installed?.info.error ? <CircleAlert size={12} aria-hidden="true" /> : <Check size={12} aria-hidden="true" />}
                     {statusLabel(item)}
                   </span>}
                   {!isInstalled(item) && installButton(item)}
-                  {tab === 'installed' && updateVersion(item) && updateButton(item)}
                 </div>}
               </article>
             )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="tertiary" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
