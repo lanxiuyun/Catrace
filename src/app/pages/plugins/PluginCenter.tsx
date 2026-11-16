@@ -10,6 +10,7 @@ import { openPluginsDir, type PluginCatalogEntry, type RepositoryPluginInfo } fr
 import { useT } from '../../i18n'
 import { PageScroll } from '../../components/PageScroll'
 import { RadixPage } from '../../components/RadixPage'
+import { viewTransitionDocument } from '../../lib/viewTransition'
 import { showToast } from '../../ui/toast'
 import { ExternalPluginSettings } from './ExternalPluginSettings'
 import { usePluginCatalog } from './usePluginCatalog'
@@ -31,10 +32,6 @@ type Props = {
   restReady: boolean
   onToggleRest: (value: boolean) => void
   children: ReactNode
-}
-
-type ViewTransitionDocument = Document & {
-  startViewTransition?: (callback: () => void) => { finished: Promise<void> }
 }
 
 /**
@@ -63,11 +60,13 @@ const NAV_MATERIAL_SCROLL = 12
  * (the sidebar stays put). ::view-transition-* rules cannot be scoped by a document
  * attribute, so the direction travels as the view-transition-name itself and plugins.css
  * has matching keyframes for ct-plugin-push / ct-plugin-back.
- * WebViews without the View Transitions API keep the instant swap.
+ * WebViews without the View Transitions API keep the instant swap; Linux WebKitGTK is
+ * treated as unsupported because calling startViewTransition crashes the whole process
+ * (see lib/viewTransition.ts).
  */
 const runPageTransition = (direction: PageTransition, apply: () => void, afterCommit?: () => void) => {
-  const doc = document as ViewTransitionDocument
-  if (typeof doc.startViewTransition !== 'function') {
+  const doc = viewTransitionDocument()
+  if (!doc) {
     apply()
     if (afterCommit) requestAnimationFrame(afterCommit)
     return
