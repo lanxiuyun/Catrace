@@ -1,102 +1,101 @@
-import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { create } from 'zustand'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import type { BusEvent } from '../types/event'
 
 const MAX_RESOLVED = 150
 
-export const useEventHub = defineStore('eventHub', () => {
-  const eventsById = ref<Map<string, BusEvent>>(new Map())
+interface EventHubState {
+  eventsById: Map<string, BusEvent>
+  events: BusEvent[]
+  activeEvents: BusEvent[]
+  resolvedEvents: BusEvent[]
+  startListening: () => Promise<void>
+  stopListening: () => void
+  on: (eventType: string, handler: (event: BusEvent) => void) => () => void
+  getById: (id: string) => BusEvent | undefined
+  consume: (id: string) => void
+}
+
+function snapshot(eventsById: Map<string, BusEvent>) {
+  const events = [...eventsById.values()]
+  return {
+    eventsById,
+    events,
+    activeEvents: events.filter((event) => event.status === 'active')
+      .sort((a, b) => a.created_at - b.created_at),
+    resolvedEvents: events.filter((event) => event.status === 'resolved')
+      .sort((a, b) => (b.resolved_at ?? b.updated_at) - (a.resolved_at ?? a.updated_at)),
+  }
+}
+
+/** Observes the bus; rendering a second Toast is deliberately outside this store. */
+export const useEventHub = create<EventHubState>((set, get) => {
   const listeners = new Map<string, Set<(event: BusEvent) => void>>()
   let unlisten: (() => void) | null = null
-  let started = false
+  let startPromise: Promise<void> | null = null
+  let generation = 0
 
-  const events = computed(() => Array.from(eventsById.value.values()))
-  const activeEvents = computed(() =>
-    events.value
-      .filter((e) => e.status === 'active')
-      .sort((a, b) => a.created_at - b.created_at),
-  )
-  const resolvedEvents = computed(() =>
-    events.value
-      .filter((e) => e.status === 'resolved')
-      .sort((a, b) => (b.resolved_at ?? b.updated_at) - (a.resolved_at ?? a.updated_at)),
-  )
-
-  function upsert(event: BusEvent) {
-    const prev = eventsById.value.get(event.id)
-    if (prev && (event.revision ?? 0) < (prev.revision ?? 0)) {
-      return
-    }
-    const next = new Map(eventsById.value)
+  const upsert = (event: BusEvent) => {
+    const previous = get().eventsById.get(event.id)
+    if (previous && (event.revision ?? 0) < (previous.revision ?? 0)) return
+    const next = new Map(get().eventsById)
     next.set(event.id, event)
-    // Bound resolved history
-    const resolved = Array.from(next.values())
-      .filter((e) => e.status === 'resolved')
+    const resolved = [...next.values()]
+      .filter((entry) => entry.status === 'resolved')
       .sort((a, b) => (a.resolved_at ?? a.updated_at) - (b.resolved_at ?? b.updated_at))
-    if (resolved.length > MAX_RESOLVED) {
-      const drop = resolved.length - MAX_RESOLVED
-      for (let i = 0; i < drop; i++) {
-        next.delete(resolved[i].id)
-      }
+    for (let index = 0; index < resolved.length - MAX_RESOLVED; index++) {
+      next.delete(resolved[index].id)
     }
-    eventsById.value = next
-
-    const wildcard = listeners.get('*')
-    wildcard?.forEach((fn) => fn(event))
-    listeners.get(event.event_type)?.forEach((fn) => fn(event))
-    listeners.get(`kind:${event.kind}`)?.forEach((fn) => fn(event))
-  }
-
-  async function startListening() {
-    if (started) return
-    started = true
-    unlisten = await listen<BusEvent>('catrace:event', (tauriEvent) => {
-      upsert(tauriEvent.payload)
-    })
-    try {
-      const active = await invoke<BusEvent[]>('get_active_events')
-      for (const e of active) upsert(e)
-    } catch (e) {
-      console.warn('[eventHub] get_active_events failed', e)
-    }
-  }
-
-  function stopListening() {
-    unlisten?.()
-    unlisten = null
-    started = false
-  }
-
-  function on(eventType: string, handler: (event: BusEvent) => void) {
-    if (!listeners.has(eventType)) {
-      listeners.set(eventType, new Set())
-    }
-    listeners.get(eventType)!.add(handler)
-    return () => listeners.get(eventType)?.delete(handler)
-  }
-
-  function getById(id: string) {
-    return eventsById.value.get(id)
-  }
-
-  /** Local-only remove from hub (does not resolve on backend). */
-  function consume(id: string) {
-    if (!eventsById.value.has(id)) return
-    const next = new Map(eventsById.value)
-    next.delete(id)
-    eventsById.value = next
+    set(snapshot(next))
+    listeners.get('*')?.forEach((handler) => handler(event))
+    listeners.get(event.event_type)?.forEach((handler) => handler(event))
+    listeners.get(`kind:${event.kind}`)?.forEach((handler) => handler(event))
   }
 
   return {
-    events,
-    activeEvents,
-    resolvedEvents,
-    startListening,
-    stopListening,
-    on,
-    getById,
-    consume,
+    ...snapshot(new Map<string, BusEvent>()),
+    startListening: () => {
+      if (startPromise) return startPromise
+      const current = ++generation
+      startPromise = (async () => {
+        const dispose = await listen<BusEvent>('catrace:event', (event) => {
+          if (generation === current) upsert(event.payload)
+        })
+        if (generation !== current) {
+          dispose()
+          return
+        }
+        unlisten = dispose
+        try {
+          const active = await invoke<BusEvent[]>('get_active_events')
+          if (generation === current) active.forEach(upsert)
+        } catch (error) {
+          console.warn('[eventHub] get_active_events failed', error)
+        }
+      })().catch((error) => {
+        if (generation === current) startPromise = null
+        throw error
+      })
+      return startPromise
+    },
+    stopListening: () => {
+      generation++
+      unlisten?.()
+      unlisten = null
+      startPromise = null
+    },
+    on: (eventType, handler) => {
+      if (!listeners.has(eventType)) listeners.set(eventType, new Set())
+      listeners.get(eventType)!.add(handler)
+      return () => { listeners.get(eventType)?.delete(handler) }
+    },
+    getById: (id) => get().eventsById.get(id),
+    consume: (id) => {
+      if (!get().eventsById.has(id)) return
+      const next = new Map(get().eventsById)
+      next.delete(id)
+      set(snapshot(next))
+    },
   }
 })

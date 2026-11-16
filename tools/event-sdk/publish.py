@@ -11,7 +11,7 @@ import urllib.request
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Publish an event to Catrace Event API")
-    p.add_argument("--base", default=os.environ.get("CATRACE_EVENT_BASE", "http://127.0.0.1:23457"))
+    p.add_argument("--base", default=os.environ.get("CATRACE_EVENT_BASE", "http://127.0.0.1:26526"))
     p.add_argument("--token", default=os.environ.get("CATRACE_EVENT_TOKEN", ""))
     p.add_argument("--title", default="Hello from Event SDK")
     p.add_argument("--body", default="")

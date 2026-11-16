@@ -21,9 +21,4 @@
 
 | File | Change |
 |------|--------|
-| `tools/plugin-demo/bt-music/settings.mjs` | 三卡：监听 / Toast 倒计时 / 听歌程序；自动保存 |
-| `tools/plugin-demo/bt-music/runtime/main.mjs` | 始终轮询；publish 尊重倒计时；去 simulate |
-| `tools/plugin-demo/bt-music/ui.mjs` | 仅 CONNECTED/DISCONNECTED |
-| `tools/plugin-demo/bt-music/manifest.json` | 0.2.0 产品描述 |
-| `tools/plugin-demo/README.md` | 手测步骤改为真连接 |
 | `.agent/features/bt-music/README.md` | 约定同步 |

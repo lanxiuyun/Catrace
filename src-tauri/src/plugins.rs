@@ -11,14 +11,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::{log_debug, log_error, log_info, log_warn};
 
 /// Kinds plugins must not claim (includes sdk — reserved for M9 generic path).
-pub const RESERVED_KINDS: &[&str] = &[
-    "rest",
-    "agent",
-    "permission",
-    "update",
-    "rest-timer",
-    "sdk",
-];
+pub const RESERVED_KINDS: &[&str] = &["rest", "agent", "permission", "update", "rest-timer", "sdk"];
+
+// Serialize filesystem mutations and enable toggles, including remote installs.
+static PLUGIN_MUTATION: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +67,9 @@ pub struct ExternalPluginInfo {
     pub name: String,
     pub version: String,
     pub description: String,
+    /// Host-recorded origin, never supplied by the plugin manifest.
+    pub source_repository: Option<String>,
+    pub source_commit: Option<String>,
     pub main: Option<String>,
     pub background: Option<String>,
     pub settings: Option<String>,
@@ -87,6 +86,17 @@ pub struct ExternalPluginInfo {
     pub content_mtime_ms: u64,
     pub anomalous: bool,
     pub error: Option<String>,
+}
+
+/// 「插件中心」列表条目：清单 + 图标 data URL。
+///
+/// 迁移期用它**只读**地展示已安装插件：不写运行时缓存，因此不会加载 UI、
+/// 不会起后台 WebView / sidecar，也不会放行插件事件。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginCatalogEntry {
+    pub info: ExternalPluginInfo,
+    pub icon_data_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +156,115 @@ impl Clone for PluginManager {
     }
 }
 
+/// 读磁盘上的插件目录，返回缓存结构但**不写入** `PluginManager`。
+fn scan_disk(app: &AppHandle) -> Result<Vec<CachedPlugin>, String> {
+    let root = plugins_root(app)?;
+    fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
+
+    let mut found: Vec<CachedPlugin> = Vec::new();
+    let entries = fs::read_dir(&root).map_err(|e| format!("read plugins dir: {e}"))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() || entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        match load_one(app, &path) {
+            Ok(p) => found.push(p),
+            Err(e) => {
+                log_warn!("plugins", "skip {}: {}", path.display(), e);
+                let id = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown".into());
+                found.push(CachedPlugin {
+                    info: ExternalPluginInfo {
+                        id: id.clone(),
+                        name: id,
+                        version: String::new(),
+                        description: String::new(),
+                        source_repository: None,
+                        source_commit: None,
+                        main: None,
+                        background: None,
+                        settings: None,
+                        icon: None,
+                        sidecar: None,
+                        events: vec![],
+                        enabled: false,
+                        enabled_by_default: false,
+                        dir: path.to_string_lossy().to_string(),
+                        has_ui: false,
+                        has_background: false,
+                        has_settings: false,
+                        content_mtime_ms: 0,
+                        anomalous: false,
+                        error: Some(e),
+                    },
+                    dir: path.to_path_buf(),
+                    main_abs: None,
+                    background_abs: None,
+                    settings_abs: None,
+                    icon_abs: None,
+                    sidecar: None,
+                    content_hash: String::new(),
+                });
+            }
+        }
+    }
+    found.sort_by(|a, b| a.info.id.cmp(&b.info.id));
+    // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
+    // 启动时的汇总见 log_loaded_plugins 的一行版
+    log_debug!(
+        "plugins",
+        "scanned {} plugin(s) in {}",
+        found.len(),
+        root.display()
+    );
+    Ok(found)
+}
+
+/// 迁移期「插件中心」的只读目录：清单 + 图标，不进入运行时。
+pub fn scan_catalog(app: &AppHandle) -> Result<Vec<PluginCatalogEntry>, String> {
+    let found = scan_disk(app)?;
+    Ok(found
+        .into_iter()
+        .map(|p| {
+            let icon_data_url = p
+                .icon_abs
+                .as_ref()
+                .and_then(|path| icon_data_url_from_path(path).ok());
+            PluginCatalogEntry {
+                info: p.info,
+                icon_data_url,
+            }
+        })
+        .collect())
+}
+
+fn icon_data_url_from_path(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read icon: {e}"))?;
+    if bytes.len() > 256 * 1024 {
+        return Err("plugin icon too large (>256KiB)".into());
+    }
+    use base64::Engine;
+    let mime = match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        _ => "application/octet-stream",
+    };
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime};base64,{b64}"))
+}
+
 impl PluginManager {
     pub fn new() -> Self {
         Self {
@@ -154,58 +273,7 @@ impl PluginManager {
     }
 
     pub fn rescan(&self, app: &AppHandle) -> Result<Vec<ExternalPluginInfo>, String> {
-        let root = plugins_root(app)?;
-        fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
-
-        let mut found: Vec<CachedPlugin> = Vec::new();
-        let entries = fs::read_dir(&root).map_err(|e| format!("read plugins dir: {e}"))?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            match load_one(app, &path) {
-                Ok(p) => found.push(p),
-                Err(e) => {
-                    log_warn!("plugins", "skip {}: {}", path.display(), e);
-                    let id = path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "unknown".into());
-                    found.push(CachedPlugin {
-                        info: ExternalPluginInfo {
-                            id: id.clone(),
-                            name: id,
-                            version: String::new(),
-                            description: String::new(),
-                            main: None,
-                            background: None,
-                            settings: None,
-                            icon: None,
-                            sidecar: None,
-                            events: vec![],
-                            enabled: false,
-                            enabled_by_default: false,
-                            dir: path.to_string_lossy().to_string(),
-                            has_ui: false,
-                            has_background: false,
-                            has_settings: false,
-                            content_mtime_ms: 0,
-                            anomalous: false,
-                            error: Some(e),
-                        },
-                        dir: path.to_path_buf(),
-                        main_abs: None,
-                        background_abs: None,
-                        settings_abs: None,
-                        icon_abs: None,
-                        sidecar: None,
-                        content_hash: String::new(),
-                    });
-                }
-            }
-        }
-        found.sort_by(|a, b| a.info.id.cmp(&b.info.id));
+        let mut found = scan_disk(app)?;
 
         let previous_anomalies: std::collections::HashSet<String> = self
             .inner
@@ -221,14 +289,6 @@ impl PluginManager {
         }
         let list: Vec<ExternalPluginInfo> = found.iter().map(|p| p.info.clone()).collect();
         *self.inner.lock().map_err(|e| e.to_string())? = PluginCache { plugins: found };
-        // 扫描在一次运行里会随重载/设置页打开反复发生，逐次 info 纯噪音；
-        // 启动时的汇总见 log_loaded_plugins 的一行版
-        log_debug!(
-            "plugins",
-            "scanned {} plugin(s) in {}",
-            list.len(),
-            root.display()
-        );
         Ok(list)
     }
 
@@ -379,7 +439,7 @@ impl PluginManager {
             .ok_or_else(|| format!("plugin has no UI entry: {id}"))
     }
 
-    /// Settings ESM may be read for installed plugins even when disabled (detail panel).
+    /// Disabled plugins must not execute settings modules in a host WebView.
     pub fn settings_source(&self, id: &str) -> Result<String, String> {
         let guard = self.inner.lock().map_err(|e| e.to_string())?;
         let p = guard
@@ -389,6 +449,9 @@ impl PluginManager {
             .ok_or_else(|| format!("plugin not found: {id}"))?;
         if let Some(err) = &p.info.error {
             return Err(format!("plugin invalid: {err}"));
+        }
+        if !p.info.enabled {
+            return Err(format!("plugin disabled: {id}"));
         }
         let path = p
             .settings_abs
@@ -429,27 +492,7 @@ impl PluginManager {
             .icon_abs
             .as_ref()
             .ok_or_else(|| format!("plugin has no icon: {id}"))?;
-        let bytes = fs::read(path).map_err(|e| format!("read icon: {e}"))?;
-        if bytes.len() > 256 * 1024 {
-            return Err("plugin icon too large (>256KiB)".into());
-        }
-        use base64::Engine;
-        let mime = match path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase()
-            .as_str()
-        {
-            "png" => "image/png",
-            "jpg" | "jpeg" => "image/jpeg",
-            "svg" => "image/svg+xml",
-            "webp" => "image/webp",
-            "ico" => "image/x-icon",
-            _ => "application/octet-stream",
-        };
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-        Ok(format!("data:{mime};base64,{b64}"))
+        icon_data_url_from_path(path)
     }
 
     /// Return the plugin's install directory.
@@ -507,7 +550,7 @@ fn plugins_root(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
-fn validate_id(id: &str) -> Result<(), String> {
+pub(crate) fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() || id.len() > 64 {
         return Err(format!("invalid plugin id: {id}"));
     }
@@ -516,6 +559,13 @@ fn validate_id(id: &str) -> Result<(), String> {
         .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     {
         return Err(format!("invalid plugin id: {id}"));
+    }
+    let device = matches!(id, "con" | "prn" | "aux" | "nul")
+        || (id.len() == 4
+            && (id.starts_with("com") || id.starts_with("lpt"))
+            && matches!(id.as_bytes()[3], b'1'..=b'9'));
+    if device || RESERVED_KINDS.contains(&id) {
+        return Err(format!("reserved plugin id: {id}"));
     }
     Ok(())
 }
@@ -577,10 +627,12 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
 
     let enabled = crate::plugin_config::get_plugin_config_entry(app, &m.id, "enabled")?
         .and_then(|value| value.as_bool())
-        .unwrap_or(m.enabled_by_default);
+        .unwrap_or(false);
 
-    let content_mtime_ms = file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
+    let content_mtime_ms =
+        file_mtime_ms(main_abs.as_ref()).max(file_mtime_ms(settings_abs.as_ref()));
     let content_hash = plugin_content_hash(dir);
+    let source_origin = crate::plugin_repository::read_installed_source(dir);
 
     Ok(CachedPlugin {
         info: ExternalPluginInfo {
@@ -588,6 +640,8 @@ fn load_one(app: &AppHandle, dir: &Path) -> Result<CachedPlugin, String> {
             name: m.name,
             version: m.version,
             description: m.description,
+            source_repository: source_origin.as_ref().map(|s| s.repository.clone()),
+            source_commit: source_origin.map(|s| s.commit),
             main: m.main,
             background: m.background,
             settings: m.settings,
@@ -826,7 +880,6 @@ fn resolve_icon(dir: &Path, entry: Option<&str>) -> Result<Option<PathBuf>, Stri
 #[cfg(test)]
 mod icon_tests {
     use super::resolve_icon;
-    use std::path::Path;
 
     #[test]
     fn icon_resolution_checks_traversal_and_type() {
@@ -918,8 +971,14 @@ mod tests {
         std::fs::write(&entry, "console.log(1); console.log(2)").unwrap();
         let fp2 = sidecar_fingerprint("1", "node", &["main.mjs".into()], &dir, &HashMap::new());
         let fp3 = sidecar_fingerprint("1", "node", &["main.mjs".into()], &dir, &HashMap::new());
-        assert_ne!(fp1, fp2, "entry file edit must change the sidecar fingerprint");
-        assert_eq!(fp2, fp3, "identical state must produce an identical fingerprint");
+        assert_ne!(
+            fp1, fp2,
+            "entry file edit must change the sidecar fingerprint"
+        );
+        assert_eq!(
+            fp2, fp3,
+            "identical state must produce an identical fingerprint"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
@@ -947,23 +1006,98 @@ pub fn list_external_plugins(
     Ok(list)
 }
 
+/// 迁移期「插件中心」只读目录：列出已安装插件，不加载、不运行、不写缓存。
 #[tauri::command]
-pub fn set_external_plugin_enabled(
+pub fn list_plugin_catalog(app: AppHandle) -> Result<Vec<PluginCatalogEntry>, String> {
+    scan_catalog(&app)
+}
+
+#[tauri::command]
+pub async fn set_external_plugin_enabled(
     app: AppHandle,
-    mgr: State<'_, PluginManager>,
-    windows: State<'_, crate::plugin_window::PluginWindowManager>,
-    sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
+    window: tauri::WebviewWindow,
     id: String,
     enabled: bool,
 ) -> Result<ExternalPluginInfo, String> {
-    let info = mgr.set_enabled(&app, &id, enabled)?;
-    windows.schedule_sync(app.clone(), mgr.inner().clone());
-    // Enable starts this sidecar; disable stops it. Script edits take effect
-    // on the reload button, not by flipping the switch.
-    if let Err(e) = sidecars.inner().sync_plugin(&app, mgr.inner(), &id) {
-        log_warn!("plugins", "sidecar sync after enable toggle failed: {e}");
+    ensure_management_window(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _mutation = PLUGIN_MUTATION.lock().map_err(|e| e.to_string())?;
+        let mgr = app.state::<PluginManager>();
+        let windows = app.state::<crate::plugin_window::PluginWindowManager>();
+        let sidecars = app.state::<crate::plugin_sidecar::PluginSidecarManager>();
+        mgr.rescan(&app)?;
+        let info = mgr.set_enabled(&app, &id, enabled)?;
+        let result = sidecars
+            .sync_plugin(&app, &mgr, &id)
+            .and_then(|_| windows.sync_plugin(&app, &mgr, &id));
+        if let Err(error) = result {
+            // A failed enable never leaves an apparently enabled but unstarted package.
+            if enabled {
+                mgr.set_enabled(&app, &id, false)?;
+                let _ = sidecars.sync_plugin(&app, &mgr, &id);
+                let _ = windows.stop_plugin(&app, &id);
+            }
+            return Err(format!("plugin runtime synchronization failed: {error}"));
+        }
+        let _ = app.emit(
+            "plugin-enabled-changed",
+            serde_json::json!({ "id": id, "enabled": enabled }),
+        );
+        Ok(info)
+    })
+    .await
+    .map_err(|e| format!("plugin toggle task failed: {e}"))?
+}
+
+pub(crate) fn ensure_management_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("plugin management is only available from the main window".into());
     }
-    Ok(info)
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn uninstall_external_plugin(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    id: String,
+) -> Result<(), String> {
+    ensure_management_window(&window)?;
+    validate_id(&id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _mutation = PLUGIN_MUTATION.lock().map_err(|e| e.to_string())?;
+        let root = mutation_root(&app)?;
+        let dest = root.join(&id);
+        fs::symlink_metadata(&dest).map_err(|e| format!("plugin not installed ({id}): {e}"))?;
+        let mgr = app.state::<PluginManager>();
+        let windows = app.state::<crate::plugin_window::PluginWindowManager>();
+        let sidecars = app.state::<crate::plugin_sidecar::PluginSidecarManager>();
+        // Revoke capability before stopping processes or touching files. Works for invalid manifests too.
+        crate::plugin_config::set_plugin_config_entry(
+            &app,
+            &id,
+            "enabled".into(),
+            serde_json::Value::Bool(false),
+        )?;
+        mgr.rescan(&app)?;
+        sidecars.sync_plugin(&app, &mgr, &id)?;
+        windows.stop_plugin(&app, &id)?;
+        let tombstone = root.join(format!(".uninstall-{id}-{}", uuid::Uuid::new_v4()));
+        fs::rename(&dest, &tombstone).map_err(|e| format!("stage uninstall: {e}"))?;
+        if let Err(error) = remove_path_all(&tombstone) {
+            let restore = fs::rename(&tombstone, &dest);
+            mgr.rescan(&app)?;
+            return Err(format!(
+                "uninstall cleanup failed: {error}; restore result: {restore:?}"
+            ));
+        }
+        mgr.rescan(&app)?;
+        let _ = app.emit("plugins-reloaded", serde_json::json!({}));
+        // Keep user settings for a deliberate reinstall, but trust remains disabled.
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("plugin uninstall task failed: {e}"))?
 }
 
 #[tauri::command]
@@ -1037,7 +1171,8 @@ pub fn set_plugin_config(
     // on next scan (enabledByDefault). Preserve the stored flag unless the
     // payload explicitly includes `enabled` (timer-style portable settings).
     if !incoming.contains_key("enabled") {
-        if let Some(prev) = crate::plugin_config::get_plugin_config_entry(&app, &plugin_id, "enabled")?
+        if let Some(prev) =
+            crate::plugin_config::get_plugin_config_entry(&app, &plugin_id, "enabled")?
         {
             incoming.insert("enabled".into(), prev);
         }
@@ -1091,18 +1226,17 @@ const MAX_INSTALL_ZIP_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_INSTALL_UNPACKED_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_INSTALL_FILE_COUNT: usize = 5_000;
 
-/// Install a plugin from a local folder or `.zip` into `<app_data>/plugins/<id>/`.
-/// Does not enable the plugin. Same id requires `overwrite: true`.
-#[tauri::command]
-pub fn install_external_plugin(
-    app: AppHandle,
-    mgr: State<'_, PluginManager>,
-    windows: State<'_, crate::plugin_window::PluginWindowManager>,
-    sidecars: State<'_, crate::plugin_sidecar::PluginSidecarManager>,
-    source_path: String,
+pub(crate) fn install_from_source(
+    app: &AppHandle,
+    mgr: &PluginManager,
+    windows: &crate::plugin_window::PluginWindowManager,
+    sidecars: &crate::plugin_sidecar::PluginSidecarManager,
+    source: &Path,
     overwrite: bool,
+    expected_id: Option<&str>,
+    source_origin: &crate::plugin_repository::InstalledPluginSource,
 ) -> Result<PluginInstallResult, String> {
-    let source = PathBuf::from(source_path.trim());
+    let _mutation = PLUGIN_MUTATION.lock().map_err(|e| e.to_string())?;
     if source.as_os_str().is_empty() {
         return Err("source path is empty".into());
     }
@@ -1110,8 +1244,7 @@ pub fn install_external_plugin(
         return Err(format!("path not found: {}", source.display()));
     }
 
-    let root = plugins_root(&app)?;
-    fs::create_dir_all(&root).map_err(|e| format!("create plugins dir: {e}"))?;
+    let root = mutation_root(app)?;
 
     let staging = root.join(format!(
         ".install-staging-{}-{}",
@@ -1124,15 +1257,17 @@ pub fn install_external_plugin(
     fs::create_dir_all(&staging).map_err(|e| format!("create staging: {e}"))?;
 
     let install_result = (|| {
+        let payload = staging.join("payload");
+        fs::create_dir(&payload).map_err(|e| format!("create package staging: {e}"))?;
         if source.is_file() {
-            unpack_plugin_zip(&source, &staging)?;
+            unpack_plugin_zip(source, &payload)?;
         } else if source.is_dir() {
-            copy_dir_filtered(&source, &staging)?;
+            copy_dir_filtered(source, &payload)?;
         } else {
             return Err(format!("unsupported path type: {}", source.display()));
         }
 
-        let package_root = find_plugin_package_root(&staging)?;
+        let package_root = find_plugin_package_root(&payload)?;
         let manifest = read_install_manifest(&package_root)?;
         validate_id(&manifest.id)?;
         if manifest.name.trim().is_empty() {
@@ -1141,9 +1276,20 @@ pub fn install_external_plugin(
         if manifest.version.trim().is_empty() {
             return Err("manifest version is required".into());
         }
+        if expected_id.is_some_and(|id| id != manifest.id) {
+            return Err("downloaded manifest does not match the selected plugin".into());
+        }
+        // Validate every declared entry before changing an existing installation.
+        let validation_dir = staging.join(".validated").join(&manifest.id);
+        fs::create_dir_all(validation_dir.parent().unwrap()).map_err(|e| e.to_string())?;
+        fs::rename(&package_root, &validation_dir)
+            .map_err(|e| format!("stage package validation: {e}"))?;
+        crate::plugin_repository::write_installed_source(&validation_dir, source_origin)?;
+        load_one(app, &validation_dir)?;
+        let package_root = validation_dir;
 
         let dest = root.join(&manifest.id);
-        let overwritten = dest.exists();
+        let overwritten = fs::symlink_metadata(&dest).is_ok();
         if overwritten && !overwrite {
             return Err(format!(
                 "plugin '{}' already installed; pass overwrite to replace",
@@ -1156,38 +1302,19 @@ pub fn install_external_plugin(
             return Err("source path is already the installed plugin directory".into());
         }
 
-        let staged_final = root.join(format!(
-            ".install-final-{}-{}",
-            manifest.id,
-            uuid::Uuid::new_v4()
-        ));
-        if staged_final.exists() {
-            remove_path_all(&staged_final)?;
-        }
-        // Move package contents into a sibling temp dir named for atomic replace.
-        fs::rename(&package_root, &staged_final).or_else(|_| {
-            copy_dir_filtered(&package_root, &staged_final)?;
-            remove_path_all(&package_root)
-        })?;
-
-        // Ensure directory name will match id after rename to dest.
+        // Installation never grants trust, including overwrite/reinstall.
+        crate::plugin_config::set_plugin_config_entry(
+            app,
+            &manifest.id,
+            "enabled".into(),
+            serde_json::Value::Bool(false),
+        )?;
         if overwritten {
-            // Keep enabled flag in plugin_config; only replace files.
-            remove_path_all(&dest)?;
+            mgr.rescan(app)?;
+            sidecars.sync_plugin(app, mgr, &manifest.id)?;
+            windows.stop_plugin(app, &manifest.id)?;
         }
-        fs::rename(&staged_final, &dest).map_err(|e| {
-            let _ = remove_path_all(&staged_final);
-            format!("install rename failed: {e}")
-        })?;
-
-        // Soft-validate by loading; keep files even if optional entries warn.
-        if let Err(e) = load_one(&app, &dest) {
-            log_warn!(
-                "plugins",
-                "installed {} but load reported: {e}",
-                manifest.id
-            );
-        }
+        publish_package(&package_root, &dest)?;
 
         log_info!(
             "plugins",
@@ -1206,13 +1333,19 @@ pub fn install_external_plugin(
         })
     })();
 
-    let _ = remove_path_all(&staging);
-
-    let result = install_result?;
-    // Refresh cache + schedule runtimes (new package is disabled by default unless enabledByDefault).
-    let _ = mgr.rescan(&app)?;
-    windows.schedule_sync(app.clone(), mgr.inner().clone());
-    sidecars.schedule_sync(app.clone(), mgr.inner().clone());
+    let cleanup = remove_path_all(&staging);
+    let result = match install_result {
+        Ok(result) => result,
+        Err(error) => {
+            return Err(match cleanup {
+                Ok(()) => error,
+                Err(cleanup) => format!("{error}; staging cleanup also failed: {cleanup}"),
+            })
+        }
+    };
+    mgr.rescan(app)?;
+    let _ = app.emit("plugins-reloaded", serde_json::json!({}));
+    cleanup.map_err(|e| format!("plugin installed, but staging cleanup failed: {e}"))?;
     Ok(result)
 }
 
@@ -1249,12 +1382,67 @@ fn find_plugin_package_root(staging: &Path) -> Result<PathBuf, String> {
     }
     match matches.len() {
         1 => Ok(matches.remove(0)),
-        0 => Err("no manifest.json found in package (folder or zip root / one nested folder)".into()),
+        0 => {
+            Err("no manifest.json found in package (folder or zip root / one nested folder)".into())
+        }
         _ => Err("multiple plugin packages found; package must contain a single plugin".into()),
     }
 }
 
-fn unpack_plugin_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
+pub(crate) fn safe_archive_path(name: &str) -> Result<PathBuf, String> {
+    if name.is_empty()
+        || name.len() > 1024
+        || name.contains(['\\', ':', '\0'])
+        || name.starts_with('/')
+    {
+        return Err(format!("unsafe archive path: {name}"));
+    }
+    let trimmed = name.trim_end_matches('/');
+    let parts: Vec<_> = trimmed.split('/').collect();
+    if parts.len() > 32
+        || parts.iter().any(|part| {
+            part.is_empty()
+                || *part == "."
+                || *part == ".."
+                || part.ends_with(['.', ' '])
+                || part.chars().any(char::is_control)
+                || matches!(
+                    part.split('.')
+                        .next()
+                        .unwrap_or_default()
+                        .to_ascii_lowercase()
+                        .as_str(),
+                    "con"
+                        | "prn"
+                        | "aux"
+                        | "nul"
+                        | "com1"
+                        | "com2"
+                        | "com3"
+                        | "com4"
+                        | "com5"
+                        | "com6"
+                        | "com7"
+                        | "com8"
+                        | "com9"
+                        | "lpt1"
+                        | "lpt2"
+                        | "lpt3"
+                        | "lpt4"
+                        | "lpt5"
+                        | "lpt6"
+                        | "lpt7"
+                        | "lpt8"
+                        | "lpt9"
+                )
+        })
+    {
+        return Err(format!("unsafe archive path: {name}"));
+    }
+    Ok(parts.iter().collect())
+}
+
+pub(crate) fn unpack_plugin_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
     let meta = fs::metadata(zip_path).map_err(|e| format!("stat zip: {e}"))?;
     if meta.len() > MAX_INSTALL_ZIP_BYTES {
         return Err(format!(
@@ -1265,43 +1453,64 @@ fn unpack_plugin_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
     let file = fs::File::open(zip_path).map_err(|e| format!("open zip: {e}"))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("invalid zip: {e}"))?;
     let mut total_unpacked: u64 = 0;
-    let mut file_count = 0usize;
+    if archive.len() > MAX_INSTALL_FILE_COUNT {
+        return Err(format!(
+            "zip has too many entries (max {MAX_INSTALL_FILE_COUNT})"
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
 
     for i in 0..archive.len() {
         let mut entry = archive
             .by_index(i)
             .map_err(|e| format!("zip entry {i}: {e}"))?;
         let name = entry.name().to_string();
-        if name.contains("..") {
-            return Err(format!("zip path traversal rejected: {name}"));
+        let rel = safe_archive_path(&name)?;
+        if !seen.insert(name.trim_end_matches('/').to_ascii_lowercase()) {
+            return Err(format!("duplicate archive path: {name}"));
         }
-        let rel = match entry.enclosed_name() {
-            Some(p) => p.to_path_buf(),
-            None => return Err(format!("zip unsafe path rejected: {name}")),
-        };
+        let mode = entry.unix_mode().unwrap_or(0);
+        if !matches!(mode & 0o170000, 0 | 0o100000 | 0o040000) {
+            return Err(format!(
+                "archive links/special files are not allowed: {name}"
+            ));
+        }
+        if entry.size() > MAX_INSTALL_UNPACKED_BYTES.saturating_sub(total_unpacked) {
+            return Err("unpacked size too large (max 128 MiB)".into());
+        }
         let out_path = dest.join(&rel);
         if !out_path.starts_with(dest) {
             return Err(format!("zip path escaped dest: {name}"));
         }
 
         if entry.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|e| format!("mkdir {}: {e}", out_path.display()))?;
+            fs::create_dir_all(&out_path)
+                .map_err(|e| format!("mkdir {}: {e}", out_path.display()))?;
             continue;
         }
 
-        file_count += 1;
-        if file_count > MAX_INSTALL_FILE_COUNT {
-            return Err(format!(
-                "zip has too many files (max {MAX_INSTALL_FILE_COUNT})"
-            ));
-        }
         if let Some(parent) = out_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
         }
-        let mut outfile =
-            fs::File::create(&out_path).map_err(|e| format!("create {}: {e}", out_path.display()))?;
-        let written = std::io::copy(&mut entry, &mut outfile)
+        let mut outfile = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&out_path)
+            .map_err(|e| format!("create {}: {e}", out_path.display()))?;
+        use std::io::Read;
+        let remaining = MAX_INSTALL_UNPACKED_BYTES.saturating_sub(total_unpacked);
+        let written = std::io::copy(&mut (&mut entry).take(remaining + 1), &mut outfile)
             .map_err(|e| format!("extract {}: {e}", out_path.display()))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // Preserve executable bits, never setuid/setgid/sticky permissions.
+            fs::set_permissions(
+                &out_path,
+                fs::Permissions::from_mode((mode & 0o111) | 0o600),
+            )
+            .map_err(|e| format!("set extracted permissions: {e}"))?;
+        }
         total_unpacked = total_unpacked.saturating_add(written);
         if total_unpacked > MAX_INSTALL_UNPACKED_BYTES {
             return Err(format!(
@@ -1317,7 +1526,7 @@ fn copy_dir_filtered(src: &Path, dest: &Path) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|e| format!("create {}: {e}", dest.display()))?;
     let mut file_count = 0usize;
     let mut total: u64 = 0;
-    copy_dir_filtered_inner(src, dest, &mut file_count, &mut total)
+    copy_dir_filtered_inner(src, dest, &mut file_count, &mut total, 0)
 }
 
 fn copy_dir_filtered_inner(
@@ -1325,7 +1534,11 @@ fn copy_dir_filtered_inner(
     dest: &Path,
     file_count: &mut usize,
     total: &mut u64,
+    depth: usize,
 ) -> Result<(), String> {
+    if depth > 32 {
+        return Err("package directory nesting exceeds 32 levels".into());
+    }
     for entry in fs::read_dir(src).map_err(|e| format!("read {}: {e}", src.display()))? {
         let entry = entry.map_err(|e| format!("read dir entry: {e}"))?;
         let file_name = entry.file_name();
@@ -1333,21 +1546,23 @@ fn copy_dir_filtered_inner(
         if name == "." || name == ".." || name == ".git" || name == "node_modules" {
             continue;
         }
+        safe_archive_path(&name)?;
         let from = entry.path();
         let to = dest.join(&file_name);
-        let ft = entry
-            .file_type()
-            .map_err(|e| format!("file type {}: {e}", from.display()))?;
+        let meta =
+            fs::symlink_metadata(&from).map_err(|e| format!("stat {}: {e}", from.display()))?;
+        if is_link(&meta) {
+            return Err(format!("package links are not allowed: {}", from.display()));
+        }
+        let ft = meta.file_type();
+        *file_count += 1;
+        if *file_count > MAX_INSTALL_FILE_COUNT {
+            return Err("package has too many entries (max 5000)".into());
+        }
         if ft.is_dir() {
             fs::create_dir_all(&to).map_err(|e| format!("mkdir {}: {e}", to.display()))?;
-            copy_dir_filtered_inner(&from, &to, file_count, total)?;
+            copy_dir_filtered_inner(&from, &to, file_count, total, depth + 1)?;
         } else if ft.is_file() {
-            *file_count += 1;
-            if *file_count > MAX_INSTALL_FILE_COUNT {
-                return Err(format!(
-                    "package has too many files (max {MAX_INSTALL_FILE_COUNT})"
-                ));
-            }
             let meta = fs::metadata(&from).map_err(|e| format!("stat {}: {e}", from.display()))?;
             *total = total.saturating_add(meta.len());
             if *total > MAX_INSTALL_UNPACKED_BYTES {
@@ -1363,21 +1578,75 @@ fn copy_dir_filtered_inner(
     Ok(())
 }
 
-fn remove_path_all(path: &Path) -> Result<(), String> {
-    if !path.exists() {
-        return Ok(());
+fn is_link(meta: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // Includes junctions (mount points), not just symbolic links.
+        meta.file_attributes() & 0x400 != 0
     }
-    let meta = fs::symlink_metadata(path).map_err(|e| format!("stat {}: {e}", path.display()))?;
-    if meta.file_type().is_symlink() {
+    #[cfg(not(windows))]
+    {
+        meta.file_type().is_symlink()
+    }
+}
+
+pub(crate) fn mutation_root(app: &AppHandle) -> Result<PathBuf, String> {
+    let root = plugins_root(app)?;
+    ensure_writable_root(&root)?;
+    Ok(root)
+}
+
+fn ensure_writable_root(root: &Path) -> Result<(), String> {
+    if let Ok(meta) = fs::symlink_metadata(root) {
+        if is_link(&meta) {
+            return Err("插件根目录是 junction/符号链接，已拒绝安装或卸载以保护源码。请先手动断开根目录链接并创建普通 plugins 目录（不会自动迁移或删除目标）。".into());
+        }
+    }
+    fs::create_dir_all(root).map_err(|e| format!("create plugins dir: {e}"))
+}
+
+/// Never follow links, even nested junctions or dangling links.
+pub(crate) fn remove_path_all(path: &Path) -> Result<(), String> {
+    let meta = match fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(format!("stat {}: {e}", path.display())),
+    };
+    if is_link(&meta) {
+        // remove_dir unlinks Windows directory junctions; Unix symlinks use remove_file.
         fs::remove_file(path)
             .or_else(|_| fs::remove_dir(path))
-            .map_err(|e| format!("remove symlink {}: {e}", path.display()))?;
-        return Ok(());
-    }
-    if meta.is_dir() {
-        fs::remove_dir_all(path).map_err(|e| format!("remove dir {}: {e}", path.display()))?;
+            .map_err(|e| format!("remove link {}: {e}", path.display()))?;
+    } else if meta.is_dir() {
+        for entry in fs::read_dir(path).map_err(|e| format!("read {}: {e}", path.display()))? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            remove_path_all(&entry.path())?;
+        }
+        fs::remove_dir(path).map_err(|e| format!("remove dir {}: {e}", path.display()))?;
     } else {
         fs::remove_file(path).map_err(|e| format!("remove file {}: {e}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// Rename old install aside; restore it if publication fails. Never delete old files first.
+fn publish_package(staged: &Path, dest: &Path) -> Result<(), String> {
+    let parent = dest.parent().ok_or("plugin destination has no parent")?;
+    let backup = parent.join(format!(".install-backup-{}", uuid::Uuid::new_v4()));
+    let existed = fs::symlink_metadata(dest).is_ok();
+    if existed {
+        fs::rename(dest, &backup).map_err(|e| format!("backup previous plugin: {e}"))?;
+    }
+    if let Err(error) = fs::rename(staged, dest) {
+        if existed {
+            fs::rename(&backup, dest).map_err(|restore| format!("install failed: {error}; restoring previous plugin failed: {restore} (backup: {})", backup.display()))?;
+        }
+        return Err(format!("install rename failed: {error}"));
+    }
+    if existed {
+        remove_path_all(&backup)
+            .map_err(|e| format!("plugin installed, but previous package cleanup failed: {e}"))?;
     }
     Ok(())
 }
@@ -1385,170 +1654,6 @@ fn remove_path_all(path: &Path) -> Result<(), String> {
 fn paths_equal(a: &Path, b: &Path) -> bool {
     let canon = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
     canon(a) == canon(b)
-}
-
-/// Seed official plugins bundled as Tauri resources (`$RESOURCES/plugins/<id>`)
-/// into `<app_data>/plugins/<id>` on first run, or replace them when the bundled
-/// version is strictly newer. Resource dir is read-only on most installs, so we
-/// must copy to app_data where users can edit / toggle / upgrade them.
-/// Release-only: in debug builds demo plugins are junction-linked instead, so the
-/// hot iteration flow in `ensure_dev_plugin_links` is preserved.
-#[cfg(not(debug_assertions))]
-fn seed_bundled_plugins(app: &AppHandle) {
-    let Ok(res_dir) = app.path().resource_dir() else {
-        return;
-    };
-    let bundled_root = res_dir.join("plugins");
-    if !bundled_root.is_dir() {
-        log_info!(
-            "plugins",
-            "no bundled plugins to seed at {}",
-            bundled_root.display()
-        );
-        return;
-    }
-    let Ok(target_root) = plugins_root(app) else {
-        return;
-    };
-    if let Err(e) = fs::create_dir_all(&target_root) {
-        log_warn!("plugins", "seed: create plugins dir failed: {e}");
-        return;
-    }
-
-    let Ok(entries) = fs::read_dir(&bundled_root) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let src = entry.path();
-        if !src.is_dir() {
-            continue;
-        }
-        let Some(name) = src.file_name().and_then(|s| s.to_str()).map(String::from) else {
-            continue;
-        };
-        if name.starts_with('.') || !src.join("manifest.json").is_file() {
-            continue;
-        }
-
-        let bundled_version = read_manifest_version(&src);
-        let dest = target_root.join(&name);
-        let existed = dest.exists();
-        let installed_version = read_manifest_version(&dest);
-        let should_seed = should_seed_bundled(
-            bundled_version.as_deref(),
-            installed_version.as_deref(),
-        );
-        if !should_seed {
-            log_info!(
-                "plugins",
-                "bundled plugin {name} skip (installed v{}, bundled v{})",
-                installed_version.as_deref().unwrap_or("?"),
-                bundled_version.as_deref().unwrap_or("?"),
-            );
-            continue;
-        }
-
-        match replace_plugin_package(&src, &dest) {
-            Ok(()) => {
-                let action = if existed { "upgraded" } else { "seeded" };
-                log_info!(
-                    "plugins",
-                    "bundled plugin {name} {action} (v{})",
-                    bundled_version.as_deref().unwrap_or("?")
-                );
-            }
-            Err(e) => log_warn!("plugins", "seed bundled plugin {name} failed: {e}"),
-        }
-    }
-}
-
-fn read_manifest_version(dir: &Path) -> Option<String> {
-    let raw = fs::read_to_string(dir.join("manifest.json")).ok()?;
-    let m: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    m.get("version")?.as_str().map(String::from)
-}
-
-/// Whether the source plugin is newer than the installed plugin.
-/// Equal versions are kept as-is so user edits survive; bump `manifest.version` to ship a fix.
-fn should_seed_bundled(bundled_version: Option<&str>, installed_version: Option<&str>) -> bool {
-    match (bundled_version, installed_version) {
-        (_, None) => true,
-        (None, Some(_)) => false,
-        (Some(bundled), Some(installed)) => compare_versions(bundled, installed) > 0,
-    }
-}
-
-/// Replace `dest` with a copy of `src` (skip install-time dirs), atomically-ish:
-/// copy to a temp sibling first, then swap so a crash never leaves a half package.
-#[cfg(not(debug_assertions))]
-fn replace_plugin_package(src: &Path, dest: &Path) -> Result<(), String> {
-    let parent = dest.parent().ok_or("plugin dest has no parent")?;
-    let tmp = parent.join(format!(".seed-{}", std::process::id()));
-    if tmp.exists() {
-        remove_path_all(&tmp)?;
-    }
-    copy_dir_filtered(src, &tmp)?;
-    if dest.exists() {
-        remove_path_all(dest)?;
-    }
-    fs::rename(&tmp, dest).map_err(|e| {
-        let _ = remove_path_all(&tmp);
-        format!("seed rename failed: {e}")
-    })
-}
-
-/// Numeric semver-ish compare (e.g. "0.10.0" > "0.3.0"). >0 when a>b.
-fn compare_versions(a: &str, b: &str) -> i32 {
-    fn parts(s: &str) -> Vec<u32> {
-        s.split('.')
-            .map(|p| p.chars().take_while(|c| c.is_ascii_digit()).collect::<String>())
-            .filter_map(|p| p.parse::<u32>().ok())
-            .collect()
-    }
-    let pa = parts(a);
-    let pb = parts(b);
-    for i in 0..pa.len().max(pb.len()) {
-        let x = pa.get(i).copied().unwrap_or(0);
-        let y = pb.get(i).copied().unwrap_or(0);
-        if x != y {
-            return if x > y { 1 } else { -1 };
-        }
-    }
-    0
-}
-
-#[cfg(test)]
-mod seed_version_tests {
-    use super::{compare_versions, should_seed_bundled};
-
-    #[test]
-    fn equal_version_does_not_upgrade() {
-        assert!(
-            !should_seed_bundled(Some("0.1.0"), Some("0.1.0")),
-            "locale/content changes without a version bump must not overwrite app_data"
-        );
-    }
-
-    #[test]
-    fn newer_bundled_upgrades() {
-        assert!(should_seed_bundled(Some("0.1.1"), Some("0.1.0")));
-        assert_eq!(compare_versions("0.1.1", "0.1.0"), 1);
-    }
-
-    #[test]
-    fn missing_install_seeds() {
-        assert!(should_seed_bundled(Some("0.1.0"), None));
-    }
-
-    #[test]
-    fn bundled_without_version_does_not_clobber() {
-        assert!(!should_seed_bundled(None, Some("0.1.0")));
-    }
-
-    #[test]
-    fn older_source_does_not_replace_installed() {
-        assert!(!should_seed_bundled(Some("0.9.9"), Some("1.0.0")));
-    }
 }
 
 #[cfg(test)]
@@ -1598,251 +1703,250 @@ mod content_hash_tests {
     }
 }
 
-/// Called from setup after PluginManager is managed.
+#[cfg(test)]
+mod install_safety_tests {
+    use super::*;
+    use std::io::Write;
+
+    struct TempDir(PathBuf);
+    impl TempDir {
+        fn new() -> Self {
+            let path =
+                std::env::temp_dir().join(format!("catrace-install-test-{}", uuid::Uuid::new_v4()));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = remove_path_all(&self.0);
+        }
+    }
+
+    fn zip_file(dir: &Path, name: &str, data: &[u8]) -> PathBuf {
+        let path = dir.join("package.zip");
+        let mut zip = zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        zip.start_file(
+            name,
+            zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated),
+        )
+        .unwrap();
+        zip.write_all(data).unwrap();
+        zip.finish().unwrap();
+        path
+    }
+
+    #[test]
+    fn disabled_plugins_never_supply_runtime_specs_or_executable_source() {
+        let mgr = PluginManager::new();
+        let dir = PathBuf::from("/plugins/demo");
+        let manifest = PluginSidecarManifest {
+            command: "node".into(),
+            args: vec![],
+            cwd: ".".into(),
+            env: HashMap::new(),
+        };
+        mgr.inner.lock().unwrap().plugins.push(CachedPlugin {
+            info: ExternalPluginInfo {
+                id: "demo".into(),
+                name: "Demo".into(),
+                version: "1".into(),
+                description: String::new(),
+                source_repository: None,
+                source_commit: None,
+                main: Some("ui.mjs".into()),
+                background: Some("background.mjs".into()),
+                settings: Some("settings.mjs".into()),
+                icon: None,
+                sidecar: Some(manifest.clone()),
+                events: vec!["demo".into()],
+                enabled: false,
+                enabled_by_default: true,
+                dir: dir.to_string_lossy().into(),
+                has_ui: true,
+                has_background: true,
+                has_settings: true,
+                content_mtime_ms: 0,
+                anomalous: false,
+                error: None,
+            },
+            dir: dir.clone(),
+            main_abs: Some(dir.join("ui.mjs")),
+            background_abs: Some(dir.join("background.mjs")),
+            settings_abs: Some(dir.join("settings.mjs")),
+            icon_abs: None,
+            sidecar: Some(sidecar_spec(&dir, "demo", "1", &manifest)),
+            content_hash: String::new(),
+        });
+        assert!(mgr.background_plugins().unwrap().is_empty());
+        assert!(mgr.sidecar_plugins().unwrap().is_empty());
+        assert!(mgr
+            .settings_source("demo")
+            .unwrap_err()
+            .contains("disabled"));
+        assert!(mgr
+            .background_source("demo")
+            .unwrap_err()
+            .contains("disabled"));
+        assert!(mgr.ui_path("demo").unwrap_err().contains("disabled"));
+        assert!(mgr
+            .allows_event("demo", "demo", "demo.tick")
+            .unwrap_err()
+            .contains("disabled"));
+    }
+
+    #[test]
+    fn identifiers_are_portable_and_cannot_replace_host_plugins() {
+        for id in [
+            "", "../timer", "Timer", "con", "com1", "nul", "rest", "agent", "sdk", "a/b",
+        ] {
+            assert!(validate_id(id).is_err(), "{id}");
+        }
+        for id in ["timer", "agent-notify", "dsh-chat"] {
+            assert!(validate_id(id).is_ok());
+        }
+    }
+
+    #[test]
+    fn archive_paths_reject_cross_platform_escapes_and_aliases() {
+        for name in [
+            "../evil",
+            "a/../../evil",
+            "/absolute",
+            "C:/evil",
+            "a\\evil",
+            "a:stream",
+            "a/./b",
+            "a//b",
+            "CON.txt",
+            "folder./x",
+            "space /x",
+            "a\0b",
+        ] {
+            assert!(safe_archive_path(name).is_err(), "{name:?}");
+        }
+        assert_eq!(
+            safe_archive_path("timer/runtime/main.mjs").unwrap(),
+            PathBuf::from("timer/runtime/main.mjs")
+        );
+        assert!(safe_archive_path(&format!("{}x", "a/".repeat(33))).is_err());
+    }
+
+    #[test]
+    fn archive_traversal_cannot_write_outside_staging() {
+        let work = TempDir::new();
+        let archive = zip_file(&work.0, "../outside.txt", b"unsafe");
+        let dest = work.0.join("out");
+        fs::create_dir(&dest).unwrap();
+        assert!(unpack_plugin_zip(&archive, &dest).is_err());
+        assert!(!work.0.join("outside.txt").exists());
+    }
+
+    #[test]
+    fn archive_size_is_rejected_before_writing_file() {
+        let work = TempDir::new();
+        let archive = zip_file(
+            &work.0,
+            "large.bin",
+            &vec![0u8; MAX_INSTALL_UNPACKED_BYTES as usize + 1],
+        );
+        let dest = work.0.join("out");
+        fs::create_dir(&dest).unwrap();
+        assert!(unpack_plugin_zip(&archive, &dest)
+            .unwrap_err()
+            .contains("size too large"));
+        assert!(!dest.join("large.bin").exists());
+    }
+
+    #[test]
+    fn failed_publication_restores_previous_package() {
+        let work = TempDir::new();
+        let dest = work.0.join("demo");
+        fs::create_dir(&dest).unwrap();
+        fs::write(dest.join("keep.txt"), "original").unwrap();
+        assert!(publish_package(&work.0.join("missing"), &dest).is_err());
+        assert_eq!(
+            fs::read_to_string(dest.join("keep.txt")).unwrap(),
+            "original"
+        );
+        assert_eq!(fs::read_dir(&work.0).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn successful_publication_swaps_complete_package() {
+        let work = TempDir::new();
+        let dest = work.0.join("demo");
+        let staged = work.0.join("staged");
+        fs::create_dir(&dest).unwrap();
+        fs::create_dir(&staged).unwrap();
+        fs::write(dest.join("old"), "old").unwrap();
+        fs::write(staged.join("new"), "new").unwrap();
+        publish_package(&staged, &dest).unwrap();
+        assert!(!dest.join("old").exists());
+        assert!(dest.join("new").is_file());
+        assert_eq!(fs::read_dir(&work.0).unwrap().count(), 1);
+    }
+
+    #[cfg(any(unix, windows))]
+    fn directory_link(target: &Path, link: &Path) {
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(target, link).unwrap();
+        #[cfg(windows)]
+        {
+            let status = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(link)
+                .arg(target)
+                .stdout(std::process::Stdio::null())
+                .status()
+                .unwrap();
+            assert!(status.success(), "test junction creation failed");
+        }
+    }
+
+    #[test]
+    #[cfg(any(unix, windows))]
+    fn unlink_never_deletes_source_and_linked_root_is_rejected() {
+        let work = TempDir::new();
+        let source = work.0.join("source");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("keep.txt"), "source").unwrap();
+        let linked_root = work.0.join("linked-root");
+        directory_link(&source, &linked_root);
+        assert!(ensure_writable_root(&linked_root).is_err());
+        remove_path_all(&linked_root).unwrap();
+        assert!(source.join("keep.txt").is_file());
+        let package = work.0.join("package");
+        fs::create_dir(&package).unwrap();
+        directory_link(&source, &package.join("nested-junction"));
+        remove_path_all(&package).unwrap();
+        assert_eq!(
+            fs::read_to_string(source.join("keep.txt")).unwrap(),
+            "source"
+        );
+    }
+
+    #[test]
+    #[cfg(any(unix, windows))]
+    fn local_package_copy_refuses_nested_links() {
+        let work = TempDir::new();
+        let source = work.0.join("source");
+        fs::create_dir(&source).unwrap();
+        let package = work.0.join("package");
+        fs::create_dir(&package).unwrap();
+        directory_link(&source, &package.join("external"));
+        assert!(copy_dir_filtered(&package, &work.0.join("copy"))
+            .unwrap_err()
+            .contains("links are not allowed"));
+    }
+}
+
+/// Startup scans only user installations; no bundled packages or demo links are created.
 pub fn initial_scan(app: &AppHandle, mgr: &PluginManager) {
-    #[cfg(not(debug_assertions))]
-    seed_bundled_plugins(app);
-
-    #[cfg(debug_assertions)]
-    ensure_dev_plugin_links(app);
-
     if let Err(e) = mgr.rescan(app) {
         log_error!("plugins", "initial scan failed: {e}");
     } else {
         mgr.log_loaded_plugins();
-    }
-}
-
-/// Dev-only: if repo demo plugins are not linked into app_data/plugins, junction/symlink them.
-/// Release builds skip this entirely.
-#[cfg(debug_assertions)]
-fn ensure_dev_plugin_links(app: &AppHandle) {
-    let Ok(root) = plugins_root(app) else {
-        return;
-    };
-    if let Err(e) = fs::create_dir_all(&root) {
-        log_warn!("plugins", "dev link: create plugins dir failed: {e}");
-        return;
-    }
-
-    // src-tauri/ -> repo root -> tools/plugin-demo
-    let demo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("tools")
-        .join("plugin-demo");
-    let Ok(demo_root) = fs::canonicalize(&demo_root) else {
-        log_warn!(
-            "plugins",
-            "dev link: plugin-demo not found at {}",
-            demo_root.display()
-        );
-        return;
-    };
-
-    let Ok(entries) = fs::read_dir(&demo_root) else {
-        return;
-    };
-    let mut wanted: Vec<String> = Vec::new();
-    for entry in entries.flatten() {
-        let src = entry.path();
-        if !src.is_dir() {
-            continue;
-        }
-        let Some(name) = src.file_name().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        // Only link plugin packages (must contain manifest.json).
-        if !src.join("manifest.json").is_file() {
-            continue;
-        }
-        let dst = root.join(name);
-        wanted.push(name.to_string());
-        let demo_version = read_manifest_version(&src);
-        let installed_version = read_manifest_version(&dst);
-        if (dst.exists() || link_target(&dst).is_some()) && link_target(&dst).is_none() {
-            match should_seed_bundled(demo_version.as_deref(), installed_version.as_deref()) {
-                true => {
-                    if let Err(e) = remove_path_all(&dst) {
-                        log_warn!("plugins", "dev link replace failed for {name}: {e}");
-                        continue;
-                    }
-                }
-                false => {
-                    log_info!(
-                        "plugins",
-                        "dev link skip: {name} installed v{} >= demo v{}",
-                        installed_version.as_deref().unwrap_or("?"),
-                        demo_version.as_deref().unwrap_or("?")
-                    );
-                    continue;
-                }
-            }
-        }
-        match ensure_dir_link(&src, &dst) {
-            Ok(DevLinkResult::AlreadyLinked) => {
-                // 无变化的常态分支降 debug：14 个插件每次启动都刷一遍；re-pointed/
-                // created/pruned 才是状态变化，留在 info（dev-link 钉错工位的排查线索）
-                log_debug!("plugins", "dev link ok: {name} already linked");
-            }
-            Ok(DevLinkResult::Created) => {
-                log_info!(
-                    "plugins",
-                    "dev link created: {} -> {}",
-                    dst.display(),
-                    src.display()
-                );
-            }
-            Ok(DevLinkResult::Relinked) => {
-                log_info!(
-                    "plugins",
-                    "dev link re-pointed: {} -> {}",
-                    dst.display(),
-                    src.display()
-                );
-            }
-            Ok(DevLinkResult::SkippedExisting) => {
-                log_info!(
-                    "plugins",
-                    "dev link skip: {} exists and is not our link",
-                    dst.display()
-                );
-            }
-            Err(e) => log_warn!("plugins", "dev link failed for {name}: {e}"),
-        }
-    }
-
-    // Links left by another checkout (previous worktree, or a branch with more plugins)
-    // would silently keep loading that checkout's code — drop the ones this tree lacks.
-    prune_stale_dev_links(&root, &wanted);
-}
-
-/// Drop links that point into some `tools/plugin-demo` but are not part of this checkout.
-#[cfg(debug_assertions)]
-fn prune_stale_dev_links(root: &Path, wanted: &[String]) {
-    let Ok(entries) = fs::read_dir(root) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if wanted.iter().any(|w| w == &name) {
-            continue;
-        }
-        let dst = entry.path();
-        let Some(target) = link_target(&dst) else {
-            continue;
-        };
-        let target = target.to_string_lossy().replace('\\', "/");
-        if !target.contains("/tools/plugin-demo/") {
-            continue;
-        }
-        match remove_dir_link(&dst) {
-            Ok(()) => log_info!("plugins", "dev link pruned: {name} (not in this checkout)"),
-            Err(e) => log_warn!("plugins", "dev link prune failed for {name}: {e}"),
-        }
-    }
-}
-
-#[cfg(debug_assertions)]
-enum DevLinkResult {
-    AlreadyLinked,
-    Created,
-    Relinked,
-    SkippedExisting,
-}
-
-#[cfg(debug_assertions)]
-fn ensure_dir_link(src: &Path, dst: &Path) -> Result<DevLinkResult, String> {
-    let src_canon = fs::canonicalize(src).map_err(|e| format!("canonicalize src: {e}"))?;
-
-    if dst.exists() || link_target(dst).is_some() {
-        if let Ok(dst_canon) = fs::canonicalize(dst) {
-            if dst_canon == src_canon {
-                return Ok(DevLinkResult::AlreadyLinked);
-            }
-        }
-        // A link left behind by another checkout (typically the previous worktree) is ours
-        // to re-point; a real directory is a user install we must not clobber.
-        if link_target(dst).is_some() {
-            remove_dir_link(dst)?;
-            create_dir_link(&src_canon, dst)?;
-            return Ok(DevLinkResult::Relinked);
-        }
-        return Ok(DevLinkResult::SkippedExisting);
-    }
-
-    create_dir_link(&src_canon, dst)?;
-    Ok(DevLinkResult::Created)
-}
-
-/// Target of a symlink or a Windows junction. `read_link` resolves both, so this is the
-/// reliable "is this one of our links" test — a real directory yields `None`.
-#[cfg(debug_assertions)]
-fn link_target(path: &Path) -> Option<PathBuf> {
-    fs::read_link(path).ok()
-}
-
-#[cfg(debug_assertions)]
-fn remove_dir_link(dst: &Path) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        // RemoveDirectoryW deletes a junction itself and never walks into the target.
-        if fs::remove_dir(dst).is_ok() {
-            return Ok(());
-        }
-        // Broken reparse points can resist the above; cmd rmdir is the last resort.
-        use std::process::Command;
-        let out = Command::new("cmd")
-            .args(["/C", "rmdir"])
-            .arg(dst.as_os_str())
-            .output()
-            .map_err(|e| format!("rmdir spawn: {e}"))?;
-        if out.status.success() {
-            return Ok(());
-        }
-        Err(format!("remove link failed: {}", dst.display()))
-    }
-    #[cfg(unix)]
-    {
-        fs::remove_file(dst).map_err(|e| format!("remove link: {e}"))
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = dst;
-        Err("dev plugin link removal unsupported on this platform".into())
-    }
-}
-
-#[cfg(debug_assertions)]
-fn create_dir_link(src: &Path, dst: &Path) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        use std::process::Command;
-
-        // Prefer cmd mklink /J (no admin). Falls back to std symlink_dir.
-        let status = Command::new("cmd")
-            .args(["/C", "mklink", "/J"])
-            .arg(dst.as_os_str())
-            .arg(src.as_os_str())
-            .status()
-            .map_err(|e| format!("mklink spawn: {e}"))?;
-        if status.success() {
-            return Ok(());
-        }
-
-        std::os::windows::fs::symlink_dir(src, dst).map_err(|e| {
-            format!(
-                "junction/symlink failed (mklink exit {:?}): {e}",
-                status.code()
-            )
-        })
-    }
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(src, dst).map_err(|e| format!("symlink: {e}"))
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = (src, dst);
-        Err("dev plugin link unsupported on this platform".into())
     }
 }

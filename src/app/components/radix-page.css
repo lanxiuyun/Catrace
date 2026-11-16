@@ -1,0 +1,5 @@
+.radix-themes.ct-radix-page {
+  /* Radix 根主题默认 min-height: 100vh，页面容器要交回自身内容高度。 */
+  min-height: 0;
+  height: 100%;
+}

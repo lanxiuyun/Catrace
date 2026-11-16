@@ -1,6 +1,6 @@
 # Toast 卡片紧凑尺寸规范 & 阴影出血方案
 
-2026-07-11 将 Toast 卡片整体缩小到接近 Windows 11 原生通知的紧凑度；2026-08-27 随小窗化把出血方式从「stack 负 margin」改为「窗口本身就是出血区」。
+Toast 卡片采用紧凑尺寸，窗口本身提供阴影出血区。
 
 ## 尺寸规范（对标 Win11 原生 toast）
 
@@ -19,8 +19,6 @@
 | 计时球 | 84px | `.liquid-ball 5.25rem` |
 
 **常量同步**：Rust `TOAST_WINDOW_WIDTH_LOGICAL` / `TOAST_WINDOW_MIN_HEIGHT_LOGICAL` 与 CSS `24.5rem` 相关；**前端上报高度不再有最小值**——窗口高度必须严格等于 `stack.scrollHeight`（见下节）。
-
-`EyeToastCard.vue` 是独立组件，尺寸规范同样适用（标题/按钮/间距与通用卡片一致）。
 
 ## 小窗化后的出血方式（2026-08-27）
 
@@ -52,21 +50,7 @@
 
 **空栈特例**：最后一张卡移除时 stack 只剩 1rem padding，`reportWindowSize` 必须直接 return —— 否则会把窗口缩成一条细窗，还与 Rust 隐藏时的 `reset_toast_content_size()` 抢时序，导致下次弹出先闪一条细窗。
 
-**根元素铺满**：`.toast-root` 用 `min-height: 100vh`（不是 `height: 100%`）。祖先链（`#app` → provider → router view）没有定高，百分比高度解析失败，根元素会退化成内容高；`vh` 直接对齐视口，即使瞬时「窗口比内容高」露出的也是页面自己的背景。
-
-## 历史：全屏覆盖层的出血（2026-07-11 ~ 2026-08-26）
-
-旧实现中 `.toast-stack` 四边各借 16px padding 放阴影，再用负 margin 拉回，以保证卡片宽度不变：
-
-```css
-.toast-stack {
-  overflow-y: auto;
-  margin: -1rem;
-  padding: 1rem;
-}
-```
-
-副作用：`scrollHeight` 多了 32px，前端 `adjustWindowSize()` 里要手动减掉。小窗化后已废弃，改为上述窗口即出血区方案。
+**根元素铺满**：`.toast-root` 用 `height: 100vh` 定高。祖先链（`#app` → provider → router view）没有定高，百分比高度解析失败，根元素会退化成内容高；`vh` 直接对齐视口，即使瞬时「窗口比内容高」露出的也是页面自己的背景。
 
 ## 阴影本身
 

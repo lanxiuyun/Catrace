@@ -10,7 +10,6 @@
 - 宿主 `plugin.audio.*` + `plugin.path.getPluginDir()`；rodio 放独立线程
 - `plugin_api` 拆成按能力分文件
 - 默认音定为偏低两音门铃 wav（G4→C5）
-- 本地分提交（未 push）：插件仓库 timer、宿主 API、submodule 指针、plugin_api 拆分
 
 ## Remaining
 
@@ -23,5 +22,3 @@
 |------|--------|
 | `src-tauri/src/plugin_api/` | 音频引擎 + 模块拆分 |
 | `src/plugins/pluginApi.ts` | `audio` 与 `path.getPluginDir` |
-| `tools/plugin-demo/timer/*` | 颜色、提示音设置与触发播放 |
-| `tools/plugin-demo/timer/assets/notify.wav` | 默认提示音 |

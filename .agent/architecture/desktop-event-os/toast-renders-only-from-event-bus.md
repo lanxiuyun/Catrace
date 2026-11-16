@@ -3,7 +3,7 @@
 ## 数据流
 
 ```
-Producer (water/eye/rest/agent/update)
+Producer (rest/agent/permission/update/sdk/plugin)
     → EventBus.publish(BusEvent)
         → ensure_toast_window_visible（无内容）
         → emit catrace:event
@@ -24,14 +24,14 @@ Producer (water/eye/rest/agent/update)
 
 | 通道 | 用途 |
 |------|------|
-| `catrace:dismiss-agent-session` emit | UserPromptSubmit / 同 session 审批顶替后销 sticky+permission UI（**已非 eval**） |
-| popup / fullscreen | 久坐非 toast 模式，不经 bus |
+| `catrace:dismiss-agent-session` emit | UserPromptSubmit / 同 session 审批顶替后销 sticky+permission UI |
+| fullscreen | 久坐全屏模式，不经 bus |
 
-> rest-timer 内容路径已迁 Bus（`reminder.rest.timer` upsert）；进度仍由 settle 驱动。
+> rest-timer 内容通过 Bus 的 `reminder.rest.timer` upsert；进度由 settle 驱动。
 
 ## 防双弹
 
-- 生产者不得再 `eval addToastNotification`（已移除调用）
+- 生产者只发布 BusEvent，不直接注入可见卡片。
 - Toast 用 `seenBusEventIds`；resolved 事件会关掉对应 `eventId` 卡
 - sticky agent 合并逻辑仍在 `addNotification` 内，与 bus 无关
 
@@ -40,6 +40,6 @@ Producer (water/eye/rest/agent/update)
 1. 新内容类型优先加 BusEvent + handleBusEvent 映射
 2. 不要恢复 `addToastNotification` 全局函数做主路径
 3. dismiss 类副作用用专用 emit（如 `catrace:dismiss-agent-session`），只传 id，不传整卡 UI 数据
-4. 卡片 UI：`Rest/Water/Update/RestTimer/Eye/Agent/PermissionToastCard`；`ReminderToast` 只管堆叠、尺寸、总线映射
+4. 卡片 UI：`Rest/Update/RestTimer/Agent/PermissionToastCard` 与 SDK / 外部插件卡；`ReminderToast` 只管堆叠、尺寸、总线映射
 
 相关：[[toast-window]] · [event-protocol-and-bus-lifecycle.md](event-protocol-and-bus-lifecycle.md)

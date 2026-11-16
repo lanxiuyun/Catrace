@@ -20,7 +20,7 @@ const rows = await plugin.activity.getRecords({ from, to })
 
 Sidecar JSONL / Event HTTP **没有**这条。JS `plugin.activity` 才有。
 
-Demo 插件：`tools/plugin-demo/heatmap/`（作息回顾，settings 翻日期三种视图）。默认关闭。
+Demo 插件：`catrace-plugin/heatmap/`（作息回顾，settings 翻日期三种视图）。默认关闭。
 
 ## 对应代码
 

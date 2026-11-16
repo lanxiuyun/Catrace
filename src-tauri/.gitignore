@@ -9,7 +9,3 @@
 # Tauri signing keys
 /keys/
 
-# Staged plugins prepared by scripts/sync-plugins.mjs before bundling
-/.bundled-plugins/
-
-

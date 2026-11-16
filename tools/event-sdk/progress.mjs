@@ -10,7 +10,7 @@ function flag(name, fallback) {
   return fallback;
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const base = (flag("base", process.env.CATRACE_EVENT_BASE || "http://127.0.0.1:23457")).replace(/\/$/, "");
+const base = (flag("base", process.env.CATRACE_EVENT_BASE || "http://127.0.0.1:26526")).replace(/\/$/, "");
 const token = flag("token", process.env.CATRACE_EVENT_TOKEN || "");
 const steps = Number(flag("steps", "5")) || 5;
 const ms = Number(flag("ms", "400")) || 400;

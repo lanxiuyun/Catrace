@@ -18,7 +18,7 @@
 
 授权后：把 fallback 的 `active` 置 false 停线程，再开完整采样，避免双计。
 
-主窗和系统设置**不再催授权**（`MainShell` 不挂横幅；设置卡 `showAccessibility` 恒 false）。未授权就一直走兜底采样，对久坐判定够用。`AccessibilityBanner.vue` 文件还在，接 Developer ID 签名后再挂回去。
+主窗和系统设置不展示授权催促。未授权时持续使用兜底采样，久坐判定可用；完整键鼠统计需要系统授权。
 
 Windows / Linux 不编译这条路径。
 

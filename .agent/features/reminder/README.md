@@ -53,17 +53,16 @@ macOS 上 `count` 来自键鼠采样。无辅助功能权限时走免权限兜�
 
 ## UI 入口
 
-- **功能插件 → 久坐**：`src/components/plugins/RestPluginPanel.vue`
+- **功能插件 → 久坐**：[RestSettings.tsx](../../../src/app/pages/plugins/RestSettings.tsx)
   - 节奏：`window_minutes` / `break_minutes` / `snooze_interval_minutes`
   - 文案：`reminder_title` / `reminder_body`
   - 测试通知（内容区外按钮）
-- **当前仅 toast**：不提供 mode / 全屏配置；运行时强制 Event Bus toast
-- **不再**放在系统设置通知卡（`NotificationSettingsCard` 已删除）
-- 详见 [[settings]] 与 [久坐提醒配置从系统设置收敛到-RestPluginPanel.md](../settings/久坐提醒配置从系统设置收敛到-RestPluginPanel.md)
+- **提醒方式**：Toast 或光标所在屏的全屏倒计时；全屏背景、透明度和填充方式在插件详情配置。
+- 入口分工见[系统设置](../settings/README.md)。
 
 ## 子文档
 
-- [久坐插件当前仅toast-运行时与配置钳制.md](久坐插件当前仅toast-运行时与配置钳制.md) — toast-only 契约与重启用 checklist
+- [久坐提醒的Toast与全屏显示契约.md](久坐提醒的Toast与全屏显示契约.md) — Toast / fullscreen 行为契约
 
 ## 配置
 
@@ -75,4 +74,4 @@ macOS 上 `count` 来自键鼠采样。无辅助功能权限时走免权限兜�
 
 ## 测试
 
-`db.rs` 14 个 block 切分与提醒逻辑测试 + `reminder.rs` 4 个状态机测试。详见 [test-strategy.md](../reference/test-strategy.md)。
+`db.rs` 14 个 block 切分与提醒逻辑测试 + `reminder.rs` 4 个状态机测试。详见 [test-strategy.md](../../reference/test-strategy.md)。

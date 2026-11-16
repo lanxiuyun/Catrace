@@ -10,6 +10,7 @@ mod special_day;
 mod plugin_api;
 mod plugin_commands;
 mod plugin_config;
+mod plugin_repository;
 mod plugin_sidecar;
 mod sidecar;
 mod plugin_window;
@@ -940,7 +941,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window_manager::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                // Toast manages its own geometry and visibility; restoring state calls set_focus().
+                .with_denylist(&[window_manager::TOAST_WINDOW_LABEL])
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
@@ -1078,7 +1084,7 @@ pub fn run() {
                 reminder_toast::prepare_toast_window(app.app_handle());
             }
 
-            // Event SDK HTTP API (127.0.0.1:23457) — external publish/update/resolve
+            // Event SDK HTTP API (127.0.0.1:26526) — external publish/update/resolve
             let event_bus_for_http = app.state::<crate::bus::EventBus>().inner().clone();
             let plugin_mgr_for_http = app.state::<plugins::PluginManager>().inner().clone();
             event_http::start_server(event_bus_for_http, db.clone(), plugin_mgr_for_http);
@@ -1310,7 +1316,10 @@ pub fn run() {
             notification_listener::open_notification_permission_settings,
             notification_listener::trigger_notification_action,
             plugins::list_external_plugins,
-            plugins::install_external_plugin,
+            plugins::list_plugin_catalog,
+            plugin_repository::list_repository_plugins,
+            plugin_repository::install_repository_plugin,
+            plugins::uninstall_external_plugin,
             plugins::set_external_plugin_enabled,
             plugins::get_plugin_ui_url,
             plugins::get_plugin_ui_source,

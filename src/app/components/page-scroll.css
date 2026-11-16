@@ -1,0 +1,16 @@
+.ct-page-scroll {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ct-page-scroll-content {
+  min-height: 100%;
+}
+
+.ct-page-scroll-content.is-fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}

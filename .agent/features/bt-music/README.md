@@ -10,13 +10,13 @@
 
 | 路径 | 角色 |
 |------|------|
-| `tools/plugin-demo/bt-music/manifest.json` | id=`bt-music`，sidecar `node runtime/main.mjs` |
-| `tools/plugin-demo/bt-music/runtime/main.mjs` | 事件监听、动作、启动/暂停/关闭、图标提取、JSONL |
-| `tools/plugin-demo/bt-music/settings.mjs` | 听歌程序 + 连接/断开动作（驻留内嵌） |
-| `tools/plugin-demo/bt-music/ui.mjs` | 紧凑 Toast：图标 +「设备名 已连接」+ 启动/关闭 + 进度条 |
-| `tools/plugin-demo/README.md` | demo 索引与手测 |
+| `catrace-plugin/bt-music/manifest.json` | id=`bt-music`，sidecar `node runtime/main.mjs` |
+| `catrace-plugin/bt-music/runtime/main.mjs` | 事件监听、动作、启动/暂停/关闭、图标提取、JSONL |
+| `catrace-plugin/bt-music/settings.mjs` | 听歌程序 + 连接/断开动作（驻留内嵌） |
+| `catrace-plugin/bt-music/ui.mjs` | 紧凑 Toast：图标 +「设备名 已连接」+ 启动/关闭 + 进度条 |
+| `catrace-plugin/README.md` | demo 索引与手测 |
 
-Debug junction：`tools/plugin-demo/bt-music` → `app_data/plugins/bt-music`。
+安装：插件中心从仓库装到 `app_data/plugins/bt-music`。
 
 ## 子文档
 
@@ -29,10 +29,10 @@ Debug junction：`tools/plugin-demo/bt-music` → `app_data/plugins/bt-music`。
 - **启用即监听全部蓝牙耳机**：无关键词、无独立 listen 开关；顶栏启用 = 监听。
 - **连接** `connectAction`：`none` / `notify` / `launch`（互斥；launch 不弹 Toast）。
 - **断开** `disconnectAction`：`none` / `pause` / `close`（互斥；断开不弹通知）。
-- Settings 产品文案，无 sidecar/PnP 术语；naive 无 `NInputNumber`。
+- Settings 使用用户可理解的产品文案；插件组件合同见[外部插件](../../architecture/desktop-event-os/m10-external-plugins.md)。
 - `plugin.config.set` 整包写入时宿主保留 `enabled`（见 [[插件配置和运行数据必须分开存储]]）。
 - Toast 进度条用 CSS + `--toast-auto-hide-ms`，hover 只 pause；见 [[toast-window]] 子文档。
-- 改 `ui.mjs` 后插件页刷新即可热更，无需重启 dev；见 Toast 热更新文档。
+- 模块重载与缓存顺序见[Toast 重载](../toast-window/外部插件toast卡热更新-generation缓存与reload顺序.md)；插件页面普通目录刷新不等于脚本自动重载。
 
 ## 相关
 

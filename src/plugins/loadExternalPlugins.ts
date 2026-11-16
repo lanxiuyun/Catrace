@@ -1,18 +1,22 @@
-import { markRaw, type Component } from 'vue'
+import type { ComponentType } from 'react'
 import {
   getPluginSettingsSource,
   getPluginUiSource,
   listExternalPlugins,
   type ExternalPluginInfo,
 } from '../api/tauri'
-import { usePluginRegistry, type PluginHandle } from '../stores/pluginRegistry'
+import { usePluginRegistry, type PluginCardProps, type PluginHandle } from '../stores/pluginRegistry'
 import { ensurePluginRuntime } from './pluginRuntime'
 import { wrapPluginSource } from './pluginApi'
+import { isPluginComponent } from './pluginComponent'
 
 const blobUrlByPlugin = new Map<string, string>()
 const settingsBlobUrlByPlugin = new Map<string, string>()
-/** Single-flight: concurrent callers share one scan (toast + main + refresh). */
+/** Single-flight: concurrent callers share one reload queue per WebView. */
 let inflight: Promise<ExternalPluginInfo[]> | null = null
+/** A persisted change during a scan must not be lost to single-flight coalescing. */
+let reloadRequested = false
+let forceRequested = false
 /** Skip full rebuild when list fingerprint matches last successful load. */
 let lastFingerprint = ''
 
@@ -44,28 +48,31 @@ function revokeBlob(map: Map<string, string>, pluginId: string, next?: string) {
   }
 }
 
-async function buildComponentFromSource(
+async function buildComponentFromSource<P>(
   pluginId: string,
   source: string,
   map: Map<string, string>,
   exportNames: string[],
-): Promise<Component> {
+): Promise<ComponentType<P>> {
   const blob = new Blob([wrapPluginSource(pluginId, source)], { type: 'text/javascript' })
   const blobUrl = URL.createObjectURL(blob)
   revokeBlob(map, pluginId, blobUrl)
 
-  const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
-  for (const name of exportNames) {
-    if (mod[name]) {
-      return markRaw(mod[name] as object) as Component
+  try {
+    const mod: Record<string, unknown> = await import(/* @vite-ignore */ blobUrl)
+    for (const name of exportNames) {
+      if (isPluginComponent<P>(mod[name])) return mod[name]
     }
+    throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
+  } catch (error) {
+    revokeBlob(map, pluginId)
+    throw error
   }
-  throw new Error(`plugin ${pluginId}: no ${exportNames.join('/')} export`)
 }
 
 async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginInfo[]> {
   ensurePluginRuntime()
-  const registry = usePluginRegistry()
+  const registry = usePluginRegistry.getState()
   let list: ExternalPluginInfo[] = []
   try {
     list = await listExternalPlugins()
@@ -85,29 +92,30 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
   for (const p of list) {
     if (p.error) continue
 
-    let CardComponent: Component | undefined
-    let SettingsComponent: Component | undefined
+    let CardComponent: ComponentType<PluginCardProps> | undefined
+    let SettingsComponent: ComponentType | undefined
     let uiUrl: string | undefined
 
     // Toast card only for enabled plugins (bg won't publish when disabled).
     if (p.enabled && p.hasUi) {
       try {
         const source = await getPluginUiSource(p.id)
-        CardComponent = await buildComponentFromSource(p.id, source, blobUrlByPlugin, [
+        CardComponent = await buildComponentFromSource<PluginCardProps>(p.id, source, blobUrlByPlugin, [
           'default',
           'Card',
           'card',
         ])
         uiUrl = blobUrlByPlugin.get(p.id)
       } catch (e) {
+        revokeBlob(blobUrlByPlugin, p.id)
         console.warn(`[plugins] ui load failed for ${p.id}`, e)
       }
     } else {
       revokeBlob(blobUrlByPlugin, p.id)
     }
 
-    // Settings available even when disabled so Plugins page can show the panel.
-    if (p.hasSettings) {
+    // Importing settings executes plugin code too: disabled means not trusted yet.
+    if (p.enabled && p.hasSettings) {
       try {
         const source = await getPluginSettingsSource(p.id)
         SettingsComponent = await buildComponentFromSource(
@@ -117,6 +125,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
           ['default', 'Settings', 'settings'],
         )
       } catch (e) {
+        revokeBlob(settingsBlobUrlByPlugin, p.id)
         console.warn(`[plugins] settings load failed for ${p.id}`, e)
       }
     } else {
@@ -146,6 +155,8 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 
   for (const name of previousNames) {
     registry.unregister(name)
+    revokeBlob(blobUrlByPlugin, name)
+    revokeBlob(settingsBlobUrlByPlugin, name)
   }
 
   lastFingerprint = fp
@@ -154,7 +165,7 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 
 /**
  * Discover local plugins via Rust, register into pluginRegistry.
- * Safe to call from main + toast windows (each has its own Pinia).
+ * Safe to call from main + toast windows (each has its own registry).
  *
  * UI/settings loading: Rust reads source → Blob URL → dynamic import.
  * Concurrent calls coalesce; unchanged fingerprint skips Blob rebuild.
@@ -163,8 +174,23 @@ async function loadExternalPluginsInner(force: boolean): Promise<ExternalPluginI
 export async function loadExternalPlugins(
   opts: { force?: boolean } = {},
 ): Promise<ExternalPluginInfo[]> {
-  if (inflight) return inflight
-  inflight = loadExternalPluginsInner(!!opts.force).finally(() => {
+  if (inflight) {
+    // A lifecycle event may arrive after the in-flight scan read the old state.
+    reloadRequested = true
+    forceRequested ||= !!opts.force
+    return inflight
+  }
+  inflight = (async () => {
+    let force = !!opts.force
+    let list: ExternalPluginInfo[]
+    do {
+      reloadRequested = false
+      forceRequested = false
+      list = await loadExternalPluginsInner(force)
+      force = forceRequested
+    } while (reloadRequested)
+    return list
+  })().finally(() => {
     inflight = null
   })
   return inflight

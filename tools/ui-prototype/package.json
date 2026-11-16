@@ -1,0 +1,16 @@
+{
+  "name": "catrace-ui-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node model.test.mjs && node check.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/themes": "3.3.0",
+    "lucide-react": "0.468.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": { "esbuild": "0.25.0" }
+}

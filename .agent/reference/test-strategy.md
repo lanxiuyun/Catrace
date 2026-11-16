@@ -1,28 +1,16 @@
 # 测试策略
 
-## Rust（31 个单元测试）
+## 默认验证顺序
 
-| 模块 | 数量 | 覆盖 |
-|------|------|------|
-| `db.rs` | 16 | Block 切分（3）+ 提醒逻辑（11）+ 连续休息（1）+ plugin_storage |
-| `reminder.rs` | 4 | snooze / skip / 用户覆盖间隔 / 自动间隔过期 |
-| `report.rs` | 4 | versionCode / target 映射 / 签名格式 / 签名规则一致性 |
-| `media_audio.rs` | 4 | 排除列表过滤 / 全排除 / 无音频 / 文本解析 |
+先运行 `pnpm typecheck`，再运行 `pnpm test` 与 `pnpm build`。Rust 使用 cargo check／test，具体模块与测试数量以源码为准，不在文档缓存计数。
 
-## 前端
+- [test-react-state.mjs](../../scripts/test-react-state.mjs)：zustand registry／Event Hub、语言与主题跨窗事件、bootstrap 身份分流。
+- [scripts/](../../scripts/) 的 test-*.mjs：插件模块与安装来源等 source-backed 回归。
+- [toast.test.mjs](../../src/app/windows/toast/toast.test.mjs)：Toast 纯逻辑、计时、Bus 和卸载资源回收。
+- Rust 重点覆盖 block／提醒、Bus、插件安装安全与来源、平台通知和窗口纯逻辑。真实网络 smoke 与桌面焦点不能仅靠 mock 证明。
 
-使用 Playwright 进行自动化验证，直接连接已运行的 `pnpm tauri dev`（`http://localhost:1420`）或生产构建产物。
+## UI 与原生窗口
 
-- 临时 / 探索性测试写在 `e2e-temp/`（已被 `.gitignore` 忽略）。
-- 除非用户明确要求，否则不启动浏览器 preview/dev server；也不依赖手动点击验证。
-- UI 断言优先用 DOM/截图，而不是截图后肉眼看。
+只有用户明确要求时，才用 Playwright 连接已经运行的 Tauri 开发窗口；不自动启动 dev／preview，不以浏览器替身证明 Win32 焦点、DPI 或原生层级正确。
 
-## 运行
-
-```bash
-# Rust
-cd src-tauri && cargo test
-
-# Playwright 连接本地 dev server（需先启动 pnpm tauri dev）
-pnpm exec playwright test e2e-temp/<your-spec>.ts --project=chromium
-```
+临时探索测试放 e2e-temp。UI 用 DOM／截图断言；多屏、缩放、首次点击、轻量模式重建与停止后台进程需各自的实机证据。纯模块测试使用 mock Tauri，不写用户 AppData、不联网、不操作桌面。

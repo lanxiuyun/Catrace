@@ -22,7 +22,7 @@
 | 层 | 做法 |
 |----|------|
 | 后端 | `test_notification` 1s 防抖（`LAST_TEST_NOTIFICATION_AT`） |
-| 前端按钮 | `RestPluginPanel` 点完锁 1s |
+| 前端按钮 | React 测试按钮在请求期间禁用；后端限制重复测试 |
 | Bus | 相同非空 `dedupe_key` 的 active 事件先 `Superseded` 再发新事件 |
 | 真实 rest | `boundary != 0` → `dedupe_key = reminder.rest.due:{boundary}` |
 | 测试 rest | `boundary == 0` → **不设** dedupe_key（限流放开后可堆叠） |
@@ -50,8 +50,8 @@
 - `src-tauri/src/lib.rs` — test 防抖、rest dedupe_key 策略
 - `src-tauri/src/bus.rs` — publish 同 key supersede
 - `src-tauri/src/reminder_toast.rs` — ensure 可见短路
-- `src/views/ReminderToast.vue` — adjust single-flight、同 key 刷新
-- `src/components/plugins/RestPluginPanel.vue` — UI 1s 锁
+- `src/app/windows/ReminderToast.tsx` — adjust single-flight、同 key 刷新
+- [Plugins.tsx](../../src/app/pages/Plugins.tsx) — 测试请求 busy 状态
 
 ## 相关
 

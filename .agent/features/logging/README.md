@@ -4,16 +4,15 @@
 
 ## 涉及文件
 
-- `src-tauri/src/log.rs` — 日志核心：按天轮转、7 天清理、文件写入、宏定义
-- `src-tauri/src/lib.rs` — `log::init` 调用、`log_frontend` 命令、打开日志目录
-- `src/api/tauri.ts` — `logFrontend()` / `openLogsDir()` 调用封装
-- `src/main.ts` — 覆盖 `console.log/warn/error`，把前端日志转发到后端
-- `src/components/settings/LinksSettingsCard.vue` — 设置页「相关链接」里提供「日志目录」入口
-- `src/i18n/locales/zh-CN.ts` / `en-US.ts` — `settings.links.logsDesc` 翻译
-- `src-tauri/src/plugin_api/host.rs` — `plugin_api_log`（插件 WebView 日志入口）与 `mirror_plugin_log`（两窗镜像）
-- `src-tauri/src/plugin_sidecar.rs` — sidecar 结构化 `op:"log"` 落日志
-- `src/plugins/pluginApi.ts` — 后台窗 console 转发 + 镜像监听
-- `src/main.ts` — 前端 console 覆盖、F12 调 `toggle_devtools`
+- [log.rs](../../../src-tauri/src/log.rs) — 日志核心：按天轮转、7 天清理、文件写入、宏定义
+- [lib.rs](../../../src-tauri/src/lib.rs) — `log::init` 调用、`log_frontend` 命令、打开日志目录
+- [tauri.ts](../../../src/api/tauri.ts) — `logFrontend()` / `openLogsDir()` 调用封装
+- [bootstrap.ts](../../../src/app/bootstrap.ts) — 覆盖 `console.log/warn/error`，把前端日志转发到后端，并安装 F12 DevTools 快捷键
+- [LinksSettingsCard.tsx](../../../src/app/pages/settings/LinksSettingsCard.tsx) — 系统设置「相关链接」中的「日志目录」入口
+- [zh-CN.ts](../../../src/i18n/locales/zh-CN.ts) / [en-US.ts](../../../src/i18n/locales/en-US.ts) — `settings.links.logsDesc` 翻译
+- [host.rs](../../../src-tauri/src/plugin_api/host.rs) — `plugin_api_log`（插件 WebView 日志入口）与 `mirror_plugin_log`（两窗镜像）
+- [plugin_sidecar.rs](../../../src-tauri/src/plugin_sidecar.rs) — sidecar 结构化 `op:"log"` 落日志
+- [pluginApi.ts](../../../src/plugins/pluginApi.ts) — 后台窗 console 转发 + 镜像监听
 
 ## 关键行为
 
@@ -22,7 +21,7 @@
 - 行格式：`[2026-07-09 14:05:32] [tag] [level] message`
 - 保留策略：保留最近 7 天，启动时清理过期文件
 - 级别门槛：`CATRACE_LOG_LEVEL` 环境变量（`error`/`warn`/`info`/`debug`，大小写不敏感，启动读一次，非法值 stderr 告警并回退默认），默认 `info`——`log_debug!` 行不落盘，排查时设 `CATRACE_LOG_LEVEL=debug` 重启看全量
-- 前端日志 tag 统一为 `frontend`，level 映射：`log/info/debug→debug`（默认不落盘）、`warn→warn`、`error→error`
+- 主窗与提醒窗自动转发 `console.log/warn/error`；后端 tag 为 `frontend`，`log→debug`（默认不落盘）、`warn→warn`、`error→error`。`console.info/debug` 不在自动覆盖范围内
 
 ## 使用方式
 
@@ -35,7 +34,7 @@ log_error!("db", "failed: {}", e);
 log_debug!("toast", "fit w={w} h={h}"); // 默认不落盘，CATRACE_LOG_LEVEL=debug 才可见
 ```
 
-前端正常 `console.log/warn/error` 即可，会自动写入日志文件。
+前端使用 `console.log/warn/error` 即可自动转发；按日志级别门槛决定是否落盘。
 
 ## 插件日志链路
 

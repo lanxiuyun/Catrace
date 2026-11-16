@@ -120,7 +120,7 @@ export type PluginApi = {
     beep(): Promise<void>
   }
   platform: { getInfo(): Promise<PluginPlatformInfo> }
-  theme: { isDark(): Promise<boolean> }
+  theme: { isDark(): Promise<boolean>; css(cssText: string): string }
   /** Host UI locale (`zh-CN` | `en-US`). Do not read `document.documentElement.lang`. */
   i18n: { getLocale(): Promise<string> }
   /** Simple toast helper (kind defaults to plugin id). */
@@ -210,7 +210,10 @@ export function createPluginApi(pluginId: string): PluginApi {
       beep: () => invoke('plugin_api_shell_beep', { pluginId }),
     },
     platform: { getInfo: () => invoke('plugin_api_platform_get_info', { pluginId }) },
-    theme: { isDark: () => invoke('plugin_api_theme_is_dark', { pluginId }) },
+    theme: {
+      isDark: () => invoke('plugin_api_theme_is_dark', { pluginId }),
+      css: rewriteThemeColors,
+    },
     i18n: { getLocale: () => invoke<string>('plugin_api_i18n_get_locale', { pluginId }) },
     notification: { show: (options) => invoke('plugin_api_notification_show', { pluginId, options }) },
     events: {
@@ -252,7 +255,7 @@ export function createPluginApi(pluginId: string): PluginApi {
 }
 
 export function wrapPluginSource(pluginId: string, source: string): string {
-  return `const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__(${JSON.stringify(pluginId)});\n${rewriteThemeColors(source)}`
+  return `const plugin = globalThis.__CATRACE_CREATE_PLUGIN_API__(${JSON.stringify(pluginId)});\n${source}`
 }
 
 let pluginLogListener: Promise<UnlistenFn> | null = null

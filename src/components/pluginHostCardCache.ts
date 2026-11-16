@@ -1,19 +1,30 @@
-import { ref, type Component, type Ref } from 'vue'
+import { useSyncExternalStore, type ComponentType } from 'react'
+import type { PluginCardProps } from '../stores/pluginRegistry'
 
-/** Process-wide cache for plugin toast card components (toast window). */
-const cardCache = new Map<string, Component>()
-/** Bumped on clear so mounted PluginHostCards re-resolve after hot reload. */
-const cardCacheGeneration = ref(0)
+/** Cache is local to a WebView; registry enable state remains authoritative. */
+const cardCache = new Map<string, ComponentType<PluginCardProps>>()
+let generation = 0
+const listeners = new Set<() => void>()
 
-export function getPluginHostCardCache(): Map<string, Component> {
+export function getPluginHostCardCache(): Map<string, ComponentType<PluginCardProps>> {
   return cardCache
 }
 
-export function getPluginHostCardCacheGeneration(): Ref<number> {
-  return cardCacheGeneration
+export function getPluginHostCardCacheGeneration(): number {
+  return generation
 }
 
-export function clearPluginHostCardCache() {
+export function subscribePluginHostCardCache(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+export function usePluginHostCardCacheGeneration(): number {
+  return useSyncExternalStore(subscribePluginHostCardCache, getPluginHostCardCacheGeneration, getPluginHostCardCacheGeneration)
+}
+
+export function clearPluginHostCardCache(): void {
   cardCache.clear()
-  cardCacheGeneration.value += 1
+  generation += 1
+  for (const listener of listeners) listener()
 }

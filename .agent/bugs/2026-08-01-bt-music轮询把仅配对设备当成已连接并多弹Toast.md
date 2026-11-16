@@ -19,9 +19,9 @@
 - 枚举 BTHENUM/BTHHFENUM 等候选后，**必须** `IsConnected=True` 才入快照
 - UTF-8 临时文件出 JSON，不用控制台编码
 - `deviceGroupKey` + `pickPreferredEndpoint` 合并 A2DP/HFP
-- 首次成功快照 seed-only；`watchEnabled` 默认 false
+- 首次成功快照 seed-only；不立即发送连接通知
 
-代码：`tools/plugin-demo/bt-music/runtime/main.mjs`  
+插件实现在独立 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin) 仓库维护。
 说明：[windows-pnp-用IsConnected区分配对与真连接-以及轮询去重.md](../features/bt-music/windows-pnp-用IsConnected区分配对与真连接-以及轮询去重.md)
 
 ## 回归注意

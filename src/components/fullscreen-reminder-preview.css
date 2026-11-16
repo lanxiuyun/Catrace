@@ -1,0 +1,35 @@
+.ct-fullscreen-preview-figure {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.ct-fullscreen-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 0.75rem;
+  /* Illustrative transparency backdrop, not a capture of the user's desktop. */
+  background-color: #252a34;
+  background-image: conic-gradient(#303641 25%, transparent 0 50%, #303641 0 75%, transparent 0);
+  background-size: 2rem 2rem;
+}
+
+.ct-fullscreen-preview-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80rem;
+  height: 45rem;
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.ct-fullscreen-preview-figure figcaption {
+  margin-top: 0.5rem;
+  color: var(--ct-text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}

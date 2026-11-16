@@ -1,67 +1,38 @@
-# 普通应用外壳
+# 应用外壳
 
-Catrace 前端按 **窗口职责** 拆成两套壳：主窗口 `MainShell` 与 Toast/提醒窗口 `ToastShell`。路由决定挂哪套壳；`App.vue` 只提供 naive-ui / 全局样式，不再按 path 分支。
+所有原生窗口由 React Router 承载，共用单个 HTML 入口。主窗口使用 `MainShell` 布局路由，提醒与插件后台窗口使用独立 `ToastShell`，hash 路径与 Tauri 建窗 URL 对齐。
 
-## Component / module hierarchy
-
-```text
-App.vue                          # NConfigProvider + RouterView + 全局 html/body 样式
-└── router（nested）
-    ├── MainShell.vue            # /dashboard /plugins /settings /debug
-    │   ├── global-header
-    │   ├── AccessibilityBanner  # 仅 macOS 且未授权辅助功能时
-    │   └── RouterView + KeepAlive（主壳不滚动）
-    │       ├── Dashboard.vue → PageScroll
-    │       ├── Settings.vue  → PageScroll
-    │       ├── Debug.vue     → PageScroll
-    │       └── Plugins.vue
-    │           ├── PluginNavRail
-    │           └── plugin-main（固定 PluginPanelHeader + plugin-scroll）
-    └── ToastShell.vue           # /reminder-* /plugin-host
-        └── RouterView（无 KeepAlive、无 app-shell、无主窗滚动条）
-            ├── ReminderPopup.vue
-            ├── ReminderFullscreen.vue
-            ├── ReminderToast.vue
-            └── PluginHost.vue
-```
-
-目录：
+## 组件边界
 
 ```text
-src/views/
-  mainWindow/     MainShell + 主窗口页面
-  toastWindows/   ToastShell + 独立窗口页面
+main.tsx → Radix Theme（插件 UI 边界）→ RouterProvider
+├── MainShell（HeroUI 宿主 UI）
+│   ├── 侧栏 NavLink
+│   ├── Outlet → Dashboard / Plugins / Settings / Debug
+│   │              └── PluginCenter → RestSettings / ExternalPluginSettings
+│   └── Toaster
+└── ToastShell
+    └── ReminderToast / ReminderPopup / ReminderFullscreen / PluginHost
 ```
 
-## Data flow
+路由真源是 [router.tsx](../../../src/app/router.tsx)，主窗页面在 [pages/](../../../src/app/pages/)，独立窗口在 [windows/](../../../src/app/windows/)。宿主页面与 Toast 卡片使用 HeroUI；根 Radix `Theme` 暂时保留（插件 UI 依赖它），[base.css](../../../src/app/base.css) 的透明背景与根高度不能撑大提醒窗口。
 
-- 路由 nested：父组件是 Shell，子组件是具体页面；**不再**在 `App.vue` 用 `v-if` 手选组件。
-- 主窗口一级导航用 `RouterLink` active 状态。
-- `ToastShell` 监听 fullscreen / toast 路由，给 `html` 打 `reminder-transparent`，保证透明窗背景。
-- `MainShell` 只提供固定壳和全高 `overflow:hidden` 工作区，不提供 scrollbar。Dashboard / Settings / Debug 复用 `PageScroll`；Plugins 自己只滚右侧详情。
+## 布局与滚动
 
-## Key conventions
+- [MainShell.tsx](../../../src/app/shell/MainShell.tsx) 只拥有导航、工作区与全局操作提示；切页保留布局组件，页面组件会卸载。
+- 主壳与工作区 `overflow: hidden`；普通长页使用 [PageScroll.tsx](../../../src/app/components/PageScroll.tsx)，避免双层纵向滚动。
+- [PluginCenter.tsx](../../../src/app/pages/plugins/PluginCenter.tsx) 管理列表与整页详情，详情外壳、总开关、列宽与页面边距归宿主。
+- [ToastShell.tsx](../../../src/app/shell/ToastShell.tsx) 只铺满视口，不挂主窗导航或长页滚动壳。提醒页面负责透明背景、卡片布局及尺寸测量。
+- 页面样式限定在自身类名内，不能影响独立提醒窗口尺寸。
 
-- **主窗 / Toast 窗禁止耦合**：主窗 chrome（header、nav、KeepAlive、全高工作区）只进 `MainShell`；Toast 相关透明背景只进 `ToastShell`。
-- 普通页面样式限定在 `.app-shell` 内，禁止影响 Reminder Toast 的窗口尺寸测量。
-- **页面自己拥有滚动**：`MainShell` 永远不滚。普通长页用公共 `PageScroll`；特殊布局页在页面内部放 scrollbar。
-- **滚动所有者必须唯一**：禁止在主壳与页面同时套纵向 scrollbar，也禁止在 panel 内重复套 scrollbar。
-- 插件页：左右分栏；内容外壳只在宿主 `.plugin-detail`；面板组件只出业务（无 PluginPanelShell）。全局顶栏、插件侧栏、详情顶栏固定；只有 `plugin-scroll` 滚动。
-- Header 固定：高 `3rem`，左 padding `0.75rem`。
-- 应用级辅助信息放全局顶栏右侧；插件侧栏只放插件上下文。
-- macOS 辅助功能未授权时，横幅挂在 header 下方、工作区上方，四个主窗页面都能看到；不要只藏在系统设置卡。见 [[input-monitoring]]。
+## 修改入口
 
-## Sub-docs
+| 任务 | 入口 |
+|---|---|
+| 主窗导航与提示 | [MainShell.tsx](../../../src/app/shell/MainShell.tsx)、[shell.css](../../../src/app/shell/shell.css) |
+| 新页面或窗口路由 | [router.tsx](../../../src/app/router.tsx)，同时核对 Rust 建窗 URL |
+| Toast 栈与原生窗口协作 | [ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) 与 [toast/controller.ts](../../../src/app/windows/toast/controller.ts) |
+| 插件设置挂载 | [ExternalPluginSettings.tsx](../../../src/app/pages/plugins/ExternalPluginSettings.tsx) |
+| 日志、语言、主题与窗口分流 | [bootstrap.ts](../../../src/app/bootstrap.ts)、[preflight.ts](../../../src/app/preflight.ts) |
 
-- [主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md](主窗与-Toast-窗用-nested-route-拆壳-App-不再按路径分支.md) — 拆分动机、路由表、加页面要改哪。
-- [插件页左侧插件中心与右侧固定顶栏的布局约定.md](插件页左侧插件中心与右侧固定顶栏的布局约定.md) — 插件页侧栏与详情布局。
-
-## Change points
-
-1. 改一级导航 / 主窗外壳 → `src/views/mainWindow/MainShell.vue`
-2. 改普通页面公共滚动壳 → `src/components/PageScroll.vue`
-3. 改 Toast 透明背景或独立窗外壳 → `src/views/toastWindows/ToastShell.vue`
-4. 加主窗页面 → `src/views/mainWindow/` + router；普通长页包 `PageScroll`，特殊页自己定义滚动边界
-5. 加独立窗页面 → `src/views/toastWindows/` + router 的 ToastShell children
-6. 改插件二级栏或详情滚动 → `src/views/mainWindow/Plugins.vue`
-7. 全局 provider / 全局 html 样式 → `src/App.vue`（保持薄）
+一级导航与插件详情转场见[布局路由约定](主窗切页动画与布局路由约定.md)，状态与主题见[React 架构](../react-migration/README.md)。

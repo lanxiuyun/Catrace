@@ -1,330 +1,110 @@
-# Plugin Native Sidecar Runtime（M15）
+# Plugin Native Sidecar Runtime
 
-> **设计真源**。
-> Status: M15.1–M15.3 完成（lifecycle + publish/log + resolved + storage 往返 + Plugins UI runtime 状态 + 信任文案）；扫描期路径/解释器安全校验按产品决策不做
-> 上级路线图：[step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md)
+宿主为已启用插件托管本机子进程，通过 UTF-8 JSON Lines 连接 stdin/stdout。宿主提供通用能力和生命周期，插件业务在独立仓库 [catrace-plugin](https://github.com/lanxiuyun/catrace-plugin) 维护。
 
-## 0. 一句话
+## 运行模型
 
-**WebView background 继续编排；要动 OS 时插件自带 sidecar 进程；Rust 只托管进程 + 窄 bridge，不写业务洞。**
+- `sidecar` 与 `background` 是独立的可选入口；只声明 `sidecar` 时只启动子进程。
+- 声明 `background` 时，[PluginWindowManager](../../../src-tauri/src/plugin_window.rs) 为该插件创建 `plugin-bg-<id>` 隐藏 WebView。
+- 无界面调度与动作处理优先使用 sidecar；页面级能力使用 background。选择约定见[宿主能力 op 与运行入口](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。
+- Toast 卡与设置组件留在 WebView；设置可经 `plugin.sidecar.request()` 调用本插件进程，Toast 的处理结果经 Bus 回传。
 
-> **2026-09-29 更新**：能力 op 补齐后（`activity.get` / `clipboard.write_text` / `shell.open_url` / `config.get` / `config.set`），**`background` 不再是后台逻辑的必要条件**——定时、读活跃、写 storage、处理卡片动作 sidecar 都能做。新插件建议把后台逻辑直接写在 `runtime/main.mjs`，不再新增 `background` 字段（每个 background 插件多一个隐藏 WebView，约 60MB 私有内存）。详见 [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。
+启用即信任插件的本机代码。宿主不按业务添加专用 API，也不替插件安装 npm 依赖。
 
-## 1. 为什么要有这层
-
-| 压力 | 没有 sidecar | 有 sidecar |
-|------|----------------|------------|
-| 蓝牙耳机 → Toast → 开播放器 | 宿主加蓝牙 API + open API | 插件 `runtime/` 自己听设备、自己 spawn |
-| 第 N 个硬件/脚本插件 | Rust 开第 N 个洞 | 宿主不动 |
-| 信任模型 | 启用即信任但跑不了真本机代码 | 启用 = 允许声明的本地进程 |
-
-M11 已解决「后台常驻 JS」。M15 解决「本机原生能力放哪」。
-
-## 2. 进程拓扑
-
-```
-                    ┌─────────────────────────────┐
-                    │  Catrace main (Rust/Tauri)  │
-                    │  PluginManager              │
-                    │  PluginWindowManager (M11)  │
-                    │  PluginSidecarManager (M15) │
-                    └──────────┬──────────────────┘
-           enable+background   │   enable+sidecar
-                ▼              │          ▼
-     ┌──────────────────┐      │   ┌──────────────────┐
-     │ plugin-bg-<id>   │      │   │ child process    │
-     │ background.mjs   │◄─────┼──►│ (node/ps1/exe)   │
-     │ (hidden WebView) │ emit │   │ stdio JSON lines │
-     └────────┬─────────┘      │   └────────┬─────────┘
-              │ publish        │            │ publish/log/storage
-              ▼                │            ▼
-     EventBus → Toast ui.mjs   │   同一套 allows_event / storage 命名空间
-```
-
-- 可只有 background、只有 sidecar、或两者都有。  
-- Toast / settings **不**直接连 sidecar；经 Bus 与 resolved 回传。
-
-## 3. manifest 扩展
-
-在现有 M10/M11 字段上增加 **可选** `sidecar`：
+## Manifest 与命令解析
 
 ```json
 {
-  "id": "bt-music",
-  "name": "蓝牙听歌",
-  "version": "0.1.0",
-  "main": "ui.mjs",
-  "background": "background.mjs",
-  "settings": "settings.mjs",
-  "events": ["bt-music", "kind:bt-music", "bt-music.connected"],
-  "enabledByDefault": false,
+  "id": "my-plugin",
+  "name": "我的插件",
+  "version": "1.0.0",
+  "events": ["my-plugin", "my-plugin.tick"],
   "sidecar": {
     "command": "node",
-    "args": ["runtime/main.js"],
+    "args": ["runtime/main.mjs"],
     "cwd": ".",
-    "env": {
-      "BT_MUSIC_DEBUG": "1"
-    }
+    "env": { "MY_PLUGIN_DEBUG": "1" }
   }
 }
 ```
 
-| 字段 | 规则 |
-|------|------|
-| Field | Runtime rule |
-|------|------|
-| `command` | Relative paths use the plugin root. Bare names go through `sidecar::resolve_program`：系统 PATH + 常见安装目录 + **宿主托管的便携运行时目录**（如 `app_data/runtime/node`）。系统已装的同名命令优先。缺 `node` 时插件中心整页引导一键安装，不必重启应用。 |
-| `args` | Passed through unchanged |
-| `cwd` | Defaults to `.` under the plugin root, but other paths are allowed |
-| `env` | Optional string map; host `CATRACE_*` values are injected last |
-
-Without `sidecar`, behavior is unchanged. Manifest scanning only parses structure; it does not apply path, interpreter allowlist, or environment-variable security checks. Spawn failures are runtime errors.
-
-## 4. 宿主模块（实现）
-
-| 模块 | 职责 | 状态 |
-|------|------|------|
-| `src-tauri/src/plugin_sidecar.rs` | 启停、stdout JSONL、stdin resolved/shutdown、杀进程树；写 stdin 不持 running 锁 | ✅ M15.1–M15.2 |
-| `plugins.rs` | 解析 `sidecar` → `PluginSidecarSpec` / 列表；与 enable/rescan 同步 | ✅ |
-| `plugin_commands.rs` | publish/log 入站与 background 共用校验路径 | ✅ publish/log/storage |
-| `bus.rs` | resolve 后 `notify_plugin_resolved` → sidecar stdin | ✅ |
-| `lib.rs` | `PluginSidecarManager` state；与 window 同一 schedule 点；注册托管 bin 目录 | ✅ |
-| `node_runtime.rs` | 便携 Node 检测/下载/解压；`command:node` 解析不到时供 UI 一键安装 | ✅ Windows x64 |
-| Plugins UI / anomaly | sidecar 运行态展示；缺 Node 时右侧整页 gate | ✅ |
-
-启停触发：
-
-- enable → `sync_plugin(id)` 只启动这一颗；disable → 只停这一颗  
-- 插件页刷新 → `schedule_sync_force`（按 enable/disable 全量重启）  
-- 被动 list/rescan → `schedule_sync`：补齐未启动、停已禁用、换已崩溃；**不**因指纹弹健康进程  
-- 退出仍杀进程树  
-- **禁止**在 `setup()` 同步长阻塞；`spawn_blocking` + 锁，同 `PluginWindowManager::schedule_sync`
-- **扫描期不做**路径穿越 / 解释器 allowlist / env 安全校验（产品决策）；spawn 失败当运行时错误
-
-## 5. Bridge 协议 v1
-
-### 5.1 传输
-
-- Windows / macOS / Linux：子进程 **stdin / stdout**  
-- 文本 UTF-8，**JSON Lines**（一条 JSON + `\n`）  
-- stderr：宿主按行 `plugin_log` level=warn（截断单行长度，防刷盘）  
-- 缓冲：按行拆包；单行上限建议 1 MiB，超限记 anomaly 并丢该行  
-
-### 5.2 Sidecar → Host
-
-| op | 作用 | 备注 |
-|----|------|------|
-| `ready` | 握手完成 | 可选；超时未 ready 仅 log |
-| `publish` | 发 Bus 事件 | body 同 `PluginPublishInput` 语义；source 由宿主填 |
-| `log` | 写宿主日志 | |
-| `storage.set` / `storage.get` | 私有 KV | get 需 `id` 关联响应 |
-| `activity.get` | 活跃快照（键鼠/媒体/全屏） | 口径同 `plugin_api_get_activity`；取代 `plugin.activity.get` |
-| `clipboard.write_text` | 写剪贴板 | `ClipboardExt` 挂在 AppHandle 上，不依赖 WebView |
-| `shell.open_url` | 开外部链接 | **仅 http/https**（比 webview 版严） |
-| `config.get` / `config.set` | 插件配置读写 | set 会广播 `catrace:plugin-config-changed`；payload 未带 `enabled` 时保留存量值 |
-| `error` | 插件自报错误 | 可标 anomaly |
-
-能力 op 与 `storage.*` 同模板：带 `requestId`，宿主回 `op:"response"`；插件侧 2.5s 超时按失败处理（门控逻辑应 fail-open）；宿主按「已安装 + 已启用」鉴权。落点见 [插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。
-
-示例：
-
-```json
-{"v":1,"op":"publish","event":{
-  "eventType":"bt-music.connected",
-  "kind":"bt-music",
-  "title":"耳机已连接",
-  "body":"WH-1000XM5",
-  "dedupeKey":"bt-music:connected",
-  "actions":[{"id":"open-player","label":"打开听歌"}],
-  "payload":{"deviceName":"WH-1000XM5"}
-}}
-```
-
-### 5.3 Host → Sidecar
-
-| op | 时机 |
-|----|------|
-| `config` | **仅 spawn 时**推送整包 config；运行期改配置要到 reload/重启 sidecar 才到达 |
-| `response` | 应答 sidecar 的请求（`storage.*` 与全部能力 op） |
-| `resolved` | 用户点 Toast action / dismiss（Plugin 源）；**携带完整事件 payload + `actionId`**，sidecar 可直接据此做动作（不再需要 DOM 事件通道） |
-| `shutdown` | 禁用前尽量优雅退出；随后仍 SIGKILL/taskkill 兜底 |
-
-> activity 最终做成**拉取式** `activity.get`（sidecar 主动问），不是设计里预留的宿主周期推送——少一条推送路径，也不需要 sidecar 处理时序。
-
-### 5.4 身份
-
-- 进程在 `PluginSidecarManager` 的 map 里键为 `plugin_id`  
-- 入站 op **不**信任 JSON 内的 pluginId 字段（若有则忽略）  
-- publish → `EventSource::Plugin { name: plugin_id }`
-
-## 6. 生命周期状态机
-
-```
-disabled
-   │ enable + sidecar 校验通过
-   ▼
-starting ──spawn fail──► error (UI 可见，可重试)
-   │ ready 或首条合法 op
-   ▼
-running ──crash──► backoff restart（有限次数）──► error
-   │ disable / app exit / 插件页刷新(force) / 关开自己
-   ▼
-stopping → (shutdown 宽限 e.g. 1s) → kill → disabled
-```
-
-- 与 background 窗：**独立**失败域。sidecar 挂了不自动毁 WebView；WebView 挂了不自动杀 sidecar（但 disable 两者都停）。  
-- 重启策略 v1：崩溃后最多 3 次、指数退避；再失败标 anomaly + error，等用户 disable/enable。
-
-## 7. Command execution contract
-
-- Local plugins use the existing enable-means-trust model. The host does not restrict `command`, `args`, `cwd`, or plugin-provided environment variables.
-- Relative commands resolve from the plugin root; bare names use system `PATH`; absolute paths are passed through.
-- The host retains lifecycle boundaries only: start while enabled and terminate the process tree on disable, uninstall, or app exit.
-- Host identity values such as `CATRACE_PLUGIN_ID` and `CATRACE_PROTOCOL_VERSION` are injected last, so manifest values with the same names do not take effect.
-- Spawn failures are runtime errors and do not invalidate the plugin during manifest scanning.
-
-## 8. 与现有能力的分工
-
-| 需求 | 推荐落点 |
+| 字段 | 运行规则 |
 |------|----------|
-| 定时提醒、读 activity、发 Toast、处理卡片动作 | **sidecar**（`setInterval` + `activity.get` + `publish` + `resolved`）；只有需要 DOM/页面级能力时才用 background.mjs |
-| 蓝牙/USB/音频端点/WMI | **sidecar** |
-| 启动播放器/打开目录/开链接 | sidecar `spawn` 或 `shell.open_url` |
-| 自定义 Toast UI | ui.mjs |
-| 用户配置播放器路径 | settings.mjs → plugin_config |
-| 连 napcat WebSocket | sidecar（Node 自带 WebSocket），不必 background |
+| `command` | 带路径分隔符或以 `.` 开头的相对命令从插件根解析；绝对路径原样使用；裸命令经 `resolve_program` 查找 |
+| `args` | 原样传给子进程 |
+| `cwd` | 默认插件根目录；相对路径从插件根解析，也接受绝对路径 |
+| `env` | 附加到继承的环境；宿主最后注入 `CATRACE_PLUGIN_ID` 与 `CATRACE_PROTOCOL_VERSION=1` |
 
-`plugin_open_path`（若做）：
+[sidecar_spec](../../../src-tauri/src/plugins.rs) 负责路径组合；[resolve_program](../../../src-tauri/src/sidecar/command.rs) 先查系统 PATH，再查额外目录。额外目录包括宿主注册的 `app_data/runtime/node` 及其 `bin` 子目录，以及各平台常见安装目录。
 
-- 仅 background 窗 label 身份  
-- 目标为绝对 path 或 `http(s):`；**不做** `cmd /c` 拼接  
-- 有 sidecar 的插件可不用它
+Manifest 扫描不对 sidecar 的 command/cwd/env 设置解释器白名单或目录沙箱；可执行文件缺失等问题在 spawn 时返回。安装包与入口文件的校验见[外部插件合同](m10-external-plugins.md)。
 
-## 9. 插件作者指南（摘要）
+## 生命周期
 
-### 最小 sidecar（Node）
+实现真源：[PluginSidecarManager](../../../src-tauri/src/plugin_sidecar.rs)。
 
-`runtime/main.js`：
-
-```js
-import readline from 'node:readline'
-
-function send(obj) {
-  process.stdout.write(JSON.stringify(obj) + '\n')
-}
-
-send({ v: 1, op: 'ready' })
-send({
-  v: 1,
-  op: 'log',
-  level: 'info',
-  message: 'sidecar up',
-  data: { pluginId: process.env.CATRACE_PLUGIN_ID },
-})
-
-// 示例：定时 publish；真蓝牙在此替换
-setInterval(() => {
-  send({
-    v: 1,
-    op: 'publish',
-    event: {
-      eventType: 'sidecar-echo.tick',
-      kind: 'sidecar-echo',
-      title: 'Sidecar',
-      body: 'hello from native runtime',
-      dedupeKey: 'sidecar-echo:tick',
-    },
-  })
-}, 15_000)
-
-const rl = readline.createInterface({ input: process.stdin })
-rl.on('line', (line) => {
-  let msg
-  try { msg = JSON.parse(line) } catch { return }
-  if (msg.op === 'shutdown') process.exit(0)
-  if (msg.op === 'resolved' && msg.actionId === 'open-player') {
-    // spawn player from config — config 可由 host 推送
-  }
-})
-```
-
-### 目录
-
-```
-plugins/bt-music/
-  manifest.json
-  ui.mjs
-  background.mjs          # 可选
-  settings.mjs
-  runtime/
-    main.js
-    package.json          # 可选；作者自管依赖，宿主不 npm install
-```
-
-宿主 **不** 在启用时执行 `npm install`（v1）。需要依赖：作者打 exe，或文档要求用户在插件目录自装。
-
-## 10. Demo 包（实现里程碑附带）
-
-| 包 | 目的 | 状态 |
-|----|------|------|
-| `tools/plugin-demo/sidecar-echo` | 无硬件：15s timer publish + action echo roundtrip + dismiss；disable 杀进程 | ✅ 真机验收 |
-| `tools/plugin-demo/bt-music` | 目标场景；mock「模拟连接」→ Toast → open-player；可选 Windows PnP 轮询且 **必须** `DEVPKEY_Device_IsConnected=True`（配对≠连接） | ✅ 包已落地；模拟 + 真机 IsConnected 门控已手测 |
-
-Debug junction 规则与现有 demo 相同（`ensure_dev_plugin_links`）。
-
-**sidecar-echo 手测要点**：回传 Sidecar 后卡不消失且序号/payload 更新；点完成卸卡；连点不冻透明 toast 窗。  
-Toast 约定见 [.agent/features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md)。
-
-## 11. 实现顺序（建议切片）
-
-1. ~~**Manifest parsing + spec**~~ ✅  
-2. ~~**PluginSidecarManager 启停 + 杀进程树**~~ ✅  
-3. ~~**stdout 行解析 → publish/log**~~ ✅  
-4. ~~**stdin：shutdown + resolved 转发**~~ ✅  
-5. **storage get/set 往返** ✅ M15.3  
-6. **Plugins UI：sidecar 状态 / 错误 / anomaly** ✅ M15.3  
-7. ~~**sidecar-echo demo 真机验收**~~ ✅（含 toast echo keep / dismiss 卸卡）  
-8. **桌面能力完整 demo** ✅ 真机验收：`sidecar-echo/settings.mjs` 验证环境变量、文件/目录选择、启动程序、HTTP GET；见 [外部插件-settings调用宿主桌面能力-demo.md](外部插件-settings调用宿主桌面能力-demo.md)
-9. **bt-music demo** ✅ 包已落地并手测（模拟全链路 + Windows `IsConnected` 真连接门控；见 [[bt-music]]）
-10. （可选）`plugin_open_path` 给无 sidecar 插件
-11. 信任文案补「sidecar = 本机任意代码」✅
-
-## 12. 完成定义（M15）
-
-- [x] 启用含合法 `sidecar` 的插件会拉起进程；禁用后无残留子进程  
-- [x] sidecar `publish` 与 background `plugin_publish_event` 同等校验（events 白名单、保留 kind）  
-- [x] Missing command or interpreter produces a clear runtime error without crashing the host
-- [x] Toast action resolve 能到达 sidecar stdin  
-- [x] `sidecar-echo` 手测通过（回传留卡 / 完成卸卡 / 不冻窗）  
-- [x] Settings → 通用 sidecar RPC → Node 桌面能力手测通过（环境 / 文件 / 目录 / 进程 / GET）
-- [x] 文档与 m10 信任说明更新「sidecar = 本机代码」  
-- [x] **无** 蓝牙/业务专用 Rust API  
-- [x] sidecar storage request/response（M15.3）  
-- [x] Plugins UI runtime 状态（M15.3）  
-
-落地细节见 [sidecar-storage往返协议与Plugins-UI运行态约定.md](sidecar-storage往返协议与Plugins-UI运行态约定.md)。
-
-### 后续增强（M15 之后）
-
-- [x] **孤儿进程兜底（2026-08-08）**：Windows 上 sidecar 挂 Job Object `KILL_ON_JOB_CLOSE`，宿主崩溃/强杀/更新重启也不留孤儿占端口。见 [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) 与 [../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md](../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md)。
-
-## 13. 风险
-
-| 风险 | 缓解 |
+| 触发 | 行为 |
 |------|------|
-| 孤儿进程 | ✅ **已实现**：Windows 上 spawn 每个 sidecar 挂 Job Object（`KILL_ON_JOB_CLOSE`），宿主任何退出路径 OS 自动杀整树；见 [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) |
-| Malicious plugin | Enable-means-trust warning; no marketplace; install trusted sources only |
-| Node 未安装 | 明确错误；推荐自带 exe 或 ps1 |
-| stdio 死锁 | 读 stdout/stderr 独立线程；写 stdin 带队列 |
-| 与「不内置 Node」冲突误解 | 文档写清：可选、外置、不进安装包 |
-| 隐藏 WebView 被误读为推翻 | M11 仍默认 background；sidecar 可选 |
+| 应用启动、普通 `list_external_plugins` | 异步同步：启动缺失进程、停止已禁用进程、替换已退出进程；保留健康进程 |
+| `set_external_plugin_enabled` | 持久化后同步该插件的 sidecar 与 background；不重启其他插件 |
+| 启用时运行态同步失败 | 回滚为停用，清理该插件运行入口，向调用方返回错误 |
+| `list_external_plugins(restartSidecars: true)` | 显式请求全量重启已启用的 sidecar |
+| 卸载 | 先撤销启用状态，停止运行入口，再移除安装目录 |
+| 正常退出 | `stop_all` 停止托管进程 |
 
-## 14. 相关
+`ready` 只记录日志；进程 spawn 成功即可进入托管集合。退出进程在后续同步时替换，当前实现没有独立的定时崩溃重试器。
 
-- [m10-external-plugins.md](m10-external-plugins.md) — Card / settings / 信任  
-- [step3-roadmap-plugin-runtime.md](step3-roadmap-plugin-runtime.md) — M11–M15  
-- [../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md](../../bugs/2026-07-31-sidecar-echo回传动作导致toast卡死与完成关不掉.md) — echo 回传卡死  
-- [sidecar孤儿进程清理-Windows-Job-Object实现.md](sidecar孤儿进程清理-Windows-Job-Object实现.md) — 宿主退出自动回收孤儿进程（Job Object）  
-- [../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md](../../bugs/2026-08-08-sidecar孤儿进程占用端口不随宿主退出释放.md) — 孤儿占端口 bug 报告
-- [../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md](../../features/toast-window/插件sticky卡-action回传时只对echo留卡-dismiss仍卸卡.md) — sticky action 留卡规则  
-- [../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md](../../devlog/2026-07-31-M15-sidecar运行时与echo演示及toast回传卡死修复.md) — 本轮 devlog  
+停止时先发送 `shutdown`，最多等待约 500ms，再强制终止。Windows 使用 `taskkill /T /F`，并为每个 sidecar 持有 `KILL_ON_JOB_CLOSE` Job Object，覆盖宿主崩溃或强杀；Job 分配失败时写 warning。非 Windows 强制终止调用 `Child::kill`，不承诺回收任意派生进程。Windows 细节见[Job Object 清理](sidecar孤儿进程清理-Windows-Job-Object实现.md)。
+
+## JSONL 协议
+
+每行一条 JSON，以 `\n` 结束，消息使用 `v: 1`。stdout 是协议通道，stderr 单独逐行写 warning；普通调试文本应走 `log` 或 stderr。
+
+### Sidecar → Host
+
+| op | 字段 / 语义 |
+|----|-------------|
+| `ready` | 就绪日志 |
+| `publish` | `event` 使用 `PluginPublishInput`；可带 `requestId`，成功时应答 `{ eventId }` |
+| `resolve` | `eventId`：仅关闭本插件的 active 事件，resolution 为 `dismissed` |
+| `log` | `level`、`message`、可选 `data` |
+| `response` | 应答宿主 RPC：`requestId`、`ok`、`result` 或 `error` |
+| `storage.get` / `storage.set` | `requestId`、`key`；set 另带 `value`，见[Storage 往返](sidecar-storage往返协议与Plugins-UI运行态约定.md) |
+| `activity.get` | `requestId`；拉取 `{ active, at }` |
+| `clipboard.write_text` | `requestId`、`text` |
+| `shell.open_url` | `requestId`、`url`，仅 http/https |
+| `config.get` / `config.set` | `requestId`；set 另带整对象 `config` |
+
+能力请求统一回 `op: "response"`，具体字段与配置约定见[宿主能力 op](插件后台逻辑迁到sidecar-宿主能力op与不建WebView的约定.md)。`publish` 失败只记录 warning，不保证给 `requestId` 错误应答。
+
+### Host → Sidecar
+
+| op | 时机 / 语义 |
+|----|-------------|
+| `config` | 仅 spawn 时，且宿主已存有该插件配置时推送整包 `config` |
+| `request` | `requestId`、`method`、`params`：来自主窗口设置中的 `plugin.sidecar.request()` |
+| `response` | 应答 sidecar 的 Storage 或宿主能力请求 |
+| `resolved` | Plugin 源事件 resolve 后投递；包括 action、dismiss、expired、superseded 等结果 |
+| `shutdown` | 停止前请求优雅退出 |
+
+宿主到 sidecar 的自定义 RPC 由主窗口发起，宿主等待应答最多 30 秒；进程停止或重启会让待处理 RPC 失败。运行期配置写入只广播配置变更事件，不自动追加 stdin `config`；需要实时同步时使用插件自定义 RPC 或主动 `config.get`。
+
+`resolved` 包含 `eventId`、`eventType`、`kind`、事件 `payload`、`actionId`、`resolutionKind`、`resolutionPayload`。[Bus 转发](../../../src-tauri/src/bus.rs) 同时通知已存在的 background 窗与 sidecar；动作业务由插件处理。
+
+## 身份与并发边界
+
+- 读 stdout 的线程由宿主绑定 `plugin_id`，不使用消息自报的 pluginId。
+- `publish` 复用 [publish_plugin_event](../../../src-tauri/src/plugin_commands.rs)，source 固定为 `Plugin { name: plugin_id }`，校验启用状态、manifest `events` 和保留 kind。
+- `resolve` 校验事件 source，不能关闭其他插件的事件。
+- activity / clipboard / shell / config 请求要求插件已安装且启用。
+- Storage 按宿主绑定的 plugin id 隔离，key 校验见[Storage 协议](sidecar-storage往返协议与Plugins-UI运行态约定.md)。
+- stdout 与 stderr 使用独立读线程；stdin 写入由独立 mutex 串行化。
+- `send_resolved` 与 `reply_sidecar` 在 running map 锁内只 clone stdin 句柄，释放 map 锁后再写管道；`send_resolved` 另开线程，避免 Toast action 热路径等待子进程读 stdin。
+
+## 相关
+
+- [外部插件合同](m10-external-plugins.md) — 扫描、入口、Blob 加载与设置面
+- [宿主桌面 API](外部插件-settings调用宿主桌面能力-demo.md) — WebView facade 与 Rust 能力边界
+- [插件中心](../../features/plugin-center/README.md) — 仓库安装、启停和设置界面
+- [插件配置与运行数据](插件配置和运行数据必须分开存储.md) — 配置与 KV 的分工
+- [插件开发入口](../../skills/external-plugin-authoring/README.md) — 独立插件仓库的开发文档

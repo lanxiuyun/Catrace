@@ -1,0 +1,184 @@
+.ct-rest-timer-ball {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct-rest-timer-ball .rest-timer__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+/* 使用纯 CSS 径向渐变背景，避免 SVG 内定义重复 */
+.ct-rest-timer-ball::before {
+  content: '';
+  position: absolute;
+  inset: 0.25rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--ct-success-soft) 0%, var(--ct-success-soft) 100%);
+  z-index: 0;
+}
+
+.ct-rest-timer-ball .rest-timer__ticks {
+  fill: none;
+  stroke: var(--ct-success-soft);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ct-rest-timer-ball .rest-timer__track {
+  fill: none;
+  stroke: var(--ct-success-soft);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.ct-rest-timer-ball .rest-timer__progress {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct-rest-timer-ball .rest-timer__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.ct-rest-timer-ball .rest-timer__number {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--ct-success);
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.3s ease;
+}
+
+.ct-rest-timer-ball .rest-timer__unit {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--ct-success-strong);
+  margin-top: 0.125rem;
+  letter-spacing: 0.02em;
+}
+
+.ct-rest-timer-ball .rest-timer__pulse {
+  position: absolute;
+  inset: -0.375rem;
+  border-radius: 50%;
+  border: 0.125rem solid rgba(5, 150, 105, 0.2);
+  opacity: 0;
+  animation: ct-rest-timer-ball-rest-breathe 2.8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ct-rest-timer-ball .rest-timer__sparkle {
+  position: absolute;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ct-cyan) 0%, rgba(52, 211, 153, 0) 70%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  animation: ct-rest-timer-ball-sparkle-twinkle 2.4s ease-in-out infinite;
+}
+
+.ct-rest-timer-ball .sparkle--1 {
+  top: 12%;
+  right: 14%;
+  animation-delay: 0s;
+}
+
+.ct-rest-timer-ball .sparkle--2 {
+  bottom: 16%;
+  left: 10%;
+  width: 0.25rem;
+  height: 0.25rem;
+  animation-delay: 0.8s;
+}
+
+.ct-rest-timer-ball .sparkle--3 {
+  top: 22%;
+  left: 16%;
+  width: 0.3rem;
+  height: 0.3rem;
+  animation-delay: 1.6s;
+}
+
+.ct-rest-timer-ball.rest-timer--complete .rest-timer__progress {
+  stroke: var(--ct-success);
+}
+
+.ct-rest-timer-ball.rest-timer--complete .rest-timer__pulse {
+  border-color: rgba(16, 185, 129, 0.45);
+  animation-duration: 1.6s;
+}
+
+.ct-rest-timer-ball.rest-timer--complete .rest-timer__number {
+  animation: ct-rest-timer-ball-number-pop 0.5s ease;
+}
+
+.ct-rest-timer-ball.rest-timer--complete .rest-timer__sparkle {
+  background: radial-gradient(circle, var(--ct-cyan) 0%, rgba(52, 211, 153, 0) 60%);
+  animation-duration: 1.4s;
+}
+
+@keyframes ct-rest-timer-ball-rest-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.55;
+  }
+}
+
+@keyframes ct-rest-timer-ball-sparkle-twinkle {
+  0%, 100% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.9;
+  }
+}
+
+@keyframes ct-rest-timer-ball-number-pop {
+  0% {
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-rest-timer-ball .rest-timer__progress,
+  .ct-rest-timer-ball .rest-timer__number {
+    transition: none;
+    animation: none;
+  }
+
+  .ct-rest-timer-ball .rest-timer__pulse,
+  .ct-rest-timer-ball .rest-timer__sparkle {
+    animation: none;
+    opacity: 0;
+  }
+}

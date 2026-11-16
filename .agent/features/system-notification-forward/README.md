@@ -21,8 +21,8 @@
 
 - `src-tauri/src/notification_listener.rs` — 全部逻辑：worker 线程、轮询、解析、发布、移除、按钮与主操作的读取与触发、设置存取与五个命令（`get_notification_forward_status` / `set_notification_forward_enabled` / `set_notification_takeover_enabled` / `open_notification_permission_settings` / `trigger_notification_action`）
 - `src-tauri/src/lib.rs` — `mod`、setup 里注册状态并按设置恢复监听、命令注册
-- `src/components/settings/SysNotifySettingsCard.vue` — 设置卡（注册进 `Settings.vue` 的 `CORE_GROUP_KEYS`，i18n 组名 `sysNotify`）
-- `src/components/NotificationToastCard.vue` — 卡片；`ReminderToast.vue` 的 `BUILTIN_TOAST_KINDS` 加 `notification` 并加模板分支
+- [SysNotifySettingsCard.tsx](../../../src/app/pages/settings/SysNotifySettingsCard.tsx) — 设置页核心卡 `sysNotify`
+- [NotificationToastCard.tsx](../../../src/components/NotificationToastCard.tsx) — React 卡片；[busEvents.ts](../../../src/app/windows/toast/busEvents.ts) 解析事件，[ReminderToast.tsx](../../../src/app/windows/ReminderToast.tsx) 选择互斥渲染分支
 - `src/api/tauri.ts` / `src/i18n/locales/*` — 命令封装与文案
 
 ## 子文档

@@ -20,7 +20,7 @@
 - `src-tauri/src/lib.rs` — `get/set_lightweight_mode`、`lightweight_mode_enabled`、`attach_main_window_events`、`show_or_rebuild_main_window`；setup 的自启/预创建分支；`close_reminder_window` 的销毁分支
 - `src-tauri/src/reminder_toast.rs` — `request_destroy_toast_window`（走 `TOAST_MUTEX` 串行）
 - `src-tauri/src/plugin_api/window.rs` — `plugin_api_window_show_main` 改走重建路径
-- `src/api/tauri.ts` / `src/components/settings/SystemSettingsCard.vue` / `src/i18n/locales/*` — 开关 UI
+- `src/api/tauri.ts` / `src/app/pages/settings/SystemSettingsCard.tsx` / `src/i18n/locales/*` — 开关 UI
 
 ## 实现要点（为什么必须这样）
 
@@ -28,7 +28,7 @@
 - **重建必须先隐藏创建（`visible(false)`）且不要手动 `restore_state`**：初版重建「创建即可见 + build 后手动 restore」会导致主线程卡死（白屏「未响应」，压测第 3 轮稳定复现）。细节、复现手法与修法见 [bug 记录](../../bugs/2026-09-29-轻量模式重建主窗白屏未响应.md)。
 - **主窗重建是新增能力**：原实现所有入口（托盘、单实例、`show_main_window`、插件 `showMain`）都是「get 失败 → 静默无操作」，主窗销毁后这些入口会全部失效，因此统一收敛到 `show_or_rebuild_main_window`。
 - **Toast 销毁必须走 `TOAST_MUTEX`**：`close_reminder_window` 与 `ensure_toast_window_visible` 并发时，若销毁不拿锁，会出现「ensure 复用分支刚拿到句柄 → 窗口被销毁」的窗口期，实时 emit 无人渲染。
-- **销毁时机由前端保证安全**：`ReminderToast.vue` 只在卡片数组清空后才调 `closeWindow`，后端收到时必然无 sticky 卡；错过的实时事件靠 `getActiveEvents` 水合恢复。
+- **销毁时机由前端保证安全**：Toast [controller](../../../src/app/windows/toast/controller.ts) 只在卡片数组清空后才调用 `closeWindow`，后端收到时必然无 sticky 卡；错过的实时事件靠 `getActiveEvents` 水合恢复。
 - **window-state API 注意**：`save_window_state` 在 `AppHandleExt` trait（AppHandle 上），`restore_state` 在 `WindowExt` trait（WebviewWindow 上），两者都要显式 use。
 
 ## 已知取舍

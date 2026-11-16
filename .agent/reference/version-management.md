@@ -21,6 +21,8 @@ pnpm version:set 26.8.26
 
 正式发布包含宿主与内置插件的 Catrace 版本时，**先在 `main` 完成版本更新，再把 `main` 合入 `release`**。`release` 分支是发布触发器，不是版本开发分支。
 
+发布前先在 `website/latest/` 按累积时间线补上本版更新说明（新增节点、保留历史，格式见 [auto-update 发布链路](../features/auto-update/README.md#发布链路)），官网说明就绪后再改版本号。
+
 1. 在 `main` 分支运行 `pnpm version:set <新版本>`，让 CLI 同步更新上表的四个版本文件。
 2. 检查差异，提交版本更新（中文、用户可读的发布说明标题），然后 `git push origin main`。
 3. 切换到 `release`，先同步远端，再将 `main` 合并进 `release`，然后 `git push origin release`。

@@ -10,7 +10,7 @@
 
 `plugin.i18n.getLocale()` → DB `locale`（`zh-CN` | `en-US`，空则 `zh-CN`）。规则自定义 title/body 保持原文，只翻译缺省标题和三个按钮。
 
-实现：`tools/plugin-demo/timer/background.mjs`、`settings.mjs` 的 `getLocale` / `actionLabel`；宿主 `plugin_api_i18n_get_locale`。
+实现：`catrace-plugin/timer/background.mjs`、`settings.mjs` 的 `getLocale` / `actionLabel`；宿主 `plugin_api_i18n_get_locale`。
 
 ## 不要用的路
 
