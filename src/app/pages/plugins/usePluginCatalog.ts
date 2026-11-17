@@ -40,6 +40,7 @@ export function usePluginCatalog() {
     const raw = String(error)
     const text = raw.startsWith('Error: ') ? raw.slice(7) : raw
     if (text.trim() === 'source_rate_limited') return t('pluginMarket.sourceRateLimited')
+    if (text.trim() === 'plugin_not_installed') return t('pluginMarket.pluginNotInstalled')
     const match = /^rate_limited\|(\d+)$/.exec(text.trim())
     if (!match) return text
     const epoch = Number(match[1])
@@ -244,7 +245,12 @@ export function usePluginCatalog() {
     try { await loadExternalPlugins({ force: true }) }
     catch (error) { console.warn('[plugins] reload after update failed', error) }
     await emit('catrace:reload-external-plugins').catch(() => {})
-    showToast(t('pluginMarket.updatedMessage', { name: result.name, version: result.version }))
+    // 后端重启运行时失败时会把插件留在停用态；文件已更新，不能再用「更新失败」误导用户。
+    if (result.restartError) {
+      showToast(t('pluginMarket.updatedRestartFailed', { name: result.name, version: result.version }), 'error')
+    } else {
+      showToast(t('pluginMarket.updatedMessage', { name: result.name, version: result.version }))
+    }
   })
 
   const uninstall = (id: string) => run(id, async () => {

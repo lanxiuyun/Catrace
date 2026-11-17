@@ -910,11 +910,12 @@ fn ensure_not_installed(root: &Path, id: &str) -> Result<(), String> {
 }
 
 /// 更新只作用于本机已安装的插件；更新流程会覆盖安装目录，所以这里必须先确认它存在。
+/// 返回的标记由插件中心翻译，避免后端把中文报错带到英文界面。
 fn ensure_installed(root: &Path, id: &str) -> Result<(), String> {
     match fs::symlink_metadata(root.join(id)) {
         Ok(_) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            Err(format!("插件「{id}」未安装，无法更新；请先安装。"))
+            Err("plugin_not_installed".into())
         }
         Err(error) => Err(format!("inspect installed plugin {id}: {error}")),
     }
@@ -1389,5 +1390,16 @@ mod tests {
             store_api_response(&format!("test://cache/{index}"), "e", b"b");
         }
         assert!(api_cache().lock().unwrap().len() <= MAX_CACHED_API_RESPONSES);
+    }
+
+    #[test]
+    fn update_target_must_already_be_installed() {
+        let root = TempDir::new();
+        assert_eq!(
+            ensure_installed(&root.0, "demo").unwrap_err(),
+            "plugin_not_installed"
+        );
+        fs::create_dir(root.0.join("demo")).unwrap();
+        assert!(ensure_installed(&root.0, "demo").is_ok());
     }
 }

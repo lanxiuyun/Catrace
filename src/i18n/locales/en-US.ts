@@ -527,6 +527,8 @@ export default {
     rateLimited: 'The GitHub API request quota is used up; it resets in about {minutes} minutes. Installed plugins are unaffected.',
     rateLimitedUnknown: 'The GitHub API request quota is used up. Try again later; installed plugins are unaffected.',
     sourceRateLimited: 'The plugin repository host is rate-limiting requests (HTTP 429). Try again later; installed plugins are unaffected.',
+    pluginNotInstalled: 'This plugin is not installed, so it cannot be updated. Install it first.',
+    updatedRestartFailed: 'Updated {name} to {version}, but it could not restart; turn the plugin off and on again.',
     sourceOtherInstalled: 'ID already installed from another source',
     sourceUnknown: 'Not recorded (older installation)',
     sourceCommit: 'Installed commit',

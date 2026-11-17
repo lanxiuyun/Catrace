@@ -526,6 +526,8 @@ export default {
     rateLimited: 'GitHub 接口本次请求额度已用完，约 {minutes} 分钟后恢复；已安装插件不受影响。',
     rateLimitedUnknown: 'GitHub 接口本次请求额度已用完，请稍后再试；已安装插件不受影响。',
     sourceRateLimited: '插件仓库线路被限流（HTTP 429），稍后重试即可；已安装插件不受影响。',
+    pluginNotInstalled: '这个插件没有安装，无法更新；请先安装。',
+    updatedRestartFailed: '已更新 {name} 到 {version}，但自动重启失败；请关闭再开启这个插件。',
     sourceOtherInstalled: '同 ID 已从其他源安装',
     sourceUnknown: '来源未记录（旧安装）',
     sourceCommit: '安装快照',

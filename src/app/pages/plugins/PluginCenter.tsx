@@ -411,20 +411,20 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
             ) : visibleItems.length ? visibleItems.map((item) => (
-              <article key={item.id} className={`ct-market-card${tab === 'installed' ? ' has-toggle' : ''}${tab === 'installed' && updateVersion(item) ? ' has-update' : ''}${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
+              <article key={item.id} className={`ct-market-card${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
                 {/* One hit area for the whole card; the switch and install button paint above it. */}
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">
                   <span className={`ct-market-plugin-icon${item.builtin ? ' is-builtin' : ''}`}>{icon(item)}</span>
                   <div className="ct-market-card-copy"><h3>{item.name}</h3><span className="ct-market-card-meta">{item.builtin ? t('pluginsCenter.builtinTag') : <span className="ct-market-version">{item.version}{tab === 'installed' && updateCue(item)}</span>}{installedBadge(item)}</span></div>
                   {tab !== 'installed' && <ChevronRight size={15} className="ct-market-card-arrow" aria-hidden="true" />}
+                  {tab === 'installed' && <div className="ct-market-card-toggle">{updateVersion(item) && updateButton(item)}<Switch size="sm" isSelected={isEnabled(item)} isDisabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onChange={(value) => toggleCard(item, value)}>
+                    <Switch.Content>
+                      <Switch.Control><Switch.Thumb /></Switch.Control>
+                    </Switch.Content>
+                  </Switch></div>}
                   <p>{item.description || t('plugins.external.noDescription')}</p>
                 </div>
-                {tab === 'installed' && <div className="ct-market-card-toggle">{updateVersion(item) && updateButton(item)}<Switch size="sm" isSelected={isEnabled(item)} isDisabled={!!item.installed?.info.error || (item.builtin && !restReady)} aria-label={t('pluginMarket.enableFor', { name: item.name })} onChange={(value) => toggleCard(item, value)}>
-                  <Switch.Content>
-                    <Switch.Control><Switch.Thumb /></Switch.Control>
-                  </Switch.Content>
-                </Switch></div>}
                 {(statusLabel(item) || !isInstalled(item)) && <div className="ct-market-card-footer">
                   {statusLabel(item) && <span className={`ct-market-card-status${item.installed?.info.error ? ' is-error' : ''}`}>
                     {item.installed?.info.error ? <CircleAlert size={12} aria-hidden="true" /> : <Check size={12} aria-hidden="true" />}

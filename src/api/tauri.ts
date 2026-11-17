@@ -486,6 +486,8 @@ export interface PluginInstallResult {
   version: string
   overwritten: boolean
   path: string
+  /** 文件已更新，但运行时没能在更新后重新起来（插件被留在停用态）。 */
+  restartError?: string
 }
 
 export interface RepositoryPluginInfo {
