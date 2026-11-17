@@ -202,9 +202,29 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
     else closePending.current = false
   }, [selectedId])
 
+  const busy = data.busyId !== null || restBusy || data.sourceBusy || data.reloadingLocal
+  const installedById = new Map(data.installed.map((entry) => [entry.info.id, entry]))
+  const availableById = new Map(data.repository?.plugins.map((entry) => [entry.id, entry]) ?? [])
+  const builtin: PluginItem = {
+    id: 'rest', name: t('plugins.rest.name'), description: t('plugins.rest.subtitle'),
+    version: '', builtin: true,
+  }
+  const installedItems: PluginItem[] = [builtin, ...data.installed.map((entry) => ({
+    ...entry.info, installed: entry, available: availableById.get(entry.info.id),
+  }))]
+  const discoverItems: PluginItem[] = (data.repository?.plugins ?? []).map((entry) => ({
+    ...entry, available: entry, installed: installedById.get(entry.id),
+  }))
+  const allItems = new Map([...discoverItems, ...installedItems].map((item) => [item.id, item]))
+  const selected = selectedId ? allItems.get(selectedId) : undefined
+  const selectedEnabled = selected?.builtin ? restEnabled : !!selected?.installed?.info.enabled
+  const selectedError = selected?.installed?.info.error
   // Nav bar state for the detail: the toolbar material appears only once content is under the
   // bar (a translucent band over an empty background is just a smudge), and the plugin name
   // replaces the hero title in the bar once the title has scrolled out of view.
+  // Keyed on the resolved plugin too: after a reload the id is restored from history before the
+  // installed list arrives, so the bar is still absent when this first runs. Waiting for
+  // `selected` re-runs it once the bar mounts and the scroll listener can actually attach.
   useEffect(() => {
     if (!selectedId) {
       setNavScrolled(false)
@@ -233,24 +253,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
       scroller.removeEventListener('scroll', requestMeasure)
       window.removeEventListener('resize', requestMeasure)
     }
-  }, [selectedId])
-  const busy = data.busyId !== null || restBusy || data.sourceBusy || data.reloadingLocal
-  const installedById = new Map(data.installed.map((entry) => [entry.info.id, entry]))
-  const availableById = new Map(data.repository?.plugins.map((entry) => [entry.id, entry]) ?? [])
-  const builtin: PluginItem = {
-    id: 'rest', name: t('plugins.rest.name'), description: t('plugins.rest.subtitle'),
-    version: '', builtin: true,
-  }
-  const installedItems: PluginItem[] = [builtin, ...data.installed.map((entry) => ({
-    ...entry.info, installed: entry, available: availableById.get(entry.info.id),
-  }))]
-  const discoverItems: PluginItem[] = (data.repository?.plugins ?? []).map((entry) => ({
-    ...entry, available: entry, installed: installedById.get(entry.id),
-  }))
-  const allItems = new Map([...discoverItems, ...installedItems].map((item) => [item.id, item]))
-  const selected = selectedId ? allItems.get(selectedId) : undefined
-  const selectedEnabled = selected?.builtin ? restEnabled : !!selected?.installed?.info.enabled
-  const selectedError = selected?.installed?.info.error
+  }, [selectedId, selected?.id])
   const normalized = query.trim().toLowerCase()
   const isInstalled = (item: PluginItem) => item.builtin || !!item.installed
   const isEnabled = (item: PluginItem) => item.builtin ? restEnabled : !!item.installed?.info.enabled
