@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
@@ -24,6 +24,7 @@ const compound = () => Object.assign(primitive.bind(null), {
 })
 const HeroUI = {
   Card,
+  Separator: props => React.createElement('hr', props),
   Button: ({ children, variant, size, ...props }) => React.createElement('button', props, children),
   Input: primitive, TextArea: primitive, Select: compound(), ListBox: compound(), Slider: compound(),
   NumberField: compound(), ToggleButton: primitive, ToggleButtonGroup: compound(), ToggleButtonGroupSeparator: primitive,
@@ -228,44 +229,57 @@ function settingsProps(extra = {}) {
   return { enabled: true, config: { window_minutes: 45, break_minutes: 7, snooze_interval_minutes: 3 }, mode: 'fullscreen', fullscreen: { bg: 'local-image', opacity: 0, fitMode: 'fill', elementTransforms: '{"title":{"x":22,"rotate":13}}' }, text: { title: 'Unsaved title', body: 'Unsaved body' }, testing: false, ...extra }
 }
 
-test('settings use reusable Agent-style cards and rows without legacy first-row overrides', () => {
+test('settings keep the group title outside a stock HeroUI card and divide rows with HeroUI separators', () => {
   const h = harness(), components = h.evaluate('src/components/SettingsCard.tsx')
   const tree = h.render(settingsPath, 'RestSettings', settingsProps())
   const cards = descendants(tree).filter(node => node.type === components.SettingsCard)
   assert.equal(cards.length, 3)
   const rows = descendants(tree).filter(node => node.type === components.SettingsCardRow)
   assert.equal(rows.length, 10)
+
+  const group = components.SettingsCard({ title: 'Group', children: ['A', 'B', 'C'] })
+  assert.equal(group.type, 'section')
+  const [heading, card] = group.props.children
+  assert.equal(heading.type, 'h3')
+  assert.equal(heading.props.children, 'Group')
+  assert.equal(card.type, Card)
+  assert.equal(card.props.className, undefined, 'card keeps HeroUI default styles')
+  const kids = React.Children.toArray(card.props.children)
+  assert.deepEqual(
+    kids.map(kid => (kid.type === HeroUI.Separator ? 'separator' : 'row')),
+    ['row', 'separator', 'row', 'separator', 'row'],
+  )
+  for (const kid of kids.filter(node => node.type === HeroUI.Separator)) {
+    assert.equal(kid.props.isDecorative, true, 'row dividers are decorative')
+  }
+
+  // 条件渲染的行常被 <></> 包住：分隔线仍要按行铺，而不是把整个 Fragment 当一行。
+  const nested = components.SettingsCard({
+    title: 'Nested',
+    children: [React.createElement(React.Fragment, null, 'A', 'B'), 'C'],
+  })
+  const nestedKids = React.Children.toArray(nested.props.children[1].props.children)
+  assert.deepEqual(
+    nestedKids.map(kid => (kid.type === HeroUI.Separator ? 'separator' : 'row')),
+    ['row', 'separator', 'row', 'separator', 'row'],
+  )
+
   for (const row of rows) {
     const rendered = components.SettingsCardRow(row.props)
-    assert.ok(byClass(rendered, 'ct-config-card-copy'))
-    assert.ok(byClass(rendered, 'ct-config-card-control'))
-    assert.ok(!descendants(rendered).some(node => /ct-plugin-row/.test(node.props.className ?? '')))
+    const classes = rendered.props.className.split(' ')
+    assert.ok(!classes.some(name => name.startsWith('ct-')), 'rows keep no custom card classes')
+    assert.ok(classes.includes('flex'))
+    assert.ok(classes.includes(row.props.stack ? 'flex-col' : 'justify-between'))
+    const title = descendants(rendered).find(node => node.props.className?.split(' ').includes('leading-[18px]'))
+    assert.ok(title, 'row title uses an integer line-height so 1px separators share the same subpixel phase')
+    const desc = descendants(rendered).find(node => node.props.className?.includes('text-muted'))
+    if (row.props.description) assert.equal(desc.props.children, row.props.description)
+    else assert.equal(desc, undefined)
   }
-  const card = components.SettingsCard({ title: 'Group', description: 'Outside card', children: 'Rows' })
-  assert.equal(byClass(card, 'ct-config-card').props.children, 'Rows')
-  assert.equal(byClass(card, 'ct-config-section-desc').props.children, 'Outside card')
-  const css = source('src/components/SettingsCard.css')
-  const cardRule = css.match(/\.ct-config-card \{([^}]+)\}/)[1]
-  assert.doesNotMatch(cardRule, /\bpadding(?:-[\w-]+)?\s*:/, 'use HeroUI Card default padding')
-  assert.match(cardRule, /background: #fbfbfb/)
-  // Page styles are global: a same-named class can silently replace padding/background.
-  const componentClasses = [...css.matchAll(/\.(ct-config-[\w-]+)/g)].map(match => match[1])
-  for (const entry of readdirSync(new URL('src/', root), { recursive: true })) {
-    const path = `src/${entry.replaceAll('\\', '/')}`
-    if (!path.endsWith('.css') || path === 'src/components/SettingsCard.css') continue
-    const other = source(path)
-    for (const name of componentClasses) {
-      assert.ok(!new RegExp(`\\.${name}(?![\\w-])`).test(other), `${path} must not redefine ${name}`)
-    }
-  }
-  const rowRule = css.match(/\.ct-config-card-row \{([^}]+)\}/)[1]
-  assert.match(rowRule, /padding: 0\.5rem 0/)
-  assert.match(rowRule, /gap: 0\.75rem/)
-  assert.match(rowRule, /align-items: center/)
-  assert.match(rowRule, /justify-content: space-between/)
-  assert.match(rowRule, /flex-wrap: wrap/)
-  assert.doesNotMatch(css, /:first-(?:child|of-type)/, 'first row must keep the same padding as every other row')
-  assert.doesNotMatch(source(settingsPath), /ct-plugin-row|PluginSettingRow|ct-rest-section-body/)
+  assert.equal(existsSync(new URL('src/components/SettingsCard.css', root)), false, 'custom card stylesheet is gone')
+  assert.doesNotMatch(source('src/components/SettingsCard.tsx'), /\.css'/)
+  assert.doesNotMatch(source(settingsPath), /ct-config-|ct-plugin-row|PluginSettingRow|ct-rest-section-body/)
+  assert.doesNotMatch(source('src/app/pages/plugins.css'), /ct-rest-title-control/)
 })
 
 test('settings time fields use compound NumberField and preserve ranges, steps and config patches', () => {
@@ -312,7 +326,7 @@ test('settings keep reminder Select, use fit segments and preserve full-width co
   for (const value of ['contain', 'cover', 'fill']) segments.props.onSelectionChange(new Set([value]))
   segments.props.onSelectionChange(new Set())
   assert.deepEqual(backgrounds, [{ fitMode: 'contain' }, { fitMode: 'cover' }, { fitMode: 'fill' }])
-  assert.equal(row('plugins.rest.customTitle').props.stack, undefined)
+  assert.equal(row('plugins.rest.customTitle').props.stack, true)
   assert.equal(row('plugins.rest.customBody').props.stack, true)
   const background = row('plugins.rest.fullscreenBgTitle')
   assert.ok(byClass(background.props.control, 'ct-rest-background-actions'))

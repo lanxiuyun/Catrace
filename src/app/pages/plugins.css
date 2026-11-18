@@ -205,13 +205,12 @@
 .ct-market button:focus-visible, .ct-plugin-detail button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
 .ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
 
-/* Card/row layout lives in SettingsCard.css; only reminder-specific control sizes belong here. */
+/* Cards use stock HeroUI Card; only reminder-specific control sizes belong here. */
 .ct-rest-settings { width: 100%; display: flex; flex-direction: column; gap: 1.25rem; }
 .ct-rest-settings .ct-rest-slider { width: 8rem; }
 .ct-rest-settings .ct-rest-number { width: 9rem; }
 .ct-rest-settings .ct-rest-unit { font-size: 0.75rem; color: var(--ct-text-muted); }
 .ct-rest-settings .ct-rest-value { min-width: 2.5rem; text-align: right; font-size: 0.75rem; color: var(--ct-text-muted); font-variant-numeric: tabular-nums; }
-.ct-rest-settings .ct-rest-title-control { width: 12rem; }
 .ct-rest-background-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* Shared setting rows. */

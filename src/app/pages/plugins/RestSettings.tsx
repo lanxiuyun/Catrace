@@ -298,7 +298,7 @@ export function RestSettings({
       <SettingsCard title={t('plugins.rest.contentSection')}>
         <SettingsCardRow
           title={t('plugins.rest.customTitle')}
-          controlClassName="ct-rest-title-control"
+          stack
           control={
             <Input
               fullWidth

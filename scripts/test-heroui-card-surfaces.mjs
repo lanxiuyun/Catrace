@@ -45,7 +45,7 @@ const descendants = node => React.isValidElement(node)
   ? [node, ...React.Children.toArray(node.props.children).flatMap(descendants)] : []
 
 for (const [path, name, props, className, tag] of [
-  ['src/components/SettingsCard.tsx', 'SettingsCard', { title: 'Group', description: 'Outside', children: 'Rows' }, 'ct-config-card', 'div'],
+  ['src/components/SettingsCard.tsx', 'SettingsCard', { title: 'Group', children: 'Rows' }, null, 'div'],
   ['src/app/pages/settings/SettingsCard.tsx', 'SettingsCard', { label: 'System', children: 'Controls' }, 'ct-settings-card', 'div'],
   ['src/app/pages/debug/DebugPanel.tsx', 'DebugPanel', { title: 'Status', meta: 'Meta', children: 'Content' }, 'ct-debug-panel', 'section'],
   ['src/app/pages/debug/SpecialDayPreview.tsx', 'SpecialDayPreview', {}, 'ct-debug-panel', 'section'],
@@ -54,17 +54,26 @@ for (const [path, name, props, className, tag] of [
     const component = loader()(path)[name]
     const html = renderToStaticMarkup(React.createElement(component, props))
     assert.match(html, new RegExp(`<${tag}[^>]*data-slot="card"`))
-    assert.ok(html.includes(className)); assert.ok(html.includes('card--default'))
+    assert.ok(html.includes('card--default'))
+    if (className) assert.ok(html.includes(className))
     if (props.children) assert.ok(html.includes(props.children))
     if (name === 'DebugPanel') {
       const id = html.match(/aria-labelledby="([^"]+)"/)[1]
       assert.ok(html.includes(`id="${id}"`))
     }
-    if (className === 'ct-config-card') {
-      assert.ok(html.indexOf('Outside') < html.indexOf('data-slot="card"'), 'group description stays outside the Card')
+    if (className === null) {
+      // 久坐提醒设置卡：纯 HeroUI Card，不挂任何自定义类；分组标题在卡片外，字号照 agent-notify。
+      assert.doesNotMatch(html, /ct-/)
+      assert.match(html, /<h3[^>]*>Group<\/h3>/)
+      assert.ok(html.indexOf('Group') < html.indexOf('data-slot="card"'))
     }
   })
 }
+
+test('plugin settings cards keep no custom stylesheet', () => {
+  assert.equal(existsSync(new URL('../src/components/SettingsCard.css', import.meta.url)), false)
+  assert.doesNotMatch(source('src/components/SettingsCard.tsx'), /\.css'/)
+})
 
 test('activity cards retain summary button, matching detail IDs and expand/collapse with HeroUI containers', () => {
   const slots = []; let cursor = 0
@@ -104,7 +113,6 @@ test('activity cards retain summary button, matching detail IDs and expand/colla
 
 test('all migrated surfaces use HeroUI Card default padding without summary double-padding', () => {
   for (const [path, name] of [
-    ['src/components/SettingsCard.css', 'ct-config-card'],
     ['src/app/pages/debug.css', 'ct-debug-panel'],
     ['src/app/pages/settings.css', 'ct-settings-card'],
     ['src/app/pages/dashboard/timeline-windows.css', 'ct-activity-card'],
