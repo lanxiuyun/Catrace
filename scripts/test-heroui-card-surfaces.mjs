@@ -75,6 +75,24 @@ test('plugin settings cards keep no custom stylesheet', () => {
   assert.doesNotMatch(source('src/components/SettingsCard.tsx'), /\.css'/)
 })
 
+test('HeroUI cards share the app card background token', () => {
+  const theme = source('src/styles/theme.css')
+  assert.match(theme, /--ct-card-bg:\s*#fbfbfb/)
+  assert.match(theme, /\[data-theme='dark'\][\s\S]*?--ct-card-bg:\s*var\(--ct-surface\)/)
+  assert.match(source('src/app/base.css'), /\.card\s*\{[^}]*background-color:\s*var\(--ct-card-bg\)/)
+  for (const [path, selector] of [
+    ['src/app/pages/settings.css', '.ct-settings-card'],
+    ['src/app/pages/dashboard.css', '.ct-dashboard .activity-panel'],
+    ['src/app/pages/debug.css', '.ct-debug-panel'],
+    ['src/app/pages/dashboard/timeline-windows.css', '.ct-timeline-windows .ct-activity-card'],
+  ]) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const rule = source(path).match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`))
+    assert.ok(rule, `${path} defines ${selector}`)
+    assert.match(rule[1], /var\(--ct-card-bg\)/, `${selector} uses the card background token`)
+  }
+})
+
 test('activity cards retain summary button, matching detail IDs and expand/collapse with HeroUI containers', () => {
   const slots = []; let cursor = 0
   const react = { ...React,

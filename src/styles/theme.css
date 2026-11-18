@@ -23,6 +23,8 @@
   --ct-bg: #f5f5f7;
   --ct-surface: #ffffff;
   --ct-surface-2: #f0f0f5;
+  /* 卡片底：比纯白稍灰一档，和页面底色拉开一点层次；深色模式回到主题表面色 */
+  --ct-card-bg: #fbfbfb;
   --ct-border: rgba(0, 0, 0, 0.07);
   /* 需要和背景明确区分的卡片边（今日活动卡） */
   --ct-border-strong: rgba(0, 0, 0, 0.14);
@@ -83,6 +85,7 @@
   --ct-bg: #131316;
   --ct-surface: #1f1f23;
   --ct-surface-2: #2a2a30;
+  --ct-card-bg: var(--ct-surface);
   --ct-border: rgba(255, 255, 255, 0.08);
   --ct-border-strong: rgba(255, 255, 255, 0.16);
   --ct-border-card: rgba(255, 255, 255, 0.07);

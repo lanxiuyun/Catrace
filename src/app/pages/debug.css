@@ -67,7 +67,7 @@
   gap: 0;
   box-shadow: none;
   min-width: 0;
-  background: var(--ct-surface);
+  background: var(--ct-card-bg);
   border: 0.0625rem solid var(--ct-border-card);
   border-radius: 1.25rem;
 }

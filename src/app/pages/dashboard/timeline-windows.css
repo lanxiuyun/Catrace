@@ -17,7 +17,7 @@
   flex-direction: column;
   /* 外层留白直接使用 HeroUI Card 默认 padding；内容间距仍由内部布局负责。 */
   gap: 0;
-  background: var(--ct-surface);
+  background: var(--ct-card-bg);
   border: 0.0625rem solid var(--ct-border-card);
   border-radius: 1.125rem;
   box-shadow: var(--ct-shadow-card);
