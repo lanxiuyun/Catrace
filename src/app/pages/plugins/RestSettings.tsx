@@ -193,6 +193,7 @@ export function RestSettings({
           control={
             <Select
               className="ct-plugin-select"
+              aria-label={t('plugins.rest.modeTitle')}
               value={mode}
               onChange={(value) => { if (value != null) onChangeMode(String(value) as ReminderMode) }}
             >
