@@ -26,7 +26,7 @@ export function FullscreenReminderPreview(props: PreviewProps) {
 
   return (
     <figure className="ct-fullscreen-preview-figure">
-      <div ref={viewport} className="ct-fullscreen-preview" role="img" aria-label={t('plugins.rest.fullscreenPreviewLabel')}>
+      <div ref={viewport} className="ct-fullscreen-preview" role="img" aria-label={t('settings.reminder.fullscreenPreviewLabel')}>
         <div
           ref={canvas}
           className="ct-fullscreen-preview-canvas"
@@ -38,7 +38,6 @@ export function FullscreenReminderPreview(props: PreviewProps) {
           <FullscreenReminderScene {...props} />
         </div>
       </div>
-      <figcaption>{t('plugins.rest.fullscreenPreviewHint')}</figcaption>
     </figure>
   )
 }
