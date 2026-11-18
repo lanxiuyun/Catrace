@@ -530,6 +530,9 @@ fn try_publish_toast_event(app_handle: &tauri::AppHandle, event: crate::event::B
 }
 
 /// 弹出「发现新版本」更新通知 Toast。经 Event Bus 下发。
+/// 暂时停用：自动检查改为设置图标红点 + 设置页版本行提示，不再弹右下角更新卡片；
+/// 保留实现，需要恢复时在 `check_update_and_notify` 里重新接上即可。
+#[allow(dead_code)]
 pub fn create_update_toast_window(
     app_handle: &tauri::AppHandle,
     version: &str,

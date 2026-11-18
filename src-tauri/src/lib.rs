@@ -39,8 +39,6 @@ use tauri::{Emitter, Manager};
 use tokio::time::interval;
 // 窗口状态由 tauri-plugin-window-state 自动管理（启动恢复 / 退出保存）
 
-// 启动时自动检查更新，整个生命周期只执行一次
-static UPDATE_CHECK_DONE: AtomicBool = AtomicBool::new(false);
 #[cfg(target_os = "macos")]
 pub(crate) fn accessibility_permission_granted() -> bool {
     macos_accessibility_client::accessibility::application_is_trusted()
@@ -909,20 +907,10 @@ pub(crate) fn create_fullscreen_window(
 // 自动更新检查
 // ------------------------------------------------------------------
 
-async fn check_update_and_notify(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    let source = {
-        let db = app_handle.state::<db::Db>();
-        crate::update::read_saved_source(&db)
-    };
-    if let Some(update) =
-        crate::update::check_for_update(app_handle, &source, Duration::from_secs(10)).await?
-    {
-        let version = update.version.clone();
-        let changelog = update.body.clone().unwrap_or_default();
-        reminder_toast::create_update_toast_window(app_handle, &version, &changelog);
-    }
-    Ok(())
-}
+// 自动检查已移到主窗前端（`useAppUpdateCheck`）：发现新版本只标记侧栏「设置」红点并在
+// 设置页软件版本行显示新版号，不再弹出右下角更新 Toast。旧的
+// `check_update_and_notify` + `reminder_toast::create_update_toast_window` 保留实现，
+// 需要恢复右下角更新卡片时再重新接上。
 
 // ------------------------------------------------------------------
 // 主入口
@@ -1098,17 +1086,6 @@ pub fn run() {
             }
             #[cfg(windows)]
             notification_listener::maybe_start(app.app_handle(), &db);
-            // 启动后异步检查更新，若存在新版本则弹出更新 Toast
-            let update_app_handle = app.app_handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if UPDATE_CHECK_DONE.swap(true, Ordering::SeqCst) {
-                    return;
-                }
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                if let Err(e) = check_update_and_notify(&update_app_handle).await {
-                    log_info!("update", "auto update check failed: {}", e);
-                }
-            });
 
             // 每分钟结算一次（在每分钟的00秒触发）
             let db_clone = db.clone();

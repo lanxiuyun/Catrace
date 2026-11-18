@@ -149,6 +149,7 @@ export default {
       newVersion: '发现新版本 {version}',
       downloading: '下载中...',
       updateNow: '立即更新',
+      openReleaseNotes: '在浏览器中打开完整更新说明',
       toastPrompt: '点击查看详情可查看更新日志并立即更新。',
       viewDetails: '查看详情',
       hideDetails: '收起详情',

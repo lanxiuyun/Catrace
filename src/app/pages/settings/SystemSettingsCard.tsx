@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, ListBox, ProgressBar, Select, Switch } from '@heroui/react'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { getVersion } from '@tauri-apps/api/app'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -7,27 +8,25 @@ import {
   checkAppUpdate,
   getLightweightMode,
   getSilentStart,
-  getUpdateSource,
   installAppUpdate,
   setLightweightMode,
   setSilentStart,
-  setUpdateSource,
-  type UpdateSourceId,
 } from '../../../api/tauri'
 import { isLocaleKey, setAppLocale, useT } from '../../i18n'
 import { useShellStore } from '../../store'
+import { useAppUpdateStore } from '../../../stores/appUpdate'
 import { showToast } from '../../ui/toast'
 import { useTheme } from '../../../composables/useTheme'
 import { SettingRow } from './SettingRow'
 import { SettingsCard } from './SettingsCard'
-
-const UPDATE_SOURCE_IDS: UpdateSourceId[] = ['auto', 'ghfast', 'ghddlc', 'ghproxy', 'github']
 
 interface UpdateInfo {
   available: boolean
   version?: string
   body?: string
 }
+
+const RELEASE_NOTES_URL = 'https://lanxiuyun.github.io/Catrace/latest/'
 
 /**
  * 「系统」设置卡：
@@ -42,14 +41,14 @@ export function SystemSettingsCard() {
   const [silentStart, setSilentStartEnabled] = useState(false)
   const [lightweightMode, setLightweightModeEnabled] = useState(false)
   const [appVersion, setAppVersion] = useState('')
-  const [updateSource, setUpdateSourceState] = useState<UpdateSourceId>('auto')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const updateNotice = useAppUpdateStore((state) => state.notice)
+  const setUpdateNotice = useAppUpdateStore((state) => state.setNotice)
 
   const [autostartLoading, setAutostartLoading] = useState(false)
   const [silentLoading, setSilentLoading] = useState(false)
   const [lightweightLoading, setLightweightLoading] = useState(false)
   const [localeLoading, setLocaleLoading] = useState(false)
-  const [updateSourceLoading, setUpdateSourceLoading] = useState(false)
   const [updateLoading, setUpdateLoading] = useState(false)
   const [updateInstalling, setUpdateInstalling] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
@@ -59,12 +58,11 @@ export function SystemSettingsCard() {
     let alive = true
     void (async () => {
       try {
-        const [nextAutostart, nextSilent, version, source, lightweight] =
+        const [nextAutostart, nextSilent, version, lightweight] =
           await Promise.all([
             isEnabled(),
             getSilentStart(),
             getVersion(),
-            getUpdateSource(),
             getLightweightMode(),
           ])
         if (!alive) return
@@ -72,7 +70,6 @@ export function SystemSettingsCard() {
         setSilentStartEnabled(nextSilent)
         setLightweightModeEnabled(lightweight)
         setAppVersion(version)
-        setUpdateSourceState(source)
       } catch (error) {
         console.error('Failed to load system settings', error)
       } finally {
@@ -83,6 +80,13 @@ export function SystemSettingsCard() {
       alive = false
     }
   }, [])
+
+  // 自动检查（主窗外壳）可能先于设置页加载：把 store 里的新版本同步进来，
+  // 版本行和更新面板不用点「检查更新」就能显示新版本信息。
+  useEffect(() => {
+    if (!updateNotice) return
+    setUpdateInfo({ available: true, version: updateNotice.version, body: updateNotice.body })
+  }, [updateNotice])
 
   const changeLocale = async (value: string) => {
     if (!ready || value === locale || !isLocaleKey(value)) return
@@ -137,32 +141,18 @@ export function SystemSettingsCard() {
     }
   }
 
-  const changeUpdateSource = async (value: string) => {
-    const next = value as UpdateSourceId
-    if (!UPDATE_SOURCE_IDS.includes(next)) return
-    const previous = updateSource
-    setUpdateSourceLoading(true)
-    setUpdateSourceState(next)
-    try {
-      await setUpdateSource(next)
-    } catch (error) {
-      setUpdateSourceState(previous)
-      showToast(t('settings.messages.saveFailed'), 'error')
-      console.error(error)
-    } finally {
-      setUpdateSourceLoading(false)
-    }
-  }
-
   const checkUpdate = async () => {
     setUpdateLoading(true)
     try {
-      const update = await checkAppUpdate({ timeout: 10000, source: updateSource })
+      const update = await checkAppUpdate({ timeout: 10000 })
       if (update) {
-        setUpdateInfo({ available: true, version: update.version, body: update.body || '' })
+        const body = update.body || ''
+        setUpdateInfo({ available: true, version: update.version, body })
+        setUpdateNotice({ version: update.version, body })
         showToast(t('settings.update.newVersion', { version: update.version }), 'info')
       } else {
         setUpdateInfo({ available: false })
+        setUpdateNotice(null)
         showToast(t('settings.messages.noUpdate'))
       }
     } catch (error) {
@@ -177,14 +167,14 @@ export function SystemSettingsCard() {
     setUpdateInstalling(true)
     setDownloadProgress(0)
     try {
-      const update = await checkAppUpdate({ timeout: 10000, source: updateSource })
+      const update = await checkAppUpdate({ timeout: 10000 })
       if (!update) {
         showToast(t('settings.messages.noUpdateFound'), 'warning')
         return
       }
       let total = 0
       let received = 0
-      await installAppUpdate(update, updateSource, (event) => {
+      await installAppUpdate(update, undefined, (event) => {
         switch (event.event) {
           case 'Started':
             total = event.data.contentLength || 0
@@ -221,13 +211,6 @@ export function SystemSettingsCard() {
     { label: 'English', value: 'en-US' },
   ]
 
-  const updateSourceOptions = [
-    { label: t('settings.update.sourceAuto'), value: 'auto' },
-    { label: t('settings.update.sourceGhfast'), value: 'ghfast' },
-    { label: t('settings.update.sourceGhddlc'), value: 'ghddlc' },
-    { label: t('settings.update.sourceGhproxy'), value: 'ghproxy' },
-    { label: t('settings.update.sourceGithub'), value: 'github' },
-  ]
 
   return (
     <SettingsCard label={t('settings.groups.system')}>
@@ -325,67 +308,54 @@ export function SystemSettingsCard() {
         </Switch>
       </SettingRow>
 
-      <SettingRow title={t('settings.update.softwareVersion')} desc={appVersion || '...'}>
-        <Button
-          size="sm"
-          variant="tertiary"
-          isDisabled={updateLoading || updateInstalling}
-          onClick={() => void checkUpdate()}
+      <div className="ct-settings-update-row">
+        <SettingRow
+          title={t('settings.update.softwareVersion')}
+          desc={updateInfo?.available && updateInfo.version
+            ? `${appVersion || '...'} → ${updateInfo.version}`
+            : appVersion || '...'}
         >
-          {t('settings.update.checkUpdate')}
-        </Button>
-      </SettingRow>
-
-      {updateInfo?.available && (
-        <>
-          <div className="ct-settings-update ct-settings-block">
-            <div className="ct-settings-update-head">
-              <div className="ct-settings-update-title">
-                {t('settings.update.newVersion', { version: updateInfo.version ?? '' })}
-              </div>
-              <Select
-                className="w-36"
-                variant="secondary"
-                value={updateSource}
-                isDisabled={updateInstalling || updateSourceLoading}
-                onChange={(value) => { if (value != null) void changeUpdateSource(String(value)) }}
-              >
-                <Select.Trigger aria-label={t('settings.update.sourceTitle')}>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    {updateSourceOptions.map((option) => (
-                      <ListBox.Item key={option.value} id={option.value} textValue={option.label}>
-                        {option.label}
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
-            </div>
-
-            {updateInfo.body && <div className="ct-settings-update-body">{updateInfo.body}</div>}
-
-            <Button isDisabled={updateInstalling} onClick={() => void installUpdate()}>
-              {updateInstalling
-                ? t('settings.update.downloading')
-                : t('settings.update.updateNow')}
-            </Button>
-
-            {updateInstalling && (
-              <div className="ct-settings-download">
-                <ProgressBar value={downloadProgress}>
-                  <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
-                </ProgressBar>
-                <span className="ct-settings-download-text">{downloadProgress}%</span>
-              </div>
-            )}
+          <Button
+            size="sm"
+            variant={updateInfo?.available ? 'primary' : 'tertiary'}
+            isDisabled={updateLoading || updateInstalling}
+            onClick={() => void (updateInfo?.available ? installUpdate() : checkUpdate())}
+          >
+            {updateInstalling
+              ? t('settings.update.downloading')
+              : updateInfo?.available
+                ? t('settings.update.updateNow')
+                : t('settings.update.checkUpdate')}
+          </Button>
+        </SettingRow>
+        {updateInfo?.available && (
+          <div className="ct-settings-release-notes">
+            <iframe
+              className="ct-settings-release-notes-frame"
+              src={RELEASE_NOTES_URL}
+              title="Catrace 官网版本更新说明"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              sandbox="allow-same-origin allow-scripts"
+            />
+            <button
+              className="ct-settings-release-notes-link"
+              type="button"
+              onClick={() => void openUrl(RELEASE_NOTES_URL).catch((error) => console.warn('[update] open release notes failed', error))}
+            >
+              {t('settings.update.openReleaseNotes')}
+            </button>
           </div>
-        </>
-      )}
+        )}
+        {updateInstalling && (
+          <div className="ct-settings-download">
+            <ProgressBar value={downloadProgress}>
+              <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
+            </ProgressBar>
+            <span className="ct-settings-download-text">{downloadProgress}%</span>
+          </div>
+        )}
+      </div>
     </SettingsCard>
   )
 }

@@ -6,8 +6,9 @@
 
 - `src-tauri/tauri.conf.json` — updater 默认 endpoints + pubkey（fallback；运行时由 `update.rs` 覆盖）
 - `src-tauri/src/update.rs` — 源列表、endpoint、下载 URL 改写、`check_app_update` / `get|set_update_source`
-- `src-tauri/src/lib.rs` — 启动 3 秒后按已保存源检查一次（10s 超时）
-- `src-tauri/src/reminder_toast.rs` — 创建更新 Toast
+- [useAppUpdateCheck.ts](../../../src/app/useAppUpdateCheck.ts) — 主窗启动 3 秒后按已保存源检查一次（10s 超时），结果只写前端更新状态
+- `src-tauri/src/lib.rs` — 自动检查已移到主窗前端，不再创建更新 Toast
+- `src-tauri/src/reminder_toast.rs` — 创建更新 Toast（当前停用，保留实现便于恢复）
 - [controller.ts](../../../src/app/windows/toast/controller.ts) — 更新安装走 `checkAppUpdate`，[windowResize.ts](../../../src/app/windows/toast/windowResize.ts) 跟随卡片测量尺寸
 - `src/components/UpdateToastCard.tsx` — 更新 Toast UI；更新源选择、官网最新说明 iframe、iframe 高度消息校验与上限、加载失败回退
 - `website/latest/index.html` — 官网线上版本说明页（累积时间线，最新版本节点置顶，历史节点保留）
@@ -18,8 +19,8 @@
 
 ## 行为
 
-- 应用启动 3 秒后异步检查一次；设置页可手动检查
-- 更新源存 SQLite `update_source`（默认 `auto`）。自动检查、设置页、更新 Toast 共用。
+- 主窗启动 3 秒后异步检查一次；设置页可手动检查
+- 更新源存 SQLite `update_source`（默认 `auto`）。自动检查与设置页手动检查共用；更新 Toast 恢复时也共用。
 - `auto` 按顺序尝试 endpoints，任一成功即用，全部失败才报错：
   1. `https://ghfast.top/https://github.com/.../releases/latest/download/latest.json`
   2. `https://gh.ddlc.top/https://github.com/...`
@@ -27,14 +28,10 @@
   4. `https://github.com/...`（直连兜底）
 - 锁定源（`ghfast` / `ghddlc` / `ghproxy` / `github`）只打该源；下载 URL 会剥掉 CI 的 ghproxy 前缀再按所选源重包
 - `auto` 下载失败会按同一顺序换源重试安装包 URL
-- 有新版本 → 右下角橙色更新 Toast；卡片不自动关；详情默认收起，点击可展开/收起
-- 展开详情后先只显示「加载官网最新说明 / 浏览器打开」入口；点击加载后说明区直接按高度上限（440px）撑开并显示加载提示，收到官网页面上报的高度后再收放到真实高度——不再先塞一个 160px 的深色 iframe、等内容消息回来才跳高
-- iframe 通过约定 `postMessage` 上报文档高度，客户端只接受固定官网 origin 且来源为本 iframe 的高度消息，并钳制高度上限（当前 440px）
-- 官网页 `website/latest/` 自带与宿主一致的内部滚动条样式（细分滑块、透明轨道、无原生箭头）：iframe 是独立文档，宿主的全局滚动条样式进不去，超出上限后的滚动条只能由说明页自己声明
-- iframe 加载超时显示 updater body/通用兜底文案，可重试或系统浏览器打开官网说明；说明加载不影响更新安装
-- 本地开发模式 iframe 加载 `website/latest/preview.html`，用于官网发布前预览；生产模式才使用 GitHub Pages `/latest/`
+- 自动检查发现新版本时只写前端状态：左侧「设置」图标右下角显示红点，设置页「软件版本」行显示「当前版本 → 新版本」，并在下方展开更新面板（版本说明、更新源、立即更新）；**不再弹出右下角更新 Toast**
+- 更新 Toast 卡片（UpdateToastCard / toast 窗口高度跟随）与 `reminder_toast::create_update_toast_window` 暂时停用、代码保留；恢复时把创建调用重新接回自动检查即可。其 iframe 高度上报、超时回退和 `website/latest/` 滚动条样式说明仍适用于该卡片
 - 下载中有进度条；`auto` 下载走 latest.json 里的 url
-- 检查失败仅日志，不阻断启动；整个生命周期只自动检查一次
+- 检查失败仅日志，不阻断启动；主窗每次加载后自动检查一次（轻量模式重新打开主窗也会检查）
 
 ## 发布链路
 
@@ -57,7 +54,7 @@
        </ul>
      </li>
      ```
-2. 在本地调试更新提醒窗口确认节点、摘要、详细条目、对齐和窗口高度；官网页变更先本地预览，不要先推线上再验证。
+2. 本地用浏览器打开 `website/latest/preview.html`，确认节点、摘要、详细条目和对齐；官网页变更先本地预览，不要先推线上再验证。更新 Toast 停用期间客户端不再内嵌该页，恢复后再按原流程在提醒窗口里验证高度。
 3. 确认后将同一内容和结构同步到 `website/latest/index.html` 并发布官网，验证 `https://lanxiuyun.github.io/Catrace/latest/` 可访问、iframe 可嵌入且高度上报正常。
 4. 官网内容就绪后再通过规定的版本管理流程更新客户端版本号，随后构建并发布桌面 release。
 5. 发布后确认 updater `latest.json`、说明页和客户端版本更新提示彼此一致。说明页是累积时间线，顶部节点对应当前最新发布，历史节点保留供回看；不按客户端目标版本路由。
