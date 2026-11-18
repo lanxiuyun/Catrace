@@ -331,6 +331,9 @@ test('settings keep reminder Select, use fit segments and preserve full-width co
   assert.equal(row('plugins.rest.customBody').props.stack, true)
   const background = row('plugins.rest.fullscreenBgTitle')
   assert.ok(byClass(background.props.control, 'ct-rest-background-actions'))
+  const changeButton = React.Children.toArray(background.props.control.props.children)
+    .find(node => node.type === HeroUI.Button)
+  assert.equal(changeButton.props.variant, 'secondary', '更换 is a secondary action, not the primary CTA')
   assert.equal(background.props.children.type, h.evaluate(previewPath).FullscreenReminderPreview)
 })
 

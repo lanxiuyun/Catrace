@@ -224,7 +224,7 @@ export function RestSettings({
               control={
                 <div className="ct-rest-background-actions">
                   <input ref={backgroundInput} type="file" accept="image/*" hidden onChange={onBgFile} />
-                  <Button size="sm" onPress={() => backgroundInput.current?.click()}>
+                  <Button size="sm" variant="secondary" onPress={() => backgroundInput.current?.click()}>
                     {t('plugins.rest.changeBg')}
                   </Button>
                   {fullscreen.bg && (
