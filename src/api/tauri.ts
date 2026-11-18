@@ -486,6 +486,8 @@ export interface PluginInstallResult {
   version: string
   overwritten: boolean
   path: string
+  /** 文件已更新，但运行时没能在更新后重新起来（插件被留在停用态）。 */
+  restartError?: string
 }
 
 export interface RepositoryPluginInfo {
@@ -519,6 +521,13 @@ export async function installRepositoryPlugin(
   id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
 ): Promise<PluginInstallResult> {
   return invoke('install_repository_plugin', { id, commit, repository, mirror })
+}
+
+/** Replace an installed plugin with the repository snapshot; settings and enabled state are kept. */
+export async function updateRepositoryPlugin(
+  id: string, commit: string, repository = DEFAULT_PLUGIN_REPOSITORY, mirror = false,
+): Promise<PluginInstallResult> {
+  return invoke('update_repository_plugin', { id, commit, repository, mirror })
 }
 
 /** Stop the plugin, remove its installation, and retain its saved configuration. */

@@ -981,6 +981,29 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn install_result_only_reports_restart_error_after_a_failed_restart() {
+        use super::PluginInstallResult;
+
+        let mut result = PluginInstallResult {
+            id: "demo".into(),
+            name: "Demo".into(),
+            version: "26.11.17".into(),
+            overwritten: true,
+            path: "/plugins/demo".into(),
+            restart_error: None,
+        };
+        let plain = serde_json::to_value(&result).unwrap();
+        assert!(plain.get("restartError").is_none());
+
+        result.restart_error = Some("sidecar failed".into());
+        let failed = serde_json::to_value(&result).unwrap();
+        assert_eq!(
+            failed.get("restartError").and_then(|value| value.as_str()),
+            Some("sidecar failed")
+        );
+    }
 }
 
 // ---------- Tauri commands ----------
@@ -1220,12 +1243,17 @@ pub struct PluginInstallResult {
     pub version: String,
     pub overwritten: bool,
     pub path: String,
+    /// 文件已经更新，但运行时没能在更新后重新起来；前端提示用户手动开启，而不是报更新失败。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restart_error: Option<String>,
 }
 
 const MAX_INSTALL_ZIP_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_INSTALL_UNPACKED_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_INSTALL_FILE_COUNT: usize = 5_000;
 
+/// 安装/覆盖安装一个插件包。`keep_enabled` 只对覆盖安装生效：插件更新时恢复更新前的
+/// 启用状态并让 sidecar 用新代码重新起来；普通安装仍然默认停用（安装不等于信任）。
 pub(crate) fn install_from_source(
     app: &AppHandle,
     mgr: &PluginManager,
@@ -1235,6 +1263,7 @@ pub(crate) fn install_from_source(
     overwrite: bool,
     expected_id: Option<&str>,
     source_origin: &crate::plugin_repository::InstalledPluginSource,
+    keep_enabled: bool,
 ) -> Result<PluginInstallResult, String> {
     let _mutation = PLUGIN_MUTATION.lock().map_err(|e| e.to_string())?;
     if source.as_os_str().is_empty() {
@@ -1256,6 +1285,7 @@ pub(crate) fn install_from_source(
     }
     fs::create_dir_all(&staging).map_err(|e| format!("create staging: {e}"))?;
 
+    let mut restore_enabled = false;
     let install_result = (|| {
         let payload = staging.join("payload");
         fs::create_dir(&payload).map_err(|e| format!("create package staging: {e}"))?;
@@ -1296,12 +1326,23 @@ pub(crate) fn install_from_source(
                 manifest.id
             ));
         }
+        // 更新必须落在已安装的插件上。预检在 mutation 锁外，这里再核对一次，
+        // 避免与并发卸载交错时把刚删掉的插件又装回来。
+        if keep_enabled && !overwritten {
+            return Err("plugin_not_installed".into());
+        }
 
         // Refuse installing over the selected source itself.
         if paths_equal(&source, &dest) {
             return Err("source path is already the installed plugin directory".into());
         }
 
+        // 插件更新：覆盖安装前记下启用状态，发布新文件后按原状态恢复；普通安装不受影响。
+        restore_enabled = keep_enabled
+            && overwritten
+            && crate::plugin_config::get_plugin_config_entry(app, &manifest.id, "enabled")?
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
         // Installation never grants trust, including overwrite/reinstall.
         crate::plugin_config::set_plugin_config_entry(
             app,
@@ -1330,11 +1371,12 @@ pub(crate) fn install_from_source(
             version: manifest.version,
             overwritten,
             path: dest.to_string_lossy().to_string(),
+            restart_error: None,
         })
     })();
 
     let cleanup = remove_path_all(&staging);
-    let result = match install_result {
+    let mut result = match install_result {
         Ok(result) => result,
         Err(error) => {
             return Err(match cleanup {
@@ -1344,6 +1386,21 @@ pub(crate) fn install_from_source(
         }
     };
     mgr.rescan(app)?;
+    if restore_enabled {
+        // 文件已经换新：恢复启用状态，并让 sidecar 与后台窗口都用新代码重新起来。
+        let restart = mgr
+            .set_enabled(app, &result.id, true)
+            .and_then(|_| sidecars.sync_plugin(app, mgr, &result.id))
+            .and_then(|_| windows.sync_plugin(app, mgr, &result.id));
+        if let Err(error) = restart {
+            // 更新本身已经完成，重启失败不能回滚已替换的文件；把插件留在停用态，
+            // 交给前端提示用户手动开启，而不是把整次更新报成失败。
+            let _ = mgr.set_enabled(app, &result.id, false);
+            let _ = sidecars.sync_plugin(app, mgr, &result.id);
+            let _ = windows.stop_plugin(app, &result.id);
+            result.restart_error = Some(error);
+        }
+    }
     let _ = app.emit("plugins-reloaded", serde_json::json!({}));
     cleanup.map_err(|e| format!("plugin installed, but staging cleanup failed: {e}"))?;
     Ok(result)

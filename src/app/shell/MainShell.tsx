@@ -3,6 +3,8 @@ import { Bug, ChartPie, Plug, Settings } from 'lucide-react'
 import { useT } from '../i18n'
 import { canUseViewTransition } from '../lib/viewTransition'
 import { Toaster } from '../ui/toast'
+import { useAppUpdateCheck } from '../useAppUpdateCheck'
+import { useAppUpdateStore } from '../../stores/appUpdate'
 import './shell.css'
 
 const NAV_ITEMS = [
@@ -27,6 +29,9 @@ const NAV_ITEMS = [
 export function MainShell() {
   const t = useT()
   const viewTransition = canUseViewTransition()
+  // 自动检查发现的新版本：设置图标右下角点一个红点，点进设置页看版本行。
+  const updateNotice = useAppUpdateStore((state) => state.notice)
+  useAppUpdateCheck()
 
   return (
     <div className="ct-app">
@@ -41,8 +46,16 @@ export function MainShell() {
               data-label={t(labelKey)}
               className={({ isActive }) => `ct-sidebar-item${isActive ? ' is-active' : ''}`}
             >
-              <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
-              <span>{t(labelKey)}</span>
+              <span className="ct-sidebar-item-icon">
+                <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
+                {to === '/settings' && updateNotice && (
+                  <span
+                    className="ct-sidebar-item-dot"
+                    title={t('settings.update.newVersion', { version: updateNotice.version })}
+                  />
+                )}
+              </span>
+              <span className="ct-sidebar-item-label">{t(labelKey)}</span>
             </NavLink>
           ))}
         </nav>
