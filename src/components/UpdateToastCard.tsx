@@ -31,13 +31,17 @@ const LOCAL_PREVIEW = import.meta.env.DEV
 const NOTES_URL = LOCAL_PREVIEW ? 'http://localhost:1420/website/latest/preview.html' : 'https://lanxiuyun.github.io/Catrace/latest/'
 const BROWSER_NOTES_URL = 'https://lanxiuyun.github.io/Catrace/latest/'
 const NOTES_MAX_HEIGHT = 440
+const NOTES_LOAD_TIMEOUT_MS = 8000
 
 export default function UpdateToastCard({ version, updateBody, showUpdateBody, updateInstalling, downloadProgress, onClose, onToggleDetails, onToggleBody, onResize, onInstall, onSourceChange }: UpdateToastCardProps) {
   const t = useT()
   const [source, setSource] = useState<UpdateSourceId>('auto')
   const [notesFrameVisible, setNotesFrameVisible] = useState(LOCAL_PREVIEW)
+  // 点击加载后说明区直接按上限高度撑开：先用最大高度占位，收到官网页面上报的高度后再收放。
+  // 原来先塞一个 160px 的深色 iframe、等高度消息回来才跳高，点击后看到的是黑框和二次跳动。
+  const [notesFrameHeight, setNotesFrameHeight] = useState(NOTES_MAX_HEIGHT)
+  const [notesFrameReady, setNotesFrameReady] = useState(false)
   const [notesFrameFailed, setNotesFrameFailed] = useState(false)
-  const [notesFrameHeight, setNotesFrameHeight] = useState(160)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const resizeRef = useRef(onResize)
@@ -52,6 +56,9 @@ export default function UpdateToastCard({ version, updateBody, showUpdateBody, u
       const payload = event.data as { type?: unknown; height?: unknown } | null
       if (!payload || payload.type !== 'catrace-release-notes-height' || typeof payload.height !== 'number' || !Number.isFinite(payload.height)) return
       setNotesFrameHeight(Math.max(120, Math.min(Math.ceil(payload.height), NOTES_MAX_HEIGHT)))
+      setNotesFrameReady(true)
+      setNotesFrameFailed(false)
+      if (notesTimer.current) { clearTimeout(notesTimer.current); notesTimer.current = undefined }
     }
     window.addEventListener('message', onNotesMessage)
     return () => {
@@ -61,17 +68,20 @@ export default function UpdateToastCard({ version, updateBody, showUpdateBody, u
     }
   }, [])
 
-  useLayoutEffect(() => { resizeRef.current?.() }, [showUpdateBody, notesFrameHeight, notesFrameFailed, notesFrameVisible, updateInstalling])
+  useLayoutEffect(() => { resizeRef.current?.() }, [showUpdateBody, notesFrameHeight, notesFrameReady, notesFrameFailed, notesFrameVisible, updateInstalling])
 
   const showLatestNotes = () => {
     setNotesFrameVisible(true)
+    setNotesFrameReady(false)
     setNotesFrameFailed(false)
+    setNotesFrameHeight(NOTES_MAX_HEIGHT)
     if (notesTimer.current) clearTimeout(notesTimer.current)
-    notesTimer.current = setTimeout(() => setNotesFrameFailed(true), 8000)
+    notesTimer.current = setTimeout(() => setNotesFrameFailed(true), NOTES_LOAD_TIMEOUT_MS)
   }
   const onNotesFrameLoad = () => {
+    setNotesFrameReady(true)
     setNotesFrameFailed(false)
-    if (notesTimer.current) clearTimeout(notesTimer.current)
+    if (notesTimer.current) { clearTimeout(notesTimer.current); notesTimer.current = undefined }
   }
   const changeSource = async (next: UpdateSourceId) => {
     const previous = source
@@ -111,7 +121,10 @@ export default function UpdateToastCard({ version, updateBody, showUpdateBody, u
         </Select>
       </ToastCardHeader>
       {showUpdateBody && <section className="release-notes" aria-label="最新版本更新说明">
-        {notesFrameVisible && !notesFrameFailed && <iframe ref={frameRef} className="release-notes-frame" src={NOTES_URL} title="Catrace 最新版本更新说明" loading="eager" sandbox={LOCAL_PREVIEW ? undefined : 'allow-same-origin allow-scripts'} referrerPolicy="no-referrer" style={{ height: `${notesFrameHeight / 16}rem`, maxHeight: `${NOTES_MAX_HEIGHT / 16}rem` }} onLoad={onNotesFrameLoad} onError={() => setNotesFrameFailed(true)} />}
+        {notesFrameVisible && !notesFrameFailed && <div className="release-notes-view">
+          <iframe ref={frameRef} className="release-notes-frame" src={NOTES_URL} title="Catrace 最新版本更新说明" loading="eager" sandbox={LOCAL_PREVIEW ? undefined : 'allow-same-origin allow-scripts'} referrerPolicy="no-referrer" style={{ height: `${notesFrameHeight / 16}rem`, maxHeight: `${NOTES_MAX_HEIGHT / 16}rem` }} onLoad={onNotesFrameLoad} onError={() => setNotesFrameFailed(true)} />
+          {!notesFrameReady && <div className="release-notes-loading" role="status">正在加载官网最新说明…</div>}
+        </div>}
         {notesFrameFailed && <div className="release-notes-fallback"><p>{updateBody || '暂时无法加载官网更新说明，请检查网络后重试。'}</p></div>}
         {!LOCAL_PREVIEW && <div className="release-notes-footer">
           {(!notesFrameVisible || notesFrameFailed) && <Button size="sm" variant="ghost" onClick={showLatestNotes}>{notesFrameFailed ? '重试加载' : '加载官网最新说明'}</Button>}

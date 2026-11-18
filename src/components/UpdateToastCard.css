@@ -64,6 +64,14 @@
   background: var(--ct-warning-soft);
 }
 
+.ct-update-toast-card .release-notes-view {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .ct-update-toast-card .release-notes-frame {
   display: block;
   width: 100%;
@@ -71,7 +79,21 @@
   min-height: 7.5rem;
   max-height: 27.5rem;
   border: 0;
-  background: #11100f;
+  /* 官网说明页是白底：iframe 自身透明，加载完成前露出的是说明区暖色底，
+     不再先闪一块近黑的底色（深色主题时期留下的旧值）。 */
+  background: transparent;
+}
+
+/* 说明区在按上限高度撑开的同时显示加载提示，内容一到位就撤掉，避免先出现空白框。 */
+.ct-update-toast-card .release-notes-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ct-warning-strong);
+  font-size: 0.75rem;
+  pointer-events: none;
 }
 
 .ct-update-toast-card .release-notes-fallback {

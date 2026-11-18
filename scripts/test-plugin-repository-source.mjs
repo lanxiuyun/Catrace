@@ -14,17 +14,23 @@ const catalogModule = compile('../src/app/pages/plugins/usePluginCatalog.ts')
 const OFFICIAL = 'lanxiuyun/catrace-plugin'
 const CUSTOM = 'example/custom-plugins'
 const KEY = 'plugin_repository'
+const CACHE_KEY = 'plugin_catalog_cache'
 const OLD_SHA = '1'.repeat(40)
 const NEW_SHA = '2'.repeat(40)
 const catalog = (repository, commit = OLD_SHA) => ({
-  repository, commit, plugins: [{ id: 'timer', name: 'Timer', version: '1', description: '' }],
+  repository,
+  commit,
+  plugins: [{
+    id: 'timer', name: 'Timer', version: '1', description: '',
+    hasUi: false, hasBackground: false, hasSettings: false, hasSidecar: false,
+  }],
 })
 const deferred = () => {
   let resolve, reject
   const promise = new Promise((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
-const flush = async () => { for (let i = 0; i < 30; i++) await Promise.resolve() }
+const flush = async () => { for (let i = 0; i < 60; i++) await Promise.resolve() }
 
 // State and refs persist across manual renders. Effects/callbacks respect dependencies,
 // so rendering a hook snapshot does not accidentally restart its mount requests.
@@ -65,14 +71,16 @@ function reactHooks() {
   }
 }
 
-function harness(stored) {
+function harness(stored, cachedCatalog) {
   const hooks = reactHooks()
   const memory = new Map(stored === undefined ? [] : [[KEY, stored]])
+  if (cachedCatalog) memory.set(CACHE_KEY, cachedCatalog)
   const disk = new Map(memory)
   const state = {
-    memory, disk, lists: [], installs: [], storeCalls: [], toasts: [], errors: [], listeners: [],
+    memory, disk, lists: [], installs: [], updates: [], moduleReloads: [], storeCalls: [], toasts: [], errors: [], listeners: [],
     onList: async repository => catalog(repository),
     onInstall: async id => ({ id, name: 'Timer', version: '1' }),
+    onUpdate: async id => ({ id, name: 'Timer', version: '2' }),
     onSave: async () => {},
   }
   const store = {
@@ -97,6 +105,10 @@ function harness(stored) {
     installRepositoryPlugin: async (...args) => {
       state.installs.push(args)
       return state.onInstall(...args)
+    },
+    updateRepositoryPlugin: async (...args) => {
+      state.updates.push(args)
+      return state.onUpdate(...args)
     },
     setExternalPluginEnabled: async () => { throw new Error('Unexpected toggle in repository-source test') },
     uninstallExternalPlugin: async () => { throw new Error('Unexpected uninstall in repository-source test') },
@@ -129,7 +141,7 @@ function harness(stored) {
       emit: async () => {},
     },
     '../../../api/tauri': api,
-    '../../../plugins/loadExternalPlugins': { loadExternalPlugins: async () => [] },
+    '../../../plugins/loadExternalPlugins': { loadExternalPlugins: async (...args) => { state.moduleReloads.push(args); return [] } },
     '../../i18n': { useT: () => translate },
     '../../ui/toast': { showToast: (...args) => state.toasts.push(args) },
     './pluginRepositorySource': settings,
@@ -206,7 +218,8 @@ test('backend validation failure retains old source/catalog and never writes Sto
   assert.equal(h.current.sourceBusy, false)
   assert.equal(h.state.memory.get(KEY), OFFICIAL)
   assert.equal(h.state.disk.get(KEY), OFFICIAL)
-  assert.equal(h.state.storeCalls.some(([action]) => action === 'set' || action === 'save'), false)
+  // 只关心插件源写入：目录缓存（plugin_catalog_cache）是刷新成功后的旁路缓存，不算源被写。
+  assert.equal(h.state.storeCalls.some(([action, key]) => action === 'save' || (action === 'set' && key === KEY)), false)
 })
 
 test('save failure retains old catalog and restores both in-memory and persisted source', async () => {
@@ -336,4 +349,58 @@ test('hook unmount unsubscribes mocked Tauri events', async () => {
   assert.deepEqual(h.state.listeners.map(item => item.name), ['plugins-reloaded', 'plugin-enabled-changed'])
   h.unmount()
   assert.ok(h.state.listeners.every(item => item.disposed))
+})
+
+test('update replaces the installed package from the same snapshot and reloads modules', async () => {
+  const h = harness(CUSTOM)
+  h.state.onList = async repository => catalog(repository, NEW_SHA)
+  await h.mount()
+  assert.equal(await h.current.update('timer'), true)
+  assert.deepEqual(h.state.updates, [['timer', NEW_SHA, CUSTOM, false]])
+  assert.equal(h.state.moduleReloads.length, 1)
+  assert.equal(h.state.moduleReloads[0][0].force, true)
+  assert.ok(h.state.toasts.some(([message]) => message === 'pluginMarket.updatedMessage'))
+  assert.equal(h.current.busyId, null)
+})
+
+test('update refuses to run without a catalog snapshot', async () => {
+  const h = harness(OFFICIAL)
+  h.state.onList = async () => { throw new Error('offline') }
+  await h.mount()
+  assert.equal(h.current.repository, null)
+  assert.equal(await h.current.update('timer'), false)
+  assert.deepEqual(h.state.updates, [])
+  assert.ok(h.state.toasts.some(([message, kind]) => message === 'pluginMarket.operationFailed' && kind === 'error'))
+})
+
+test('cached catalog shows versions before the refreshed catalog arrives', async () => {
+  const h = harness(OFFICIAL, catalog(OFFICIAL, OLD_SHA))
+  const refresh = deferred()
+  h.state.onList = async () => refresh.promise
+  await h.mount()
+  assert.equal(h.current.repository.commit, OLD_SHA)
+  assert.equal(h.current.loadingRemote, true)
+  refresh.resolve(catalog(OFFICIAL, NEW_SHA))
+  await flush()
+  assert.equal(h.current.repository.commit, NEW_SHA)
+  assert.equal(h.current.loadingRemote, false)
+})
+
+test('a just-fetched cached catalog skips the automatic refresh', async () => {
+  const h = harness(OFFICIAL, { ...catalog(OFFICIAL, OLD_SHA), fetchedAt: Date.now() })
+  await h.mount()
+  assert.deepEqual(h.state.lists, [])
+  assert.equal(h.current.repository.commit, OLD_SHA)
+  assert.equal(h.current.loadingRemote, false)
+  // 手动刷新仍然会去拉一次目录。
+  await h.current.refreshRemote()
+  assert.deepEqual(h.state.lists, [OFFICIAL])
+})
+
+test('mirror rate limiting gets its own message instead of a generic failure', async () => {
+  const h = harness(OFFICIAL)
+  h.state.onList = async () => { throw new Error('source_rate_limited') }
+  await h.mount()
+  assert.equal(h.current.remoteError, 'pluginMarket.sourceRateLimited')
+  assert.equal(h.current.repository, null)
 })

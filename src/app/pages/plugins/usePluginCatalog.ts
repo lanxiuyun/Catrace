@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event'
 import {
   DEFAULT_PLUGIN_REPOSITORY, installRepositoryPlugin, listExternalPlugins, listPluginCatalog,
-  listRepositoryPlugins, setExternalPluginEnabled, uninstallExternalPlugin,
+  listRepositoryPlugins, setExternalPluginEnabled, uninstallExternalPlugin, updateRepositoryPlugin,
   type PluginCatalogEntry, type RepositoryPluginCatalog,
 } from '../../../api/tauri'
 import { loadExternalPlugins } from '../../../plugins/loadExternalPlugins'
 import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
-import { readGithubMirror, readPluginRepository, savePluginRepository } from './pluginRepositorySource'
+import { readPluginCatalogCache, readGithubMirror, readPluginRepository, savePluginCatalogCache, savePluginRepository } from './pluginRepositorySource'
+
+/** 自动刷新目录的最小间隔；手动刷新和切换插件源不受限制。 */
+const CATALOG_REFRESH_INTERVAL_MS = 5 * 60_000
 
 export function usePluginCatalog() {
   const t = useT()
@@ -34,7 +37,10 @@ export function usePluginCatalog() {
 
   // The backend marks an exhausted API quota as `rate_limited|<reset epoch>`.
   const describeError = (error: unknown) => {
-    const text = String(error)
+    const raw = String(error)
+    const text = raw.startsWith('Error: ') ? raw.slice(7) : raw
+    if (text.trim() === 'source_rate_limited') return t('pluginMarket.sourceRateLimited')
+    if (text.trim() === 'plugin_not_installed') return t('pluginMarket.pluginNotInstalled')
     const match = /^rate_limited\|(\d+)$/.exec(text.trim())
     if (!match) return text
     const epoch = Number(match[1])
@@ -108,11 +114,13 @@ export function usePluginCatalog() {
       sourceRef.current = result.repository
       setSource(result.repository)
       setRepository(result)
+      void savePluginCatalogCache(result)
     } catch (error) {
       if (mounted.current && request === remoteRequest.current) {
         setRemoteError(describeError(error))
-        // Never leave an old source's cards installable after a failed source read.
-        setRepository(null)
+        // 同一插件源的上一次目录（含缓存）继续可用于版本比较，不因一次刷新失败清空；
+        // 只有目录不属于当前源时才丢弃，避免把旧来源的卡片留在发现页。
+        setRepository((current) => current && current.repository === sourceRef.current ? current : null)
       }
     } finally {
       if (mounted.current && request === remoteRequest.current) setLoadingRemote(false)
@@ -127,6 +135,22 @@ export function usePluginCatalog() {
       if (!mounted.current) return
       mirrorRef.current = savedMirror
       setMirrorState(savedMirror)
+      // 先用上次成功的目录让「已安装」卡片的版本和更新提示立刻出现，再照常后台刷新。
+      const savedSource = await readPluginRepository().catch(() => DEFAULT_PLUGIN_REPOSITORY)
+      if (!mounted.current) return
+      const cached = await readPluginCatalogCache(savedSource).catch(() => null)
+      if (!mounted.current) return
+      if (cached) {
+        sourceRef.current = savedSource
+        setSource(savedSource)
+        setRepository(cached)
+        // 目录刚从仓库拉到不久：先用缓存，别让每次打开页面/刷新都重发几十个 manifest 请求
+        // （镜像线路会以 429 回应）。手动刷新走发现页的刷新按钮，不受这个间隔限制。
+        if (Date.now() - cached.fetchedAt < CATALOG_REFRESH_INTERVAL_MS) {
+          setLoadingRemote(false)
+          return
+        }
+      }
       await refreshRemote()
     })()
     const unlisteners: UnlistenFn[] = []
@@ -164,6 +188,7 @@ export function usePluginCatalog() {
       setMirrorState(nextMirror)
       setRepository(result)
       setRemoteError('')
+      void savePluginCatalogCache(result)
       showToast(t('pluginMarket.sourceSaved'))
     } catch (error) {
       throw describeError(error)
@@ -208,6 +233,26 @@ export function usePluginCatalog() {
     await setExternalPluginEnabled(id, value)
   })
 
+  // Files are replaced by the backend; the frontend modules must be rebuilt from the new package
+  // (same path as the installed tab's "reload local plugins"), including the Toast window.
+  const update = (id: string) => run(id, async () => {
+    const snapshot = repository
+    if (!snapshot || snapshot.repository !== sourceRef.current) {
+      throw new Error(t('pluginMarket.catalogUnavailable'))
+    }
+    const result = await updateRepositoryPlugin(id, snapshot.commit, snapshot.repository, mirrorRef.current)
+    // 更新已经落盘：模块重建失败不能伪装成「更新失败」，只记日志，让用户还能正常打开插件。
+    try { await loadExternalPlugins({ force: true }) }
+    catch (error) { console.warn('[plugins] reload after update failed', error) }
+    await emit('catrace:reload-external-plugins').catch(() => {})
+    // 后端重启运行时失败时会把插件留在停用态；文件已更新，不能再用「更新失败」误导用户。
+    if (result.restartError) {
+      showToast(t('pluginMarket.updatedRestartFailed', { name: result.name, version: result.version }), 'error')
+    } else {
+      showToast(t('pluginMarket.updatedMessage', { name: result.name, version: result.version }))
+    }
+  })
+
   const uninstall = (id: string) => run(id, async () => {
     await uninstallExternalPlugin(id)
     showToast(t('pluginMarket.uninstalledMessage'))
@@ -216,6 +261,6 @@ export function usePluginCatalog() {
   return {
     installed, repository, source, mirror, sourceBusy, changeSource,
     loadingLocal, loadingRemote, reloadingLocal, localError, remoteError,
-    busyId, refreshLocal, reloadLocal, refreshRemote, install, toggle, uninstall,
+    busyId, refreshLocal, reloadLocal, refreshRemote, install, update, toggle, uninstall,
   }
 }

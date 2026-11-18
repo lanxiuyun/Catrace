@@ -64,6 +64,25 @@
   height: 1rem;
 }
 
+/* 图标列：设置项的更新红点挂在图标右下角，宽窄两种侧栏都跟着图标走 */
+.ct-sidebar-item-icon {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct-sidebar-item-dot {
+  position: absolute;
+  right: -0.125rem;
+  bottom: -0.125rem;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999rem;
+  background: var(--ct-error);
+}
+
 .ct-sidebar-item:hover {
   background: var(--ct-nav-hover);
   color: var(--ct-text);
@@ -123,7 +142,7 @@
   }
 
   /* 图标栏里文字不占位；名称仍由 aria-label 提供给读屏 */
-  .ct-sidebar-item span {
+  .ct-sidebar-item-label {
     display: none;
   }
 

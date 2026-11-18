@@ -24,11 +24,35 @@
     .text { margin: 0; font-size: .9rem; line-height: 1.55; }
     .details { display: grid; gap: .45rem; margin: .45rem 0 0; padding-left: 1rem; color: var(--muted); font-size: .82rem; line-height: 1.5; }
     @media (max-width: 22rem) { .text { font-size: .84rem; } .details { font-size: .78rem; } }
+    /* 说明页嵌在更新卡片 iframe 里，是独立文档，宿主的全局滚动条样式进不来：
+       用和宿主一致的内部滚动条（细滑块、透明轨道、没有原生箭头按钮）。 */
+    *::-webkit-scrollbar { width: .5rem; height: .5rem; }
+    *::-webkit-scrollbar-track,
+    *::-webkit-scrollbar-corner { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background-color: rgba(0, 0, 0, .2);
+      background-clip: content-box;
+      border: .125rem solid transparent;
+      border-radius: 999px;
+    }
+    *::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 0, 0, .35); }
   </style>
 </head>
 <body>
   <main>
     <ol class="timeline" aria-label="版本更新说明">
+      <li class="item">
+        <div class="time">26.11.17 - 插件中心支持一键升级，应用新版本改到设置页提示。</div>
+        <ul class="details">
+          <li>已安装插件有新版本时，卡片上直接显示「当前版本 → 新版本」，点「更新」就能升级，不用先卸载再安装；插件原来的设置和开关状态都会保留。</li>
+          <li>正在运行的插件更新后会自动用新版本重启；如果重启失败会提示关闭再开启，不会误报「更新失败」。</li>
+          <li>「更新」按钮放在插件启动开关旁边，打开插件时就能顺手升级；插件名和版本不会被按钮挤到换行。</li>
+          <li>打开插件中心先显示上次的插件列表，后台再拉取最新信息；刚拉取过的目录短时间内不会重复请求，减少被仓库线路限流。</li>
+          <li>被限流时会提示「插件仓库线路被限流（HTTP 429），稍后重试即可」，已安装插件不受影响。</li>
+          <li>应用有新版本时，左侧「设置」图标右下角显示红点，设置页「软件版本」一栏直接显示「当前版本 → 新版本」，不再弹出右下角更新提示卡片。</li>
+          <li>修复刷新插件详情页后向下滚动时，顶部栏没有背景、也不显示插件名的问题。</li>
+        </ul>
+      </li>
       <li class="item">
         <div class="time">26.11.16 - 提醒卡片、插件界面和设置页统一换新，旧插件需要重新安装。</div>
         <ul class="details">
