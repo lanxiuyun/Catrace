@@ -12,9 +12,11 @@
   background: var(--ct-bg);
 }
 
-/* ---------- 侧边栏（macOS 透光材质） ----------
+/* ---------- 侧边栏（半透明底，不做背景模糊） ----------
    宽窗口是带文字的 10rem；窗口窄于 62rem 时收成 3.75rem 图标栏，
-   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。 */
+   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。
+   这里曾经加过 backdrop-filter: blur(30px)：背后是本页的纯色/渐变背景，
+   模糊出来和没模糊几乎一样，反而在每次重绘时多一层合成开销，已删除。 */
 .ct-sidebar {
   position: relative;
   z-index: 2;
@@ -25,8 +27,6 @@
   gap: 1rem;
   padding: 0.875rem 0.5rem;
   background: var(--ct-sidebar-bg);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
   border-right: 0.0625rem solid var(--ct-sidebar-border);
   /* 图标栏的悬停浮层要能飞出侧栏，所以不能用 hidden */
   overflow: visible;
