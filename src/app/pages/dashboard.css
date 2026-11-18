@@ -341,7 +341,6 @@
 }
 
 .ct-dashboard .activity-panel {
-  padding: 1.25rem;
   background: var(--ct-surface);
   border: 0.0625rem solid var(--ct-border-card);
   border-radius: 1.25rem;

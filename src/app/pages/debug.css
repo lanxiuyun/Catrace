@@ -1,7 +1,7 @@
 /* 调试页：实时状态 / Signal 分钟桶 / 音频会话 + Event SDK。
  *
  * 全页只用「面板档」一种表面：
- *   --ct-surface + 1px 细边 + 1.25rem 圆角 + 1.25rem 内边距，**不投阴影**。
+ *   --ct-surface + 1px 细边 + 1.25rem 圆角 + HeroUI Card 默认内边距，**不投阴影**。
  * 阴影在这套语言里表达「高度」，只留给真正浮起的表面（Toast、拖拽中的卡、hover 抬升的卡）；
  * 宽面板一旦加上卡片投影，软影会填满 1rem 的卡间距，看上去像底下又垫了一层。
  *
@@ -64,8 +64,9 @@
 /* ---------- 面板 ---------- */
 
 .ct-debug-panel {
+  gap: 0;
+  box-shadow: none;
   min-width: 0;
-  padding: 1.25rem;
   background: var(--ct-surface);
   border: 0.0625rem solid var(--ct-border-card);
   border-radius: 1.25rem;

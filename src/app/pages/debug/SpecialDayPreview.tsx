@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button } from '@heroui/react'
+import { Button, Card } from '@heroui/react'
 import { useT } from '../../i18n'
 import { useShellStore } from '../../store'
 import SpecialDayToastCard from '../../../components/SpecialDayToastCard'
@@ -55,7 +55,7 @@ export function SpecialDayPreview() {
   const days = locale === 'zh-CN' ? FIXED_DAYS_ZH : FIXED_DAYS_EN
 
   return (
-    <section className="ct-debug-panel">
+    <Card<'section'> render={(props) => <section {...props} />} className="ct-debug-panel">
       <div className="ct-debug-panel-head">
         <h2 className="ct-debug-panel-title">{t('debug.specialDayPreview.title')}</h2>
         <div className="ct-debug-special-actions">
@@ -84,6 +84,6 @@ export function SpecialDayPreview() {
           ))}
         </div>
       )}
-    </section>
+    </Card>
   )
 }

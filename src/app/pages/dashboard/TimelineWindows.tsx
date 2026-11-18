@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { Card } from '@heroui/react'
 import { ChevronDown } from 'lucide-react'
 import type { MinuteData } from '../../../types/minute'
 import { computeTimeBlocks, mergeRestBlocks, type TimeBlock } from '../../../utils/timeBlocks'
@@ -166,7 +167,7 @@ function countActiveInBlock(block: WindowBlock): number {
  *
  * 信息顺序：状态胶囊 → 时间范围 → 时长（休息 block 再补「活跃 Xm」）。
  *
- * 可访问性：卡片外壳是普通 div，真正可聚焦的是盖住摘要区的 <button>；
+ * 可访问性：卡片外壳使用 HeroUI Card，真正可聚焦的是盖住摘要区的 <button>；
  * 展开的明细是按钮的兄弟节点，不会因为「button 后代一律 presentational」而被读屏吞掉。
  */
 export function TimelineWindows({
@@ -262,16 +263,19 @@ export function TimelineWindows({
                   ? 'badge-active'
                   : 'badge-null'
           return (
-            <div
+            <Card
               key={key}
-              className={`card${block.isCurrent ? ' is-current' : ''}${isOpen ? ' is-open' : ''}`}
+              className={`ct-activity-card${block.isCurrent ? ' is-current' : ''}${isOpen ? ' is-open' : ''}`}
+              onClick={() => {
+                setTip(null)
+                toggleBlock(index)
+              }}
             >
               <button
                 type="button"
                 className="card-summary"
                 aria-expanded={isOpen}
                 aria-controls={detailId}
-                onClick={() => toggleBlock(index)}
               >
                 <span className="card-top">
                   <span className={`badge ${badgeClass}`}>
@@ -383,7 +387,7 @@ export function TimelineWindows({
                   )}
                 </div>
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>

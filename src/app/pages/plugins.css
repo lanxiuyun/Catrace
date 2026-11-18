@@ -205,29 +205,14 @@
 .ct-market button:focus-visible, .ct-plugin-detail button:focus-visible { outline: 0.125rem solid var(--ct-accent); outline-offset: 0.1875rem; }
 .ct-market button:active:not(:disabled), .ct-plugin-detail button:active:not(:disabled) { filter: brightness(0.96); }
 
-/* Built-in reminder settings: muted group titles above white setting cards. */
-.ct-rest-settings { display: flex; flex-direction: column; gap: 1.75rem; }
-.ct-rest-section { min-width: 0; }
-.ct-rest-section-head { margin: 0 0 0.625rem; padding-inline: 0.625rem; }
-.ct-rest-section-head h3 { margin: 0; color: var(--ct-text-muted); font-size: 0.8125rem; font-weight: 600; line-height: 1.5; }
-.ct-rest-section-body { min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1rem; background: var(--ct-surface); }
-.ct-rest-section-body > .ct-plugin-row { align-items: center; padding: 1rem 1.25rem; }
-.ct-rest-section-body > .ct-plugin-row:first-of-type { padding-top: 1rem; }
-.ct-rest-section-body > .ct-plugin-row + .ct-plugin-row { border-top: 1px solid var(--ct-border); }
-.ct-rest-section-body > .ct-plugin-row.is-stack { align-items: stretch; gap: 0.75rem; }
-.ct-rest-settings .ct-plugin-value { min-width: 3.75rem; padding: 0; background: transparent; font-weight: 500; }
-/* Keep HeroUI's drag/focus behavior, but use a slim track on this settings page. */
-.ct-rest-settings .slider { padding-block: 0.5rem; }
-.ct-rest-settings .slider[data-orientation="horizontal"] .slider__track { height: 0.25rem; border-inline-width: 0.5rem; }
-.ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb { width: 1rem; height: 1rem; border-radius: 50%; }
-.ct-rest-settings .slider[data-orientation="horizontal"] .slider__thumb::after { width: 0.625rem; height: 0.625rem; border-radius: 50%; }
-/* Image selection actions remain above the live preview. */
-.ct-rest-background-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; }
-.ct-rest-background-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 0.5rem; }
-@media (max-width: 48rem) {
-  .ct-rest-section-body > .ct-plugin-row { align-items: stretch; }
-  .ct-rest-section-body .ct-plugin-row-control.is-slider { flex: none; width: 100%; }
-}
+/* Card/row layout lives in SettingsCard.css; only reminder-specific control sizes belong here. */
+.ct-rest-settings { width: 100%; display: flex; flex-direction: column; gap: 1.25rem; }
+.ct-rest-settings .ct-rest-slider { width: 8rem; }
+.ct-rest-settings .ct-rest-number { width: 9rem; }
+.ct-rest-settings .ct-rest-unit { font-size: 0.75rem; color: var(--ct-text-muted); }
+.ct-rest-settings .ct-rest-value { min-width: 2.5rem; text-align: right; font-size: 0.75rem; color: var(--ct-text-muted); font-variant-numeric: tabular-nums; }
+.ct-rest-settings .ct-rest-title-control { width: 12rem; }
+.ct-rest-background-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* Shared setting rows. */
 .ct-plugin-groups { display: flex; flex-direction: column; gap: 1rem; }
