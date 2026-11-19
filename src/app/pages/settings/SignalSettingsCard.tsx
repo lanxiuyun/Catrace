@@ -112,6 +112,7 @@ export function SignalSettingsCard() {
         <Switch
           isSelected={enabled}
           isDisabled={loading || !ready}
+          aria-label={t('settings.signal.keySeqTitle')}
           onChange={onToggle}
         >
           <Switch.Content>
@@ -127,6 +128,7 @@ export function SignalSettingsCard() {
         <Select
           className="w-28"
           variant="secondary"
+          aria-label={t('settings.signal.retentionTitle')}
           value={String(retentionHours)}
           onChange={(value) => { if (value != null) void applyRetention(String(value)) }}
         >

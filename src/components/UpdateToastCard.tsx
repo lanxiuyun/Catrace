@@ -103,7 +103,7 @@ export default function UpdateToastCard({ version, updateBody, showUpdateBody, u
         onClose={onClose}
         showClose={!updateInstalling}
       >
-        <Select className="ct-toast-select" variant="secondary" value={source} isDisabled={!!updateInstalling} onChange={(value) => { if (value != null) void changeSource(String(value) as UpdateSourceId) }}>
+        <Select className="ct-toast-select" variant="secondary" aria-label={t('settings.update.source')} value={source} isDisabled={!!updateInstalling} onChange={(value) => { if (value != null) void changeSource(String(value) as UpdateSourceId) }}>
           <Select.Trigger aria-label={t('settings.update.source')}>
             <Select.Value />
             <Select.Indicator />

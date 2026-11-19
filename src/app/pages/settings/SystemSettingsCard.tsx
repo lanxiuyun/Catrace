@@ -218,6 +218,7 @@ export function SystemSettingsCard() {
         <Select
           className="w-40"
           variant="secondary"
+          aria-label={t('settings.language.title')}
           value={locale}
           isDisabled={localeLoading || !ready}
           onChange={(value) => { if (value != null) void changeLocale(String(value)) }}
@@ -243,6 +244,7 @@ export function SystemSettingsCard() {
         <Select
           className="w-40"
           variant="secondary"
+          aria-label={t('settings.theme.title')}
           value={themeMode}
           onChange={(value) => { if (value != null) changeTheme(String(value)) }}
         >
@@ -349,7 +351,7 @@ export function SystemSettingsCard() {
         )}
         {updateInstalling && (
           <div className="ct-settings-download">
-            <ProgressBar value={downloadProgress}>
+            <ProgressBar value={downloadProgress} aria-label={t('settings.update.downloading')}>
               <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
             </ProgressBar>
             <span className="ct-settings-download-text">{downloadProgress}%</span>
