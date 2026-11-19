@@ -33,7 +33,17 @@ globalThis.__CATRACE_HEROUI__ ??= HeroUI
 - 分段选择（原 Radix `SegmentedControl`）用 `ToggleButtonGroup` + `ToggleButton`，`onSelectionChange` 收到的是 `Set`。
 - 数字输入用扁平组合 `NumberFieldRoot > NumberFieldGroup > (DecrementButton, Input, IncrementButton)`，`variant="secondary"`，`formatOptions={{ useGrouping: false }}`，宽度留够 9rem 放 −/+ 按钮。
 - 分组用 `TabsRoot` 时不能省 `TabListContainer`：HeroUI 默认的灰色底轨画在它上面，漏了会变成一条铺满的白底 tab。
-- 布局仍归插件：卡片、分组标题、行距由插件自己的 CSS 负责；不要用 Tailwind utility class（宿主 Tailwind 只扫描宿主源码），也不要把 `.card` / `.badge` / `.header` 这类 HeroUI 全局根类贴到原生 div 上。
+- 分组布局可直接使用宿主注入的 `__CATRACE_SETTINGS_UI__`，与久坐提醒共用同一模块的 `SettingsCard` / `SettingsCardRow`；Agent 通知已接入，其他插件本轮不迁移。插件不再复制分组卡片和设置行皮肤，也不需要增加依赖。
+- `SettingsCard` 接收 `title: string`、可选 `description: string` 和 `children`：组标题/说明在 HeroUI Card 外，只有相邻 `SettingsCardRow` 之间插入装饰性 HeroUI Separator（`elementType="hr"`）；条件空值/Fragment 会摊平，备注、空状态和预览按钮组不自动加线。卡片底色由宿主统一为浅色 `#fbfbfb` / 深色 `#2b2b2b`，圆角与阴影由 HeroUI 提供。
+- `SettingsCardRow` 接收 `title: string`、可选 `description: string`、`control: ReactNode`、可选 `stack: boolean` 和 `children`。默认左文字右控件；`stack` 为上下排列；额外子内容占整行。组件由宿主构建，组件内部的 Tailwind 类会随宿主生成，插件只需传 props。
+- 注入在插件模块导入前完成；只支持包含该接口的最新版宿主，不维护旧布局或旧宿主回退。已有配置保存、Hook RPC 和通知业务不属于布局合同。
+- 插件自身的业务局部 CSS 仍使用前缀类和 rem，不要自己写 Tailwind utility class（宿主 Tailwind 只扫描宿主源码），也不要把 `.card` / `.badge` / `.header` 这类 HeroUI 全局根类贴到原生 div 上。
+
+## 受控卸载确认框
+
+插件中心的卸载按钮在详情页内，通过 `removeId` 控制弹窗，因此直接用 `AlertDialog.Backdrop` 的 `isOpen` / `onOpenChange`，不要再套一个没有真实触发按钮的 `AlertDialog` Root。HeroUI 3.2.7 的 Root 内部是 React Aria `DialogTrigger` / `PressResponder`；缺少触发器时挂载会告警，弹层内部的取消/确认按钮不能代替外部触发器。Backdrop 自带受控状态，内部 `Container` / `Dialog` / `CloseTrigger` 与 `slot="close"` 按钮继续保留。
+
+`test-plugin-uninstall-dialog.mjs` 用真实开发版 HeroUI SSR 收集并仅执行 PressResponder 注册检查 effect，对比旧结构告警、真实触发器及独立 Backdrop 无告警；不执行其他 DOM effects，不等同于浏览器焦点或弹窗交互测试。
 
 ## 验证
 

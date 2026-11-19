@@ -11,16 +11,22 @@ function flattenRows(node: ReactNode): ReactNode[] {
 }
 
 /**
- * 设置分组：分组标题在卡片外（字号/字重抄 agent-notify 设置页），卡片直接用 HeroUI Card 默认外观。
- * 行与行之间用 HeroUI Separator，卡片本身不覆写任何样式。
+ * 宿主与外部插件共用的设置分组：标题/说明在卡片外，卡片直接用 HeroUI Card 默认外观。
+ * 连续设置行之间用 HeroUI Separator；备注、空状态与预览按钮组不自动加分隔线。
  * elementType="hr"：React Aria 的 Separator 默认元素是 <hr>，装饰态下 HeroUI 默认渲染 <div> 会在 dev 里
  * 每次渲染都警告 "Expected <hr>, got <div>"；显式给 hr 后既保留 aria-hidden，也不再刷控制台。
  */
-export function SettingsCard({ title, children }: { title: string; children: ReactNode }) {
+export function SettingsCard({ title, description, children }: {
+  title: string
+  description?: string
+  children: ReactNode
+}) {
   const rows = flattenRows(children)
   const content: ReactNode[] = []
   rows.forEach((row, index) => {
-    if (index > 0) {
+    const previous = rows[index - 1]
+    if (isValidElement(row) && row.type === SettingsCardRow
+      && isValidElement(previous) && previous.type === SettingsCardRow) {
       content.push(<Separator key={`separator-${index}`} elementType="hr" isDecorative />)
     }
     // Children.toArray 给每层 Fragment 的子节点都会从 .0 重新编号；摊平后同层 key 会撞车，
@@ -30,7 +36,10 @@ export function SettingsCard({ title, children }: { title: string; children: Rea
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-[0.8125rem] font-bold tracking-[0.02rem]">{title}</h3>
+      <div className="flex min-w-0 flex-col gap-1">
+        <h3 className="text-[0.8125rem] font-bold tracking-[0.02rem]">{title}</h3>
+        {description ? <p className="text-xs leading-[1.5] text-muted">{description}</p> : null}
+      </div>
       <Card>{content}</Card>
     </section>
   )

@@ -462,26 +462,25 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </>}
         </section>
 
-        <AlertDialog isOpen={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}>
-          <AlertDialog.Backdrop>
-            <AlertDialog.Container>
-              <AlertDialog.Dialog>
-                <AlertDialog.CloseTrigger />
-                <AlertDialog.Header>
-                  <AlertDialog.Icon status="danger" />
-                  <AlertDialog.Heading>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Heading>
-                </AlertDialog.Header>
-                <AlertDialog.Body>
-                  <p>{t('pluginMarket.uninstallDescription')}</p>
-                </AlertDialog.Body>
-                <AlertDialog.Footer>
-                  <Button slot="close" variant="tertiary">{t('pluginMarket.cancel')}</Button>
-                  <Button slot="close" variant="danger" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button>
-                </AlertDialog.Footer>
-              </AlertDialog.Dialog>
-            </AlertDialog.Container>
-          </AlertDialog.Backdrop>
-        </AlertDialog>
+        {/* 卸载由页面状态打开，不使用要求真实触发器的 AlertDialog Root。 */}
+        <AlertDialog.Backdrop isOpen={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}>
+          <AlertDialog.Container>
+            <AlertDialog.Dialog>
+              <AlertDialog.CloseTrigger />
+              <AlertDialog.Header>
+                <AlertDialog.Icon status="danger" />
+                <AlertDialog.Heading>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Heading>
+              </AlertDialog.Header>
+              <AlertDialog.Body>
+                <p>{t('pluginMarket.uninstallDescription')}</p>
+              </AlertDialog.Body>
+              <AlertDialog.Footer>
+                <Button slot="close" variant="tertiary">{t('pluginMarket.cancel')}</Button>
+                <Button slot="close" variant="danger" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button>
+              </AlertDialog.Footer>
+            </AlertDialog.Dialog>
+          </AlertDialog.Container>
+        </AlertDialog.Backdrop>
       </RadixPage>
     </PageScroll>
   )

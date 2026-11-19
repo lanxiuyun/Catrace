@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as RadixThemes from '@radix-ui/themes'
 import * as HeroUI from '@heroui/react'
 import { createPluginApi, type PluginApi } from './pluginApi'
+import * as SettingsUI from '../components/SettingsCard'
 
 /**
  * External ESM modules share the host React instance; Blob modules cannot resolve bare imports.
@@ -11,6 +12,7 @@ import { createPluginApi, type PluginApi } from './pluginApi'
 export type PluginReactRuntime = typeof React
 export type PluginRadixRuntime = typeof RadixThemes
 export type PluginHeroUIRuntime = typeof HeroUI
+export type PluginSettingsUIRuntime = typeof SettingsUI
 
 declare global {
   // eslint-disable-next-line no-var
@@ -20,6 +22,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __CATRACE_HEROUI__: PluginHeroUIRuntime | undefined
   // eslint-disable-next-line no-var
+  var __CATRACE_SETTINGS_UI__: PluginSettingsUIRuntime | undefined
+  // eslint-disable-next-line no-var
   var __CATRACE_CREATE_PLUGIN_API__: ((pluginId: string) => PluginApi) | undefined
 }
 
@@ -28,5 +32,6 @@ export function ensurePluginRuntime(): void {
   globalThis.__CATRACE_REACT__ ??= React
   globalThis.__CATRACE_RADIX__ ??= RadixThemes
   globalThis.__CATRACE_HEROUI__ ??= HeroUI
+  globalThis.__CATRACE_SETTINGS_UI__ ??= SettingsUI
   globalThis.__CATRACE_CREATE_PLUGIN_API__ ??= createPluginApi
 }

@@ -97,7 +97,7 @@ export interface ReminderText {
   body: string
 }
 
-/** 久坐提醒详情：沿用 Agent 通知的分组卡片与文字层级，设置行保持自动保存。 */
+/** 久坐提醒详情：与外部插件共用宿主 SettingsCard / SettingsCardRow，设置行保持自动保存。 */
 export function RestSettings({
   enabled,
   config,
