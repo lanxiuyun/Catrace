@@ -127,7 +127,6 @@ export function SignalSettingsCard() {
       >
         <Select
           className="w-28"
-          variant="secondary"
           aria-label={t('settings.signal.retentionTitle')}
           value={String(retentionHours)}
           onChange={(value) => { if (value != null) void applyRetention(String(value)) }}

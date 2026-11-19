@@ -263,9 +263,9 @@
 /* 插件列表 ↔ 详情：iOS 式 push / pop，只滑页面内容视口，侧栏不动。
    ::view-transition-* 规则无法被 html 上的属性作用域限定，所以方向直接作为
    view-transition-name（ct-plugin-push / ct-plugin-back）传进来，各自有对应关键帧。
-   两个坑：① 视口必须自己画出不透明的页面画布（和工作区同一套渐变），否则滑动快照是透明的，
+   两个坑：① 视口必须自己画出不透明的页面画布（和工作区同一纯色底），否则滑动快照是透明的，
    滑入的那页盖不住旧页；② 滑动快照会溢出到侧栏上方，必须用 group 的 clip-path 裁到内容区。 */
-.ct-plugin-scroll { background: radial-gradient(48rem 26rem at 24% -14%, var(--ct-bg-glow), transparent 62%), var(--ct-bg); }
+.ct-plugin-scroll { background: var(--ct-bg); }
 ::view-transition-group(ct-plugin-push),
 ::view-transition-group(ct-plugin-back) { clip-path: inset(0); }
 ::view-transition-old(ct-plugin-push) { animation: ct-plugin-push-out 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }

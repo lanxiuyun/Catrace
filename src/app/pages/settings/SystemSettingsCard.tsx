@@ -217,7 +217,6 @@ export function SystemSettingsCard() {
       <SettingRow title={t('settings.language.title')} desc={t('settings.language.desc')}>
         <Select
           className="w-40"
-          variant="secondary"
           aria-label={t('settings.language.title')}
           value={locale}
           isDisabled={localeLoading || !ready}
@@ -243,7 +242,6 @@ export function SystemSettingsCard() {
       <SettingRow title={t('settings.theme.title')} desc={t('settings.theme.desc')}>
         <Select
           className="w-40"
-          variant="secondary"
           aria-label={t('settings.theme.title')}
           value={themeMode}
           onChange={(value) => { if (value != null) changeTheme(String(value)) }}
@@ -319,7 +317,7 @@ export function SystemSettingsCard() {
         >
           <Button
             size="sm"
-            variant={updateInfo?.available ? 'primary' : 'tertiary'}
+            variant={updateInfo?.available ? 'primary' : 'secondary'}
             isDisabled={updateLoading || updateInstalling}
             onClick={() => void (updateInfo?.available ? installUpdate() : checkUpdate())}
           >

@@ -88,7 +88,6 @@ export function MediaSettingsCard() {
           </div>
           <TextArea
             rows={6}
-            variant="secondary"
             className="ct-whitelist-textarea"
             aria-label={t('mediaWhitelist.title')}
             placeholder={t('mediaWhitelist.placeholder')}
