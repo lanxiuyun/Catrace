@@ -232,7 +232,7 @@ export function Dashboard() {
           </header>
 
           {!hideStats && (
-            <section className="summary" aria-label={t('dashboard.summary.activeToday')}>
+            <Card<'section'> render={(props) => <section {...props} />} className="summary" aria-label={t('dashboard.summary.activeToday')}>
               <div className="summary-head">
                 <div className="summary-main">
                   <p className="summary-eyebrow">{t('dashboard.summary.activeToday')}</p>
@@ -285,7 +285,7 @@ export function Dashboard() {
                   {t('dashboard.stats.rest')}
                 </span>
               </div>
-            </section>
+            </Card>
           )}
 
           <section className="activity-section">

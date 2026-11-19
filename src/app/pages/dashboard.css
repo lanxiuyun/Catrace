@@ -142,14 +142,10 @@
 
 /* ---------- 主视觉：今日活跃 + 占比条 ---------- */
 .ct-dashboard .summary {
-  position: relative;
+  gap: 0;
   padding: 1.375rem 1.5rem 1.125rem;
   margin-bottom: 1.75rem;
-  background: var(--ct-surface);
   background-image: radial-gradient(38rem 13rem at 0% 0%, var(--ct-accent-softer), transparent 62%);
-  border: 0.0625rem solid var(--ct-border-card);
-  border-radius: 1.25rem;
-  box-shadow: var(--ct-shadow-card);
 }
 
 .ct-dashboard .summary-head {

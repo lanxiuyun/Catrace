@@ -31,9 +31,7 @@
 .ct-market-toolbar-btn { height: 2.375rem; padding-inline: 0.75rem; gap: 0.4375rem; font-size: 0.75rem; white-space: nowrap; }
 .ct-market-toolbar-icon { width: 2.375rem; height: 2.375rem; min-width: 2.375rem; padding: 0; }
 .ct-market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
-.ct-market-card { display: flex; flex-direction: column; position: relative; min-width: 0; border: 1px solid var(--ct-border-card); border-radius: 1.125rem; background: var(--ct-surface); overflow: hidden; box-shadow: var(--ct-shadow-card); transition: box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s ease, transform 0.22s cubic-bezier(0.2, 0, 0, 1); }
-/* Hover keeps the white surface and answers with depth only: no fill, no movement. */
-.ct-market-card:hover { border-color: var(--ct-border-strong); box-shadow: var(--ct-shadow-card-hover); }
+.ct-market-card { min-width: 0; gap: 0; padding: 0; overflow: hidden; transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1); }
 /* Press keeps the dashboard's tap response: shrink a hair. */
 .ct-market-card:has(.ct-market-card-open:active) { transform: scale(0.994); transition-duration: 0.09s; }
 .ct-market-card-main { display: grid; grid-template-columns: 2.875rem minmax(0, 1fr) auto; align-items: center; gap: 0.875rem; flex: 1; width: 100%; padding: 1.25rem 1.25rem 0.875rem; text-align: left; transition: filter 120ms ease-out; }

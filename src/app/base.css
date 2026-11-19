@@ -45,8 +45,8 @@ textarea,
 [data-theme='dark'] *::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.24); }
 [data-theme='dark'] *::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.4); }
 
-/* HeroUI Card 默认底是 --surface（纯白）；应用里所有卡片统一走 --ct-card-bg：
-   浅色 #fbfbfb，深色 #2b2b2b。未分层，优先于 HeroUI components 层里的 .card--default。 */
-.card {
+/* 默认 HeroUI Card 沿用 Catrace 卡片色：浅色 #fbfbfb，深色 #2b2b2b。
+   仅调整默认变体底色，圆角、阴影仍由 HeroUI 提供，其余变体不受影响。 */
+.card--default {
   background-color: var(--ct-card-bg);
 }
