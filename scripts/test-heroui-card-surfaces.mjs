@@ -78,8 +78,8 @@ test('plugin settings cards keep no custom stylesheet', () => {
 test('HeroUI cards share the app card background token', () => {
   const theme = source('src/styles/theme.css')
   assert.match(theme, /--ct-card-bg:\s*#fbfbfb/)
-  assert.match(theme, /\[data-theme='dark'\][\s\S]*?--ct-card-bg:\s*var\(--ct-surface\)/)
-  assert.match(source('src/app/base.css'), /\.card\s*\{[^}]*background-color:\s*var\(--ct-card-bg\)/)
+  assert.match(theme, /\[data-theme='dark'\][\s\S]*?--ct-card-bg:\s*#2b2b2b/)
+  assert.match(source('src/app/base.css'), /\.card--default\s*\{[^}]*background-color:\s*var\(--ct-card-bg\)/)
   for (const [path, selector] of [
     ['src/app/pages/settings.css', '.ct-settings-card'],
     ['src/app/pages/dashboard.css', '.ct-dashboard .activity-panel'],

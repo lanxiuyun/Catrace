@@ -238,11 +238,20 @@ test('settings keep the group title outside a stock HeroUI card and divide rows 
   const rows = descendants(tree).filter(node => node.type === components.SettingsCardRow)
   assert.equal(rows.length, 10)
 
-  const group = components.SettingsCard({ title: 'Group', children: ['A', 'B', 'C'] })
+  const group = components.SettingsCard({
+    title: 'Group',
+    children: [
+      React.createElement(components.SettingsCardRow, { title: 'A', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'B', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'C', control: null }),
+    ],
+  })
   assert.equal(group.type, 'section')
   const [heading, card] = group.props.children
-  assert.equal(heading.type, 'h3')
-  assert.equal(heading.props.children, 'Group')
+  assert.equal(heading.type, 'div')
+  const headingText = descendants(heading).find(node => node.type === 'h3')
+  assert.ok(headingText)
+  assert.equal(headingText.props.children, 'Group')
   assert.equal(card.type, Card)
   assert.equal(card.props.className, undefined, 'card keeps HeroUI default styles')
   const kids = React.Children.toArray(card.props.children)
@@ -257,7 +266,10 @@ test('settings keep the group title outside a stock HeroUI card and divide rows 
   // 条件渲染的行常被 <></> 包住：分隔线仍要按行铺，而不是把整个 Fragment 当一行。
   const nested = components.SettingsCard({
     title: 'Nested',
-    children: [React.createElement(React.Fragment, null, 'A', 'B'), 'C'],
+    children: [React.createElement(React.Fragment, null,
+      React.createElement(components.SettingsCardRow, { title: 'A', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'B', control: null }),
+    ), React.createElement(components.SettingsCardRow, { title: 'C', control: null })],
   })
   const nestedKids = React.Children.toArray(nested.props.children[1].props.children)
   assert.deepEqual(
