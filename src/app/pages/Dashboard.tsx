@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Moon } from 'lucide-react'
-import { Switch, Tabs } from '@heroui/react'
+import { Card, Switch, Tabs } from '@heroui/react'
 import { getConfig, getHideStats, getTodayRecords, setHideStats } from '../../api/tauri'
 import { computeTimeBlocks, mergeRestBlocks } from '../../utils/timeBlocks'
 import type { MinuteData } from '../../types/minute'
@@ -232,7 +232,7 @@ export function Dashboard() {
           </header>
 
           {!hideStats && (
-            <section className="summary" aria-label={t('dashboard.summary.activeToday')}>
+            <Card<'section'> render={(props) => <section {...props} />} className="summary" aria-label={t('dashboard.summary.activeToday')}>
               <div className="summary-head">
                 <div className="summary-main">
                   <p className="summary-eyebrow">{t('dashboard.summary.activeToday')}</p>
@@ -285,7 +285,7 @@ export function Dashboard() {
                   {t('dashboard.stats.rest')}
                 </span>
               </div>
-            </section>
+            </Card>
           )}
 
           <section className="activity-section">
@@ -328,9 +328,9 @@ export function Dashboard() {
                 <p>{t('dashboard.activity.empty')}</p>
               </div>
             ) : timelineMode === 'grid' ? (
-              <div className="activity-panel">
+              <Card className="activity-panel">
                 <TimelineGrid minutes={allMinutes} />
-              </div>
+              </Card>
             ) : (
               <TimelineWindows
                 minutes={allMinutes}

@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { test } from 'node:test'
 import * as React from 'react'
+import * as ReactJSXRuntime from 'react/jsx-runtime'
 import * as RadixThemes from '@radix-ui/themes'
 import * as HeroUI from '@heroui/react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -41,7 +42,7 @@ const read = (path) => readFileSync(path, 'utf8').replace(/^\uFEFF/, '')
 function hostModule(path, dependencies = {}) {
   const filename = join(ROOT, path)
   const compiled = ts.transpileModule(read(filename), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
     fileName: filename,
   }).outputText
   const exports = {}
@@ -65,11 +66,17 @@ const apiModule = hostModule('src/plugins/pluginApi.ts', {
 })
 const { wrapPluginSource } = apiModule
 const { isPluginComponent } = hostModule('src/plugins/pluginComponent.ts')
+const settingsUI = hostModule('src/components/SettingsCard.tsx', {
+  react: React,
+  'react/jsx-runtime': ReactJSXRuntime,
+  '@heroui/react': HeroUI,
+})
 const runtime = hostModule('src/plugins/pluginRuntime.ts', {
   react: React,
   '@radix-ui/themes': RadixThemes,
   '@heroui/react': HeroUI,
   './pluginApi': apiModule,
+  '../components/SettingsCard': settingsUI,
 })
 
 function memoryFacade(id) {
@@ -104,7 +111,7 @@ function memoryFacade(id) {
 }
 
 async function withRuntime(run) {
-  const keys = ['__CATRACE_REACT__', '__CATRACE_RADIX__', '__CATRACE_HEROUI__', '__CATRACE_CREATE_PLUGIN_API__', 'fetch']
+  const keys = ['__CATRACE_REACT__', '__CATRACE_RADIX__', '__CATRACE_HEROUI__', '__CATRACE_SETTINGS_UI__', '__CATRACE_CREATE_PLUGIN_API__', 'fetch']
   const descriptors = new Map(keys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
   const memory = new Map()
   const get = (id) => {
@@ -115,6 +122,7 @@ async function withRuntime(run) {
     __CATRACE_REACT__: { configurable: true, writable: true, value: React },
     __CATRACE_RADIX__: { configurable: true, writable: true, value: RadixThemes },
     __CATRACE_HEROUI__: { configurable: true, writable: true, value: HeroUI },
+    __CATRACE_SETTINGS_UI__: { configurable: true, writable: true, value: settingsUI },
     __CATRACE_CREATE_PLUGIN_API__: { configurable: true, writable: true, value: (id) => get(id).facade },
     fetch: { configurable: true, writable: true, value: () => { throw new Error('Network is forbidden in React package contract tests') } },
   })
@@ -253,13 +261,65 @@ test('real host runtime installs React, Radix and HeroUI namespaces without invo
     globalThis.__CATRACE_REACT__ = undefined
     globalThis.__CATRACE_RADIX__ = undefined
     globalThis.__CATRACE_HEROUI__ = undefined
+    globalThis.__CATRACE_SETTINGS_UI__ = undefined
     globalThis.__CATRACE_CREATE_PLUGIN_API__ = undefined
     runtime.ensurePluginRuntime()
     assert.equal(globalThis.__CATRACE_REACT__, React)
     assert.equal(globalThis.__CATRACE_RADIX__, RadixThemes)
     assert.equal(globalThis.__CATRACE_HEROUI__, HeroUI)
+    assert.equal(globalThis.__CATRACE_SETTINGS_UI__, settingsUI)
+    assert.equal(globalThis.__CATRACE_SETTINGS_UI__.SettingsCard, settingsUI.SettingsCard)
+    runtime.ensurePluginRuntime()
+    assert.equal(globalThis.__CATRACE_SETTINGS_UI__, settingsUI, 'runtime installation must be idempotent')
     assert.equal(globalThis.__CATRACE_CREATE_PLUGIN_API__, apiModule.createPluginApi)
     assert.equal(typeof apiModule.createPluginApi('memory-only').config.get, 'function')
+  })
+})
+
+test('shared settings groups use real HeroUI cards and separators only between adjacent rows', () => {
+  const { SettingsCard, SettingsCardRow } = settingsUI
+  const row = (title) => React.createElement(SettingsCardRow, {
+    title, control: React.createElement('button', null, `${title} action`), key: title,
+  })
+  const html = renderToStaticMarkup(React.createElement(SettingsCard, {
+    title: 'Shared group', description: 'Outside card description',
+  }, null, React.createElement(React.Fragment, null,
+    row('First'), false, React.createElement(React.Fragment, null, row('Second'))),
+  React.createElement('p', { key: 'note' }, 'Standalone note'),
+  row('Third'), React.createElement('div', { key: 'preview' }, 'Preview actions')))
+  assert.match(html, /card--default/, 'groups must use HeroUI Card')
+  assert.equal((html.match(/<hr\b/g) || []).length, 1, 'nulls/fragments must flatten; notes and previews must not add separators')
+  assert.match(html, /aria-hidden="true"/, 'separators must be decorative')
+  assert.ok(html.indexOf('Outside card description') < html.indexOf('card--default'), 'group description belongs outside the card')
+  for (const title of ['First', 'Second', 'Third', 'Standalone note', 'Preview actions']) assert.ok(html.includes(title))
+  const empty = renderToStaticMarkup(React.createElement(SettingsCard, { title: 'Empty' }, null, false))
+  assert.doesNotMatch(empty, /<hr\b|<p\b/)
+  const stacked = renderToStaticMarkup(React.createElement(SettingsCardRow, {
+    title: 'Stacked', description: 'Row description', stack: true, control: 'Control',
+  }, 'Extra content'))
+  assert.match(stacked, /Row description/)
+  assert.match(stacked, /flex w-full items-center/)
+  assert.match(stacked, /Extra content/)
+})
+
+test('Blob settings use the host shared components and preserve control callbacks', async () => {
+  await withRuntime(async (get) => {
+    const { default: Settings } = await importPlugin('shared-settings-probe', `
+      const { createElement: h } = globalThis.__CATRACE_REACT__;
+      const { SettingsCard, SettingsCardRow } = globalThis.__CATRACE_SETTINGS_UI__;
+      export default function Settings() {
+        return h(SettingsCard, { title: 'Shared settings', description: 'Same as host' },
+          h(SettingsCardRow, { title: 'First', control: h('button', { onClick: () => plugin.config.set({ test: true }) }, 'Save probe') }),
+          h(SettingsCardRow, { title: 'Second', control: h('span', null, 'Other control') }));
+      }`)
+    const captured = renderCaptured(Settings)
+    assert.match(captured.html, /card--default/)
+    assert.equal((captured.html.match(/<hr\b/g) || []).length, 1)
+    assert.equal(get('shared-settings-probe').state.calls.length, 0, 'initial SSR must not access plugin APIs')
+    await actionNode(captured.nodes, 'Save probe').props.onClick(clickEvent())
+    assert.deepEqual(get('shared-settings-probe').state.config, { test: true })
+    assert.match(read(join(ROOT, 'src/app/pages/plugins/RestSettings.tsx')), /import \{ SettingsCard, SettingsCardRow \} from '\.\.\/\.\.\/\.\.\/components\/SettingsCard'/,
+      'rest settings must use the same component module exposed by the runtime')
   })
 })
 
@@ -310,7 +370,7 @@ test('all external plugin packages use the React contract', { skip: SOURCE ? fal
   for (const { id, manifest } of list) await t.test(id, async () => {
     assert.equal(manifest.id, id)
     assert.equal(manifest.uiFramework, 'react')
-    assert.match(manifest.version, /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/, `${id}: manifest.version must be a release date`)
+    assert.match(manifest.version, /^\d{2}\.\d{1,2}\.\d{1,2}(\.\d+)?$/, `${id}: manifest.version must use YY.M.D with an optional revision`)
     await withRuntime(async (get) => {
       for (const field of ['main', 'settings', 'background']) {
         if (!manifest[field]) continue
@@ -357,6 +417,39 @@ test('all external plugin packages use the React contract', { skip: SOURCE ? fal
         }
       }
     })
+  })
+})
+
+test('Agent settings label every control and use native disabled on standalone Inputs', { skip: !SOURCE }, async () => {
+  await withRuntime(async () => {
+    // SSR does not load saved configuration. Seed custom audio mode to cover its conditional Input.
+    globalThis.__CATRACE_REACT__ = { ...React, useState(initial) {
+      return React.useState(() => {
+        const value = typeof initial === 'function' ? initial() : initial
+        return value?.eventModes ? { ...value, soundMode: 'custom' } : value
+      })
+    } }
+    const mod = await importPlugin('agent-notify', read(packagePath('agent-notify', 'settings.mjs')))
+    const diagnostics = []
+    const originalWarn = console.warn
+    const originalError = console.error
+    console.warn = (...args) => diagnostics.push(args.join(' '))
+    console.error = (...args) => diagnostics.push(args.join(' '))
+    let captured
+    try { captured = renderCaptured(mod.default) }
+    finally { console.warn = originalWarn; console.error = originalError }
+    const labelledTypes = [HeroUI.ToggleButtonGroup, HeroUI.NumberField, HeroUI.SliderRoot, HeroUI.Input]
+    const fields = captured.nodes.filter((node) => labelledTypes.includes(node.type))
+    assert.equal(fields.filter((node) => node.type === HeroUI.ToggleButtonGroup).length, 12)
+    assert.ok(fields.some((node) => node.type === HeroUI.SliderRoot))
+    assert.ok(fields.some((node) => node.type === HeroUI.Input))
+    for (const field of fields) assert.ok(field.props['aria-label'] || field.props['aria-labelledby'],
+      `${field.type.displayName}: a nearby setting title is not an accessible label`)
+    const input = fields.find((node) => node.type === HeroUI.Input)
+    assert.equal(input.props.disabled, true, 'custom audio path must be disabled until configuration loads')
+    assert.equal(Object.hasOwn(input.props, 'isDisabled'), false)
+    assert.doesNotMatch(captured.html, /\bisDisabled=/i)
+    assert.deepEqual(diagnostics, [], 'real HeroUI rendering must not emit console diagnostics')
   })
 })
 

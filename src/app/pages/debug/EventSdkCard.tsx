@@ -125,7 +125,6 @@ export function EventSdkCard() {
         <div className="ct-debug-row-control">
           <Input
             className="ct-debug-token-input"
-            variant="secondary"
             fullWidth
             readOnly
             value={showToken ? token : maskedToken}

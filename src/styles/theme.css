@@ -1,6 +1,6 @@
 /* Catrace 主题 token 层 — 颜色单一真源
  * macOS 风格：背景 #F6F6F6 / 卡片白 / 系统蓝 #007AFF / 系统紫 #5E5CE6 /
- * 系统绿 #34C759 / 系统橙 #FF9500；深色 #1E1E1E / #2C2C2E。
+ * 系统绿 #34C759 / 系统橙 #FF9500；深色 #2D2D2D / #2B2B2B。
  * 参考根目录 catrace_macos_edition.html 的配色，仅换皮不改布局；字体跟随 main 版（系统 UI 字体）。
  */
 
@@ -23,6 +23,8 @@
   --ct-bg: #f5f5f7;
   --ct-surface: #ffffff;
   --ct-surface-2: #f0f0f5;
+  /* 卡片底：比纯白稍灰一档，和页面底色拉开一点层次；深色 #2b2b2b */
+  --ct-card-bg: #fbfbfb;
   --ct-border: rgba(0, 0, 0, 0.07);
   /* 需要和背景明确区分的卡片边（今日活动卡） */
   --ct-border-strong: rgba(0, 0, 0, 0.14);
@@ -31,12 +33,9 @@
   /* macOS inset grouped 内容底（右侧详情区） */
   --ct-content-bg: #f0f0f5;
 
-  /* 壳层材质：窗口背景的柔光 + 透光侧边栏 + 导航选中态 */
-  --ct-bg-glow: rgba(0, 122, 255, 0.07);
-  --ct-sidebar-bg: rgba(237, 237, 243, 0.78);
-  --ct-sidebar-border: rgba(0, 0, 0, 0.06);
+  /* 导航交互态（侧栏跟内容区同底色，不单独定义底色和分割线） */
   --ct-nav-hover: rgba(0, 0, 0, 0.05);
-  --ct-nav-active: #ffffff;
+  --ct-nav-active: #eaeaea;
 
   /* 文本（macOS label / secondary / tertiary） */
   --ct-text: #1c1c1e;
@@ -80,20 +79,18 @@
   --ct-purple: #7d7aff;
 
   /* 表面 / 背景 / 边框 */
-  --ct-bg: #131316;
+  --ct-bg: #2d2d2d;
   --ct-surface: #1f1f23;
   --ct-surface-2: #2a2a30;
+  --ct-card-bg: #2b2b2b;
   --ct-border: rgba(255, 255, 255, 0.08);
   --ct-border-strong: rgba(255, 255, 255, 0.16);
   --ct-border-card: rgba(255, 255, 255, 0.07);
   --ct-content-bg: #17171b;
 
-  /* 壳层材质 */
-  --ct-bg-glow: rgba(10, 132, 255, 0.12);
-  --ct-sidebar-bg: rgba(30, 30, 36, 0.7);
-  --ct-sidebar-border: rgba(255, 255, 255, 0.06);
+  /* 导航交互态（侧栏跟内容区同底色，不单独定义底色和分割线） */
   --ct-nav-hover: rgba(255, 255, 255, 0.06);
-  --ct-nav-active: rgba(255, 255, 255, 0.12);
+  --ct-nav-active: #2d2d2d;
 
   /* 文本 */
   --ct-text: #f2f2f7;
@@ -135,6 +132,13 @@ body,
   -moz-osx-font-smoothing: grayscale;
   /* 只留 tnum：cv02/03/04/11 是 Inter 的替代字形开关，main 上没有，系统字体上也无意义。 */
   font-feature-settings: 'tnum';
+}
+
+/* 主窗画布接到 HeroUI 语义主题：侧栏、工作区及页面复用的 --ct-bg 一起跟随主题。
+   仅作用于主窗，独立 Toast / 全屏 / popup 保留原有配色与透明背景。 */
+html.catrace-shell {
+  --ct-bg: var(--background);
+  --ct-text: var(--foreground);
 }
 
 /* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */

@@ -12,18 +12,17 @@
   gap: 0.875rem;
 }
 
-.ct-timeline-windows .card {
+.ct-timeline-windows .ct-activity-card {
   display: flex;
   flex-direction: column;
-  /* HeroUI 也有一个全局 .card（Card 组件根类），会带 16px padding 和 12px gap；
-     时间线卡片的 padding 由 .card-summary 负责，这里显式归零避免两层内边距。 */
+  /* 外层留白直接使用 HeroUI Card 默认 padding；内容间距仍由内部布局负责。 */
   gap: 0;
-  padding: 0;
-  background: var(--ct-surface);
+  background: var(--ct-card-bg);
   border: 0.0625rem solid var(--ct-border-card);
   border-radius: 1.125rem;
   box-shadow: var(--ct-shadow-card);
   user-select: none;
+  cursor: pointer;
   transition:
     box-shadow 0.22s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.18s ease,
@@ -32,22 +31,22 @@
 
 /* 悬停/按压只跟摘要按钮走：明细区不响应按压，避免「点了没反应却动了一下」。
    悬停保留白底，只用阴影和描边给深度 —— 和插件卡片同一套语言。 */
-.ct-timeline-windows .card:has(.card-summary:hover) {
+.ct-timeline-windows .ct-activity-card:has(.card-summary:hover) {
   border-color: var(--ct-border-strong);
   box-shadow: var(--ct-shadow-card-hover);
 }
 
 /* 进行中卡片的蓝色描边是状态信号，悬停时不能被普通描边盖掉 */
-.ct-timeline-windows .card.is-current:has(.card-summary:hover) {
+.ct-timeline-windows .ct-activity-card.is-current:has(.card-summary:hover) {
   border-color: var(--ct-accent-border);
 }
 
-.ct-timeline-windows .card:has(.card-summary:active) {
+.ct-timeline-windows .ct-activity-card:has(.card-summary:active) {
   transform: scale(0.994);
   transition-duration: 0.09s;
 }
 
-/* 摘要按钮自己吃下卡片内边距，「点卡片任何地方都能展开」才成立；
+/* 卡片留白由 HeroUI Card 负责，摘要按钮不再叠加 padding；
    同时把 UA 可能给按钮的 gap / 最小高度 / 最大宽度一次性钉死
    （Chromium 给 appearance:none 的按钮排成 inline-flex 并带 gap，
    不清掉的话子行之间会凭空多出间距）。 */
@@ -61,7 +60,7 @@
   min-block-size: 0;
   max-inline-size: none;
   margin: 0;
-  padding: 1rem 1.125rem 1.0625rem;
+  padding: 0;
   border: 0;
   border-radius: 1.125rem;
   background: none;
@@ -81,7 +80,7 @@
 }
 
 /* 进行中：一层极淡的蓝色由顶部渗下来，配合脉冲圆点表示「还在长」 */
-.ct-timeline-windows .card.is-current {
+.ct-timeline-windows .ct-activity-card.is-current {
   border-color: var(--ct-accent-border);
   background-image: linear-gradient(180deg, var(--ct-accent-softer), transparent 70%);
 }
@@ -165,7 +164,7 @@
   color: var(--ct-text);
 }
 
-.ct-timeline-windows .card.is-open .card-chevron {
+.ct-timeline-windows .ct-activity-card.is-open .card-chevron {
   transform: rotate(180deg);
 }
 
@@ -229,12 +228,10 @@
   min-height: 0;
 }
 
-/* 分隔线和留白放在被裁剪的内层，收起时不会漏出一条线；
-   左右 1rem 让分隔线和明细跟摘要区左对齐。 */
+/* 展开明细只保留内部留白，不绘制分隔线。 */
 .ct-timeline-windows .detail-body {
   margin: 0 1rem;
   padding: 0.75rem 0 0.9375rem;
-  border-top: 0.0625rem solid var(--ct-border);
 }
 
 .ct-timeline-windows .minute-rows {
@@ -366,11 +363,11 @@
 /* 减弱动效：保留状态变化，去掉位移和循环动画 */
 @media (prefers-reduced-motion: reduce) {
   /* 基础 .card 规则单独写：老 WebView2 不认 :has() 时，不会因为选择器列表里有 :has 而整条失效 */
-  .ct-timeline-windows .card {
+  .ct-timeline-windows .ct-activity-card {
     transition: box-shadow 0.18s ease, border-color 0.18s ease;
   }
 
-  .ct-timeline-windows .card:has(.card-summary:active) {
+  .ct-timeline-windows .ct-activity-card:has(.card-summary:active) {
     transform: none;
   }
 

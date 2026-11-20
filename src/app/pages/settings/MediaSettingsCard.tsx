@@ -62,6 +62,7 @@ export function MediaSettingsCard() {
         <Switch
           isSelected={enabled.value}
           isDisabled={!enabled.ready}
+          aria-label={t('settings.media.enabledTitle')}
           onChange={(value) => enabled.setValue(value)}
         >
           <Switch.Content>
@@ -87,8 +88,8 @@ export function MediaSettingsCard() {
           </div>
           <TextArea
             rows={6}
-            variant="secondary"
             className="ct-whitelist-textarea"
+            aria-label={t('mediaWhitelist.title')}
             placeholder={t('mediaWhitelist.placeholder')}
             value={whitelist.value}
             onChange={(event) => whitelist.setValue(event.target.value)}

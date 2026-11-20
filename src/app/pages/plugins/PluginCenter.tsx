@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Tooltip, AlertDialog, Button, SearchField, Switch, Tabs } from '@heroui/react'
+import { Tooltip, AlertDialog, Button, Card, SearchField, Switch, Tabs } from '@heroui/react'
 import {
   Armchair, ArrowDownToLine, ArrowUpCircle, Check, ChevronLeft, ChevronRight, CircleAlert,
   FolderOpen, LoaderCircle, Plug, RefreshCw, Search, Trash2,
@@ -411,7 +411,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             {(tab === 'discover' ? data.loadingRemote && !data.repository : data.loadingLocal && data.installed.length === 0) ? (
               <div className="ct-market-empty" role="status"><LoaderCircle className="ct-market-spin" size={24} aria-hidden="true" /><p>{t('pluginMarket.loading')}</p></div>
             ) : visibleItems.length ? visibleItems.map((item) => (
-              <article key={item.id} className={`ct-market-card${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
+              <Card<'article'> render={(props) => <article {...props} />} key={item.id} className={`ct-market-card${tab === 'installed' && !isEnabled(item) ? ' is-off' : ''}${entering.has(item.id) ? ' is-entering' : ''}`}>
                 {/* One hit area for the whole card; the switch and install button paint above it. */}
                 <button type="button" className="ct-market-card-open" onClick={(event) => openDetails(item.id, event.currentTarget)} aria-label={t('pluginMarket.detailsFor', { name: item.name })} />
                 <div className="ct-market-card-main">
@@ -432,7 +432,7 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
                   </span>}
                   {!isInstalled(item) && installButton(item)}
                 </div>}
-              </article>
+              </Card>
             )) : <div className="ct-market-empty"><Search size={25} aria-hidden="true" /><h3>{t(query ? 'plugins.searchEmpty' : 'pluginMarket.noPlugins')}</h3><p>{t(query ? 'pluginMarket.searchHint' : 'pluginMarket.retryHint')}</p>{query && <Button variant="tertiary" onClick={() => setQuery('')}>{t('pluginMarket.clearSearch')}</Button>}</div>}
           </section>
 
@@ -462,26 +462,25 @@ export function PluginCenter({ restEnabled, restBusy, restReady, onToggleRest, c
             </>}
         </section>
 
-        <AlertDialog isOpen={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}>
-          <AlertDialog.Backdrop>
-            <AlertDialog.Container>
-              <AlertDialog.Dialog>
-                <AlertDialog.CloseTrigger />
-                <AlertDialog.Header>
-                  <AlertDialog.Icon status="danger" />
-                  <AlertDialog.Heading>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Heading>
-                </AlertDialog.Header>
-                <AlertDialog.Body>
-                  <p>{t('pluginMarket.uninstallDescription')}</p>
-                </AlertDialog.Body>
-                <AlertDialog.Footer>
-                  <Button slot="close" variant="tertiary">{t('pluginMarket.cancel')}</Button>
-                  <Button slot="close" variant="danger" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button>
-                </AlertDialog.Footer>
-              </AlertDialog.Dialog>
-            </AlertDialog.Container>
-          </AlertDialog.Backdrop>
-        </AlertDialog>
+        {/* 卸载由页面状态打开，不使用要求真实触发器的 AlertDialog Root。 */}
+        <AlertDialog.Backdrop isOpen={!!removeId} onOpenChange={(open) => { if (!open) setRemoveId(null) }}>
+          <AlertDialog.Container>
+            <AlertDialog.Dialog>
+              <AlertDialog.CloseTrigger />
+              <AlertDialog.Header>
+                <AlertDialog.Icon status="danger" />
+                <AlertDialog.Heading>{t('pluginMarket.uninstallTitle', { name: allItems.get(removeId ?? '')?.name ?? removeId ?? '' })}</AlertDialog.Heading>
+              </AlertDialog.Header>
+              <AlertDialog.Body>
+                <p>{t('pluginMarket.uninstallDescription')}</p>
+              </AlertDialog.Body>
+              <AlertDialog.Footer>
+                <Button slot="close" variant="tertiary">{t('pluginMarket.cancel')}</Button>
+                <Button slot="close" variant="danger" onClick={() => { if (removeId) void confirmUninstall(removeId) }}>{t('pluginMarket.uninstall')}</Button>
+              </AlertDialog.Footer>
+            </AlertDialog.Dialog>
+          </AlertDialog.Container>
+        </AlertDialog.Backdrop>
       </RadixPage>
     </PageScroll>
   )

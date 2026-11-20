@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Card } from '@heroui/react'
 
 /**
  * 设置卡外壳：组名 + 内容。卡片外观在 settings.css 的 `.ct-settings-card` 里。
@@ -6,9 +7,9 @@ import type { ReactNode } from 'react'
  */
 export function SettingsCard({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="ct-settings-card">
+    <Card className="ct-settings-card">
       <h2 className="ct-settings-card-label">{label}</h2>
       {children}
-    </div>
+    </Card>
   )
 }
