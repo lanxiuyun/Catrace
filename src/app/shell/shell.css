@@ -12,9 +12,12 @@
   background: var(--ct-bg);
 }
 
-/* ---------- 侧边栏（macOS 透光材质） ----------
+/* ---------- 侧边栏（与内容区同底色，不画分割线） ----------
    宽窗口是带文字的 10rem；窗口窄于 62rem 时收成 3.75rem 图标栏，
-   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。 */
+   图标栏里的名称由 aria-label 提供给读屏，鼠标悬停走 ::after 浮层。
+   侧栏不再是独立表面：底色直接用 var(--ct-bg)，也不加右分割线，视觉上和内容区连成一片；
+   曾经加过 backdrop-filter: blur(30px)：背后是本页的纯色背景，
+   模糊出来和没模糊几乎一样，反而在每次重绘时多一层合成开销，已删除。 */
 .ct-sidebar {
   position: relative;
   z-index: 2;
@@ -24,10 +27,7 @@
   flex-direction: column;
   gap: 1rem;
   padding: 0.875rem 0.5rem;
-  background: var(--ct-sidebar-bg);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
-  border-right: 0.0625rem solid var(--ct-sidebar-border);
+  background: var(--ct-bg);
   /* 图标栏的悬停浮层要能飞出侧栏，所以不能用 hidden */
   overflow: visible;
 }
@@ -54,8 +54,7 @@
   white-space: nowrap;
   transition:
     background-color 0.16s ease,
-    color 0.16s ease,
-    box-shadow 0.16s ease;
+    color 0.16s ease;
 }
 
 /* 图标尺寸按栏宽切换：带文字时 1rem，图标栏时 1.125rem（CSS 覆盖 svg 的 width 属性） */
@@ -88,15 +87,12 @@
   color: var(--ct-text);
 }
 
-/* 选中态：白色胶囊 + 轻投影（暗色下是半透明白），图标点系统蓝。
+/* 选中态：浅色 #eaeaea / 深色 #2d2d2d 胶囊，图标点系统蓝。
    强调色仍然只给图标，文字保持中性，整栏不至于花。 */
 .ct-sidebar-item.is-active {
   background: var(--ct-nav-active);
   color: var(--ct-text);
   font-weight: 600;
-  box-shadow:
-    0 0.0625rem 0.125rem rgba(0, 0, 0, 0.06),
-    0 0 0 0.0625rem rgba(0, 0, 0, 0.03);
 }
 
 .ct-sidebar-item.is-active svg {
@@ -106,11 +102,6 @@
 .ct-sidebar-item.is-active:hover {
   background: var(--ct-nav-active);
   color: var(--ct-text);
-}
-
-/* 暗色下白胶囊不存在，用内描边补一层轮廓 */
-[data-theme='dark'] .ct-sidebar-item.is-active {
-  box-shadow: inset 0 0 0 0.0625rem rgba(255, 255, 255, 0.06);
 }
 
 /* 窄窗口：收成 3.75rem 图标栏 */
@@ -237,15 +228,13 @@
 }
 
 /* ---------- 工作区 ---------- */
-/* 顶部一层极淡的系统蓝柔光：白卡片才有「受光」的层次，而不是贴在平灰上。 */
+/* 内容区一律纯色底：不再叠系统蓝柔光，深浅两套都保持平色。 */
 .ct-workspace {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background:
-    radial-gradient(48rem 26rem at 24% -14%, var(--ct-bg-glow), transparent 62%),
-    var(--ct-bg);
+  background: var(--ct-bg);
 }
 
 /* ---------- 切页交叉淡入淡出（View Transitions API） ----------

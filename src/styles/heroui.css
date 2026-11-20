@@ -1,5 +1,5 @@
 /* HeroUI v3 样式入口：Tailwind 4 base + HeroUI 组件样式 + 默认主题变量。
    深色模式由 useTheme 写入的 html[data-theme='dark'] 驱动，HeroUI 原生识别。
-   白底界面上的输入框 / 下拉统一用 HeroUI 内置的 variant="secondary"（浅灰底），
-   不覆写 --field-* token。 */
+   输入框 / 下拉默认用 HeroUI 自带的 primary 变体（白底 + 轻阴影），需要浅灰底时
+   显式传 variant="secondary"；两种都不覆写 --field-* token。 */
 @import "@heroui/styles";

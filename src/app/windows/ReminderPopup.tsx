@@ -119,6 +119,7 @@ export default function ReminderPopup() {
           type="number"
           min="1"
           max="120"
+          aria-label={locale === 'zh-CN' ? '自定义稍后提醒时长' : 'Custom snooze duration'}
           placeholder={t('common.minutes')}
           value={customMinutes}
           onChange={(event) => setCustomMinutes(event.target.value)}

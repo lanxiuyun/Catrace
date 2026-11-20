@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react'
+import { Card } from '@heroui/react'
 
 /**
  * 调试页面板外壳：标题 + 右侧一行元信息 + 内容。
@@ -17,7 +18,7 @@ export function DebugPanel({
 }) {
   const titleId = useId()
   return (
-    <section className="ct-debug-panel" aria-labelledby={titleId}>
+    <Card<'section'> render={(props) => <section {...props} />} className="ct-debug-panel" aria-labelledby={titleId}>
       <header className="ct-debug-panel-head">
         <h2 className="ct-debug-panel-title" id={titleId}>
           {title}
@@ -25,7 +26,7 @@ export function DebugPanel({
         {meta ? <div className="ct-debug-panel-meta">{meta}</div> : null}
       </header>
       {children}
-    </section>
+    </Card>
   )
 }
 

@@ -126,7 +126,6 @@ export default {
       fullscreenBgTitle: 'Fullscreen Background',
       fullscreenBgDesc: 'Choose an image as the fullscreen background',
       fullscreenPreviewLabel: 'Fullscreen reminder preview',
-      fullscreenPreviewHint: '16:9 preview · Checkerboard illustrates transparency only',
       fullscreenOpacityTitle: 'Background Opacity',
       fullscreenOpacityDesc: 'Adjust the fullscreen overlay opacity',
       fullscreenFitModeTitle: 'Background Fit Mode',

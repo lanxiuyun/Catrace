@@ -114,6 +114,7 @@ export function SysNotifySettingsCard() {
           <Switch
             isSelected={enabled}
             isDisabled={!supported || loading || !ready}
+            aria-label={t('settings.sysNotify.forwardTitle')}
             onChange={(value) => void onToggle(value)}
           >
             <Switch.Content>
@@ -129,7 +130,11 @@ export function SysNotifySettingsCard() {
             title={t('settings.sysNotify.takeoverTitle')}
             desc={t('settings.sysNotify.takeoverDesc')}
           >
-            <Switch isSelected={takeover} onChange={onTakeoverToggle}>
+            <Switch
+              isSelected={takeover}
+              aria-label={t('settings.sysNotify.takeoverTitle')}
+              onChange={onTakeoverToggle}
+            >
               <Switch.Content>
                 <Switch.Control><Switch.Thumb /></Switch.Control>
               </Switch.Content>

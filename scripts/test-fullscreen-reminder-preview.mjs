@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
 import React from 'react'
+import { Card } from '@heroui/react'
 import * as jsxRuntime from 'react/jsx-runtime'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
@@ -19,10 +20,14 @@ const compound = () => Object.assign(primitive.bind(null), {
   Track: primitive, Fill: primitive, Thumb: primitive, Trigger: primitive,
   Value: primitive, Indicator: primitive, Popover: primitive,
   Item: primitive, ItemIndicator: primitive,
+  Group: primitive, DecrementButton: primitive, Input: primitive, IncrementButton: primitive,
 })
 const HeroUI = {
+  Card,
+  Separator: props => React.createElement('hr', props),
   Button: ({ children, variant, size, ...props }) => React.createElement('button', props, children),
   Input: primitive, TextArea: primitive, Select: compound(), ListBox: compound(), Slider: compound(),
+  NumberField: compound(), ToggleButton: primitive, ToggleButtonGroup: compound(), ToggleButtonGroupSeparator: primitive,
 }
 
 function hooks() {
@@ -197,7 +202,8 @@ test('preview is inert/aria-hidden, scales on observation and disconnects on unm
   const h = harness(), props = sceneProps(h)
   let tree = h.render(previewPath, 'FullscreenReminderPreview', props)
   const viewport = byClass(tree, 'ct-fullscreen-preview'), canvas = byClass(tree, 'ct-fullscreen-preview-canvas')
-  assert.equal(viewport.props.role, 'img'); assert.equal(viewport.props['aria-label'], h.t('plugins.rest.fullscreenPreviewLabel'))
+  assert.equal(viewport.props.role, 'img'); assert.equal(viewport.props['aria-label'], h.t('settings.reminder.fullscreenPreviewLabel'))
+  assert.notEqual(viewport.props['aria-label'], 'settings.reminder.fullscreenPreviewLabel', 'preview label resolves in the current locale')
   assert.equal(canvas.props.inert, true); assert.equal(canvas.props['aria-hidden'], 'true')
   assert.equal(canvas.props.style.visibility, 'hidden')
   const child = childOfType(tree, h.evaluate(scenePath).FullscreenReminderScene)
@@ -223,6 +229,125 @@ test('preview is inert/aria-hidden, scales on observation and disconnects on unm
 function settingsProps(extra = {}) {
   return { enabled: true, config: { window_minutes: 45, break_minutes: 7, snooze_interval_minutes: 3 }, mode: 'fullscreen', fullscreen: { bg: 'local-image', opacity: 0, fitMode: 'fill', elementTransforms: '{"title":{"x":22,"rotate":13}}' }, text: { title: 'Unsaved title', body: 'Unsaved body' }, testing: false, ...extra }
 }
+
+test('settings keep the group title outside a stock HeroUI card and divide rows with HeroUI separators', () => {
+  const h = harness(), components = h.evaluate('src/components/SettingsCard.tsx')
+  const tree = h.render(settingsPath, 'RestSettings', settingsProps())
+  const cards = descendants(tree).filter(node => node.type === components.SettingsCard)
+  assert.equal(cards.length, 3)
+  const rows = descendants(tree).filter(node => node.type === components.SettingsCardRow)
+  assert.equal(rows.length, 10)
+
+  const group = components.SettingsCard({
+    title: 'Group',
+    children: [
+      React.createElement(components.SettingsCardRow, { title: 'A', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'B', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'C', control: null }),
+    ],
+  })
+  assert.equal(group.type, 'section')
+  const [heading, card] = group.props.children
+  assert.equal(heading.type, 'div')
+  const headingText = descendants(heading).find(node => node.type === 'h3')
+  assert.ok(headingText)
+  assert.equal(headingText.props.children, 'Group')
+  assert.equal(card.type, Card)
+  assert.equal(card.props.className, undefined, 'card keeps HeroUI default styles')
+  const kids = React.Children.toArray(card.props.children)
+  assert.deepEqual(
+    kids.map(kid => (kid.type === HeroUI.Separator ? 'separator' : 'row')),
+    ['row', 'separator', 'row', 'separator', 'row'],
+  )
+  for (const kid of kids.filter(node => node.type === HeroUI.Separator)) {
+    assert.equal(kid.props.isDecorative, true, 'row dividers are decorative')
+  }
+
+  // 条件渲染的行常被 <></> 包住：分隔线仍要按行铺，而不是把整个 Fragment 当一行。
+  const nested = components.SettingsCard({
+    title: 'Nested',
+    children: [React.createElement(React.Fragment, null,
+      React.createElement(components.SettingsCardRow, { title: 'A', control: null }),
+      React.createElement(components.SettingsCardRow, { title: 'B', control: null }),
+    ), React.createElement(components.SettingsCardRow, { title: 'C', control: null })],
+  })
+  const nestedKids = React.Children.toArray(nested.props.children[1].props.children)
+  assert.deepEqual(
+    nestedKids.map(kid => (kid.type === HeroUI.Separator ? 'separator' : 'row')),
+    ['row', 'separator', 'row', 'separator', 'row'],
+  )
+
+  for (const row of rows) {
+    const rendered = components.SettingsCardRow(row.props)
+    const classes = rendered.props.className.split(' ')
+    assert.ok(!classes.some(name => name.startsWith('ct-')), 'rows keep no custom card classes')
+    assert.ok(classes.includes('flex'))
+    assert.ok(classes.includes(row.props.stack ? 'flex-col' : 'justify-between'))
+    const title = descendants(rendered).find(node => node.props.className?.split(' ').includes('leading-[18px]'))
+    assert.ok(title, 'row title uses an integer line-height so 1px separators share the same subpixel phase')
+    const desc = descendants(rendered).find(node => node.props.className?.includes('text-muted'))
+    if (row.props.description) assert.equal(desc.props.children, row.props.description)
+    else assert.equal(desc, undefined)
+  }
+  assert.equal(existsSync(new URL('src/components/SettingsCard.css', root)), false, 'custom card stylesheet is gone')
+  assert.doesNotMatch(source('src/components/SettingsCard.tsx'), /\.css'/)
+  assert.doesNotMatch(source(settingsPath), /ct-config-|ct-plugin-row|PluginSettingRow|ct-rest-section-body/)
+  assert.doesNotMatch(source('src/app/pages/plugins.css'), /ct-rest-title-control/)
+})
+
+test('settings time fields use compound NumberField and preserve ranges, steps and config patches', () => {
+  const h = harness(), updates = []
+  const tree = h.render(settingsPath, 'RestSettings', settingsProps({ onUpdateConfig: patch => updates.push(plain(patch)) }))
+  for (const [name, key, min, max, step] of [
+    ['window', 'window_minutes', 15, 120, 5],
+    ['break', 'break_minutes', 1, 20, 1],
+    ['snooze', 'snooze_interval_minutes', 1, 10, 1],
+  ]) {
+    const row = descendants(tree).find(node => node.props.title === h.t(`plugins.rest.${name}Title`))
+    const field = descendants(row.props.control).find(node => node.props.label === row.props.title)
+    const control = field.type(field.props)
+    const number = childOfType(control, HeroUI.NumberField)
+    assert.equal(number.props.value, settingsProps().config[key])
+    assert.equal(number.props.minValue, min); assert.equal(number.props.maxValue, max); assert.equal(number.props.step, step)
+    assert.equal(number.props.variant, undefined, 'use the same default appearance as Agent Notify')
+    assert.ok(childOfType(number, HeroUI.NumberField.Group))
+    assert.equal(React.Children.count(number.props.children.props.children), 3)
+    assert.match(number.props['aria-label'], new RegExp(h.t('common.minutes')))
+    assert.equal(byClass(control, 'ct-rest-unit').props.children, h.t('common.minutes'))
+    const before = updates.length
+    for (const invalid of [NaN, Infinity, min - 1, max + 1]) number.props.onChange(invalid)
+    assert.equal(updates.length, before, 'invalid and unfinished inputs must not be saved')
+    number.props.onChange(min); number.props.onChange(max)
+    assert.deepEqual(updates.slice(-2), [{ [key]: min }, { [key]: max }])
+  }
+})
+
+test('settings keep reminder Select, use fit segments and preserve full-width content exceptions', () => {
+  const h = harness(), modes = [], backgrounds = []
+  const tree = h.render(settingsPath, 'RestSettings', settingsProps({
+    onChangeMode: value => modes.push(value), onUpdateFullscreen: patch => backgrounds.push(plain(patch)),
+  }))
+  const row = key => descendants(tree).find(node => node.props.title === h.t(key))
+  const select = row('plugins.rest.modeTitle').props.control
+  assert.equal(select.type, HeroUI.Select); assert.equal(select.props.value, 'fullscreen')
+  select.props.onChange('toast'); select.props.onChange(null)
+  assert.deepEqual(modes, ['toast'])
+  const segments = row('plugins.rest.fullscreenFitModeTitle').props.control
+  assert.equal(segments.type, HeroUI.ToggleButtonGroup)
+  assert.equal(segments.props.disallowEmptySelection, true)
+  assert.deepEqual(plain(segments.props.selectedKeys), ['fill'])
+  for (const value of ['contain', 'cover', 'fill']) segments.props.onSelectionChange(new Set([value]))
+  segments.props.onSelectionChange(new Set())
+  assert.deepEqual(backgrounds, [{ fitMode: 'contain' }, { fitMode: 'cover' }, { fitMode: 'fill' }])
+  assert.equal(row('plugins.rest.customTitle').props.stack, true)
+  assert.equal(row('plugins.rest.customBody').props.stack, true)
+  const background = row('plugins.rest.fullscreenBgTitle')
+  assert.ok(byClass(background.props.control, 'ct-rest-background-actions'))
+  const changeButton = React.Children.toArray(background.props.control.props.children)
+    .find(node => node.type === HeroUI.Button)
+  assert.equal(changeButton.props.variant, 'secondary', '更换 is a secondary action, not the primary CTA')
+  assert.equal(background.props.children.type, h.evaluate(previewPath).FullscreenReminderPreview)
+})
 
 test('settings preview consumes current local text, duration, image, zero opacity, fit and saved layout', () => {
   const h = harness(), props = settingsProps()

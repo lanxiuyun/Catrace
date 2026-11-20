@@ -63,6 +63,7 @@ test('plugin modules receive exactly the host React instance, Radix and HeroUI n
     '@radix-ui/themes': Radix,
     '@heroui/react': HeroUI,
     './pluginApi': { createPluginApi: api },
+    '../components/SettingsCard': { SettingsCard: () => null, SettingsCardRow: () => null },
   }
   const context = { exports: {}, require(name) { assert.ok(name in dependencies); return dependencies[name] } }
   runInNewContext(compiled, context)
