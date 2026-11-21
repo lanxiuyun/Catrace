@@ -7,90 +7,101 @@
  */
 
 :root {
-  /* 字体：HeroUI --font-sans / --font-mono（Windows 落 Segoe UI，macOS 落 SF Pro） */
-  --ct-font-sans: var(--font-sans);
-  --ct-font-mono: var(--font-mono);
+    /* 字体：HeroUI --font-sans / --font-mono（Windows 落 Segoe UI，macOS 落 SF Pro） */
+    --ct-font-sans: var(--font-sans);
+    --ct-font-mono: var(--font-mono);
 
-  /* 强调（HeroUI accent） */
-  --ct-accent: var(--accent);
-  --ct-accent-hover: var(--accent-hover);
-  --ct-accent-strong: var(--accent-soft-foreground);
-  --ct-accent-soft: var(--accent-soft);
-  --ct-accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
-  --ct-accent-border: color-mix(in oklab, var(--accent) 35%, transparent);
+    /* 强调（HeroUI accent） */
+    --ct-accent: var(--accent);
+    --ct-accent-hover: var(--accent-hover);
+    --ct-accent-strong: var(--accent-soft-foreground);
+    --ct-accent-soft: var(--accent-soft);
+    --ct-accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
+    --ct-accent-border: color-mix(in oklab, var(--accent) 35%, transparent);
 
-  /* 表面 / 背景 / 边框 */
-  --ct-bg: var(--background);
-  --ct-surface: var(--surface);
-  --ct-surface-2: var(--surface-secondary);
-  /* 卡片底 = HeroUI Card 默认色（浅色白 / 深色 #18181b） */
-  --ct-card-bg: var(--surface);
-  --ct-border: var(--border);
-  --ct-border-strong: color-mix(in oklab, var(--foreground) 14%, transparent);
-  --ct-border-card: var(--border);
+    /* 表面 / 背景 / 边框 */
+    --ct-bg: var(--background);
+    --ct-surface: var(--surface);
+    --ct-surface-2: var(--surface-secondary);
+    /* 卡片底：浅色 #111 定稿（比纯白稍灰一档，和页面底色拉开层次）；
+     深色 #101010 —— 见文件下方的深色副本块。对 HeroUI surface 的有意偏离。 */
+    --ct-card-bg: #fbfbfb;
+    --ct-border: var(--border);
+    --ct-border-strong: color-mix(in oklab, var(--foreground) 14%, transparent);
+    --ct-border-card: var(--border);
 
-  /* 导航交互态 */
-  --ct-nav-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
-  --ct-nav-active: var(--default);
+    /* 导航交互态 */
+    --ct-nav-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
+    --ct-nav-active: var(--default);
 
-  /* 文本 */
-  --ct-text: var(--foreground);
-  --ct-text-muted: var(--muted);
-  --ct-text-subtle: var(--muted);
+    /* 文本 */
+    --ct-text: var(--foreground);
+    --ct-text-muted: var(--muted);
+    --ct-text-subtle: var(--muted);
 
-  /* 状态：HeroUI 的 success / warning / danger（Catrace 的 error 对应 --danger） */
-  --ct-success: var(--success);
-  --ct-success-strong: var(--success-soft-foreground);
-  --ct-success-soft: var(--success-soft);
-  --ct-warning: var(--warning);
-  --ct-warning-strong: var(--warning-soft-foreground);
-  --ct-warning-soft: var(--warning-soft);
-  --ct-error: var(--danger);
-  --ct-error-strong: var(--danger-soft-foreground);
-  --ct-error-soft: var(--danger-soft);
+    /* 状态：HeroUI 的 success / warning / danger（Catrace 的 error 对应 --danger） */
+    --ct-success: var(--success);
+    --ct-success-strong: var(--success-soft-foreground);
+    --ct-success-soft: var(--success-soft);
+    --ct-warning: var(--warning);
+    --ct-warning-strong: var(--warning-soft-foreground);
+    --ct-warning-soft: var(--warning-soft);
+    --ct-error: var(--danger);
+    --ct-error-strong: var(--danger-soft-foreground);
+    --ct-error-soft: var(--danger-soft);
 
-  /* 蓝 / 青别名：info = 强调蓝，cyan = 成功绿（时间线"休息"色） */
-  --ct-info: var(--accent);
-  --ct-info-soft: var(--accent-soft);
-  --ct-cyan: var(--success);
-  --ct-cyan-soft: var(--success-soft);
+    /* 蓝 / 青别名：info = 强调蓝，cyan = 成功绿（时间线"休息"色） */
+    --ct-info: var(--accent);
+    --ct-info-soft: var(--accent-soft);
+    --ct-cyan: var(--success);
+    --ct-cyan-soft: var(--success-soft);
 
-  /* 强调底上的前景 */
-  --ct-on-accent: var(--accent-foreground);
+    /* 强调底上的前景 */
+    --ct-on-accent: var(--accent-foreground);
 
-  /* 卡片阴影：基座取 HeroUI surface-shadow（深色下 HeroUI 自身即无阴影）；
+    /* 卡片阴影：基座取 HeroUI surface-shadow（深色下 HeroUI 自身即无阴影）；
      HeroUI 没有 hover 层级，附加一层散开阴影承担悬停浮起。 */
-  --ct-shadow-card: var(--surface-shadow);
-  --ct-shadow-card-hover: var(--surface-shadow), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.16);
+    --ct-shadow-card: var(--surface-shadow);
+    --ct-shadow-card-hover:
+        var(--surface-shadow), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.16);
+}
+
+/* 深色副本：卡片底定稿为 #101010（中性深灰，比 HeroUI surface #18181b 更沉）。
+   输入框等 field 底抬到次级表面（oklch(0.257 …) ≈ #2c2c30）：HeroUI 深色默认
+   #18181b 相对这张卡只亮 8/255，且深色 field-shadow 是透明的，衬不出来；
+   抬一档后和浅色"field 比卡亮"的层次关系一致（浅色：页面 < 卡 #fbfbfb < 输入框白）。 */
+[data-theme="dark"] {
+    --ct-card-bg: #101010;
+    --field-background: var(--surface-secondary);
 }
 
 html,
 body,
 #app {
-  font-family: var(--ct-font-sans);
-  color: var(--ct-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  /* 只留 tnum：cv02/03/04/11 是 Inter 的替代字形开关，main 上没有，系统字体上也无意义。 */
-  font-feature-settings: 'tnum';
+    font-family: var(--ct-font-sans);
+    color: var(--ct-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* 只留 tnum：cv02/03/04/11 是 Inter 的替代字形开关，main 上没有，系统字体上也无意义。 */
+    font-feature-settings: "tnum";
 }
 
 /* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */
 html.catrace-shell,
 html.catrace-shell body,
 html.catrace-shell #app {
-  background: var(--ct-bg);
+    background: var(--ct-bg);
 }
 
 /* 只给读屏的页级标题：侧栏已经高亮当前位置，页面里不再重复显示标题文字 */
 .ct-visually-hidden {
-  position: absolute;
-  width: 0.0625rem;
-  height: 0.0625rem;
-  padding: 0;
-  margin: -0.0625rem;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
+    position: absolute;
+    width: 0.0625rem;
+    height: 0.0625rem;
+    padding: 0;
+    margin: -0.0625rem;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }
