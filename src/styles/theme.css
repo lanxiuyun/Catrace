@@ -1,126 +1,67 @@
-/* Catrace 主题 token 层 — 颜色单一真源
- * macOS 风格：背景 #F6F6F6 / 卡片白 / 系统蓝 #007AFF / 系统紫 #5E5CE6 /
- * 系统绿 #34C759 / 系统橙 #FF9500；深色 #2D2D2D / #2B2B2B。
- * 参考根目录 catrace_macos_edition.html 的配色，仅换皮不改布局；字体跟随 main 版（系统 UI 字体）。
+/* Catrace 主题 token 层 — HeroUI 语义 token 的别名层
+ * 颜色与字体一律指向 HeroUI 的语义 token（--background / --surface / --foreground /
+ * --accent / --success / --warning / --danger ...），明暗切换由 HeroUI 的
+ * [data-theme] 变量自动完成（var() 逐元素解析），本文件不再维护深色副本。
+ * HeroUI 缺失的层级（accent-softer、强边框、导航悬停、悬停阴影）用 color-mix
+ * 从 HeroUI 基色派生，同样自动跟随主题。
  */
 
 :root {
-  /* 系统字体：macOS = SF Pro，Windows = Segoe UI，中文按系统回退。
-     等宽使用 ui-monospace，Windows 回退到 Consolas。 */
-  --ct-font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --ct-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  /* 字体：HeroUI --font-sans / --font-mono（Windows 落 Segoe UI，macOS 落 SF Pro） */
+  --ct-font-sans: var(--font-sans);
+  --ct-font-mono: var(--font-mono);
 
-  /* 强调（macOS 系统蓝） */
-  --ct-accent: #007aff;
-  --ct-accent-hover: #0066d6;
-  --ct-accent-strong: #0055b3;
-  --ct-accent-soft: rgba(0, 122, 255, 0.1);
-  --ct-accent-softer: rgba(0, 122, 255, 0.05);
-  --ct-accent-border: rgba(0, 122, 255, 0.32);
-  --ct-purple: #5e5ce6;
-
-  /* 表面 / 背景 / 边框（苹果微边框） */
-  --ct-bg: #f5f5f7;
-  --ct-surface: #ffffff;
-  --ct-surface-2: #f0f0f5;
-  /* 卡片底：比纯白稍灰一档，和页面底色拉开一点层次；深色 #2b2b2b */
-  --ct-card-bg: #fbfbfb;
-  --ct-border: rgba(0, 0, 0, 0.07);
-  /* 需要和背景明确区分的卡片边（今日活动卡） */
-  --ct-border-strong: rgba(0, 0, 0, 0.14);
-  /* 卡片静止态描边：比 --ct-border 稍实，靠阴影承担分离感，避免整页重描边 */
-  --ct-border-card: rgba(0, 0, 0, 0.06);
-  /* macOS inset grouped 内容底（右侧详情区） */
-  --ct-content-bg: #f0f0f5;
-
-  /* 导航交互态（侧栏跟内容区同底色，不单独定义底色和分割线） */
-  --ct-nav-hover: rgba(0, 0, 0, 0.05);
-  --ct-nav-active: #eaeaea;
-
-  /* 文本（macOS label / secondary / tertiary） */
-  --ct-text: #1c1c1e;
-  --ct-text-muted: #6e6e73;
-  --ct-text-subtle: #8e8e93;
-
-  /* 状态 */
-  --ct-success: #34c759;
-  --ct-success-strong: #1e7a35;
-  --ct-success-soft: rgba(52, 199, 89, 0.12);
-  --ct-warning: #ff9500;
-  --ct-warning-strong: #c93400;
-  --ct-warning-soft: rgba(255, 149, 0, 0.14);
-  --ct-error: #ff3b30;
-  --ct-error-strong: #d70015;
-  --ct-error-soft: rgba(255, 59, 48, 0.1);
-
-  /* 蓝 / 青（时间线里 cyan 用作"休息"，换成系统绿） */
-  --ct-info: #007aff;
-  --ct-info-soft: rgba(0, 122, 255, 0.1);
-  --ct-cyan: #34c759;
-  --ct-cyan-soft: rgba(52, 199, 89, 0.12);
-
-  /* 强调/深色底上的前景白 */
-  --ct-on-accent: #ffffff;
-
-  /* 苹果卡片阴影：一层贴边、一层远处散开，靠光影而不是描边分层次 */
-  --ct-shadow-card: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04), 0 0.5rem 1.5rem -0.5rem rgba(0, 0, 0, 0.1);
-  --ct-shadow-card-hover: 0 0.125rem 0.3125rem rgba(0, 0, 0, 0.05), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.16);
-  --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme='dark'] {
-  /* 强调（暗底提亮系统蓝） */
-  --ct-accent: #0a84ff;
-  --ct-accent-hover: #409cff;
-  --ct-accent-strong: #64b5ff;
-  --ct-accent-soft: rgba(10, 132, 255, 0.18);
-  --ct-accent-softer: rgba(10, 132, 255, 0.1);
-  --ct-accent-border: rgba(10, 132, 255, 0.42);
-  --ct-purple: #7d7aff;
+  /* 强调（HeroUI accent） */
+  --ct-accent: var(--accent);
+  --ct-accent-hover: var(--accent-hover);
+  --ct-accent-strong: var(--accent-soft-foreground);
+  --ct-accent-soft: var(--accent-soft);
+  --ct-accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
+  --ct-accent-border: color-mix(in oklab, var(--accent) 35%, transparent);
 
   /* 表面 / 背景 / 边框 */
-  --ct-bg: #2d2d2d;
-  --ct-surface: #1f1f23;
-  --ct-surface-2: #2a2a30;
-  --ct-card-bg: #2b2b2b;
-  --ct-border: rgba(255, 255, 255, 0.08);
-  --ct-border-strong: rgba(255, 255, 255, 0.16);
-  --ct-border-card: rgba(255, 255, 255, 0.07);
-  --ct-content-bg: #17171b;
+  --ct-bg: var(--background);
+  --ct-surface: var(--surface);
+  --ct-surface-2: var(--surface-secondary);
+  /* 卡片底 = HeroUI Card 默认色（浅色白 / 深色 #18181b） */
+  --ct-card-bg: var(--surface);
+  --ct-border: var(--border);
+  --ct-border-strong: color-mix(in oklab, var(--foreground) 14%, transparent);
+  --ct-border-card: var(--border);
 
-  /* 导航交互态（侧栏跟内容区同底色，不单独定义底色和分割线） */
-  --ct-nav-hover: rgba(255, 255, 255, 0.06);
-  --ct-nav-active: #2d2d2d;
+  /* 导航交互态 */
+  --ct-nav-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --ct-nav-active: var(--default);
 
   /* 文本 */
-  --ct-text: #f2f2f7;
-  --ct-text-muted: #aeaeb2;
-  --ct-text-subtle: #8e8e93;
+  --ct-text: var(--foreground);
+  --ct-text-muted: var(--muted);
+  --ct-text-subtle: var(--muted);
 
-  /* 状态 */
-  --ct-success: #30d158;
-  --ct-success-strong: #30d158;
-  --ct-success-soft: rgba(48, 209, 88, 0.15);
-  --ct-warning: #ffd60a;
-  --ct-warning-strong: #ffd60a;
-  --ct-warning-soft: rgba(255, 214, 10, 0.15);
-  --ct-error: #ff453a;
-  --ct-error-strong: #ff6961;
-  --ct-error-soft: rgba(255, 69, 58, 0.15);
+  /* 状态：HeroUI 的 success / warning / danger（Catrace 的 error 对应 --danger） */
+  --ct-success: var(--success);
+  --ct-success-strong: var(--success-soft-foreground);
+  --ct-success-soft: var(--success-soft);
+  --ct-warning: var(--warning);
+  --ct-warning-strong: var(--warning-soft-foreground);
+  --ct-warning-soft: var(--warning-soft);
+  --ct-error: var(--danger);
+  --ct-error-strong: var(--danger-soft-foreground);
+  --ct-error-soft: var(--danger-soft);
 
-  /* 蓝 / 青 */
-  --ct-info: #0a84ff;
-  --ct-info-soft: rgba(10, 132, 255, 0.15);
-  --ct-cyan: #30d158;
-  --ct-cyan-soft: rgba(48, 209, 88, 0.15);
+  /* 蓝 / 青别名：info = 强调蓝，cyan = 成功绿（时间线"休息"色） */
+  --ct-info: var(--accent);
+  --ct-info-soft: var(--accent-soft);
+  --ct-cyan: var(--success);
+  --ct-cyan-soft: var(--success-soft);
 
-  /* 强调/深色底上的前景白 */
-  --ct-on-accent: #ffffff;
+  /* 强调底上的前景 */
+  --ct-on-accent: var(--accent-foreground);
 
-  /* 苹果卡片阴影（深色） */
-  --ct-shadow-card: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.5), 0 0.5rem 1.5rem -0.5rem rgba(0, 0, 0, 0.6);
-  --ct-shadow-card-hover: 0 0.125rem 0.3125rem rgba(0, 0, 0, 0.5), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.7);
-  --ct-shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.25);
+  /* 卡片阴影：基座取 HeroUI surface-shadow（深色下 HeroUI 自身即无阴影）；
+     HeroUI 没有 hover 层级，附加一层散开阴影承担悬停浮起。 */
+  --ct-shadow-card: var(--surface-shadow);
+  --ct-shadow-card-hover: var(--surface-shadow), 0 0.75rem 2rem -0.5rem rgba(0, 0, 0, 0.16);
 }
 
 html,
@@ -132,13 +73,6 @@ body,
   -moz-osx-font-smoothing: grayscale;
   /* 只留 tnum：cv02/03/04/11 是 Inter 的替代字形开关，main 上没有，系统字体上也无意义。 */
   font-feature-settings: 'tnum';
-}
-
-/* 主窗画布接到 HeroUI 语义主题：侧栏、工作区及页面复用的 --ct-bg 一起跟随主题。
-   仅作用于主窗，独立 Toast / 全屏 / popup 保留原有配色与透明背景。 */
-html.catrace-shell {
-  --ct-bg: var(--background);
-  --ct-text: var(--foreground);
 }
 
 /* 主窗才铺页面底。Toast / 全屏 / popup 默认透明，避免圆角卡外露出 --ct-bg。 */

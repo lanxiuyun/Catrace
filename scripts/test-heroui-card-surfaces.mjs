@@ -77,8 +77,9 @@ test('plugin settings cards keep no custom stylesheet', () => {
 
 test('HeroUI cards share the app card background token', () => {
   const theme = source('src/styles/theme.css')
-  assert.match(theme, /--ct-card-bg:\s*#fbfbfb/)
-  assert.match(theme, /\[data-theme='dark'\][\s\S]*?--ct-card-bg:\s*#2b2b2b/)
+  // 卡片底直接指向 HeroUI surface（浅色白 / 深色 #18181b），不再维护 Catrace 深浅两份色值。
+  assert.match(theme, /--ct-card-bg:\s*var\(--surface\)/)
+  assert.doesNotMatch(theme, /--ct-card-bg:\s*#/)
   assert.match(source('src/app/base.css'), /\.card--default\s*\{[^}]*background-color:\s*var\(--ct-card-bg\)/)
   for (const [path, selector] of [
     ['src/app/pages/settings.css', '.ct-settings-card'],
