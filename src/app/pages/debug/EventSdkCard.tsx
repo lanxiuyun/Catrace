@@ -61,7 +61,7 @@ export function EventSdkCard() {
       await navigator.clipboard.writeText(token)
       showToast(t('settings.eventSdk.copied'))
     } catch {
-      showToast(t('settings.messages.saveFailed'), 'error')
+      showToast(t('settings.eventSdk.copyFailed'), 'error')
     }
   }
 

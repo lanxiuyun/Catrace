@@ -79,6 +79,7 @@ export default {
       hide: '隐藏',
       copy: '复制',
       copied: '已复制令牌',
+      copyFailed: '复制失败',
       rotate: '轮换',
       rotateTitle: '轮换访问令牌？',
       rotateBody: '旧令牌立即失效，已配置的脚本需更新 token。',

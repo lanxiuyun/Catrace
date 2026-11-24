@@ -79,6 +79,7 @@ export default {
       hide: 'Hide',
       copy: 'Copy',
       copied: 'Token copied',
+      copyFailed: 'Copy failed',
       rotate: 'Rotate',
       rotateTitle: 'Rotate access token?',
       rotateBody: 'The old token stops working immediately. Update any scripts.',
