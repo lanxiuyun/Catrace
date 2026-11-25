@@ -2,6 +2,17 @@
 
 后台静默监听键鼠活动，实时累积活动次数，供每分钟结算判定活跃/休息。
 
+## Linux 屏幕状态模式
+
+设置 → 活跃判定方式 →「用屏幕状态判定活跃」，默认关闭。开启后，只有未锁屏且亮屏才判活跃，锁屏或熄屏均判休息，覆盖键鼠/媒体判断；全屏休息提醒始终优先算休息。设置只展示开关，不展示亮屏/熄屏状态标签。
+
+- 仅 Linux 支持。其他平台沿用系统通知转发的交互：开关置灰，显示「当前平台不支持」。
+- 锁屏状态读取当前桌面已运行的 `org.freedesktop.ScreenSaver` 或 GNOME ScreenShield/ScreenSaver 的 `GetActive`，禁止自动启动未运行的屏保服务。X11 读取 DPMS；GNOME Wayland 读取 Mutter 的 `PowerSaveMode`。其他 Wayland 桌面暂不能读取显示器电源状态，不能用 Xwayland 虚拟屏幕推断物理显示器状态。
+- 开启时由独立线程每 2 秒采样，不持有键鼠状态锁执行系统调用；关闭后停止采样。任一信号明确表示锁屏或熄屏，就判休息，即使另一信号读取失败；只有两个信号都明确表示未锁屏且亮屏才判活跃。无法确定或样本超过 10 秒时退回键鼠/媒体判定，设置显示降级说明。
+- 核心业务开关 `screen_active_enabled`（沿用原亮屏模式 key） 保存在现有 SQLite settings 表；启动恢复，修改立即生效。关闭不改动原有媒体设置。
+- 分钟结算、休息计时卡片、插件两套 API、sidecar 和调试状态都使用相同的屏幕优先级。屏幕状态单独传递，不伪装成键鼠事件或媒体播放，不改变 Signal 原始采集数据。
+- `src-tauri/src/activity.rs` 定义统一判定和带有效期的屏幕快照；`src-tauri/src/screen_activity/` 提供平台检测、开关命令和后台采样。
+
 > **Step 2 起**：采样实现下沉到 `src-tauri/src/signal.rs`。  
 > legacy `ActivityState.count` 语义不变（键 2s 去重 + 鼠标 2s 移动门闩）。  
 > 扩展指标（前台频次、键序列、鼠标位移）见 [[desktop-event-os]]  
