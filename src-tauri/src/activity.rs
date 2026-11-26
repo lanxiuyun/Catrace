@@ -1,3 +1,4 @@
+use std::thread::Thread;
 use std::time::{Duration, Instant};
 
 const SCREEN_SAMPLE_MAX_AGE: Duration = Duration::from_secs(10);
@@ -22,6 +23,7 @@ pub struct ScreenState {
     pub enabled: bool,
     revision: u64,
     sample: Option<(Instant, bool)>,
+    sampler: Option<Thread>,
 }
 
 impl ScreenState {
@@ -29,11 +31,19 @@ impl ScreenState {
         self.enabled = enabled;
         self.revision = self.revision.wrapping_add(1);
         self.sample = None;
+        if let Some(sampler) = &self.sampler {
+            sampler.unpark();
+        }
         self.revision
     }
 
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn attach_sampler(&mut self, sampler: Thread) {
+        self.sampler = Some(sampler);
     }
 
     pub fn update(&mut self, revision: u64, started: Instant, active: Option<bool>) {

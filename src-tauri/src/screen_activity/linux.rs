@@ -2,25 +2,76 @@ use std::time::Duration;
 
 use dbus::blocking::{stdintf::org_freedesktop_dbus::Properties, BlockingSender, Connection};
 use x11rb::protocol::dpms::{ConnectionExt, DPMSMode};
+use x11rb::rust_connection::RustConnection;
+
+#[derive(Default)]
+pub struct Probe {
+    session: Option<Connection>,
+    x11: Option<RustConnection>,
+}
+
+impl Probe {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn active(&mut self) -> Option<bool> {
+        let locked = self.locked();
+        if locked == Some(true) {
+            return Some(false);
+        }
+        // Xwayland's virtual outputs do not describe the physical monitor's power state.
+        let wayland = match std::env::var("XDG_SESSION_TYPE").as_deref() {
+            Ok("wayland") => true,
+            Ok("x11") => false,
+            _ => std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        };
+        let screen_on = if wayland {
+            self.gnome_screen_on()
+        } else {
+            match self.x11_screen_on() {
+                Some(on) => Some(on),
+                None => self.gnome_screen_on(),
+            }
+        };
+        crate::activity::screen_active(screen_on, locked)
+    }
+
+    fn session(&mut self) -> Option<&Connection> {
+        if self.session.is_none() {
+            self.session = Connection::new_session().ok();
+        }
+        self.session.as_ref()
+    }
+
+    fn locked(&mut self) -> Option<bool> {
+        let connection = self.session()?;
+        session_locked(connection)
+    }
+
+    fn gnome_screen_on(&mut self) -> Option<bool> {
+        let connection = self.session()?;
+        gnome_screen_on(connection)
+    }
+
+    fn x11_screen_on(&mut self) -> Option<bool> {
+        if self.x11.is_none() {
+            self.x11 = x11rb::connect(None).ok().map(|(connection, _)| connection);
+        }
+        let connection = self.x11.as_ref()?;
+        let capable = connection.dpms_capable().ok()?.reply().ok()?;
+        if !capable.capable {
+            return None;
+        }
+        let info = connection.dpms_info().ok()?.reply().ok()?;
+        // With DPMS disabled, power_level is undefined; the display stays powered on.
+        Some(!info.state || info.power_level == DPMSMode::ON)
+    }
+}
 
 pub fn active() -> Option<bool> {
-    let session = Connection::new_session().ok();
-    let locked = session.as_ref().and_then(session_locked);
-    if locked == Some(true) {
-        return Some(false);
-    }
-    // Xwayland's virtual outputs do not describe the physical monitor's power state.
-    let wayland = match std::env::var("XDG_SESSION_TYPE").as_deref() {
-        Ok("wayland") => true,
-        Ok("x11") => false,
-        _ => std::env::var_os("WAYLAND_DISPLAY").is_some(),
-    };
-    let screen_on = if wayland {
-        session.as_ref().and_then(gnome_screen_on)
-    } else {
-        x11_screen_on().or_else(|| session.as_ref().and_then(gnome_screen_on))
-    };
-    crate::activity::screen_active(screen_on, locked)
+    let mut probe = Probe::new();
+    probe.active()
 }
 
 fn session_locked(connection: &Connection) -> Option<bool> {
@@ -47,17 +98,6 @@ fn session_locked(connection: &Connection) -> Option<bool> {
         }
     }
     unlocked
-}
-
-fn x11_screen_on() -> Option<bool> {
-    let (connection, _) = x11rb::connect(None).ok()?;
-    let capable = connection.dpms_capable().ok()?.reply().ok()?;
-    if !capable.capable {
-        return None;
-    }
-    let info = connection.dpms_info().ok()?.reply().ok()?;
-    // With DPMS disabled, power_level is undefined; the display stays powered on.
-    Some(!info.state || info.power_level == DPMSMode::ON)
 }
 
 fn gnome_screen_on(connection: &Connection) -> Option<bool> {

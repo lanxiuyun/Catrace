@@ -26,13 +26,23 @@ fn probe() -> Option<bool> {
     }
 }
 
-fn refresh(state: &Arc<Mutex<ActivityState>>) -> Result<ScreenActivityStatus, String> {
+fn refresh_with<F>(
+    state: &Arc<Mutex<ActivityState>>,
+    active: F,
+) -> Result<ScreenActivityStatus, String>
+where
+    F: FnOnce() -> Option<bool>,
+{
     let revision = state.lock().map_err(|e| e.to_string())?.screen.revision();
     let started = Instant::now();
-    let active = probe();
+    let active = active();
     let mut state = state.lock().map_err(|e| e.to_string())?;
     state.screen.update(revision, started, active);
     Ok(status(&state))
+}
+
+fn refresh(state: &Arc<Mutex<ActivityState>>) -> Result<ScreenActivityStatus, String> {
+    refresh_with(state, probe)
 }
 
 fn status(state: &ActivityState) -> ScreenActivityStatus {
@@ -47,12 +57,24 @@ pub fn start(state: Arc<Mutex<ActivityState>>, db: &Db) {
     let enabled = cfg!(target_os = "linux") && db.get_setting(ENABLED_KEY, "false") == "true";
     state.lock().unwrap().screen.set_enabled(enabled);
     #[cfg(target_os = "linux")]
-    std::thread::spawn(move || loop {
-        let enabled = state.lock().unwrap().screen.enabled;
-        if enabled {
-            let _ = refresh(&state);
+    std::thread::spawn(move || {
+        const SAMPLE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+        let mut probe = linux::Probe::new();
+        state
+            .lock()
+            .unwrap()
+            .screen
+            .attach_sampler(std::thread::current());
+        loop {
+            let enabled = state.lock().unwrap().screen.enabled;
+            if !enabled {
+                probe = linux::Probe::new();
+                std::thread::park();
+                continue;
+            }
+            let _ = refresh_with(&state, || probe.active());
+            std::thread::park_timeout(SAMPLE_INTERVAL);
         }
-        std::thread::sleep(std::time::Duration::from_secs(2));
     });
 }
 
