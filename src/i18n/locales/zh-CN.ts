@@ -141,7 +141,7 @@ export default {
     media: {
       screenTitle: '用屏幕状态判定活跃',
       screenDesc: '开启后，未锁屏且亮屏算活跃，锁屏或熄屏算休息',
-      screenFallback: '无法完整读取锁屏与屏幕状态，暂按键鼠与媒体判定。支持提供锁屏接口的 X11 桌面和 GNOME Wayland。',
+      screenFallback: '无法完整读取锁屏与屏幕状态，暂按键鼠与媒体判定。Linux 支持提供锁屏接口的 X11 桌面和 GNOME Wayland；Windows 支持锁屏与熄屏检测。',
       enabledTitle: '视频/音乐也算活跃',
       enabledDesc: '开启后，只要电脑在播放声音，即使没动鼠标键盘，也会视为活跃',
       unsupportedPlatformHint: '当前平台（macOS / Linux）尚未实现系统音频检测，该功能暂不可用。后续将通过系统音频检测实现。',

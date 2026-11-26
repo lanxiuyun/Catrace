@@ -14,7 +14,7 @@ import { SettingsCard } from './SettingsCard'
 import { ScreenActivitySetting } from './ScreenActivitySetting'
 import { useAutoSaveSetting } from './useAutoSaveSetting'
 
-/** Activity detection: media playback, Windows exclusions, and Linux screen mode. */
+/** Activity detection: media playback, Windows exclusions, and screen mode. */
 export function MediaSettingsCard() {
   const t = useT()
   const [platform, setPlatform] = useState('')

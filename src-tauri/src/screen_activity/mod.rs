@@ -1,10 +1,17 @@
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "windows")]
+mod windows;
 
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::{db::Db, ActivityState};
+
+#[cfg(target_os = "linux")]
+use linux::Probe;
+#[cfg(target_os = "windows")]
+use windows::Probe;
 
 const ENABLED_KEY: &str = "screen_active_enabled";
 
@@ -20,7 +27,11 @@ fn probe() -> Option<bool> {
     {
         linux::active()
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    {
+        windows::active()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         None
     }
@@ -47,19 +58,20 @@ fn refresh(state: &Arc<Mutex<ActivityState>>) -> Result<ScreenActivityStatus, St
 
 fn status(state: &ActivityState) -> ScreenActivityStatus {
     ScreenActivityStatus {
-        supported: cfg!(target_os = "linux"),
+        supported: cfg!(any(target_os = "linux", target_os = "windows")),
         enabled: state.screen.enabled,
         active: state.screen.active(),
     }
 }
 
 pub fn start(state: Arc<Mutex<ActivityState>>, db: &Db) {
-    let enabled = cfg!(target_os = "linux") && db.get_setting(ENABLED_KEY, "false") == "true";
+    let enabled = cfg!(any(target_os = "linux", target_os = "windows"))
+        && db.get_setting(ENABLED_KEY, "false") == "true";
     state.lock().unwrap().screen.set_enabled(enabled);
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     std::thread::spawn(move || {
         const SAMPLE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-        let mut probe = linux::Probe::new();
+        let mut probe: Option<Probe> = None;
         state
             .lock()
             .unwrap()
@@ -68,10 +80,11 @@ pub fn start(state: Arc<Mutex<ActivityState>>, db: &Db) {
         loop {
             let enabled = state.lock().unwrap().screen.enabled;
             if !enabled {
-                probe = linux::Probe::new();
+                probe = None;
                 std::thread::park();
                 continue;
             }
+            let probe = probe.get_or_insert_with(Probe::new);
             let _ = refresh_with(&state, || probe.active());
             std::thread::park_timeout(SAMPLE_INTERVAL);
         }
@@ -92,8 +105,8 @@ pub async fn set_screen_active_enabled(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
     db: tauri::State<'_, Db>,
 ) -> Result<ScreenActivityStatus, String> {
-    if enabled && !cfg!(target_os = "linux") {
-        return Err("Screen activity is only supported on Linux".into());
+    if enabled && !cfg!(any(target_os = "linux", target_os = "windows")) {
+        return Err("Screen activity is not supported on this platform".into());
     }
     db.set_setting(ENABLED_KEY, &enabled.to_string())
         .map_err(|e| e.to_string())?;

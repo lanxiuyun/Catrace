@@ -9,7 +9,7 @@ pub fn resolve_active(input: bool, media: bool, screen: Option<bool>, fullscreen
 }
 
 /// Either known rest signal wins; activity requires both signals to be known.
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(target_os = "linux", target_os = "windows", test))]
 pub fn screen_active(screen_on: Option<bool>, locked: Option<bool>) -> Option<bool> {
     match (screen_on, locked) {
         (Some(false), _) | (_, Some(true)) => Some(false),
@@ -41,7 +41,7 @@ impl ScreenState {
         self.revision
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     pub(crate) fn attach_sampler(&mut self, sampler: Thread) {
         self.sampler = Some(sampler);
     }
