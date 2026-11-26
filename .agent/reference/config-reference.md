@@ -24,6 +24,7 @@
 |-----|------|--------|
 | `silent_start` | 开机自启时隐藏主窗口 | false |
 | `video_active_enabled` | 媒体计入活跃 | true |
+| `screen_active_enabled` | 屏幕状态判定活跃（Linux/Windows，锁屏或熄屏算休息） | false |
 | `media_whitelist` | 排除列表 JSON 数组 | 默认系统进程 |
 | `locale` | zh-CN / en-US | 自动检测 |
 | `update_source` | 更新源：`auto` / `ghfast` / `ghddlc` / `ghproxy` / `github` | auto |

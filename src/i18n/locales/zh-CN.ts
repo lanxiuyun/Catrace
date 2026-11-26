@@ -42,7 +42,7 @@ export default {
     dragHandle: '拖动排序',
     groups: {
       reminder: '提醒偏好',
-      media: '视频与音乐',
+      media: '活跃判定方式',
       notification: '提醒设置',
       update: '软件更新',
       system: '系统',
@@ -79,6 +79,7 @@ export default {
       hide: '隐藏',
       copy: '复制',
       copied: '已复制令牌',
+      copyFailed: '复制失败',
       rotate: '轮换',
       rotateTitle: '轮换访问令牌？',
       rotateBody: '旧令牌立即失效，已配置的脚本需更新 token。',
@@ -138,6 +139,9 @@ export default {
       fullscreenSection: '全屏提醒设置',
     },
     media: {
+      screenTitle: '用屏幕状态判定活跃',
+      screenDesc: '开启后，未锁屏且亮屏算活跃，锁屏或熄屏算休息',
+      screenFallback: '无法完整读取锁屏与屏幕状态，暂按键鼠与媒体判定。Linux 支持提供锁屏接口的 X11 桌面和 GNOME Wayland；Windows 支持锁屏与熄屏检测。',
       enabledTitle: '视频/音乐也算活跃',
       enabledDesc: '开启后，只要电脑在播放声音，即使没动鼠标键盘，也会视为活跃',
       unsupportedPlatformHint: '当前平台（macOS / Linux）尚未实现系统音频检测，该功能暂不可用。后续将通过系统音频检测实现。',

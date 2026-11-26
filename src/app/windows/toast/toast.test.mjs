@@ -220,6 +220,31 @@ test('rest timer polls baseline, ignores fullscreen, and delays activity removal
   rest.dispose()
 })
 
+test('screen mode controls rest timer dismissal and falls back when the screen is unknown', async () => {
+  for (const [screen, fullscreen, media, expectedRemoval] of [
+    [true, false, false, true],
+    [false, false, true, false],
+    [true, true, true, false],
+    [null, false, true, true],
+  ]) {
+    const h = harness()
+    let snapshot = { count: 0, media_active: false, screen_active: screen, fullscreen_active: fullscreen }
+    h.api.getActivitySnapshot = async () => snapshot
+    const rest = h.load('restTimer').createRestTimerCard({
+      items: h.items, nextId: () => 1, t: (key) => key, scheduleWindowResize() {},
+      removeNotification: (...args) => h.calls.removals.push(args),
+      markEventResolved() {}, markEventSeen() {},
+    })
+    rest.updateRestTimer({ break_minutes: 5, rest_start_ts: 0, rest_streak: 1, remaining_minutes: 4, is_complete: false })
+    await flush()
+    snapshot = { ...snapshot, count: screen === true ? 0 : 1, media_active: media }
+    await [...h.intervals.values()][0].callback()
+    await flush()
+    assert.equal(h.timeouts.size > 0, expectedRemoval, `screen=${screen}, fullscreen=${fullscreen}`)
+    rest.dispose()
+  }
+})
+
 test('unmount during rest snapshot initialization cannot resurrect a polling interval', async () => {
   const pending = deferred(), h = harness({ getActivitySnapshot: () => pending.promise })
   const rest = h.load('restTimer').createRestTimerCard({

@@ -7,7 +7,7 @@ import { formatDistance, formatMinute, toNumber } from './format'
 /**
  * 实时状态：把「最终判定 / 焦点窗口 / Signal 当前分钟」三张卡合成一行四格。
  *
- * 判定口径与后端一致：本分钟键鼠 ≥ 3 次或媒体在播放 → 预计活跃。
+ * 判定与后端共用结果，包含屏幕模式与全屏休息优先级。
  * 状态色沿用概览页：蓝=活跃、绿=休息（不要在调试页另起一套配色）。
  * action 是面板标题右侧的控件位：页面级开关（Toast 调试背景）挂在这里。
  */
@@ -28,7 +28,7 @@ export function StatusOverview({
   const currentMouse = toNumber(snapshot.mouse_distance_px)
   const minuteLabel = minuteTs > 0 ? formatMinute(minuteTs + 60) : '—'
 
-  const active = data ? data.mouse_keyboard_count >= 3 || data.media_active : null
+  const active = data?.active ?? null
   const mediaLabel = data
     ? data.media_active
       ? t('debug.status.mediaPlaying')
@@ -51,10 +51,12 @@ export function StatusOverview({
           </span>
           <span className="ct-debug-stat-note">
             {data
-              ? t('debug.status.activeHint', {
-                  keys: data.mouse_keyboard_count,
-                  media: mediaLabel,
-                })
+              ? data.screen_active !== null
+                ? t('settings.media.screenTitle')
+                : t('debug.status.activeHint', {
+                    keys: data.mouse_keyboard_count,
+                    media: mediaLabel,
+                  })
               : '—'}
           </span>
         </div>

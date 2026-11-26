@@ -47,6 +47,7 @@ log_debug!("toast", "fit w={w} h={h}"); // 默认不落盘，CATRACE_LOG_LEVEL=d
 
 - 任意 WebView 窗按 F12 切换各自 DevTools（`toggle_devtools` 命令，`devtools` feature 无条件开启，dev/release 均可用）
 - Toast 窗平时 `WS_EX_NOACTIVATE` 不持焦点，先点一下卡片再按 F12
+- **选中元素卡顿**：HeroUI/Tailwind 的 dev CSS 会给几乎每条颜色规则生成一个重复的 `@supports (color: color-mix(in lab, red, red))`。DevTools 每次选中节点都要遍历这些条件，实测 `getMatchedStylesForNode` 约 200ms；[vite.config.ts](../../../vite.config.ts) 的 `flattenDevColorMixSupports` 只在 `serve` 模式原地展开这个条件（WebView2 已支持 color-mix），生产构建保留 fallback。
 
 ## 注意事项
 

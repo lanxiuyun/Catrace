@@ -10,8 +10,14 @@
 
 ```css
 .bar {
-  animation: shrink var(--toast-auto-hide-ms, 8000ms) linear forwards;
+  width: 100%;
   transform-origin: left center;
+  animation: shrink var(--toast-auto-hide-ms, 8000ms) linear forwards;
+}
+
+@keyframes shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 .bar.paused { animation-play-state: paused; }
 ```
@@ -19,6 +25,8 @@
 3. hover：`isHovered=true` → 宿主 `stopTimer`（扣减 elapsed 写入 `remainingMs`）+ 卡 `.paused`。  
 4. leave：宿主 `startTimer`（用剩余 `remainingMs` 设新 timeout）+ 去掉 pause。  
    **CSS 时间线在 pause 期间冻结**，resume 从当前宽度继续，不会重头。
+
+**关键帧必须动 `transform: scaleX`，不能动 `width`**：宽度动画每帧触发布局；DevTools 选中卡片或其子元素时，Elements 面板会跟着每帧刷新，明显拖慢整个 Toast 窗。
 
 ## 禁止
 

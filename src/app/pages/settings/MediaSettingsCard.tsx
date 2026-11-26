@@ -11,12 +11,13 @@ import { useT } from '../../i18n'
 import { showToast } from '../../ui/toast'
 import { SettingRow } from './SettingRow'
 import { SettingsCard } from './SettingsCard'
+import { ScreenActivitySetting } from './ScreenActivitySetting'
 import { useAutoSaveSetting } from './useAutoSaveSetting'
 
-/** Media playback counts as active + Windows process whitelist. */
+/** Activity detection: media playback, Windows exclusions, and screen mode. */
 export function MediaSettingsCard() {
   const t = useT()
-  const [platform, setPlatform] = useState('windows')
+  const [platform, setPlatform] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -97,11 +98,14 @@ export function MediaSettingsCard() {
         </>
       )}
 
-      {!isWindows && (
+      {platform && !isWindows && (
         <>
-          <div className="ct-settings-hint">{t('media.unsupportedPlatformHint')}</div>
+          <div className="ct-settings-hint">{t('settings.media.unsupportedPlatformHint')}</div>
         </>
       )}
+      <div className="ct-settings-block">
+        <ScreenActivitySetting />
+      </div>
     </SettingsCard>
   )
 }

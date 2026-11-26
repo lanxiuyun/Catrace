@@ -42,7 +42,7 @@ export default {
     dragHandle: 'Drag to reorder',
     groups: {
       reminder: 'Reminder Preferences',
-      media: 'Video & Music',
+      media: 'Activity Detection',
       notification: 'Reminder Settings',
       update: 'Software Update',
       system: 'System',
@@ -79,6 +79,7 @@ export default {
       hide: 'Hide',
       copy: 'Copy',
       copied: 'Token copied',
+      copyFailed: 'Copy failed',
       rotate: 'Rotate',
       rotateTitle: 'Rotate access token?',
       rotateBody: 'The old token stops working immediately. Update any scripts.',
@@ -138,6 +139,9 @@ export default {
       fullscreenSection: 'Fullscreen Settings',
     },
     media: {
+      screenTitle: 'Use screen state for activity',
+      screenDesc: 'When enabled, an unlocked, powered-on screen counts as active; locking or turning off the screen counts as rest',
+      screenFallback: 'Lock and display status cannot be fully read. Using input and media detection for now. Supports X11 desktops with a lock status interface and GNOME Wayland on Linux, and lock and display power detection on Windows.',
       enabledTitle: 'Videos / music count as active',
       enabledDesc: 'When enabled, any sound from your computer counts as activity, even if you aren\'t using the mouse or keyboard',
       unsupportedPlatformHint: 'System-level audio detection is not yet implemented on this platform (macOS / Linux). This feature is currently unavailable and will be added via system audio capture in the future.',
