@@ -49,7 +49,7 @@ fn status(state: &ActivityState) -> ScreenActivityStatus {
     ScreenActivityStatus {
         supported: cfg!(target_os = "linux"),
         enabled: state.screen.enabled,
-        active: state.screen.detected(),
+        active: state.screen.active(),
     }
 }
 
@@ -79,19 +79,11 @@ pub fn start(state: Arc<Mutex<ActivityState>>, db: &Db) {
 }
 
 #[tauri::command]
-pub async fn get_screen_activity_status(
+pub fn get_screen_activity_status(
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
 ) -> Result<ScreenActivityStatus, String> {
-    {
-        let state = activity.lock().map_err(|e| e.to_string())?;
-        if state.screen.enabled {
-            return Ok(status(&state));
-        }
-    }
-    let state = activity.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || refresh(&state))
-        .await
-        .map_err(|e| e.to_string())?
+    let state = activity.lock().map_err(|e| e.to_string())?;
+    Ok(status(&state))
 }
 
 #[tauri::command]
@@ -105,11 +97,14 @@ pub async fn set_screen_active_enabled(
     }
     db.set_setting(ENABLED_KEY, &enabled.to_string())
         .map_err(|e| e.to_string())?;
-    activity
-        .lock()
-        .map_err(|e| e.to_string())?
-        .screen
-        .set_enabled(enabled);
+    {
+        let mut state = activity.lock().map_err(|e| e.to_string())?;
+        state.screen.set_enabled(enabled);
+    }
+    if !enabled {
+        let state = activity.lock().map_err(|e| e.to_string())?;
+        return Ok(status(&state));
+    }
     let state = activity.inner().clone();
     tauri::async_runtime::spawn_blocking(move || refresh(&state))
         .await
