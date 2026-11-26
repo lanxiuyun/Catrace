@@ -606,6 +606,7 @@ dependencies = [
  "active-win-pos-rs",
  "base64 0.22.1",
  "chrono",
+ "dbus",
  "device_query",
  "dirs 5.0.1",
  "macos-accessibility-client",
@@ -634,6 +635,7 @@ dependencies = [
  "windows 0.61.3",
  "windows-future",
  "windows-registry",
+ "x11rb",
  "zip 2.4.2",
 ]
 

@@ -328,7 +328,12 @@ pub fn plugin_get_activity(
     require_enabled_plugin(&window, &plugins)?;
     let state = activity.lock().map_err(|e| e.to_string())?;
     let fullscreen_active = crate::window_manager::is_fullscreen_reminder_open(window.app_handle());
-    let active = !fullscreen_active && (state.count > 0 || state.media_active_snapshot);
+    let active = crate::activity::resolve_active(
+        state.count > 0,
+        state.media_active_snapshot,
+        state.screen.active(),
+        fullscreen_active,
+    );
     Ok(PluginActivitySnapshot {
         active,
         count: state.count,

@@ -8,7 +8,7 @@
 
 | 键 | 内容与组件 |
 |----|------------|
-| `media` | 视频与音乐检测、排除列表：[MediaSettingsCard.tsx](../../../src/app/pages/settings/MediaSettingsCard.tsx) |
+| `media` | 活跃判定方式：媒体检测、排除列表、Linux 屏幕状态模式：[MediaSettingsCard.tsx](../../../src/app/pages/settings/MediaSettingsCard.tsx) |
 | `signal` | 行为采集：[SignalSettingsCard.tsx](../../../src/app/pages/settings/SignalSettingsCard.tsx) |
 | `system` | 语言、主题、自启、静默、轻量、更新：[SystemSettingsCard.tsx](../../../src/app/pages/settings/SystemSettingsCard.tsx) |
 | `sysNotify` | 系统通知转发：[SysNotifySettingsCard.tsx](../../../src/app/pages/settings/SysNotifySettingsCard.tsx) |

@@ -187,6 +187,8 @@ export interface MediaDebugInfo {
 
   media_active: boolean
   mouse_keyboard_count: number
+  screen_active: boolean | null
+  active: boolean
 }
 
 /** 获取媒体检测调试信息 */
@@ -196,6 +198,7 @@ export async function getMediaDebugInfo(): Promise<MediaDebugInfo> {
 
 /** 轻量活跃快照，供休息计时卡片每 2 秒轮询使用 */
 export interface ActivitySnapshot {
+  screen_active: boolean | null
   count: number
   media_active: boolean
   fullscreen_active: boolean
@@ -233,6 +236,20 @@ export async function getMediaActiveEnabled(): Promise<boolean> {
 /** 设置「媒体计入活跃」开关 */
 export async function setMediaActiveEnabled(enabled: boolean): Promise<void> {
   return invoke('set_media_active_enabled', { enabled })
+}
+
+export interface ScreenActivityStatus {
+  supported: boolean
+  enabled: boolean
+  active: boolean | null
+}
+
+export async function getScreenActivityStatus(): Promise<ScreenActivityStatus> {
+  return invoke('get_screen_activity_status')
+}
+
+export async function setScreenActiveEnabled(enabled: boolean): Promise<ScreenActivityStatus> {
+  return invoke('set_screen_active_enabled', { enabled })
 }
 
 /** 获取媒体排除白名单文本（一行一个进程名） */

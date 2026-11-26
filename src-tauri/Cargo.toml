@@ -44,6 +44,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
 zip = "2"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = "0.9"
+x11rb = { version = "0.13", features = ["dpms"] }
+
 [target.'cfg(not(mobile))'.dependencies]
 rodio = "0.20"
 

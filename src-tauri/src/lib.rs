@@ -1,3 +1,4 @@
+mod activity;
 mod bus;
 mod db;
 mod event;
@@ -20,6 +21,7 @@ mod report;
 mod update;
 mod rest_plugin;
 mod signal;
+mod screen_activity;
 mod window_manager;
 
 use std::collections::HashMap;
@@ -95,6 +97,8 @@ struct MediaDebugInfo {
 
     media_active: bool,
     mouse_keyboard_count: u32,
+    screen_active: Option<bool>,
+    active: bool,
 }
 
 // ---------- Windows 媒体检测 ----------
@@ -122,15 +126,17 @@ pub struct ActivityState {
     pub key_debounce: Option<Instant>,
     /// 最近一次分钟结算时的媒体活跃结果，供 get_activity_snapshot 复用
     pub media_active_snapshot: bool,
+    pub screen: activity::ScreenState,
 }
 
 /// 轻量活跃快照，供休息计时卡片每 2 秒轮询使用。
-/// 只读键鼠累计计数与媒体/全屏状态，避免 get_media_debug_info 的会话枚举开销。
+/// 只读键鼠计数、媒体快照、屏幕与全屏状态，避免会话枚举开销。
 #[derive(serde::Serialize)]
 struct ActivitySnapshot {
     count: u32,
     media_active: bool,
     fullscreen_active: bool,
+    screen_active: Option<bool>,
 }
 
 #[tauri::command]
@@ -145,6 +151,7 @@ async fn get_activity_snapshot(
         // 复用最近一次分钟结算的媒体快照，避免每次轮询重复枚举音频会话
         media_active: s.media_active_snapshot,
         fullscreen_active,
+        screen_active: s.screen.active(),
     })
 }
 
@@ -187,13 +194,14 @@ fn tray_quit(locale: &str) -> &'static str {
  * 音频会话检测有内部超时保护，均无需额外 spawn_blocking。 */
 #[tauri::command]
 async fn get_media_debug_info(
+    window: tauri::WebviewWindow,
     activity: tauri::State<'_, Arc<Mutex<ActivityState>>>,
     db: tauri::State<'_, db::Db>,
     whitelist: tauri::State<'_, Arc<Mutex<Vec<String>>>>,
 ) -> Result<MediaDebugInfo, String> {
-    let mouse_keyboard_count = {
+    let (mouse_keyboard_count, screen_active) = {
         let s = activity.lock().unwrap();
-        s.count
+        (s.count, s.screen.active())
     };
     let _locale = db.get_setting("locale", "zh-CN");
 
@@ -226,7 +234,14 @@ async fn get_media_debug_info(
         ),
     };
 
-    let media_active = is_media_active(&whitelist_clone);
+    let media_active = db.get_setting("video_active_enabled", "true") == "true"
+        && is_media_active(&whitelist_clone);
+    let active = activity::resolve_active(
+        mouse_keyboard_count >= 3,
+        media_active,
+        screen_active,
+        window_manager::is_fullscreen_reminder_open(window.app_handle()),
+    );
 
     Ok(MediaDebugInfo {
         audio_sessions,
@@ -237,6 +252,8 @@ async fn get_media_debug_info(
         focus_process_path: focus_path,
         media_active,
         mouse_keyboard_count,
+        screen_active,
+        active,
     })
 }
 
@@ -1010,6 +1027,7 @@ pub fn run() {
             app.manage(db.clone());
             app.manage(reminder_state_clone.clone());
             app.manage(state.clone());
+            screen_activity::start(state.clone(), &db);
             app.manage(store.clone());
             app.manage(Arc::new(rest_plugin::NotificationTestState::new()));
 
@@ -1127,27 +1145,29 @@ pub fn run() {
                     // 先短暂取出并清零键鼠计数，同时保存媒体/全屏快照，
                     // 后续写 DB、提醒、Toast 都不再持有 ActivityState 锁。
                     // 避免 Toast 定位读取同一个锁导致死锁。
-                    let count = {
+                    let (count, screen_active) = {
                         let mut s = settle_state.lock().unwrap();
                         let count = s.count;
                         s.count = 0;
                         // 保存媒体快照，供 get_activity_snapshot 复用，避免前端轮询重复枚举音频会话
                         s.media_active_snapshot = media_active;
-                        count
+                        (count, s.screen.active())
                     };
 
                     // 全屏提醒期间：鼠标键盘不计活跃，视为休息
-                    let active = if is_fullscreen {
-                        false
-                    } else {
-                        count >= 3 || media_active
-                    };
+                    let active = activity::resolve_active(
+                        count >= 3,
+                        media_active,
+                        screen_active,
+                        is_fullscreen,
+                    );
                     // 逐分钟结算属高频诊断细节，降为 debug；活跃/休息的可见信号走 reminder/bus
                     log_debug!(
                         "settle",
-                        "count={} media={} fscreen={} active={}",
+                        "count={} media={} screen={:?} fscreen={} active={}",
                         count,
                         media_active,
+                        screen_active,
                         is_fullscreen,
                         active
                     );
@@ -1250,6 +1270,8 @@ pub fn run() {
             node_runtime::install_node_runtime,
             get_media_active_enabled,
             set_media_active_enabled,
+            screen_activity::get_screen_activity_status,
+            screen_activity::set_screen_active_enabled,
             get_media_whitelist_text,
             set_media_whitelist_text,
             get_toast_debug_mode,

@@ -65,7 +65,7 @@ export function createRestTimerCard({ items, nextId, t, scheduleWindowResize, re
       // Backend resets count at the minute boundary; only an increase means activity.
       const keyMouseActive = snapshot.count > baseline
       baseline = snapshot.count
-      if (keyMouseActive || snapshot.media_active) {
+      if (snapshot.screen_active ?? (keyMouseActive || snapshot.media_active)) {
         stopRestPoll()
         scheduleRemoveRestTimer()
       }
