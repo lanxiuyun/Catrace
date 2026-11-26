@@ -49,7 +49,9 @@ impl ScreenState {
     pub fn update(&mut self, revision: u64, started: Instant, active: Option<bool>) {
         // A slow read from before a toggle must not overwrite the new mode's state.
         if revision == self.revision {
-            self.sample = active.map(|active| (started, active));
+            if let Some(active) = active {
+                self.sample = Some((started, active));
+            }
         }
     }
 
@@ -125,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn disabled_failed_and_stale_samples_use_existing_detection() {
+    fn failed_probes_keep_the_last_sample_until_it_is_stale() {
         let mut screen = ScreenState::default();
         screen.update(0, Instant::now(), Some(true));
         assert_eq!(screen.active(), None);
@@ -134,7 +136,7 @@ mod tests {
         screen.update(revision, Instant::now(), Some(false));
         assert_eq!(screen.active(), Some(false));
         screen.update(revision, Instant::now(), None);
-        assert_eq!(screen.active(), None);
+        assert_eq!(screen.active(), Some(false));
         screen.update(revision, Instant::now() - SCREEN_SAMPLE_MAX_AGE, Some(true));
         assert_eq!(screen.active(), None);
     }
